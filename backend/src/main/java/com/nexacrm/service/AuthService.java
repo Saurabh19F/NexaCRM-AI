@@ -1,0 +1,101 @@
+package com.nexacrm.service;
+
+import com.nexacrm.dto.AuthRequest;
+import com.nexacrm.dto.AuthResponse;
+import com.nexacrm.dto.UserDTO;
+import com.nexacrm.exception.ResourceNotFoundException;
+import com.nexacrm.model.User;
+import com.nexacrm.repository.UserRepository;
+import com.nexacrm.security.JwtService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+
+    public AuthResponse login(AuthRequest request) {
+        authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+
+        User user = userRepository.findByEmailAndDeletedFalse(request.getEmail())
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String accessToken  = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+
+        log.info("User logged in: {}", user.getEmail());
+
+        return AuthResponse.builder()
+            .accessToken(accessToken)
+            .refreshToken(refreshToken)
+            .tokenType("Bearer")
+            .expiresIn(86400000L)
+            .user(toUserDTO(user))
+            .build();
+    }
+
+    public void logout(String authHeader) {
+        // In production: blacklist the token or delete refresh token from DB
+        log.info("User logged out");
+    }
+
+    public AuthResponse refresh(String refreshToken) {
+        String username = jwtService.extractUsername(refreshToken);
+        User user = userRepository.findByEmailAndDeletedFalse(username)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!jwtService.isTokenValid(refreshToken, user)) {
+            throw new IllegalStateException("Invalid refresh token");
+        }
+
+        String newAccessToken = jwtService.generateToken(user);
+        return AuthResponse.builder()
+            .accessToken(newAccessToken)
+            .refreshToken(refreshToken)
+            .tokenType("Bearer")
+            .expiresIn(86400000L)
+            .user(toUserDTO(user))
+            .build();
+    }
+
+    public Map<String, Object> getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmailAndDeletedFalse(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return Map.of(
+            "id",       user.getId(),
+            "name",     user.getName(),
+            "email",    user.getEmail(),
+            "role",     user.getRole(),
+            "tenantId", user.getTenantId(),
+            "isActive", user.getIsActive()
+        );
+    }
+
+    private UserDTO toUserDTO(User user) {
+        return UserDTO.builder()
+            .id(user.getId())
+            .name(user.getName())
+            .email(user.getEmail())
+            .role(user.getRole())
+            .phone(user.getPhone())
+            .avatarUrl(user.getAvatarUrl())
+            .isActive(user.getIsActive())
+            .tenantId(user.getTenantId())
+            .build();
+    }
+}

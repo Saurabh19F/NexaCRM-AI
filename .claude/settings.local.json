@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Saura\\\\OneDrive\\\\Desktop\\\\NexaCRM AI\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(Start-Sleep -Seconds 5)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Saura\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Saura-OneDrive-Desktop-NexaCRM-AI\\\\52e697b8-50ae-4ab6-971d-60d184cc4e15\\\\tasks\\\\brkjatf1r.output\")",
+      "Bash(curl -s http://localhost:3002/)",
+      "Bash(npx eslint *)",
+      "Bash(curl -s \"http://localhost:3002/src/pages/AutomationPage.jsx\")",
+      "Bash(curl -s \"http://localhost:3002/src/components/layout/Topbar.jsx\")",
+      "Bash(curl -s \"http://localhost:3002/src/services/websocket.js\")",
+      "Bash(curl -s \"http://localhost:3002/node_modules/.vite/deps/stompjs_lib_stomp__js.js?v=f7c4df2a\")",
+      "Bash(curl -s \"http://localhost:3002/node_modules/.vite/deps/chunk-J6AXUZAW.js?v=f7c4df2a\")",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
+      "Bash(wmic process *)",
+      "Bash(netstat -ano)",
+      "Bash(kill -9 922 938)",
+      "Bash(awk '{print $1}')",
+      "Bash(xargs kill -9)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(cmd.exe /c \"taskkill /F /PID 17580 && taskkill /F /PID 26420 && taskkill /F /PID 19500\")",
+      "Bash(cmd.exe /c \"taskkill /F /IM node.exe\")",
+      "Bash(cmd.exe /c \"tasklist /FI \\\\\"PID eq 17580\\\\\"\")",
+      "Bash(cmd.exe /c \"tasklist /FI \\\\\"PID eq 26420\\\\\"\")",
+      "Bash(cmd.exe /c \"tasklist /v\")",
+      "Bash(npm run *)",
+      "Bash(cmd.exe /c \"netstat -ano\")",
+      "Bash(cmd.exe /c \"for /f \\\\\"tokens=5\\\\\" %a in \\('netstat -aon ^| findstr \\\\\":3000 \\\\\"'\\) do taskkill /F /PID %a\")",
+      "Bash(cmd.exe /c \"for /f \\\\\"tokens=5\\\\\" %a in \\('netstat -aon ^| findstr \\\\\":3001 \\\\\"'\\) do taskkill /F /PID %a\")",
+      "Bash(cmd.exe /c \"for /f \\\\\"tokens=5\\\\\" %a in \\('netstat -aon ^| findstr \\\\\":3002 \\\\\"'\\) do taskkill /F /PID %a\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Saura\\\\OneDrive\\\\Desktop\\\\NexaCRM AI\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\nexacrm\" -Recurse -Directory)"
+    ]
+  }
+}

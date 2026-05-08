@@ -1,0 +1,628 @@
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  DndContext, DragOverlay, closestCorners,
+  KeyboardSensor, PointerSensor, useSensor, useSensors
+} from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates,
+  verticalListSortingStrategy, useSortable
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
+  Plus, Filter, Search, IndianRupee, Calendar,
+  User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X
+} from 'lucide-react'
+import { MOCK_DEALS } from '../utils/mockData'
+import { useLeadsStore } from '../store/leadsStore'
+import { getLeadAgingMeta } from '../utils/leadSla'
+
+const STAGES = [
+  { key: 'new',         label: 'New',         color: 'bg-slate-400' },
+  { key: 'contacted',   label: 'Contacted',   color: 'bg-brand-400' },
+  { key: 'qualified',   label: 'Qualified',   color: 'bg-purple-400' },
+  { key: 'proposal',    label: 'Proposal',    color: 'bg-amber-400' },
+  { key: 'negotiation', label: 'Negotiation', color: 'bg-orange-400' },
+  { key: 'won',         label: 'Won',         color: 'bg-emerald-400' },
+  { key: 'lost',        label: 'Lost',        color: 'bg-red-400' },
+]
+
+const PRIORITY_COLOR = {
+  high:   'text-red-600 dark:text-red-400',
+  medium: 'text-amber-600 dark:text-amber-400',
+  low:    'text-slate-400',
+}
+
+const SCORE_CONFIG = {
+  hot:  { icon: Flame,        color: 'text-red-500',  label: 'Hot' },
+  warm: { icon: Thermometer,  color: 'text-amber-500',label: 'Warm' },
+  cold: { icon: Snowflake,    color: 'text-sky-500',  label: 'Cold' },
+}
+
+function DealCard({
+  deal,
+  stage,
+  isDragging,
+  isMenuOpen,
+  onToggleMenu,
+  onMoveDeal,
+  onDeleteDeal,
+  agingMeta,
+}) {
+  const ScoreIcon = SCORE_CONFIG[deal.score]?.icon ?? Flame
+  const scoreColor = SCORE_CONFIG[deal.score]?.color ?? 'text-slate-400'
+
+  return (
+    <div className={`deal-card select-none relative ${isDragging ? 'opacity-50 rotate-2 shadow-2xl' : ''}`}>
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight pr-2 line-clamp-2">
+          {deal.title}
+        </p>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleMenu(deal.id)
+          }}
+          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0"
+          data-deal-menu
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -4 }}
+            transition={{ duration: 0.12 }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-2 top-8 z-40 w-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg overflow-hidden"
+            data-deal-menu
+          >
+            {STAGES.filter((s) => s.key !== stage).map((s) => (
+              <button
+                key={s.key}
+                onClick={() => onMoveDeal(deal.id, s.key)}
+                className="w-full px-3 py-2 text-left text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Move to {s.label}
+              </button>
+            ))}
+            <div className="h-px bg-slate-200 dark:bg-slate-700" />
+            <button
+              onClick={() => onDeleteDeal(deal.id)}
+              className="w-full px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete Deal
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">{deal.company}</p>
+
+      {agingMeta && (
+        <div className="mb-2">
+          <span className={`badge ${agingMeta.badge}`}>{agingMeta.label}</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-xs">
+        <span className="flex items-center gap-0.5 font-bold text-slate-700 dark:text-slate-300">
+          <IndianRupee className="w-3 h-3" />
+          {(deal.value / 1000).toFixed(0)}k
+        </span>
+        <ScoreIcon className={`w-3.5 h-3.5 ${scoreColor}`} />
+      </div>
+
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/40">
+        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+          <User className="w-3 h-3" /> {deal.owner}
+        </div>
+        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+          <Calendar className="w-3 h-3" /> {deal.dueDate}
+        </div>
+      </div>
+
+      <div className={`mt-2 text-[10px] font-semibold ${PRIORITY_COLOR[deal.priority] ?? 'text-slate-400'}`}>
+        ● {deal.priority?.toUpperCase()} PRIORITY
+      </div>
+    </div>
+  )
+}
+
+function SortableDealCard({
+  deal,
+  stage,
+  isMenuOpen,
+  onToggleMenu,
+  onMoveDeal,
+  onDeleteDeal,
+  agingMeta,
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isMenuOpen ? 'relative z-30' : 'relative'}
+      {...attributes}
+      {...listeners}
+    >
+      <DealCard
+        deal={deal}
+        stage={stage}
+        isDragging={isDragging}
+        isMenuOpen={isMenuOpen}
+        onToggleMenu={onToggleMenu}
+        onMoveDeal={onMoveDeal}
+        onDeleteDeal={onDeleteDeal}
+        agingMeta={agingMeta}
+      />
+    </div>
+  )
+}
+
+function KanbanColumn({
+  stage,
+  deals,
+  onAddDeal,
+  openDealMenuId,
+  onToggleDealMenu,
+  onMoveDeal,
+  onDeleteDeal,
+  getAgingMetaForDeal,
+}) {
+  const totalValue = deals.reduce((s, d) => s + d.value, 0)
+  return (
+    <div className="kanban-column">
+      {/* Column header */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex items-center gap-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${stage.color}`} />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{stage.label}</span>
+          <span className="badge bg-white/80 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400">
+            {deals.length}
+          </span>
+        </div>
+        <button
+          onClick={() => onAddDeal(stage.key)}
+          className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Column value */}
+      {totalValue > 0 && (
+        <div className="text-xs text-slate-500 dark:text-slate-400 px-1 mb-2">
+          ₹{(totalValue / 100000).toFixed(1)}L total
+        </div>
+      )}
+
+      {/* Deal cards */}
+      <SortableContext items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2 flex-1">
+          {deals.map((deal) => (
+            <SortableDealCard
+              key={deal.id}
+              deal={deal}
+              stage={stage.key}
+              isMenuOpen={openDealMenuId === deal.id}
+              onToggleMenu={onToggleDealMenu}
+              onMoveDeal={onMoveDeal}
+              onDeleteDeal={onDeleteDeal}
+              agingMeta={getAgingMetaForDeal(deal)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+
+      {deals.length === 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-xs text-slate-400 text-center py-8">Drop deals here</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function KanbanPage() {
+  const { leads } = useLeadsStore()
+  const [deals, setDeals] = useState(MOCK_DEALS)
+  const [activeId, setActiveId] = useState(null)
+  const [search, setSearch] = useState('')
+  const [openDealMenuId, setOpenDealMenuId] = useState(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [filterPriority, setFilterPriority] = useState('all')
+  const [filterScore, setFilterScore] = useState('all')
+  const [filterOwner, setFilterOwner] = useState('all')
+  const [filterStage, setFilterStage] = useState('all')
+  const [newDeal, setNewDeal] = useState({
+    title: '',
+    company: '',
+    value: '',
+    owner: '',
+    dueDate: new Date().toISOString().slice(0, 10),
+    priority: 'medium',
+    score: 'warm',
+    stage: 'new',
+  })
+  const filterRef = useRef(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const owners = useMemo(() => {
+    const allOwners = Object.values(deals).flat().map((d) => d.owner)
+    return [...new Set(allOwners)]
+  }, [deals])
+
+  const leadByCompany = useMemo(() => {
+    const map = new Map()
+    for (const lead of leads ?? []) {
+      const key = String(lead.company ?? '').trim().toLowerCase()
+      if (key && !map.has(key)) map.set(key, lead)
+    }
+    return map
+  }, [leads])
+
+  const getAgingMetaForDeal = useCallback((deal) => {
+    const key = String(deal?.company ?? '').trim().toLowerCase()
+    const lead = leadByCompany.get(key)
+    return lead ? getLeadAgingMeta(lead) : null
+  }, [leadByCompany])
+
+  useEffect(() => {
+    const closeOnOutside = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setShowFilters(false)
+      }
+      if (!e.target.closest('[data-deal-menu]')) {
+        setOpenDealMenuId(null)
+      }
+    }
+    document.addEventListener('mousedown', closeOnOutside)
+    return () => document.removeEventListener('mousedown', closeOnOutside)
+  }, [])
+
+  const findDealAndStage = useCallback((id) => {
+    for (const stage of Object.keys(deals)) {
+      const deal = deals[stage].find((d) => d.id === id)
+      if (deal) return { deal, stage }
+    }
+    return null
+  }, [deals])
+
+  const handleDragStart = ({ active }) => setActiveId(active.id)
+
+  const handleDragEnd = ({ active, over }) => {
+    setActiveId(null)
+    if (!over || active.id === over.id) return
+
+    const source = findDealAndStage(active.id)
+    if (!source) return
+
+    // Check if dropped on a column or another card
+    const targetStage = Object.keys(deals).find((s) =>
+      s === over.id || deals[s].some((d) => d.id === over.id)
+    )
+    if (!targetStage || targetStage === source.stage) return
+
+    setDeals((prev) => {
+      const sourcDeals = prev[source.stage].filter((d) => d.id !== active.id)
+      const targetDeals = [...prev[targetStage], source.deal]
+      return { ...prev, [source.stage]: sourcDeals, [targetStage]: targetDeals }
+    })
+  }
+
+  const activeDeal = activeId ? findDealAndStage(activeId)?.deal : null
+
+  const toggleDealMenu = (dealId) => {
+    setOpenDealMenuId((prev) => (prev === dealId ? null : dealId))
+  }
+
+  const moveDeal = (dealId, targetStage) => {
+    setDeals((prev) => {
+      let sourceStage = null
+      let dealToMove = null
+
+      for (const stage of Object.keys(prev)) {
+        const found = prev[stage].find((d) => d.id === dealId)
+        if (found) {
+          sourceStage = stage
+          dealToMove = found
+          break
+        }
+      }
+      if (!sourceStage || !dealToMove || sourceStage === targetStage) return prev
+
+      return {
+        ...prev,
+        [sourceStage]: prev[sourceStage].filter((d) => d.id !== dealId),
+        [targetStage]: [...prev[targetStage], dealToMove],
+      }
+    })
+    setOpenDealMenuId(null)
+  }
+
+  const deleteDeal = (dealId) => {
+    setDeals((prev) => {
+      const next = { ...prev }
+      for (const stage of Object.keys(next)) {
+        next[stage] = next[stage].filter((d) => d.id !== dealId)
+      }
+      return next
+    })
+    setOpenDealMenuId(null)
+  }
+
+  const openAddDealModal = (stage = 'new') => {
+    setNewDeal({
+      title: '',
+      company: '',
+      value: '',
+      owner: '',
+      dueDate: new Date().toISOString().slice(0, 10),
+      priority: 'medium',
+      score: 'warm',
+      stage,
+    })
+    setShowAddModal(true)
+  }
+
+  const createDeal = (e) => {
+    e.preventDefault()
+    const value = Number(newDeal.value)
+    if (!newDeal.title.trim() || !newDeal.company.trim() || !newDeal.owner.trim() || !value) return
+
+    const created = {
+      id: `d${Date.now()}`,
+      title: newDeal.title.trim(),
+      company: newDeal.company.trim(),
+      value,
+      owner: newDeal.owner.trim(),
+      dueDate: newDeal.dueDate,
+      priority: newDeal.priority,
+      score: newDeal.score,
+      activities: 0,
+    }
+
+    setDeals((prev) => ({
+      ...prev,
+      [newDeal.stage]: [...(prev[newDeal.stage] ?? []), created],
+    }))
+    setShowAddModal(false)
+  }
+
+  const filteredDeals = (stage) => {
+    if (filterStage !== 'all' && stage !== filterStage) return []
+
+    const q = search.toLowerCase()
+    return (deals[stage] ?? []).filter((d) => {
+      const matchesSearch = !search || d.title.toLowerCase().includes(q) || d.company.toLowerCase().includes(q)
+      const matchesPriority = filterPriority === 'all' || d.priority === filterPriority
+      const matchesScore = filterScore === 'all' || d.score === filterScore
+      const matchesOwner = filterOwner === 'all' || d.owner === filterOwner
+      return matchesSearch && matchesPriority && matchesScore && matchesOwner
+    })
+  }
+
+  const totalPipelineValue = Object.values(deals).flat().reduce((s, d) => s + d.value, 0)
+
+  return (
+    <div className="space-y-4" onClick={() => setOpenDealMenuId(null)}>
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Sales Pipeline</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {Object.values(deals).flat().length} deals · ₹{(totalPipelineValue / 100000).toFixed(1)}L pipeline
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search deals…"
+              className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none w-40"
+            />
+          </div>
+
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowFilters((prev) => !prev)
+              }}
+              className="btn-secondary gap-1.5 text-xs"
+            >
+              <Filter className="w-3.5 h-3.5" /> Filter
+            </button>
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: -6 }}
+                  transition={{ duration: 0.12 }}
+                  onClick={(e) => e.stopPropagation()}
+            className="absolute right-0 top-10 z-30 w-56 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3 space-y-2"
+                >
+                  <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="input text-xs py-2">
+                    <option value="all">All stages</option>
+                    {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="input text-xs py-2">
+                    <option value="all">All priorities</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <select value={filterScore} onChange={(e) => setFilterScore(e.target.value)} className="input text-xs py-2">
+                    <option value="all">All scores</option>
+                    <option value="hot">Hot</option>
+                    <option value="warm">Warm</option>
+                    <option value="cold">Cold</option>
+                  </select>
+                  <select value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} className="input text-xs py-2">
+                    <option value="all">All owners</option>
+                    {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+                  </select>
+                  <button
+                    onClick={() => {
+                      setFilterStage('all')
+                      setFilterPriority('all')
+                      setFilterScore('all')
+                      setFilterOwner('all')
+                    }}
+                    className="w-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 py-1"
+                  >
+                    Clear Filters
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button onClick={() => openAddDealModal('new')} className="btn-primary gap-1.5 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Add Deal
+          </button>
+        </div>
+      </div>
+
+      {/* Kanban board */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+          {STAGES.map((stage) => (
+            <KanbanColumn
+              key={stage.key}
+              stage={stage}
+              deals={filteredDeals(stage.key)}
+              onAddDeal={openAddDealModal}
+              openDealMenuId={openDealMenuId}
+              onToggleDealMenu={toggleDealMenu}
+              onMoveDeal={moveDeal}
+              onDeleteDeal={deleteDeal}
+              getAgingMetaForDeal={getAgingMetaForDeal}
+            />
+          ))}
+        </div>
+
+        <DragOverlay>
+          {activeDeal ? (
+            <DealCard
+              deal={activeDeal}
+              stage={findDealAndStage(activeId)?.stage ?? 'new'}
+              isDragging={false}
+              isMenuOpen={false}
+              onToggleMenu={() => {}}
+              onMoveDeal={() => {}}
+              onDeleteDeal={() => {}}
+              agingMeta={getAgingMetaForDeal(activeDeal)}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div
+            className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-900/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowAddModal(false)}
+          >
+            <motion.form
+              initial={{ scale: 0.96, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 8 }}
+              transition={{ duration: 0.15 }}
+              onSubmit={createDeal}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Add Deal</h2>
+                <button type="button" onClick={() => setShowAddModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                required
+                value={newDeal.title}
+                onChange={(e) => setNewDeal((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Deal title"
+                className="input"
+              />
+              <input
+                required
+                value={newDeal.company}
+                onChange={(e) => setNewDeal((prev) => ({ ...prev, company: e.target.value }))}
+                placeholder="Company"
+                className="input"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  value={newDeal.value}
+                  onChange={(e) => setNewDeal((prev) => ({ ...prev, value: e.target.value }))}
+                  placeholder="Value (₹)"
+                  className="input"
+                />
+                <input
+                  required
+                  value={newDeal.owner}
+                  onChange={(e) => setNewDeal((prev) => ({ ...prev, owner: e.target.value }))}
+                  placeholder="Owner"
+                  className="input"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={newDeal.stage} onChange={(e) => setNewDeal((prev) => ({ ...prev, stage: e.target.value }))} className="input">
+                  {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
+                <input type="date" value={newDeal.dueDate} onChange={(e) => setNewDeal((prev) => ({ ...prev, dueDate: e.target.value }))} className="input" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={newDeal.priority} onChange={(e) => setNewDeal((prev) => ({ ...prev, priority: e.target.value }))} className="input">
+                  <option value="high">High Priority</option>
+                  <option value="medium">Medium Priority</option>
+                  <option value="low">Low Priority</option>
+                </select>
+                <select value={newDeal.score} onChange={(e) => setNewDeal((prev) => ({ ...prev, score: e.target.value }))} className="input">
+                  <option value="hot">Hot</option>
+                  <option value="warm">Warm</option>
+                  <option value="cold">Cold</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary text-xs">Cancel</button>
+                <button type="submit" className="btn-primary text-xs">Create Deal</button>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}

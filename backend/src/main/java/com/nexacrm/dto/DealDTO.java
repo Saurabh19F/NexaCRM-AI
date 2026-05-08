@@ -1,0 +1,45 @@
+package com.nexacrm.dto;
+
+import com.nexacrm.model.Deal;
+import jakarta.validation.constraints.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
+public class DealDTO {
+    private Long id;
+
+    @NotBlank
+    private String title;
+
+    private String description;
+
+    private Deal.DealStage stage;
+    private Deal.DealPriority priority;
+
+    @NotNull @DecimalMin("0")
+    private BigDecimal dealValue;
+
+    private LocalDate expectedCloseDate;
+    private LocalDate actualCloseDate;
+    private Integer winProbability;
+    private Long pipelineId;
+
+    private Long leadId;
+    private String leadName;
+    private String company;
+
+    private Long ownerId;
+    private String ownerName;
+
+    private String aiScore;
+    private String tags;
+    private String notes;
+    private Integer activitiesCount;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

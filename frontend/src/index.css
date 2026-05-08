@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand: 99 102 241;
+    --color-accent: 16 185 129;
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 72px;
+    --topbar-height: 64px;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+}
+
+@layer components {
+  /* Glass card */
+  .glass-card {
+    @apply backdrop-blur-md bg-white/70 dark:bg-slate-800/60
+           border border-white/20 dark:border-slate-700/40
+           shadow-glass dark:shadow-glass-dark rounded-2xl;
+  }
+
+  /* Sidebar item */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+           text-slate-600 dark:text-slate-400
+           hover:text-slate-900 dark:hover:text-slate-100
+           hover:bg-slate-100 dark:hover:bg-slate-800/60
+           transition-all duration-150 cursor-pointer;
+  }
+
+  .nav-item.active {
+    @apply text-brand-600 dark:text-brand-400
+           bg-brand-50 dark:bg-brand-950/40
+           shadow-sm;
+  }
+
+  /* KPI card */
+  .kpi-card {
+    @apply glass-card p-5 hover:shadow-card-hover transition-shadow duration-200;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-hot    { @apply badge bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400; }
+  .badge-warm   { @apply badge bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400; }
+  .badge-cold   { @apply badge bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400; }
+  .badge-won    { @apply badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400; }
+  .badge-lost   { @apply badge bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400; }
+  .badge-new    { @apply badge bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400; }
+
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition-all duration-150 outline-none
+           focus-visible:ring-2 focus-visible:ring-brand-500;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-sm
+           active:scale-95;
+  }
+  .btn-secondary {
+    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200
+           dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700
+           active:scale-95;
+  }
+  .btn-ghost {
+    @apply btn text-slate-600 hover:bg-slate-100
+           dark:text-slate-400 dark:hover:bg-slate-800/60
+           active:scale-95;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 shadow-sm active:scale-95;
+  }
+
+  /* Input */
+  .input {
+    @apply block w-full rounded-xl border border-slate-200 dark:border-slate-700
+           bg-white dark:bg-slate-800/50 px-3.5 py-2.5 text-sm
+           text-slate-900 dark:text-slate-100
+           placeholder:text-slate-400 dark:placeholder:text-slate-500
+           outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-400
+           transition-all duration-150;
+  }
+
+  /* Kanban column */
+  .kanban-column {
+    @apply flex flex-col bg-slate-100/80 dark:bg-slate-800/40
+           rounded-2xl p-3 min-h-[500px] w-72 flex-shrink-0;
+  }
+
+  /* Deal card */
+  .deal-card {
+    @apply glass-card p-4 cursor-grab active:cursor-grabbing
+           hover:shadow-card-hover transition-all duration-150;
+  }
+
+  /* Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar { @apply w-1.5 h-1.5; }
+  .custom-scrollbar::-webkit-scrollbar-track { @apply bg-transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-slate-300 dark:bg-slate-600 rounded-full; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { @apply bg-slate-400 dark:bg-slate-500; }
+}
+
+/* Custom animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.5) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

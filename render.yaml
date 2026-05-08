@@ -1,0 +1,89 @@
+databases:
+  - name: nexacrm-db
+    databaseName: nexacrm
+    user: nexacrm
+    plan: free
+
+services:
+
+  # ── Backend (Spring Boot) ──────────────────────────────────────
+  - type: web
+    name: nexacrm-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /actuator/health
+
+    envVars:
+      # ── Database (auto-wired from Render PostgreSQL) ────────────
+      - key: DB_HOST
+        fromDatabase:
+          name: nexacrm-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: nexacrm-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: nexacrm-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: nexacrm-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: nexacrm-db
+          property: password
+
+      # ── Security ───────────────────────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true
+
+      # ── CORS (must include your frontend Render URL) ────────────
+      - key: CORS_ORIGINS
+        value: https://nexacrm-frontend.onrender.com
+
+      # ── Facebook / Meta (set manually in Render dashboard) ──────
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_WEBHOOK_TOKEN
+        sync: false
+      - key: META_PAGE_ACCESS_TOKEN
+        sync: false
+
+      # ── Email SMTP (set manually in Render dashboard) ────────────
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+
+      # ── WhatsApp (set manually in Render dashboard) ──────────────
+      - key: AIADRIKA_INSTANCE_ID
+        sync: false
+      - key: AIADRIKA_ACCESS_TOKEN
+        sync: false
+
+  # ── Frontend (React / Vite static site) ───────────────────────
+  - type: web
+    name: nexacrm-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://nexacrm-backend.onrender.com/api
+
+    routes:
+      # Serve index.html for all paths so React Router works
+      - type: rewrite
+        source: /*
+        destination: /index.html
