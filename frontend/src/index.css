@@ -50,7 +50,7 @@
 
   /* KPI card */
   .kpi-card {
-    @apply glass-card p-5 hover:shadow-card-hover transition-shadow duration-200;
+    @apply glass-card p-3.5 sm:p-5 hover:shadow-card-hover transition-shadow duration-200;
   }
 
   /* Badge */

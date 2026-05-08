@@ -32,18 +32,18 @@ function KPICard({ title, value, change, period, icon: Icon, color, currency }) 
       transition={{ duration: 0.3 }}
       className="kpi-card"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon className="w-5 h-5 text-white" />
+      <div className="flex items-start justify-between mb-2.5 sm:mb-4">
+        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center ${color}`}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </div>
-        <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full
+        <span className={`flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full
           ${isPositive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'}`}>
-          {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
           {Math.abs(change)}%
         </span>
       </div>
-      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{fmt(value, currency)}</p>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{title}</p>
+      <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">{fmt(value, currency)}</p>
+      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 leading-tight">{title}</p>
       <p className="text-[10px] text-slate-400 mt-0.5">{period}</p>
     </motion.div>
   )
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         <KPICard title="Total Leads"        value={MOCK_KPI.totalLeads.value}     change={MOCK_KPI.totalLeads.change}     period={MOCK_KPI.totalLeads.period}     icon={Users}          color="bg-gradient-to-br from-brand-500 to-brand-600" />
         <KPICard title="Active Deals"       value={MOCK_KPI.totalDeals.value}     change={MOCK_KPI.totalDeals.change}     period={MOCK_KPI.totalDeals.period}     icon={TrendingUp}     color="bg-gradient-to-br from-emerald-500 to-emerald-600" />
         <KPICard title="Revenue (MTD)"      value={MOCK_KPI.revenue.value}        change={MOCK_KPI.revenue.change}        period={MOCK_KPI.revenue.period}        icon={IndianRupee}    color="bg-gradient-to-br from-sky-500 to-sky-600" currency="₹" />
