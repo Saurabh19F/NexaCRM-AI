@@ -19,10 +19,10 @@ export default function NotificationPanel({ onClose }) {
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -8 }}
       transition={{ duration: 0.12 }}
-      className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-sm sm:w-96 glass-card overflow-hidden z-50"
+      className="fixed left-2 right-2 top-[4.75rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 glass-card overflow-hidden z-50"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Notifications</span>
@@ -35,7 +35,7 @@ export default function NotificationPanel({ onClose }) {
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
-            className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline"
+            className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline whitespace-nowrap"
           >
             <CheckCheck className="w-3.5 h-3.5" />
             Mark all read

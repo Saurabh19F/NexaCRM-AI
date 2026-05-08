@@ -10,9 +10,9 @@ export default function DelayAlertPanel({ delayedLeads, onOpenPipeline, slaMinut
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -8 }}
       transition={{ duration: 0.12 }}
-      className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-sm sm:w-96 glass-card overflow-hidden z-50"
+      className="fixed left-2 right-2 top-[4.75rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 glass-card overflow-hidden z-50"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-red-500" />
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">Lead Attention Alerts</span>
@@ -24,7 +24,7 @@ export default function DelayAlertPanel({ delayedLeads, onOpenPipeline, slaMinut
         </div>
         <button
           onClick={onOpenPipeline}
-          className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+          className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline whitespace-nowrap"
         >
           Open Pipeline
         </button>

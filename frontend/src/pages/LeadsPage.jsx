@@ -701,8 +701,95 @@ export default function LeadsPage() {
         </select>
       </div>
 
+      {/* Mobile cards */}
+      <div className="sm:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="glass-card py-12 text-center text-slate-400">
+            <p className="text-lg">No leads found</p>
+            <p className="text-sm mt-1">Try adjusting your filters or add a new lead</p>
+          </div>
+        ) : (
+          filtered.map((lead) => {
+            const scoreCfg = SCORE_BADGE[lead.score]
+            const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
+            const ScoreIcon = scoreCfg?.icon
+            const aging = getLeadAgingMeta(lead, timeTick)
+            const ageMin = getLeadAgeMinutes(lead, timeTick)
+            return (
+              <div key={lead.id} className="glass-card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{lead.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{lead.email}</p>
+                    <p className="text-xs text-slate-500 mt-1 truncate">{lead.company}</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(lead.id)}
+                    onChange={() => toggleSelect(lead.id)}
+                    className="mt-1 rounded border-slate-300 text-brand-600"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={scoreCfg?.cls}>
+                    {ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}
+                  </span>
+                  <span className={statusCfg.cls}>{statusCfg.label}</span>
+                  <span className={`badge ${aging.badge}`}>{aging.label}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                  <p><span className="text-slate-400">Source:</span> {lead.source}</p>
+                  <p><span className="text-slate-400">Value:</span> ₹{(lead.value / 1000).toFixed(0)}k</p>
+                  <p><span className="text-slate-400">Owner:</span> {lead.assignedTo || 'Unassigned'}</p>
+                  <p><span className="text-slate-400">Date:</span> {lead.createdAt}</p>
+                </div>
+
+                <p className="text-[11px] text-slate-400">
+                  {ageMin === null ? 'No activity timer' : `${ageMin} min since last activity`}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-1">
+                  <button onClick={() => setEditLead(lead)}
+                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-600 transition-colors"
+                    title="Edit lead">
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setHistoryLead(lead)}
+                    className="p-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/20 text-slate-400 hover:text-violet-500 transition-colors"
+                    title="View history">
+                    <History className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setActivitiesLead(lead)}
+                    className="p-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/20 text-slate-400 hover:text-brand-600 transition-colors"
+                    title="Lead Activities">
+                    <ClipboardList className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setWaLead(lead)}
+                    className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/20 text-slate-400 hover:text-green-600 transition-colors"
+                    title="Send WhatsApp">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setDetailLead(lead)}
+                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="View details">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDelete([lead.id])}
+                    className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500"
+                    title="Delete lead">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
       {/* Table */}
-      <div className="glass-card overflow-hidden">
+      <div className="hidden sm:block glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>
