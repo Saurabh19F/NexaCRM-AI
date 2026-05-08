@@ -74,7 +74,7 @@ function AddLeadModal({ onClose, onAdd }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Full Name *</label>
               <input name="name" value={form.name} onChange={handleChange} required className="input" placeholder="Ramesh Patel" />
@@ -167,7 +167,7 @@ function EditLeadModal({ lead, onClose, onSave }) {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Full Name *</label>
               <input name="name" value={form.name} onChange={handleChange} required className="input" />
@@ -259,7 +259,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete }) {
 
         {/* Details grid */}
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { icon: AtSign,    label: 'Email',    value: lead.email },
               { icon: Phone,     label: 'Phone',    value: lead.phone || '—' },
@@ -470,7 +470,7 @@ function WhatsAppModal({ lead, onClose }) {
           {/* Quick Templates */}
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Quick Templates</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {WA_TEMPLATES.map((tpl) => (
                 <button
                   key={tpl.label}
@@ -652,7 +652,7 @@ export default function LeadsPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Leads</h1>
           <p className="text-sm text-slate-500 mt-0.5">{leads.length} leads total · {leads.filter((l) => l.score === 'hot').length} hot</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
           {selected.length > 0 && (
             <button onClick={() => handleDelete(selected)} className="btn-danger text-xs gap-1.5">
               <Trash2 className="w-3.5 h-3.5" /> Delete ({selected.length})
@@ -673,7 +673,7 @@ export default function LeadsPage() {
 
       {/* Filters */}
       <div className="glass-card p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl px-3 py-2 flex-1 min-w-48">
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl px-3 py-2 w-full sm:flex-1 sm:min-w-[12rem]">
           <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
@@ -683,7 +683,7 @@ export default function LeadsPage() {
         </div>
         <select
           value={scoreFilter} onChange={(e) => setScoreFilter(e.target.value)}
-          className="input w-auto text-xs"
+          className="input w-full sm:w-auto text-xs"
         >
           <option value="all">All Scores</option>
           <option value="hot">🔥 Hot</option>
@@ -692,7 +692,7 @@ export default function LeadsPage() {
         </select>
         <select
           value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="input w-auto text-xs"
+          className="input w-full sm:w-auto text-xs"
         >
           <option value="all">All Status</option>
           {['new','contacted','qualified','proposal','negotiation','won','lost'].map((s) => (
@@ -704,7 +704,7 @@ export default function LeadsPage() {
       {/* Table */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead>
               <tr className="border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/30">
                 <th className="py-3 px-4 text-left w-10">
@@ -829,7 +829,7 @@ export default function LeadsPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200/60 dark:border-slate-700/40">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200/60 dark:border-slate-700/40">
           <p className="text-xs text-slate-500">Showing {filtered.length} of {leads.length} leads</p>
           <div className="flex gap-1">
             {[1,2,3,'...'].map((p, i) => (

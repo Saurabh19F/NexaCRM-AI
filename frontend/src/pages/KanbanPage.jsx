@@ -429,14 +429,14 @@ export default function KanbanPage() {
             {Object.values(deals).flat().length} deals · ₹{(totalPipelineValue / 100000).toFixed(1)}L pipeline
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+        <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 w-full sm:w-auto">
             <Search className="w-4 h-4 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search deals…"
-              className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none w-40"
+              className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none w-full sm:w-40"
             />
           </div>
 
@@ -458,7 +458,7 @@ export default function KanbanPage() {
                   exit={{ opacity: 0, scale: 0.96, y: -6 }}
                   transition={{ duration: 0.12 }}
                   onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-10 z-30 w-56 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3 space-y-2"
+            className="absolute right-0 top-10 z-30 w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3 space-y-2"
                 >
                   <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="input text-xs py-2">
                     <option value="all">All stages</option>

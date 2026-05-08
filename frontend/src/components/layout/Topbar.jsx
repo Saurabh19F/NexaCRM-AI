@@ -157,7 +157,7 @@ export default function Topbar({ onMenuClick }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 h-16 flex items-center px-4 gap-4
+    <header className="sticky top-0 z-20 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-4 py-2 sm:py-0 gap-2 sm:gap-4
                        bg-white/80 dark:bg-slate-900/80 backdrop-blur-md
                        border-b border-slate-200/60 dark:border-slate-700/40">
       {/* Mobile menu button */}
@@ -169,7 +169,7 @@ export default function Topbar({ onMenuClick }) {
       </button>
 
       {/* Search */}
-      <div className="flex-1 max-w-md">
+      <div className="order-3 w-full sm:order-none sm:w-auto flex-1 sm:max-w-md">
         <div className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200
                          ${searchFocused
                            ? 'bg-white dark:bg-slate-800 ring-2 ring-brand-500/40 shadow-sm'
@@ -189,10 +189,10 @@ export default function Topbar({ onMenuClick }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 ml-auto">
+      <div className="order-2 ml-auto flex items-center gap-1">
         <button
           onClick={handleRefresh}
-          className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+          className="hidden sm:inline-flex p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
           title="Refresh"
           aria-label="Refresh page"
         >

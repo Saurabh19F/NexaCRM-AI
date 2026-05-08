@@ -10,7 +10,7 @@ export default function DelayAlertPanel({ delayedLeads, onOpenPipeline, slaMinut
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -8 }}
       transition={{ duration: 0.12 }}
-      className="absolute right-0 top-full mt-2 w-96 glass-card overflow-hidden z-50"
+      className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-sm sm:w-96 glass-card overflow-hidden z-50"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">
         <div className="flex items-center gap-2">

@@ -86,7 +86,7 @@ function AddCustomerModal({ onClose, onSave }) {
             {errors.contact && <p className="text-xs text-red-500 mt-1">{errors.contact}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Email *</label>
               <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)}
@@ -103,7 +103,7 @@ function AddCustomerModal({ onClose, onSave }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Industry</label>
               <select value={form.industry} onChange={(e) => set('industry', e.target.value)} className="input mt-1 w-full">
@@ -143,7 +143,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Customers</h1>
           <p className="text-sm text-slate-500 mt-0.5">{customers.length} customers · {customers.filter((c) => c.status === 'active').length} active</p>
@@ -198,7 +198,7 @@ export default function CustomersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { label: 'Primary Contact', value: selected.contact, icon: UserCircle },
                   { label: 'Email',           value: selected.email,   icon: Mail },

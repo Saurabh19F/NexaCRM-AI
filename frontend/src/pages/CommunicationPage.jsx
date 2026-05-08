@@ -155,7 +155,7 @@ function Bubble({ msg, isWA }) {
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
+      <div className={`max-w-[88%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
         ${isMe
           ? isWA
             ? 'bg-emerald-500 text-white rounded-tr-sm'
@@ -647,12 +647,12 @@ export default function CommunicationPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Communication Hub</h1>
           <p className="text-sm text-slate-500 mt-0.5">Unified inbox — WhatsApp, Email, Instagram, LinkedIn, Facebook</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               setComposeOpen(true)
@@ -677,10 +677,10 @@ export default function CommunicationPage() {
         </div>
       </div>
 
-      <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[520px]">
+      <div className="flex flex-col lg:flex-row gap-4 min-h-[520px] lg:h-[calc(100vh-180px)]">
 
         {/* ── Sidebar ── */}
-        <div className="w-72 glass-card flex flex-col overflow-hidden flex-shrink-0">
+        <div className="w-full lg:w-72 glass-card flex flex-col overflow-hidden lg:flex-shrink-0 max-h-[360px] lg:max-h-none">
           {/* Search */}
           <div className="p-3 border-b border-slate-200/60 dark:border-slate-700/40 space-y-2">
             <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl px-3 py-2">
@@ -716,7 +716,7 @@ export default function CommunicationPage() {
           </div>
 
           {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100/60 dark:divide-slate-700/30 mt-1">
+          <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100/60 dark:divide-slate-700/30 mt-1 min-h-0">
             {filtered.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-8">No conversations</p>
             ) : filtered.map((conv) => {
@@ -759,11 +759,11 @@ export default function CommunicationPage() {
         </div>
 
         {/* ── Chat Window ── */}
-        <div className="flex-1 glass-card flex flex-col overflow-hidden">
+        <div className="flex-1 glass-card flex flex-col overflow-hidden min-h-[420px] lg:min-h-0">
           {activeConv ? (
             <>
               {/* Chat header */}
-              <div className={`flex items-center justify-between px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/40
+              <div className={`flex flex-wrap items-start justify-between gap-2 px-3 sm:px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/40
                 ${isWA ? 'bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-950/10 dark:to-slate-900' : ''}`}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm">
@@ -792,7 +792,7 @@ export default function CommunicationPage() {
               </div>
 
               {/* Messages area */}
-              <div className={`flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3
+              <div className={`flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 space-y-3
                 ${isWA ? 'bg-[url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E")]' : ''}`}
                 style={isWA ? { background: 'linear-gradient(135deg, rgba(236,253,245,0.3) 0%, rgba(255,255,255,0) 100%)' } : {}}
               >
