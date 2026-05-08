@@ -97,7 +97,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-0.5">Welcome back, Saurabh 👋 — Here's your overview</p>
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <KPICard title="Total Leads"        value={MOCK_KPI.totalLeads.value}     change={MOCK_KPI.totalLeads.change}     period={MOCK_KPI.totalLeads.period}     icon={Users}          color="bg-gradient-to-br from-brand-500 to-brand-600" />
         <KPICard title="Active Deals"       value={MOCK_KPI.totalDeals.value}     change={MOCK_KPI.totalDeals.change}     period={MOCK_KPI.totalDeals.period}     icon={TrendingUp}     color="bg-gradient-to-br from-emerald-500 to-emerald-600" />
         <KPICard title="Revenue (MTD)"      value={MOCK_KPI.revenue.value}        change={MOCK_KPI.revenue.change}        period={MOCK_KPI.revenue.period}        icon={IndianRupee}    color="bg-gradient-to-br from-sky-500 to-sky-600" currency="₹" />
@@ -135,7 +135,7 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">{agingCounts.critical}</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
               <p className="text-[11px] text-slate-500">Unattended 1+ hr</p>
               <p className="text-lg font-bold text-red-600 dark:text-red-400">{slaSummary.unattendedCritical}</p>
@@ -224,7 +224,7 @@ export default function DashboardPage() {
               <Tooltip formatter={(v) => [`${v}%`, 'Share']} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-1 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-3">
             {LEAD_SOURCES.map((s) => (
               <div key={s.name} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />

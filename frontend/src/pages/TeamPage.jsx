@@ -227,7 +227,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Shield className="w-6 h-6 text-brand-500" /> Team & Roles
@@ -242,7 +242,8 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Team list */}
         <div className="lg:col-span-2 glass-card overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/30">
                 {['Member', 'Role', 'Status', 'Performance', 'Actions'].map((h) => (
@@ -302,18 +303,19 @@ export default function TeamPage() {
                 )
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
         {/* Role Permissions */}
         <div className="glass-card p-5 space-y-4">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Role Permissions</h2>
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
+          <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
             {Object.keys(PERMISSIONS).map((role) => (
               <button
                 key={role}
                 onClick={() => setSelectedRole(role)}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all
+                className={`flex-1 min-w-[92px] py-1.5 text-xs font-medium rounded-lg transition-all
                   ${selectedRole === role ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-500'}`}
               >
                 {ROLE_CONFIG[role]?.label}

@@ -579,7 +579,7 @@ export default function KanbanPage() {
                 placeholder="Company"
                 className="input"
               />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   required
                   type="number"
@@ -597,13 +597,13 @@ export default function KanbanPage() {
                   className="input"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <select value={newDeal.stage} onChange={(e) => setNewDeal((prev) => ({ ...prev, stage: e.target.value }))} className="input">
                   {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                 </select>
                 <input type="date" value={newDeal.dueDate} onChange={(e) => setNewDeal((prev) => ({ ...prev, dueDate: e.target.value }))} className="input" />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <select value={newDeal.priority} onChange={(e) => setNewDeal((prev) => ({ ...prev, priority: e.target.value }))} className="input">
                   <option value="high">High Priority</option>
                   <option value="medium">Medium Priority</option>
@@ -615,7 +615,7 @@ export default function KanbanPage() {
                   <option value="cold">Cold</option>
                 </select>
               </div>
-              <div className="flex items-center justify-end gap-2 pt-1">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary text-xs">Cancel</button>
                 <button type="submit" className="btn-primary text-xs">Create Deal</button>
               </div>

@@ -138,7 +138,7 @@ export default function LeadActivitiesModal({ lead, onClose }) {
         className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Lead Activities</h2>
             <p className="text-xs text-slate-500 mt-0.5">{lead?.name} · {lead?.company}</p>
@@ -149,14 +149,14 @@ export default function LeadActivitiesModal({ lead, onClose }) {
         </div>
 
         {/* Progress Stepper */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-0">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-0 overflow-x-auto custom-scrollbar pb-1">
             {ACTIVITIES.map((a, i) => {
               const AIcon = a.icon
               const done = isComplete(i)
               const active = i === activeTab
               return (
-                <div key={a.id} className="flex items-center flex-1">
+                <div key={a.id} className="flex items-center min-w-[140px] sm:min-w-0 flex-1">
                   <button
                     onClick={() => setActiveTab(i)}
                     className={`flex flex-col items-center gap-1 flex-1 px-2 py-2 rounded-xl transition-all ${active ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
@@ -187,12 +187,12 @@ export default function LeadActivitiesModal({ lead, onClose }) {
               transition={{ duration:0.18 }}
             >
               {/* Activity Excel-style Header */}
-              <div className="mx-6 mt-5 rounded-xl overflow-hidden border" style={{ borderColor: act.color.border }}>
+              <div className="mx-4 sm:mx-6 mt-5 rounded-xl overflow-hidden border" style={{ borderColor: act.color.border }}>
                 <div className="px-4 py-2 text-white text-sm font-bold flex items-center justify-between" style={{ background: act.color.header }}>
                   <span>{act.label} — {act.title}</span>
                   {act.hours && <span className="text-xs font-normal opacity-80">{act.hours} Hour{act.hours>1?'s':''}</span>}
                 </div>
-                <div className="grid grid-cols-3 divide-x text-xs" style={{ background: act.color.bg, borderColor: act.color.border }}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-xs" style={{ background: act.color.bg, borderColor: act.color.border }}>
                   <div className="px-3 py-1.5">
                     <span className="text-slate-500">What has to be done</span>
                     <p className="font-semibold text-slate-700 mt-0.5">{act.title}</p>
@@ -209,7 +209,7 @@ export default function LeadActivitiesModal({ lead, onClose }) {
               </div>
 
               {/* Fields Grid */}
-              <div className="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="px-4 sm:px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {act.fields.map(field => (
                   <div key={field.key} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{field.label}</label>
@@ -235,7 +235,7 @@ export default function LeadActivitiesModal({ lead, onClose }) {
 
               {/* Saved banner */}
               {saved[activeTab] && (
-                <div className="mx-6 mb-2 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-4 py-2 text-sm">
+                <div className="mx-4 sm:mx-6 mb-2 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-4 py-2 text-sm">
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                   Activity saved successfully!
                 </div>
@@ -245,8 +245,8 @@ export default function LeadActivitiesModal({ lead, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
-          <div className="flex gap-2">
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
             {activeTab > 0 && (
               <button onClick={() => setActiveTab(t => t - 1)} className="btn-secondary text-xs">← Prev</button>
             )}

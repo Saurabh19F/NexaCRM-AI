@@ -119,7 +119,7 @@ function NewInvoiceModal({ onClose, onSave }) {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer *</label>
             <input value={form.customer} onChange={(e) => setField('customer', e.target.value)}
@@ -155,18 +155,18 @@ function NewInvoiceModal({ onClose, onSave }) {
           {errors.items && <p className="text-xs text-red-500 mb-2">{errors.items}</p>}
           <div className="space-y-2">
             {form.items.map((it, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                 <input value={it.desc} onChange={(e) => setItem(i, 'desc', e.target.value)}
-                  placeholder="Description" className="input col-span-5 text-xs" />
+                  placeholder="Description" className="input col-span-1 sm:col-span-5 text-xs" />
                 <input type="number" min={1} value={it.qty} onChange={(e) => setItem(i, 'qty', e.target.value)}
-                  placeholder="Qty" className="input col-span-2 text-xs" />
+                  placeholder="Qty" className="input col-span-1 sm:col-span-2 text-xs" />
                 <input type="number" min={0} value={it.rate} onChange={(e) => setItem(i, 'rate', e.target.value)}
-                  placeholder="Rate ₹" className="input col-span-3 text-xs" />
-                <span className="col-span-1 text-xs text-slate-500 text-right">
+                  placeholder="Rate ₹" className="input col-span-1 sm:col-span-3 text-xs" />
+                <span className="col-span-1 sm:col-span-1 text-xs text-slate-500 text-left sm:text-right">
                   ₹{((Number(it.qty) * Number(it.rate)) / 1000 || 0).toFixed(0)}k
                 </span>
                 {form.items.length > 1 && (
-                  <button onClick={() => removeItem(i)} className="col-span-1 p-1 text-red-400 hover:text-red-600">
+                  <button onClick={() => removeItem(i)} className="col-span-1 sm:col-span-1 p-1 text-red-400 hover:text-red-600 justify-self-start sm:justify-self-auto">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -205,7 +205,7 @@ function ViewInvoiceModal({ inv, onClose }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }}
         className="glass-card w-full max-w-lg p-6 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200 font-mono">{inv.id}</h2>
             <p className="text-sm text-slate-500">{inv.customer}</p>
@@ -220,7 +220,7 @@ function ViewInvoiceModal({ inv, onClose }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           {[['Invoice Date', inv.date], ['Due Date', inv.due]].map(([l, v]) => (
             <div key={l} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3">
               <p className="text-slate-400 mb-0.5">{l}</p>
@@ -231,21 +231,23 @@ function ViewInvoiceModal({ inv, onClose }) {
 
         <div>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Line Items</p>
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            <div className="grid grid-cols-12 gap-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-              <span className="col-span-6">Description</span>
-              <span className="col-span-2 text-right">Qty</span>
-              <span className="col-span-2 text-right">Rate</span>
-              <span className="col-span-2 text-right">Amount</span>
-            </div>
-            {(inv.items ?? []).map((it, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 py-2 text-xs text-slate-600 dark:text-slate-400">
-                <span className="col-span-6">{it.desc}</span>
-                <span className="col-span-2 text-right">{it.qty}</span>
-                <span className="col-span-2 text-right">₹{Number(it.rate).toLocaleString()}</span>
-                <span className="col-span-2 text-right">₹{Number(it.amount).toLocaleString()}</span>
+          <div className="overflow-x-auto">
+            <div className="min-w-[560px] divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="grid grid-cols-12 gap-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                <span className="col-span-6">Description</span>
+                <span className="col-span-2 text-right">Qty</span>
+                <span className="col-span-2 text-right">Rate</span>
+                <span className="col-span-2 text-right">Amount</span>
               </div>
-            ))}
+              {(inv.items ?? []).map((it, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 py-2 text-xs text-slate-600 dark:text-slate-400">
+                  <span className="col-span-6">{it.desc}</span>
+                  <span className="col-span-2 text-right">{it.qty}</span>
+                  <span className="col-span-2 text-right">₹{Number(it.rate).toLocaleString()}</span>
+                  <span className="col-span-2 text-right">₹{Number(it.amount).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -323,7 +325,7 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Receipt className="w-6 h-6 text-sky-500" /> Invoices & Payments
@@ -336,7 +338,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {[
           { label: 'Revenue Collected', value: totalRevenue, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
           { label: 'Pending',           value: totalPending, icon: Clock,       color: 'text-amber-500',   bg: 'bg-amber-50 dark:bg-amber-950/20' },
@@ -359,7 +361,7 @@ export default function InvoicesPage() {
       {/* Invoice Table */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead>
               <tr className="border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/30">
                 {['Invoice #','Customer','Date','Due Date','Amount','GST (18%)','Total','Status','Actions'].map((h) => (

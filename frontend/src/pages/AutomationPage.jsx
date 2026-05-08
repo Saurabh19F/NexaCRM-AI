@@ -285,7 +285,7 @@ export default function AutomationPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Zap className="w-6 h-6 text-amber-500" /> Automation Engine
@@ -299,7 +299,7 @@ export default function AutomationPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {[
           { label: 'Active Workflows', value: workflows.filter((workflow) => workflow.status === 'active').length, icon: CheckCircle2, color: 'text-emerald-500' },
           { label: 'Total Automations Run', value: workflows.reduce((sum, workflow) => sum + workflow.runs, 0), icon: Zap, color: 'text-amber-500' },
@@ -318,7 +318,7 @@ export default function AutomationPage() {
       <div className="space-y-3">
         {workflows.map((workflow) => (
           <motion.div key={workflow.id} layout className="glass-card p-5">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
               <div className="flex items-start gap-4 flex-1 min-w-0">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
                   ${workflow.status === 'active' ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-slate-100 dark:bg-slate-800'}`}>
@@ -354,7 +354,7 @@ export default function AutomationPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
                 <button
                   onClick={() => toggleStatus(workflow.id)}
                   className={`p-2 rounded-xl transition-colors ${workflow.status === 'active'
@@ -400,7 +400,7 @@ export default function AutomationPage() {
 
               <div className="mb-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/50">
                 <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Load Advanced Template</p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     value={selectedTemplateId}
                     onChange={(e) => setSelectedTemplateId(e.target.value)}
@@ -462,11 +462,11 @@ export default function AutomationPage() {
                     className="space-y-2 max-h-52 overflow-y-auto pr-2 custom-scrollbar rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-2 bg-slate-50/40 dark:bg-slate-900/20"
                   >
                     {newWorkflow.steps.map((step, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                      <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                         <select
                           value={step.type}
                           onChange={(e) => updateStep(index, 'type', e.target.value)}
-                          className="input col-span-4 sm:col-span-3 py-2"
+                          className="input col-span-1 sm:col-span-3 py-2"
                         >
                           {STEP_TYPES.map((type) => (
                             <option key={type} value={type}>{type}</option>
@@ -475,7 +475,7 @@ export default function AutomationPage() {
                         <input
                           value={step.text}
                           onChange={(e) => updateStep(index, 'text', e.target.value)}
-                          className="input col-span-7 sm:col-span-8 py-2"
+                          className="input col-span-1 sm:col-span-8 py-2"
                           placeholder={
                             step.type === 'WAIT'
                               ? 'e.g. 30 minutes'
@@ -487,7 +487,7 @@ export default function AutomationPage() {
                         <button
                           type="button"
                           onClick={() => removeStep(index)}
-                          className="col-span-1 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500"
+                          className="col-span-1 sm:col-span-1 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500 justify-self-start sm:justify-self-auto"
                           title="Remove step"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

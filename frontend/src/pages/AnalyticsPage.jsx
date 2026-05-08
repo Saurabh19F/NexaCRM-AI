@@ -55,7 +55,7 @@ const RADAR_DATA = [
 export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-brand-500" /> Analytics & Reports
@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
       <div className="glass-card p-5">
         <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Campaign Performance</h2>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-slate-200/60 dark:border-slate-700/40">
                 {['Campaign','Leads','Cost','Revenue','ROI'].map((h) => (
