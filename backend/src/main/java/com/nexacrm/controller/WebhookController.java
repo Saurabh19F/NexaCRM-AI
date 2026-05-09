@@ -45,6 +45,17 @@ public class WebhookController {
     @Value("${meta.webhook-token}")
     private String metaWebhookToken;
 
+    @GetMapping({"", "/"})
+    @Operation(summary = "Webhook root health/check endpoint")
+    public ResponseEntity<Map<String, Object>> webhookRoot() {
+        return ResponseEntity.ok(Map.of(
+            "ok", true,
+            "facebookVerifyPath", "/api/webhooks/facebook/leads",
+            "facebookLegacyPath", "/api/webhooks/meta",
+            "whatsappPath", "/api/webhooks/whatsapp"
+        ));
+    }
+
     @PostMapping("/whatsapp")
     @Operation(summary = "Receive inbound WhatsApp webhook events")
     public ResponseEntity<Map<String, Object>> receiveWhatsAppWebhook(@RequestBody Map<String, Object> payload) {
@@ -75,7 +86,7 @@ public class WebhookController {
 
     // ── Facebook Lead Ads ─────────────────────────────────────────
 
-    @GetMapping("/facebook/leads")
+    @GetMapping({"/facebook/leads", "/meta"})
     @Operation(summary = "Facebook Lead Ads webhook verification")
     public ResponseEntity<String> verifyFacebookLeadsWebhook(@RequestParam Map<String, String> query) {
         String mode = firstNonBlank(query, "hub.mode", "hub_mode", "mode");
@@ -99,7 +110,7 @@ public class WebhookController {
         return ResponseEntity.status(403).build();
     }
 
-    @PostMapping("/facebook/leads")
+    @PostMapping({"/facebook/leads", "/meta"})
     @Operation(summary = "Receive Facebook page events (Lead Ads + Messenger)")
     public ResponseEntity<Void> receiveFacebookLeadsWebhook(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,

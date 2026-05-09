@@ -267,13 +267,13 @@ stomp.connect({ Authorization: `Bearer ${token}` }, () => {
 ## Webhooks
 
 ### Facebook / Instagram Lead Ads
-`POST /api/webhooks/meta`  
-`GET /api/webhooks/meta` — for webhook verification
+`POST /api/webhooks/facebook/leads` (legacy alias: `/api/webhooks/meta`)  
+`GET /api/webhooks/facebook/leads` (legacy alias: `/api/webhooks/meta`) — for webhook verification
 
 ### WhatsApp Business
 `POST /api/webhooks/whatsapp`
 
-All webhooks validate the `X-Hub-Signature-256` header using your `META_WEBHOOK_TOKEN`.
+Webhook verification challenge uses `META_WEBHOOK_TOKEN`, while `X-Hub-Signature-256` payload validation uses `META_APP_SECRET`.
 
 ---
 

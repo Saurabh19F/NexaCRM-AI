@@ -151,7 +151,7 @@ Open **http://localhost:3000** and sign in with:
 ### Meta (Facebook & Instagram Lead Ads)
 1. Create a Meta App at https://developers.facebook.com
 2. Enable **Leads Retrieval** and **Webhooks**
-3. Set webhook URL to: `https://yourdomain.com/api/webhooks/meta`
+3. Set webhook URL to: `https://yourdomain.com/api/webhooks/facebook/leads` (legacy alias: `/api/webhooks/meta`)
 4. Copy App ID, App Secret, and Webhook Verify Token to `.env`
 
 ### WhatsApp Business Cloud API

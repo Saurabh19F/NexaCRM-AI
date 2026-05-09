@@ -13,7 +13,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
-    healthCheckPath: /actuator/health
+    healthCheckPath: /actuator/health/render
 
     envVars:
       # ── Database (auto-wired from Render PostgreSQL) ────────────
