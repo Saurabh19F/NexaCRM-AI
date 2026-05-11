@@ -1,6 +1,6 @@
 # NexaCRM AI — Complete Setup Guide
 
-> **Stack:** React 18 + Vite · Spring Boot 3.2 · PostgreSQL 16 · OpenAI GPT-4
+> **Stack:** React 18 + Vite · Spring Boot 3.2 · MongoDB Atlas · OpenAI GPT-4
 
 ---
 
@@ -12,7 +12,7 @@
 | npm | ≥ 9.x | `npm -v` |
 | Java (JDK) | 21 | `java -version` |
 | Maven | 3.9+ | `mvn -v` |
-| PostgreSQL | 16 | `psql --version` |
+| MongoDB Atlas | cloud | Atlas cluster access |
 | Git | any | `git --version` |
 
 ---
@@ -33,22 +33,9 @@ cp .env.example .env
 ## 2. Database Setup
 
 ```bash
-# Connect to PostgreSQL
-psql -U postgres
-
-# Run these commands inside psql:
-CREATE DATABASE nexacrm;
-CREATE USER nexacrm WITH PASSWORD 'nexacrm123';
-GRANT ALL PRIVILEGES ON DATABASE nexacrm TO nexacrm;
-\c nexacrm
-GRANT ALL ON SCHEMA public TO nexacrm;
-\q
-
-# Apply schema
-psql -U nexacrm -d nexacrm -f database/schema.sql
-
-# Load sample data (optional but recommended for demo)
-psql -U nexacrm -d nexacrm -f database/seed-data.sql
+# Use a MongoDB Atlas connection string in .env
+# Example:
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-url>/?appName=<appName>
 ```
 
 ---
@@ -76,9 +63,7 @@ Swagger UI: **http://localhost:8080/swagger-ui/index.html**
 Set these before running (or update `application.properties`):
 
 ```bash
-export DB_URL=jdbc:postgresql://localhost:5432/nexacrm
-export DB_USERNAME=nexacrm
-export DB_PASSWORD=nexacrm123
+export MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-url>/?appName=<appName>"
 export JWT_SECRET=your-secret-key-min-64-chars
 export OPENAI_API_KEY=sk-your-openai-key
 export SMTP_HOST=smtp.gmail.com
@@ -89,9 +74,7 @@ export SMTP_PASSWORD=your-app-password
 PowerShell (Windows):
 
 ```powershell
-$env:DB_URL="jdbc:postgresql://localhost:5432/nexacrm"
-$env:DB_USERNAME="nexacrm"
-$env:DB_PASSWORD="nexacrm123"
+$env:MONGODB_URI="mongodb+srv://<user>:<password>@<cluster-url>/?appName=<appName>"
 $env:JWT_SECRET="your-secret-key-min-64-chars"
 $env:OPENAI_API_KEY="sk-your-openai-key"
 $env:SMTP_HOST="smtp.gmail.com"
@@ -198,7 +181,7 @@ docker-compose up -d
 - [ ] Use a strong, unique `JWT_SECRET` (min 64 chars, base64 encoded)
 - [ ] Set `CORS_ORIGINS` to your actual domain only
 - [ ] Use SSL/HTTPS (configure reverse proxy like Nginx)
-- [ ] Set `spring.jpa.hibernate.ddl-auto=validate` (already set)
+- [ ] Verify `MONGODB_URI` points to your production Atlas cluster
 - [ ] Enable database backups
 - [ ] Set up monitoring (Spring Actuator + Prometheus/Grafana)
 - [ ] Configure email SPF/DKIM records
@@ -301,7 +284,7 @@ NexaCRM AI/
 │       │   ├── DealController.java
 │       │   └── AIController.java
 │       ├── service/                 # Business logic
-│       ├── repository/              # Spring Data JPA repos
+│       ├── repository/              # Spring Data MongoDB repos
 │       │   ├── LeadRepository.java
 │       │   └── DealRepository.java
 │       ├── security/                # JWT + Spring Security
@@ -316,10 +299,6 @@ NexaCRM AI/
 │       └── config/
 │   └── src/main/resources/
 │       └── application.properties
-│
-├── database/
-│   ├── schema.sql                   # Full PostgreSQL schema
-│   └── seed-data.sql                # Sample / demo data
 │
 ├── docs/
 │   ├── API.md                       # REST API reference
@@ -343,11 +322,11 @@ NexaCRM AI/
 | HTTP | Axios | API requests |
 | Backend | Spring Boot 3.2 (Java 21) | REST API server |
 | Security | Spring Security + JWT (JJWT) | Auth & authorization |
-| ORM | Spring Data JPA + Hibernate | Database access |
+| ORM | Spring Data MongoDB | Database access |
 | Real-time | WebSocket + STOMP + SockJS | Live notifications |
 | Scheduler | Spring @Scheduled | Automation cron jobs |
-| Database | PostgreSQL 16 | Primary data store |
-| Migrations | Flyway | DB schema versioning |
+| Database | MongoDB Atlas | Primary data store |
+| Schema Evolution | Mongo document model + indexes | Data model versioning |
 | AI | OpenAI GPT-4 Turbo | Lead scoring, emails, chat |
 | Storage | AWS S3 / Cloudinary | File & image uploads |
 | API Docs | SpringDoc + Swagger UI | Interactive API reference |
@@ -357,8 +336,8 @@ NexaCRM AI/
 ## 10. Troubleshooting
 
 **Backend won't start — DB connection refused**  
-→ Ensure PostgreSQL is running: `pg_lsclusters` or `brew services list`  
-→ Verify DB credentials in `.env`
+→ Verify Atlas cluster is reachable from your IP/network  
+→ Verify `MONGODB_URI` in `.env`
 
 **Frontend proxy error (ECONNREFUSED)**  
 → Backend must be running on port 8080 before starting Vite

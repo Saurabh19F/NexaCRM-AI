@@ -14,7 +14,16 @@ const isLikelyJwt = (token) =>
   !token.includes(' ')
 
 const parseApiError = (err) => {
+  const status = err?.response?.status
   const data = err?.response?.data
+  if (status === 403) {
+    if (typeof data === 'string' && data.trim()) return data.trim()
+    if (data && typeof data === 'object') {
+      const msg = data.message || data.error
+      if (typeof msg === 'string' && msg.trim()) return msg.trim()
+    }
+    return 'Access denied (403). You may not have permission for this action.'
+  }
   if (typeof data === 'string' && data.trim()) return data.trim()
   if (data && typeof data === 'object') {
     const msg = data.message || data.error
@@ -96,6 +105,7 @@ export const leadsAPI = {
 // ──────────────────────────────────────────
 export const dealsAPI = {
   getAll:       (params)   => api.get('/deals', { params }),
+  getBoard:     (params)   => api.get('/deals/board', { params }),
   getById:      (id)       => api.get(`/deals/${id}`),
   create:       (data)     => api.post('/deals', data),
   update:       (id, d)    => api.put(`/deals/${id}`, d),

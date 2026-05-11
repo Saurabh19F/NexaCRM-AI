@@ -5,10 +5,15 @@ import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Customer;
 import com.nexacrm.repository.CustomerRepository;
+import com.nexacrm.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +26,33 @@ import java.util.stream.Collectors;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
+    private final MongoTemplate mongoTemplate;
 
     private static final Long DEFAULT_TENANT = 1L;
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerDTO> findAll(String search, String status, Pageable pageable) {
-        Page<Customer> page = customerRepository.searchCustomers(DEFAULT_TENANT, search, status, pageable);
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("deleted").is(false));
+
+        if (search != null && !search.isBlank()) {
+            String regex = ".*" + java.util.regex.Pattern.quote(search.trim()) + ".*";
+            query.addCriteria(new Criteria().orOperator(
+                Criteria.where("name").regex(regex, "i"),
+                Criteria.where("email").regex(regex, "i"),
+                Criteria.where("company").regex(regex, "i")
+            ));
+        }
+        if (status != null && !status.isBlank()) {
+            query.addCriteria(Criteria.where("status").is(Customer.CustomerStatus.valueOf(status.toUpperCase())));
+        }
+
+        long total = mongoTemplate.count(query, Customer.class);
+        query.with(pageable);
+        Page<Customer> page = new PageImpl<>(mongoTemplate.find(query, Customer.class), pageable, total);
+
         return PageResponse.<CustomerDTO>builder()
             .content(page.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
             .page(page.getNumber()).size(page.getSize())
@@ -36,7 +62,7 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public CustomerDTO findById(Long id) {
+    public CustomerDTO findById(String id) {
         return customerRepository.findById(id)
             .filter(c -> !c.getDeleted())
             .map(this::toDTO)
@@ -51,7 +77,7 @@ public class CustomerService {
         return toDTO(saved);
     }
 
-    public CustomerDTO update(Long id, CustomerDTO dto) {
+    public CustomerDTO update(String id, CustomerDTO dto) {
         Customer customer = customerRepository.findById(id)
             .filter(c -> !c.getDeleted())
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
@@ -63,6 +89,13 @@ public class CustomerService {
         customer.setIndustry(dto.getIndustry());
         customer.setWebsite(dto.getWebsite());
         customer.setPrimaryContact(dto.getPrimaryContact());
+        if (dto.getAccountManagerId() != null) {
+            if (dto.getAccountManagerId().isBlank()) {
+                customer.setAccountManager(null);
+            } else {
+                userRepository.findById(dto.getAccountManagerId()).ifPresent(customer::setAccountManager);
+            }
+        }
         if (dto.getHealthScore() != null) customer.setHealthScore(dto.getHealthScore());
         if (dto.getStatus() != null)      customer.setStatus(dto.getStatus());
         customer.setGstin(dto.getGstin());
@@ -72,7 +105,7 @@ public class CustomerService {
         return toDTO(customerRepository.save(customer));
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         Customer customer = customerRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
         customer.setDeleted(true);
@@ -102,7 +135,7 @@ public class CustomerService {
     }
 
     private Customer fromDTO(CustomerDTO dto) {
-        return Customer.builder()
+        Customer.CustomerBuilder builder = Customer.builder()
             .name(dto.getName())
             .email(dto.getEmail())
             .phone(dto.getPhone())
@@ -114,7 +147,12 @@ public class CustomerService {
             .status(dto.getStatus() != null ? dto.getStatus() : Customer.CustomerStatus.ACTIVE)
             .gstin(dto.getGstin())
             .notes(dto.getNotes())
-            .avatarUrl(dto.getAvatarUrl())
-            .build();
+            .avatarUrl(dto.getAvatarUrl());
+
+        if (dto.getAccountManagerId() != null && !dto.getAccountManagerId().isBlank()) {
+            userRepository.findById(dto.getAccountManagerId()).ifPresent(builder::accountManager);
+        }
+
+        return builder.build();
     }
 }

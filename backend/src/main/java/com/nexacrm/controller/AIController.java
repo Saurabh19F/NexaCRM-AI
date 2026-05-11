@@ -28,13 +28,13 @@ public class AIController {
 
     @PostMapping("/score/{leadId}")
     @Operation(summary = "Score a lead using AI — returns Hot/Warm/Cold with reasoning")
-    public ResponseEntity<Map<String, Object>> scoreLead(@PathVariable Long leadId) {
+    public ResponseEntity<Map<String, Object>> scoreLead(@PathVariable String leadId) {
         return ResponseEntity.ok(aiService.scoreLead(leadId));
     }
 
     @PostMapping("/predict/{dealId}")
     @Operation(summary = "Predict deal win probability using AI")
-    public ResponseEntity<Map<String, Object>> predictDeal(@PathVariable Long dealId) {
+    public ResponseEntity<Map<String, Object>> predictDeal(@PathVariable String dealId) {
         return ResponseEntity.ok(aiService.predictDealOutcome(dealId));
     }
 
@@ -53,7 +53,7 @@ public class AIController {
 
     @GetMapping("/next-actions/{leadId}")
     @Operation(summary = "Get AI-suggested next best actions for a lead")
-    public ResponseEntity<List<String>> getNextActions(@PathVariable Long leadId) {
+    public ResponseEntity<List<String>> getNextActions(@PathVariable String leadId) {
         return ResponseEntity.ok(aiService.suggestNextActions(leadId));
     }
 
@@ -61,7 +61,7 @@ public class AIController {
     @Operation(summary = "Summarize a lead, deal, or customer using AI")
     public ResponseEntity<Map<String, String>> summarize(
             @PathVariable String entityType,
-            @PathVariable Long entityId) {
+            @PathVariable String entityId) {
         String summary = aiService.summarizeEntity(entityType, entityId);
         return ResponseEntity.ok(Map.of("summary", summary));
     }

@@ -8,7 +8,7 @@ import java.time.OffsetDateTime;
 @Data
 @Builder
 public class WhatsAppMessageResponse {
-    private Long id;
+    private String id;
     private String contact;
     private String direction;
     private String body;

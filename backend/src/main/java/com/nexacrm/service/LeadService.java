@@ -6,12 +6,17 @@ import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Lead;
 import com.nexacrm.repository.LeadRepository;
+import com.nexacrm.repository.UserRepository;
 import com.nexacrm.websocket.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +36,8 @@ import java.util.stream.Collectors;
 public class LeadService {
 
     private final LeadRepository leadRepository;
+    private final UserRepository userRepository;
+    private final MongoTemplate mongoTemplate;
     private final NotificationPublisher notificationPublisher;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -47,15 +54,37 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
-                                         String source, Long assignedTo, Pageable pageable) {
-        Page<Lead> page = leadRepository.searchLeads(
-            DEFAULT_TENANT,
-            search != null && !search.isBlank() ? search : null,
-            status,
-            score,
-            source,
-            pageable
-        );
+                                         String source, String assignedTo, Pageable pageable) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("deleted").is(false));
+
+        if (search != null && !search.isBlank()) {
+            String regex = ".*" + java.util.regex.Pattern.quote(search.trim()) + ".*";
+            query.addCriteria(new Criteria().orOperator(
+                Criteria.where("name").regex(regex, "i"),
+                Criteria.where("email").regex(regex, "i"),
+                Criteria.where("company").regex(regex, "i")
+            ));
+        }
+        if (status != null && !status.isBlank()) {
+            query.addCriteria(Criteria.where("status").is(Lead.LeadStatus.valueOf(status.toUpperCase())));
+        }
+        if (score != null && !score.isBlank()) {
+            query.addCriteria(Criteria.where("score").is(Lead.LeadScore.valueOf(score.toUpperCase())));
+        }
+        if (source != null && !source.isBlank()) {
+            query.addCriteria(Criteria.where("source").is(Lead.LeadSource.valueOf(source.toUpperCase())));
+        }
+        if (assignedTo != null && !assignedTo.isBlank()) {
+            query.addCriteria(Criteria.where("assigned_to.$id").is(assignedTo));
+        }
+
+        long total = mongoTemplate.count(query, Lead.class);
+        query.with(pageable);
+        List<Lead> leads = mongoTemplate.find(query, Lead.class);
+        Page<Lead> page = new PageImpl<>(leads, pageable, total);
+
         return PageResponse.<LeadDTO>builder()
             .content(page.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
             .page(page.getNumber())
@@ -68,7 +97,7 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public LeadDTO findById(Long id) {
+    public LeadDTO findById(String id) {
         return leadRepository.findById(id)
             .filter(l -> !l.getDeleted())
             .map(this::toDTO)
@@ -96,7 +125,7 @@ public class LeadService {
         return toDTO(saved);
     }
 
-    public LeadDTO update(Long id, LeadDTO dto) {
+    public LeadDTO update(String id, LeadDTO dto) {
         Lead lead = leadRepository.findById(id)
             .filter(l -> !l.getDeleted())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -109,19 +138,26 @@ public class LeadService {
         if (dto.getScore() != null)  lead.setScore(dto.getScore());
         if (dto.getPriority() != null) lead.setPriority(dto.getPriority());
         if (dto.getDealValue() != null) lead.setDealValue(dto.getDealValue());
+        if (dto.getAssignedToId() != null) {
+            if (dto.getAssignedToId().isBlank()) {
+                lead.setAssignedTo(null);
+            } else {
+                userRepository.findById(dto.getAssignedToId()).ifPresent(lead::setAssignedTo);
+            }
+        }
         lead.setNotes(dto.getNotes());
 
         return toDTO(leadRepository.save(lead));
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         Lead lead = leadRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
         lead.setDeleted(true);
         leadRepository.save(lead);
     }
 
-    public int bulkDelete(List<Long> ids) {
+    public int bulkDelete(List<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
         List<Lead> leads = leadRepository.findAllById(ids);
         leads.forEach(l -> l.setDeleted(true));
@@ -139,11 +175,11 @@ public class LeadService {
         return new byte[0];
     }
 
-    public Map<String, Object> scoreWithAI(Long id) {
+    public Map<String, Object> scoreWithAI(String id) {
         return Map.of("leadId", id, "score", "WARM", "scoreValue", 55, "message", "AI scoring placeholder");
     }
 
-    public Map<String, Object> convertToCustomer(Long id, Map<String, Object> options) {
+    public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
         Lead lead = leadRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
         lead.setStatus(Lead.LeadStatus.WON);
@@ -296,7 +332,7 @@ public class LeadService {
     }
 
     private Lead fromDTO(LeadDTO dto) {
-        return Lead.builder()
+        Lead.LeadBuilder builder = Lead.builder()
             .name(dto.getName())
             .email(dto.getEmail())
             .phone(dto.getPhone())
@@ -314,7 +350,12 @@ public class LeadService {
             .notes(dto.getNotes())
             .facebookLeadId(dto.getFacebookLeadId())
             .facebookFormId(dto.getFacebookFormId())
-            .facebookAdId(dto.getFacebookAdId())
-            .build();
+            .facebookAdId(dto.getFacebookAdId());
+
+        if (dto.getAssignedToId() != null && !dto.getAssignedToId().isBlank()) {
+            userRepository.findById(dto.getAssignedToId()).ifPresent(builder::assignedTo);
+        }
+
+        return builder.build();
     }
 }

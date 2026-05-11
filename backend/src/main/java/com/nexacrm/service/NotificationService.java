@@ -30,7 +30,7 @@ public class NotificationService {
     public PageResponse<NotificationDTO> findForCurrentUser(int page, int size) {
         User user = currentUser();
         Page<Notification> result = notificationRepository
-            .findByUserIdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, size));
+            .findByUser_IdAndDeletedFalseOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, size));
         return PageResponse.<NotificationDTO>builder()
             .content(result.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
             .page(result.getNumber()).size(result.getSize())
@@ -41,10 +41,10 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public long getUnreadCount() {
-        return notificationRepository.countByUserIdAndIsReadFalseAndDeletedFalse(currentUser().getId());
+        return notificationRepository.countByUser_IdAndIsReadFalseAndDeletedFalse(currentUser().getId());
     }
 
-    public NotificationDTO markRead(Long id) {
+    public NotificationDTO markRead(String id) {
         Notification n = notificationRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
         n.setIsRead(true);
@@ -52,10 +52,13 @@ public class NotificationService {
     }
 
     public int markAllRead() {
-        return notificationRepository.markAllReadByUserId(currentUser().getId());
+        var unread = notificationRepository.findByUser_IdAndIsReadFalseAndDeletedFalse(currentUser().getId());
+        unread.forEach(n -> n.setIsRead(true));
+        notificationRepository.saveAll(unread);
+        return unread.size();
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         Notification n = notificationRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
         n.setDeleted(true);

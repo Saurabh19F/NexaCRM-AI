@@ -3,18 +3,15 @@ package com.nexacrm.repository;
 import com.nexacrm.model.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-public interface NotificationRepository extends JpaRepository<Notification, Long> {
+import java.util.List;
 
-    Page<Notification> findByUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
+public interface NotificationRepository extends MongoRepository<Notification, String> {
 
-    long countByUserIdAndIsReadFalseAndDeletedFalse(Long userId);
+    Page<Notification> findByUser_IdAndDeletedFalseOrderByCreatedAtDesc(String userId, Pageable pageable);
 
-    @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
-    int markAllReadByUserId(@Param("userId") Long userId);
+    long countByUser_IdAndIsReadFalseAndDeletedFalse(String userId);
+
+    List<Notification> findByUser_IdAndIsReadFalseAndDeletedFalse(String userId);
 }

@@ -5,11 +5,16 @@ import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Invoice;
 import com.nexacrm.repository.CustomerRepository;
+import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.InvoiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,12 +32,26 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final CustomerRepository customerRepository;
+    private final DealRepository dealRepository;
+    private final MongoTemplate mongoTemplate;
 
     private static final Long DEFAULT_TENANT = 1L;
 
     @Transactional(readOnly = true)
-    public PageResponse<InvoiceDTO> findAll(String status, Long customerId, Pageable pageable) {
-        Page<Invoice> page = invoiceRepository.findInvoices(DEFAULT_TENANT, status, customerId, pageable);
+    public PageResponse<InvoiceDTO> findAll(String status, String customerId, Pageable pageable) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("deleted").is(false));
+        if (status != null && !status.isBlank()) {
+            query.addCriteria(Criteria.where("status").is(Invoice.InvoiceStatus.valueOf(status.toUpperCase())));
+        }
+        if (customerId != null && !customerId.isBlank()) {
+            query.addCriteria(Criteria.where("customer.$id").is(customerId));
+        }
+        long total = mongoTemplate.count(query, Invoice.class);
+        query.with(pageable);
+        Page<Invoice> page = new PageImpl<>(mongoTemplate.find(query, Invoice.class), pageable, total);
+
         return PageResponse.<InvoiceDTO>builder()
             .content(page.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
             .page(page.getNumber()).size(page.getSize())
@@ -42,7 +61,7 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public InvoiceDTO findById(Long id) {
+    public InvoiceDTO findById(String id) {
         return invoiceRepository.findById(id)
             .filter(i -> !i.getDeleted())
             .map(this::toDTO)
@@ -63,11 +82,25 @@ public class InvoiceService {
         return toDTO(saved);
     }
 
-    public InvoiceDTO update(Long id, InvoiceDTO dto) {
+    public InvoiceDTO update(String id, InvoiceDTO dto) {
         Invoice invoice = invoiceRepository.findById(id)
             .filter(i -> !i.getDeleted())
             .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + id));
 
+        if (dto.getCustomerId() != null) {
+            if (dto.getCustomerId().isBlank()) {
+                invoice.setCustomer(null);
+            } else {
+                customerRepository.findById(dto.getCustomerId()).ifPresent(invoice::setCustomer);
+            }
+        }
+        if (dto.getDealId() != null) {
+            if (dto.getDealId().isBlank()) {
+                invoice.setDeal(null);
+            } else {
+                dealRepository.findById(dto.getDealId()).ifPresent(invoice::setDeal);
+            }
+        }
         if (dto.getStatus() != null)      invoice.setStatus(dto.getStatus());
         if (dto.getIssueDate() != null)   invoice.setIssueDate(dto.getIssueDate());
         if (dto.getDueDate() != null)     invoice.setDueDate(dto.getDueDate());
@@ -80,7 +113,7 @@ public class InvoiceService {
         return toDTO(invoiceRepository.save(invoice));
     }
 
-    public InvoiceDTO markPaid(Long id) {
+    public InvoiceDTO markPaid(String id) {
         Invoice invoice = invoiceRepository.findById(id)
             .filter(i -> !i.getDeleted())
             .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + id));
@@ -89,7 +122,7 @@ public class InvoiceService {
         return toDTO(invoiceRepository.save(invoice));
     }
 
-    public void delete(Long id) {
+    public void delete(String id) {
         Invoice invoice = invoiceRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + id));
         invoice.setDeleted(true);
@@ -109,7 +142,7 @@ public class InvoiceService {
 
     private String generateInvoiceNumber() {
         String prefix = "INV-" + DateTimeFormatter.ofPattern("yyyyMM").format(LocalDate.now()) + "-";
-        long count = invoiceRepository.count() + 1;
+        long count = invoiceRepository.countByTenantIdAndDeletedFalse(DEFAULT_TENANT) + 1;
         return prefix + String.format("%04d", count);
     }
 
@@ -146,8 +179,11 @@ public class InvoiceService {
             .notes(dto.getNotes())
             .tallyRef(dto.getTallyRef());
 
-        if (dto.getCustomerId() != null) {
+        if (dto.getCustomerId() != null && !dto.getCustomerId().isBlank()) {
             customerRepository.findById(dto.getCustomerId()).ifPresent(builder::customer);
+        }
+        if (dto.getDealId() != null && !dto.getDealId().isBlank()) {
+            dealRepository.findById(dto.getDealId()).ifPresent(builder::deal);
         }
 
         return builder.build();

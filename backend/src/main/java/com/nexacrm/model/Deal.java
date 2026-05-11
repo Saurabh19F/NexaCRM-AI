@@ -1,62 +1,62 @@
 package com.nexacrm.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-@Entity
-@Table(name = "deals", indexes = {
-    @Index(name = "idx_deal_stage",    columnList = "stage"),
-    @Index(name = "idx_deal_pipeline", columnList = "pipeline_id"),
-})
+@Document(collection = "deals")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Deal extends BaseEntity {
 
-    @Column(nullable = false)
+    @Field("title")
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Field("description")
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Indexed
+    @Field("stage")
     private DealStage stage = DealStage.NEW;
 
-    @Enumerated(EnumType.STRING)
+    @Field("priority")
     private DealPriority priority = DealPriority.MEDIUM;
 
-    @Column(name = "deal_value", precision = 15, scale = 2, nullable = false)
+    @Field("deal_value")
     private BigDecimal dealValue;
 
-    @Column(name = "expected_close_date")
+    @Field("expected_close_date")
     private LocalDate expectedCloseDate;
 
-    @Column(name = "actual_close_date")
+    @Field("actual_close_date")
     private LocalDate actualCloseDate;
 
-    @Column(name = "win_probability")
+    @Field("win_probability")
     private Integer winProbability;
 
-    @Column(name = "pipeline_id")
+    @Indexed
+    @Field("pipeline_id")
     private Long pipelineId = 1L;  // default pipeline
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lead_id")
+    @DBRef(lazy = true)
+    @Field("lead")
     private Lead lead;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id")
+    @DBRef(lazy = true)
+    @Field("owner")
     private User owner;
 
-    @Column(name = "ai_score")
+    @Field("ai_score")
     private String aiScore;
 
-    @Column(name = "tags")
+    @Field("tags")
     private String tags;
 
-    @Column(columnDefinition = "TEXT")
+    @Field("notes")
     private String notes;
 
     public enum DealStage {

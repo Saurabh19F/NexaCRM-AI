@@ -1,33 +1,28 @@
 package com.nexacrm.repository;
 
 import com.nexacrm.model.Invoice;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.LocalDate;
 import java.util.List;
 
-public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
+public interface InvoiceRepository extends MongoRepository<Invoice, String> {
 
-    @Query("""
-        SELECT i FROM Invoice i
-        WHERE i.tenantId = :tenantId
-          AND i.deleted = false
-          AND (:status IS NULL OR CAST(i.status AS string) = :status)
-          AND (:customerId IS NULL OR i.customer.id = :customerId)
-    """)
-    Page<Invoice> findInvoices(
-        @Param("tenantId")   Long tenantId,
-        @Param("status")     String status,
-        @Param("customerId") Long customerId,
-        Pageable pageable
+    List<Invoice> findByTenantIdAndDeletedFalse(Long tenantId);
+
+    List<Invoice> findByTenantIdAndDeletedFalseAndStatus(Long tenantId, Invoice.InvoiceStatus status);
+
+    List<Invoice> findByTenantIdAndDeletedFalseAndCustomer_Id(Long tenantId, String customerId);
+
+    List<Invoice> findByTenantIdAndDeletedFalseAndStatusAndCustomer_Id(
+        Long tenantId,
+        Invoice.InvoiceStatus status,
+        String customerId
     );
 
-    @Query("SELECT i FROM Invoice i WHERE i.status = 'SENT' AND i.dueDate < :today AND i.deleted = false")
-    List<Invoice> findOverdue(@Param("today") LocalDate today);
+    List<Invoice> findByStatusAndDueDateBeforeAndDeletedFalse(Invoice.InvoiceStatus status, LocalDate today);
 
     boolean existsByInvoiceNumberAndTenantId(String invoiceNumber, Long tenantId);
+
+    long countByTenantIdAndDeletedFalse(Long tenantId);
 }

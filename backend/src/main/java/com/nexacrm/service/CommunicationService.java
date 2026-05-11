@@ -23,8 +23,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -46,8 +44,6 @@ public class CommunicationService {
     private final IntegrationService integrationService;
     private final CommunicationRecordRepository communicationRecordRepository;
     private final ObjectMapper objectMapper;
-    @PersistenceContext
-    private EntityManager entityManager;
 
     @Value("${spring.mail.username}")
     private String smtpFrom;
@@ -117,6 +113,16 @@ public class CommunicationService {
                 emailRequest.setSubject(normalizeSubject(subject));
                 emailRequest.setBody(body);
                 sendEmail(emailRequest);
+                tryPersistCommunication(
+                    "EMAIL",
+                    "OUT",
+                    recipient,
+                    body,
+                    "SENT",
+                    null,
+                    "{\"subject\":\"" + normalizeSubject(subject).replace("\"", "\\\"") + "\"}",
+                    "smtp"
+                );
             }
             case "whatsapp", "instagram", "facebook", "linkedin" -> sendSocialMessage(normalizedChannel, recipient, body);
             default -> throw new IllegalStateException("Unsupported channel: " + normalizedChannel);
@@ -133,7 +139,7 @@ public class CommunicationService {
     }
 
     public List<WhatsAppConversationResponse> getWhatsAppConversations() {
-        List<CommunicationRecord> rows = communicationRecordRepository.findRecentByChannel(
+        List<CommunicationRecord> rows = communicationRecordRepository.findByChannelIgnoreCaseOrderByCreatedAtDesc(
             "WHATSAPP",
             PageRequest.of(0, 1000)
         );
@@ -205,7 +211,7 @@ public class CommunicationService {
     }
 
     public List<WhatsAppConversationResponse> getFacebookConversations() {
-        List<CommunicationRecord> rows = communicationRecordRepository.findRecentByChannel(
+        List<CommunicationRecord> rows = communicationRecordRepository.findByChannelIgnoreCaseOrderByCreatedAtDesc(
             "FACEBOOK", PageRequest.of(0, 1000)
         );
 
@@ -283,6 +289,16 @@ public class CommunicationService {
         }
 
         log.info("Simulated {} send to {} with text length {}", channel, recipient, body.length());
+        tryPersistCommunication(
+            channel.toUpperCase(Locale.ROOT),
+            "OUT",
+            recipient,
+            body,
+            "SENT",
+            null,
+            "",
+            channel
+        );
     }
 
     private void sendViaAiadrikaWhatsApp(String recipient, String body) {
@@ -356,19 +372,19 @@ public class CommunicationService {
         String rawPayload,
         String provider
     ) {
-        Long tenantId = resolveTenantId();
-        if (tenantId == null) {
-            throw new IllegalStateException("No tenant found in database. Create a tenant before persisting communications.");
-        }
-
         CommunicationRecord record = new CommunicationRecord();
-        record.setTenantId(tenantId);
+        record.setTenantId(1L);
         record.setChannel(channel);
         record.setDirection(direction);
         record.setBody(body);
         record.setStatus(trim(status).isBlank() ? "SENT" : trim(status).toUpperCase(Locale.ROOT));
         record.setExternalId(trim(externalId));
-        record.setContactIdentifier(normalizeContact(contactIdentifier));
+        String normalizedChannel = trim(channel).toUpperCase(Locale.ROOT);
+        if ("WHATSAPP".equals(normalizedChannel) || "FACEBOOK".equals(normalizedChannel)) {
+            record.setContactIdentifier(normalizeContact(contactIdentifier));
+        } else {
+            record.setContactIdentifier(trim(contactIdentifier));
+        }
         record.setProvider(provider);
         record.setRawPayload(rawPayload);
         record.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
@@ -398,20 +414,6 @@ public class CommunicationService {
             );
             return false;
         }
-    }
-
-    private Long resolveTenantId() {
-        List<?> rows = entityManager
-            .createNativeQuery("select id from tenants order by id asc limit 1")
-            .getResultList();
-        if (rows.isEmpty()) {
-            return null;
-        }
-        Object id = rows.get(0);
-        if (id instanceof Number number) {
-            return number.longValue();
-        }
-        return Long.parseLong(String.valueOf(id));
     }
 
     private WhatsAppMessageResponse toMessageResponse(CommunicationRecord row) {

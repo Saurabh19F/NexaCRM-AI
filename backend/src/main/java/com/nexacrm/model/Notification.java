@@ -1,38 +1,38 @@
 package com.nexacrm.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-@Entity
-@Table(name = "notifications")
+@Document(collection = "notifications")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Notification extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @DBRef(lazy = true)
+    @Field("user")
     private User user;
 
-    @Column(nullable = false)
+    @Field("title")
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Field("message")
     private String message;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Field("type")
     private NotificationType type;
 
-    @Column(name = "is_read", nullable = false)
+    @Field("is_read")
     private Boolean isRead = false;
 
-    @Column(name = "action_url")
+    @Field("action_url")
     private String actionUrl;
 
-    @Column(name = "entity_type")
+    @Field("entity_type")
     private String entityType;
 
-    @Column(name = "entity_id")
-    private Long entityId;
+    @Field("entity_id")
+    private String entityId;
 
     public enum NotificationType { LEAD, DEAL, TASK, INVOICE, AI, SYSTEM, AUTOMATION }
 }

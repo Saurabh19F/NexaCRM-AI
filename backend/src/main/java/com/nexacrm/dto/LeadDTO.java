@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class LeadDTO {
-    private Long id;
+    private String id;
 
     @NotBlank(message = "Name is required")
     private String name;
@@ -41,7 +41,7 @@ public class LeadDTO {
     private Integer aiScoreValue;
     private String aiNextAction;
 
-    private Long assignedToId;
+    private String assignedToId;
     private String assignedToName;
 
     private List<String> tags;

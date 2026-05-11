@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class CustomerDTO {
-    private Long id;
+    private String id;
 
     @NotBlank(message = "Name is required")
     private String name;
@@ -23,7 +23,7 @@ public class CustomerDTO {
     private String industry;
     private String website;
     private String primaryContact;
-    private Long accountManagerId;
+    private String accountManagerId;
     private String accountManagerName;
     private Integer healthScore;
     private Customer.CustomerStatus status;

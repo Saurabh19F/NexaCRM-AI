@@ -63,7 +63,7 @@ public class AIService {
 
     // ── Lead Scoring ──────────────────────────────────────────────
 
-    public Map<String, Object> scoreLead(Long leadId) {
+    public Map<String, Object> scoreLead(String leadId) {
         Optional<Lead> leadOpt = leadRepository.findById(leadId);
         if (leadOpt.isEmpty()) {
             return Map.of("error", "Lead not found");
@@ -95,7 +95,7 @@ public class AIService {
     }
 
     @Async
-    public void scoreLeadAsync(Long leadId) {
+    public void scoreLeadAsync(String leadId) {
         try {
             scoreLead(leadId);
         } catch (Exception e) {
@@ -105,7 +105,7 @@ public class AIService {
 
     // ── Deal Prediction ───────────────────────────────────────────
 
-    public Map<String, Object> predictDealOutcome(Long dealId) {
+    public Map<String, Object> predictDealOutcome(String dealId) {
         // Production: call GPT-4 with deal history, activities, stage, value
         int probability = 65 + (int)(Math.random() * 30);
         return Map.of(
@@ -182,7 +182,7 @@ public class AIService {
 
     // ── Next Actions ──────────────────────────────────────────────
 
-    public List<String> suggestNextActions(Long leadId) {
+    public List<String> suggestNextActions(String leadId) {
         return List.of(
             "Schedule a discovery call within 24 hours",
             "Send personalized case study from similar industry",
@@ -193,9 +193,9 @@ public class AIService {
 
     // ── Summarize ─────────────────────────────────────────────────
 
-    public String summarizeEntity(String entityType, Long entityId) {
+    public String summarizeEntity(String entityType, String entityId) {
         return String.format(
-            "AI Summary for %s #%d: High-value prospect with strong engagement signals. " +
+            "AI Summary for %s #%s: High-value prospect with strong engagement signals. " +
             "Last interaction was 2 days ago. Recommend priority follow-up within 24 hours.",
             entityType, entityId
         );

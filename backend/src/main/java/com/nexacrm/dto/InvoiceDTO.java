@@ -10,14 +10,14 @@ import java.time.LocalDateTime;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class InvoiceDTO {
-    private Long id;
+    private String id;
     private String invoiceNumber;
 
     @NotNull(message = "Customer is required")
-    private Long customerId;
+    private String customerId;
     private String customerName;
 
-    private Long dealId;
+    private String dealId;
 
     private Invoice.InvoiceStatus status;
 

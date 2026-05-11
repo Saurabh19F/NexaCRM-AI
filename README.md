@@ -2,7 +2,7 @@
 
 > **Production-ready, AI-powered CRM platform** — Lead capture · Kanban pipeline · AI scoring · Automation · Real-time notifications
 
-Built with **React + Vite** (frontend) and **Spring Boot** (backend), powered by **OpenAI GPT-4**, with native integrations for Facebook, Instagram, LinkedIn, WhatsApp, Gmail, and Google Calendar.
+Built with **React + Vite** (frontend) and **Spring Boot** (backend), powered by **OpenAI GPT-4**, with **MongoDB Atlas** as the primary database and native integrations for Facebook, Instagram, LinkedIn, WhatsApp, Gmail, and Google Calendar.
 
 ---
 
@@ -29,10 +29,9 @@ Built with **React + Vite** (frontend) and **Spring Boot** (backend), powered by
 ## 🚀 Quick Start
 
 ```bash
-# 1. Setup database
-psql -U postgres -c "CREATE DATABASE nexacrm; CREATE USER nexacrm WITH PASSWORD 'nexacrm123'; GRANT ALL PRIVILEGES ON DATABASE nexacrm TO nexacrm;"
-psql -U nexacrm -d nexacrm -f database/schema.sql
-psql -U nexacrm -d nexacrm -f database/seed-data.sql
+# 1. Setup environment
+cp .env.example .env
+# Set MONGODB_URI in .env (MongoDB Atlas connection string)
 
 # 2. Backend
 cd backend && mvn spring-boot:run
@@ -50,8 +49,7 @@ Open **http://localhost:3000** → login with `saurabhke4@gmail.com` / `demo1234
 ```
 NexaCRM AI/
 ├── frontend/          # React + Vite + Tailwind + Framer Motion
-├── backend/           # Spring Boot + JWT + WebSocket + JPA
-├── database/          # PostgreSQL schema + seed data
+├── backend/           # Spring Boot + JWT + WebSocket + MongoDB
 ├── docs/              # API reference + Setup guide
 └── .env.example       # Environment template
 ```
@@ -61,8 +59,8 @@ NexaCRM AI/
 ## 🛠️ Tech Stack
 
 **Frontend:** React 18 · Vite · Tailwind CSS · Framer Motion · dnd-kit · Recharts · Zustand  
-**Backend:** Spring Boot 3.2 · Spring Security · Spring Data JPA · WebSocket/STOMP  
-**Database:** PostgreSQL 16 · Flyway migrations  
+**Backend:** Spring Boot 3.2 · Spring Security · Spring Data MongoDB · WebSocket/STOMP  
+**Database:** MongoDB Atlas  
 **AI:** OpenAI GPT-4 Turbo  
 **Integrations:** Meta Graph API · WhatsApp Business API · LinkedIn · Gmail · Google Calendar · Tally  
 **Storage:** AWS S3 · Cloudinary  

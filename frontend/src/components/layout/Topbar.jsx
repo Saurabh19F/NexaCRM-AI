@@ -15,7 +15,7 @@ export default function Topbar({ onMenuClick }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { isDark, toggleTheme } = useThemeStore()
-  const { unreadCount, addNotification } = useNotificationStore()
+  const { unreadCount, addNotification, fetchNotifications } = useNotificationStore()
   const { leads, patchLeadLocal } = useLeadsStore()
   const [searchFocused, setSearchFocused] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -78,6 +78,12 @@ export default function Topbar({ onMenuClick }) {
       try { disconnectWebSocket() } catch { /* ignore */ }
     }
   }, [addNotification])
+
+  useEffect(() => {
+    fetchNotifications().catch(() => {
+      // Notification panel still works with live websocket updates.
+    })
+  }, [fetchNotifications])
 
   useEffect(() => {
     const nowIso = new Date(timeTick).toISOString()

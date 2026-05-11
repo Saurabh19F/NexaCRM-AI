@@ -35,7 +35,7 @@ public class NotificationController {
 
     @PatchMapping("/{id}/read")
     @Operation(summary = "Mark a notification as read")
-    public ResponseEntity<NotificationDTO> markRead(@PathVariable Long id) {
+    public ResponseEntity<NotificationDTO> markRead(@PathVariable String id) {
         return ResponseEntity.ok(notificationService.markRead(id));
     }
 
@@ -48,7 +48,7 @@ public class NotificationController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a notification")
-    public ResponseEntity<Void> deleteNotification(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteNotification(@PathVariable String id) {
         notificationService.delete(id);
         return ResponseEntity.noContent().build();
     }

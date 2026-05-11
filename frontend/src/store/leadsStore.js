@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { leadsAPI } from '../services/api'
-import { MOCK_LEADS } from '../utils/mockData'
 
 const DEFAULT_SLA_MINUTES = 60
 
@@ -11,33 +10,65 @@ const toIso = (value) => {
   return d.toISOString()
 }
 
-const normalizeLead = (lead, index = 0) => {
+const formatCreatedDate = (value) => {
+  const iso = toIso(value)
+  return iso ? iso.slice(0, 10) : new Date().toISOString().slice(0, 10)
+}
+
+const sourceLabelToEnum = (source) => {
+  const s = String(source || '').trim().toLowerCase()
+  if (s === 'facebook') return 'FACEBOOK'
+  if (s === 'instagram') return 'INSTAGRAM'
+  if (s === 'linkedin') return 'LINKEDIN'
+  if (s === 'website') return 'WEBSITE'
+  if (s === 'whatsapp') return 'WHATSAPP'
+  if (s === 'google ads') return 'GOOGLE_ADS'
+  if (s === 'meta ads') return 'META_ADS'
+  if (s === 'referral') return 'REFERRAL'
+  if (s === 'email') return 'EMAIL'
+  return 'OTHER'
+}
+
+const sourceEnumToLabel = (source) => {
+  const s = String(source || '').toUpperCase()
+  if (s === 'GOOGLE_ADS') return 'Google Ads'
+  if (s === 'META_ADS') return 'Meta Ads'
+  return s ? `${s.charAt(0)}${s.slice(1).toLowerCase().replace('_', ' ')}` : 'Other'
+}
+
+const toFrontendLead = (lead, index = 0) => {
   const now = Date.now()
-  const isNew = String(lead?.status ?? '').toLowerCase() === 'new'
+  const status = String(lead?.status || 'NEW').toLowerCase()
   const existingCreated = toIso(lead?.createdAtTs ?? lead?.createdAt)
-  const hasExplicitCreatedTs = Boolean(lead?.createdAtTs)
   let createdAtTs = existingCreated
 
-  // Demo-friendly fallback so aging bands are visible even with old mock dates.
-  if (!hasExplicitCreatedTs) {
-    const offsetMinutes = isNew ? (10 + (index * 23) % 120) : (5 + (index * 11) % 70)
+  if (!createdAtTs) {
+    const offsetMinutes = status === 'new' ? (10 + (index * 23) % 120) : (5 + (index * 11) % 70)
     createdAtTs = new Date(now - offsetMinutes * 60 * 1000).toISOString()
   }
-  if (!createdAtTs) {
-    createdAtTs = new Date(now).toISOString()
-  }
 
-  const followUpSlaMinutes = Number(lead?.followUpSlaMinutes) > 0 ? Number(lead.followUpSlaMinutes) : DEFAULT_SLA_MINUTES
-  let firstResponseAtTs = toIso(lead?.firstResponseAtTs)
-  if (!firstResponseAtTs && !isNew) {
-    const createdMs = new Date(createdAtTs).getTime()
-    const responseOffset = 12 + (index * 9) % 95
-    firstResponseAtTs = new Date(createdMs + responseOffset * 60 * 1000).toISOString()
-  }
+  const followUpSlaMinutes = Number(lead?.followUpSlaMinutes) > 0
+    ? Number(lead.followUpSlaMinutes)
+    : DEFAULT_SLA_MINUTES
+
+  const firstResponseAtTs = toIso(lead?.firstResponseAtTs)
   const lastActivityAtTs = toIso(lead?.lastActivityAtTs) ?? firstResponseAtTs ?? createdAtTs
 
   return {
-    ...lead,
+    id: lead?.id,
+    name: lead?.name || '',
+    email: lead?.email || '',
+    phone: lead?.phone || '',
+    company: lead?.company || '',
+    source: sourceEnumToLabel(lead?.source),
+    score: String(lead?.score || 'COLD').toLowerCase(),
+    status,
+    value: Number(lead?.dealValue ?? lead?.value ?? 0),
+    assignedTo: lead?.assignedToName || lead?.assignedTo || '',
+    assignedToId: lead?.assignedToId || null,
+    tags: Array.isArray(lead?.tags) ? lead.tags.join(', ') : (lead?.tags || ''),
+    notes: lead?.notes || '',
+    createdAt: formatCreatedDate(createdAtTs),
     createdAtTs,
     lastActivityAtTs,
     firstResponseAtTs,
@@ -50,93 +81,119 @@ const normalizeLead = (lead, index = 0) => {
   }
 }
 
-const initialLeads = MOCK_LEADS.map((lead, i) => normalizeLead(lead, i))
+const toBackendLead = (lead) => ({
+  name: lead?.name || '',
+  email: lead?.email || '',
+  phone: lead?.phone || '',
+  company: lead?.company || '',
+  source: sourceLabelToEnum(lead?.source),
+  score: String(lead?.score || 'cold').toUpperCase(),
+  status: String(lead?.status || 'new').toUpperCase(),
+  dealValue: Number(lead?.value || 0),
+  assignedToId: lead?.assignedToId || null,
+  tags: String(lead?.tags || '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean),
+  notes: lead?.notes || null,
+})
 
 export const useLeadsStore = create((set, get) => ({
-  leads: initialLeads,
+  leads: [],
   loading: false,
   error: null,
-  pagination: { page: 0, size: 20, total: initialLeads.length },
+  pagination: { page: 0, size: 20, total: 0 },
   filters: { search: '', score: 'all', status: 'all', source: 'all', assignedTo: 'all' },
 
   setFilter: (key, value) =>
     set((s) => ({ filters: { ...s.filters, [key]: value } })),
 
   replaceLeads: (leads) =>
-    set(() => ({ leads: (leads ?? []).map((lead, i) => normalizeLead(lead, i)) })),
+    set(() => ({ leads: (leads ?? []).map((lead, i) => toFrontendLead(lead, i)) })),
 
   patchLeadLocal: (id, patch) =>
     set((s) => ({
       leads: s.leads.map((lead, i) => {
         if (lead.id !== id) return lead
         const next = typeof patch === 'function' ? patch(lead) : { ...lead, ...patch }
-        return normalizeLead(next, i)
+        return toFrontendLead(next, i)
       }),
     })),
 
   fetchLeads: async (params) => {
     set({ loading: true, error: null })
     try {
-      const data = await leadsAPI.getAll({ ...get().filters, ...params })
-      const leads = (data?.content ?? []).map((lead, i) => normalizeLead(lead, i))
+      const stateFilters = get().filters
+      const query = { ...stateFilters, ...params }
+
+      if (query.score === 'all') delete query.score
+      if (query.status === 'all') delete query.status
+      if (query.source === 'all') delete query.source
+      if (query.assignedTo === 'all') delete query.assignedTo
+      if (!query.search) delete query.search
+
+      const data = await leadsAPI.getAll(query)
+      const leads = (data?.content ?? []).map((lead, i) => toFrontendLead(lead, i))
       set({
         leads,
         pagination: { page: data?.page ?? 0, size: data?.size ?? 20, total: data?.total ?? leads.length },
         loading: false,
       })
-    } catch {
-      // Fall back to mock data when backend is unavailable
-      set({ leads: initialLeads, loading: false })
+      return leads
+    } catch (err) {
+      set({ loading: false, error: err?.message || 'Failed to fetch leads' })
+      throw err
     }
   },
 
   createLead: async (data) => {
-    set({ loading: true })
+    set({ loading: true, error: null })
     try {
-      const lead = await leadsAPI.create(data)
-      const normalized = normalizeLead(lead)
-      set((s) => ({ leads: [normalized, ...s.leads], loading: false }))
-      return normalized
-    } catch {
-      // Optimistic local create when backend is unavailable
-      const now = new Date()
-      const lead = normalizeLead({
-        ...data,
-        id: Date.now(),
-        createdAt: now.toISOString().split('T')[0],
-        createdAtTs: now.toISOString(),
-      })
+      const created = await leadsAPI.create(toBackendLead(data))
+      const lead = toFrontendLead(created)
       set((s) => ({ leads: [lead, ...s.leads], loading: false }))
       return lead
+    } catch (err) {
+      set({ loading: false, error: err?.message || 'Failed to create lead' })
+      throw err
     }
   },
 
   updateLead: async (id, data) => {
+    set({ loading: true, error: null })
     try {
-      await leadsAPI.update(id, data)
-    } catch {
-      // Proceed with local update even if API fails
+      const updated = await leadsAPI.update(id, toBackendLead(data))
+      const lead = toFrontendLead(updated)
+      set((s) => ({
+        leads: s.leads.map((l) => (l.id === id ? lead : l)),
+        loading: false,
+      }))
+      return lead
+    } catch (err) {
+      set({ loading: false, error: err?.message || 'Failed to update lead' })
+      throw err
     }
-    set((s) => ({
-      leads: s.leads.map((l, i) => (l.id === id ? normalizeLead({ ...l, ...data }, i) : l))
-    }))
   },
 
   deleteLead: async (id) => {
+    set({ loading: true, error: null })
     try {
       await leadsAPI.delete(id)
-    } catch {
-      // Proceed with local delete even if API fails
+      set((s) => ({ leads: s.leads.filter((l) => l.id !== id), loading: false }))
+    } catch (err) {
+      set({ loading: false, error: err?.message || 'Failed to delete lead' })
+      throw err
     }
-    set((s) => ({ leads: s.leads.filter((l) => l.id !== id) }))
   },
 
   bulkDelete: async (ids) => {
+    set({ loading: true, error: null })
     try {
       await leadsAPI.bulkDelete(ids)
-    } catch {
-      // Proceed with local delete even if API fails
+      set((s) => ({ leads: s.leads.filter((l) => !ids.includes(l.id)), loading: false }))
+    } catch (err) {
+      set({ loading: false, error: err?.message || 'Failed to delete leads' })
+      throw err
     }
-    set((s) => ({ leads: s.leads.filter((l) => !ids.includes(l.id)) }))
   },
 }))

@@ -1,41 +1,37 @@
 package com.nexacrm.repository;
 
 import com.nexacrm.model.Deal;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
-import java.math.BigDecimal;
 import java.util.List;
 
-public interface DealRepository extends JpaRepository<Deal, Long> {
+public interface DealRepository extends MongoRepository<Deal, String> {
 
     List<Deal> findByStageAndTenantIdAndDeletedFalse(Deal.DealStage stage, Long tenantId);
 
-    @Query("""
-        SELECT d FROM Deal d
-        WHERE d.tenantId = :tenantId
-          AND d.deleted = false
-          AND (:stage IS NULL OR CAST(d.stage AS string) = :stage)
-          AND (:ownerId IS NULL OR d.owner.id = :ownerId)
-          AND (:pipelineId IS NULL OR d.pipelineId = :pipelineId)
-    """)
-    Page<Deal> findDeals(
-        @Param("tenantId")   Long tenantId,
-        @Param("stage")      String stage,
-        @Param("ownerId")    Long ownerId,
-        @Param("pipelineId") Long pipelineId,
-        Pageable pageable
+    List<Deal> findByTenantIdAndDeletedFalse(Long tenantId);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndStage(Long tenantId, Deal.DealStage stage);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndOwner_Id(Long tenantId, String ownerId);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndPipelineId(Long tenantId, Long pipelineId);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndStageAndOwner_Id(Long tenantId, Deal.DealStage stage, String ownerId);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndStageAndPipelineId(Long tenantId, Deal.DealStage stage, Long pipelineId);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndOwner_IdAndPipelineId(Long tenantId, String ownerId, Long pipelineId);
+
+    List<Deal> findByTenantIdAndDeletedFalseAndStageAndOwner_IdAndPipelineId(
+        Long tenantId, Deal.DealStage stage, String ownerId, Long pipelineId
     );
 
-    @Query("SELECT SUM(d.dealValue) FROM Deal d WHERE d.tenantId = :tenantId AND d.stage = 'WON' AND d.deleted = false")
-    BigDecimal getTotalWonRevenue(@Param("tenantId") Long tenantId);
+    long countByTenantIdAndDeletedFalse(Long tenantId);
 
-    @Query("SELECT d.stage, COUNT(d), SUM(d.dealValue) FROM Deal d WHERE d.tenantId = :tenantId AND d.deleted = false GROUP BY d.stage")
-    List<Object[]> getPipelineSummary(@Param("tenantId") Long tenantId);
+    long countByTenantIdAndDeletedFalseAndStage(Long tenantId, Deal.DealStage stage);
 
-    @Query("SELECT COUNT(d) FROM Deal d WHERE d.owner.id = :userId AND d.stage = 'WON' AND d.deleted = false")
-    long countWonByUser(@Param("userId") Long userId);
+    long countByOwner_IdAndStageAndDeletedFalse(String userId, Deal.DealStage stage);
+
+    List<Deal> findByTenantIdAndStageAndDeletedFalse(Long tenantId, Deal.DealStage stage);
 }

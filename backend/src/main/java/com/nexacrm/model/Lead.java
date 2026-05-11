@@ -1,90 +1,93 @@
 package com.nexacrm.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Entity
-@Table(name = "leads", indexes = {
-    @Index(name = "idx_lead_tenant",   columnList = "tenant_id"),
-    @Index(name = "idx_lead_status",   columnList = "status"),
-    @Index(name = "idx_lead_score",    columnList = "score"),
-    @Index(name = "idx_lead_assigned", columnList = "assigned_to"),
-})
+@Document(collection = "leads")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Lead extends BaseEntity {
 
-    @Column(nullable = false)
+    @Field("name")
     private String name;
 
-    @Column(nullable = false)
+    @Indexed
+    @Field("email")
     private String email;
 
+    @Field("phone")
     private String phone;
+    @Field("company")
     private String company;
+    @Field("website")
     private String website;
+    @Field("designation")
     private String designation;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Indexed
+    @Field("source")
     private LeadSource source;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Indexed
+    @Field("status")
     private LeadStatus status = LeadStatus.NEW;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Indexed
+    @Field("score")
     private LeadScore score = LeadScore.COLD;
 
-    @Enumerated(EnumType.STRING)
+    @Field("priority")
     private LeadPriority priority = LeadPriority.MEDIUM;
 
-    @Column(precision = 15, scale = 2)
+    @Field("deal_value")
     private BigDecimal dealValue;
 
     // UTM Tracking
-    @Column(name = "utm_source")
+    @Field("utm_source")
     private String utmSource;
 
-    @Column(name = "utm_medium")
+    @Field("utm_medium")
     private String utmMedium;
 
-    @Column(name = "utm_campaign")
+    @Field("utm_campaign")
     private String utmCampaign;
 
     // AI fields
-    @Column(name = "ai_score_value")
+    @Field("ai_score_value")
     private Integer aiScoreValue;
 
-    @Column(name = "ai_next_action", columnDefinition = "TEXT")
+    @Field("ai_next_action")
     private String aiNextAction;
 
     // Relations
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_to")
+    @DBRef(lazy = true)
+    @Field("assigned_to")
     private User assignedTo;
 
-    @Column(name = "tags")
+    @Field("tags")
     private String tags;  // comma-separated
 
-    @Column(columnDefinition = "TEXT")
+    @Field("notes")
     private String notes;
 
-    @Column(name = "last_contacted_at")
+    @Field("last_contacted_at")
     private LocalDateTime lastContactedAt;
 
     // Facebook Lead Ads tracking
-    @Column(name = "facebook_lead_id", unique = true)
+    @Indexed(unique = true, sparse = true)
+    @Field("facebook_lead_id")
     private String facebookLeadId;
 
-    @Column(name = "facebook_form_id")
+    @Field("facebook_form_id")
     private String facebookFormId;
 
-    @Column(name = "facebook_ad_id")
+    @Field("facebook_ad_id")
     private String facebookAdId;
 
     // Enums

@@ -26,7 +26,7 @@ public class DealController {
     @GetMapping
     public ResponseEntity<PageResponse<DealDTO>> getDeals(
             @RequestParam(required = false) String stage,
-            @RequestParam(required = false) Long ownerId,
+            @RequestParam(required = false) String ownerId,
             @RequestParam(required = false) Long pipelineId,
             Pageable pageable) {
         return ResponseEntity.ok(dealService.findAll(stage, ownerId, pipelineId, pageable));
@@ -40,7 +40,7 @@ public class DealController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DealDTO> getDealById(@PathVariable Long id) {
+    public ResponseEntity<DealDTO> getDealById(@PathVariable String id) {
         return ResponseEntity.ok(dealService.findById(id));
     }
 
@@ -51,32 +51,32 @@ public class DealController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<DealDTO> updateDeal(@PathVariable Long id, @Valid @RequestBody DealDTO dto) {
+    public ResponseEntity<DealDTO> updateDeal(@PathVariable String id, @Valid @RequestBody DealDTO dto) {
         return ResponseEntity.ok(dealService.update(id, dto));
     }
 
     @PatchMapping("/{id}/stage")
     @Operation(summary = "Move deal to a different stage")
     public ResponseEntity<DealDTO> moveStage(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(dealService.moveStage(id, body.get("stage")));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDeal(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteDeal(@PathVariable String id) {
         dealService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/activities")
-    public ResponseEntity<List<Map<String, Object>>> getActivities(@PathVariable Long id) {
+    public ResponseEntity<List<Map<String, Object>>> getActivities(@PathVariable String id) {
         return ResponseEntity.ok(dealService.getActivities(id));
     }
 
     @PostMapping("/{id}/activities")
     public ResponseEntity<Map<String, Object>> addActivity(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody Map<String, Object> activity) {
         return ResponseEntity.status(HttpStatus.CREATED).body(dealService.addActivity(id, activity));
     }

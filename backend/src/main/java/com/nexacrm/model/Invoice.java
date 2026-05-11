@@ -1,57 +1,59 @@
 package com.nexacrm.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-@Entity
-@Table(name = "invoices")
+@Document(collection = "invoices")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Invoice extends BaseEntity {
 
-    @Column(name = "invoice_number", nullable = false, unique = true)
+    @Indexed(unique = true)
+    @Field("invoice_number")
     private String invoiceNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
+    @DBRef(lazy = true)
+    @Field("customer")
     private Customer customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "deal_id")
+    @DBRef(lazy = true)
+    @Field("deal")
     private Deal deal;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Field("status")
     private InvoiceStatus status = InvoiceStatus.DRAFT;
 
-    @Column(name = "issue_date", nullable = false)
+    @Field("issue_date")
     private LocalDate issueDate;
 
-    @Column(name = "due_date", nullable = false)
+    @Field("due_date")
     private LocalDate dueDate;
 
-    @Column(name = "paid_date")
+    @Field("paid_date")
     private LocalDate paidDate;
 
     // Amounts
-    @Column(name = "subtotal", precision = 15, scale = 2)
+    @Field("subtotal")
     private BigDecimal subtotal;
 
-    @Column(name = "gst_rate", precision = 5, scale = 2)
+    @Field("gst_rate")
     private BigDecimal gstRate = BigDecimal.valueOf(18);
 
-    @Column(name = "gst_amount", precision = 15, scale = 2)
+    @Field("gst_amount")
     private BigDecimal gstAmount;
 
-    @Column(name = "total", precision = 15, scale = 2)
+    @Field("total")
     private BigDecimal total;
 
-    @Column(name = "notes", columnDefinition = "TEXT")
+    @Field("notes")
     private String notes;
 
-    @Column(name = "tally_ref")
+    @Field("tally_ref")
     private String tallyRef;
 
     public enum InvoiceStatus { DRAFT, SENT, PENDING, PAID, OVERDUE, CANCELLED }

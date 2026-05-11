@@ -34,14 +34,14 @@ public class LeadController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String score,
             @RequestParam(required = false) String source,
-            @RequestParam(required = false) Long assignedTo,
+            @RequestParam(required = false) String assignedTo,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(leadService.findAll(search, status, score, source, assignedTo, pageable));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get lead by ID")
-    public ResponseEntity<LeadDTO> getLeadById(@PathVariable Long id) {
+    public ResponseEntity<LeadDTO> getLeadById(@PathVariable String id) {
         return ResponseEntity.ok(leadService.findById(id));
     }
 
@@ -89,14 +89,14 @@ public class LeadController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update lead")
-    public ResponseEntity<LeadDTO> updateLead(@PathVariable Long id, @Valid @RequestBody LeadDTO dto) {
+    public ResponseEntity<LeadDTO> updateLead(@PathVariable String id, @Valid @RequestBody LeadDTO dto) {
         return ResponseEntity.ok(leadService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @Operation(summary = "Delete lead")
-    public ResponseEntity<Void> deleteLead(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteLead(@PathVariable String id) {
         leadService.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -104,7 +104,7 @@ public class LeadController {
     @PostMapping("/bulk-delete")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @Operation(summary = "Bulk delete leads")
-    public ResponseEntity<Map<String, Integer>> bulkDelete(@RequestBody Map<String, List<Long>> body) {
+    public ResponseEntity<Map<String, Integer>> bulkDelete(@RequestBody Map<String, List<String>> body) {
         int count = leadService.bulkDelete(body.get("ids"));
         return ResponseEntity.ok(Map.of("deleted", count));
     }
@@ -132,14 +132,14 @@ public class LeadController {
 
     @PostMapping("/{id}/score")
     @Operation(summary = "Trigger AI lead scoring")
-    public ResponseEntity<Map<String, Object>> scoreLead(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> scoreLead(@PathVariable String id) {
         return ResponseEntity.ok(leadService.scoreWithAI(id));
     }
 
     @PostMapping("/{id}/convert")
     @Operation(summary = "Convert lead to customer and create deal")
     public ResponseEntity<Map<String, Object>> convertLead(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody(required = false) Map<String, Object> options) {
         return ResponseEntity.ok(leadService.convertToCustomer(id, options));
     }

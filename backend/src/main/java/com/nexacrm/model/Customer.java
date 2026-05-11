@@ -1,44 +1,49 @@
 package com.nexacrm.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-@Entity
-@Table(name = "customers")
+@Document(collection = "customers")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Customer extends BaseEntity {
 
-    @Column(nullable = false)
+    @Field("name")
     private String name;
 
-    @Column(nullable = false)
+    @Field("email")
     private String email;
 
+    @Field("phone")
     private String phone;
+    @Field("company")
     private String company;
+    @Field("industry")
     private String industry;
+    @Field("website")
     private String website;
 
-    @Column(name = "primary_contact")
+    @Field("primary_contact")
     private String primaryContact;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_manager_id")
+    @DBRef(lazy = true)
+    @Field("account_manager")
     private User accountManager;
 
-    @Column(name = "health_score")
+    @Field("health_score")
     private Integer healthScore;
 
-    @Enumerated(EnumType.STRING)
+    @Field("status")
     private CustomerStatus status = CustomerStatus.ACTIVE;
 
-    @Column(name = "gstin")
+    @Field("gstin")
     private String gstin;
 
-    @Column(columnDefinition = "TEXT")
+    @Field("notes")
     private String notes;
 
-    @Column(name = "avatar_url")
+    @Field("avatar_url")
     private String avatarUrl;
 
     public enum CustomerStatus { ACTIVE, INACTIVE, AT_RISK, CHURNED }

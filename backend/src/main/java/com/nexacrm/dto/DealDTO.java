@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class DealDTO {
-    private Long id;
+    private String id;
 
     @NotBlank
     private String title;
@@ -28,11 +28,11 @@ public class DealDTO {
     private Integer winProbability;
     private Long pipelineId;
 
-    private Long leadId;
+    private String leadId;
     private String leadName;
     private String company;
 
-    private Long ownerId;
+    private String ownerId;
     private String ownerName;
 
     private String aiScore;

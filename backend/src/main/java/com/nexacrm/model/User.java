@@ -1,46 +1,46 @@
 package com.nexacrm.model;
 
-import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.util.Collection;
 import java.util.List;
 
-@Entity
-@Table(name = "users",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"email", "tenant_id"}))
+@Document(collection = "users")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User extends BaseEntity implements UserDetails {
 
-    @Column(nullable = false)
+    @Field("name")
     private String name;
 
-    @Column(nullable = false)
+    @Indexed
+    @Field("email")
     private String email;
 
-    @Column(nullable = false)
+    @Field("password")
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Field("role")
     private Role role;
 
-    @Column(name = "phone")
+    @Field("phone")
     private String phone;
 
-    @Column(name = "avatar_url")
+    @Field("avatar_url")
     private String avatarUrl;
 
-    @Column(name = "is_active", nullable = false)
+    @Field("is_active")
     private Boolean isActive = true;
 
-    @Column(name = "two_fa_enabled")
+    @Field("two_fa_enabled")
     private Boolean twoFaEnabled = false;
 
-    @Column(name = "two_fa_secret")
+    @Field("two_fa_secret")
     private String twoFaSecret;
 
     // ── UserDetails implementation ───────────────────────────────
