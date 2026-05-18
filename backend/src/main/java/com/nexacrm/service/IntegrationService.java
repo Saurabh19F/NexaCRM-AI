@@ -1,6 +1,7 @@
 package com.nexacrm.service;
 
 import com.nexacrm.dto.IntegrationConfigResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@RequiredArgsConstructor
 public class IntegrationService {
 
     private static final Map<String, List<String>> REQUIRED_FIELDS = Map.of(
@@ -21,9 +23,11 @@ public class IntegrationService {
         "gmail", List.of("clientId", "clientSecret", "refreshToken"),
         "google_calendar", List.of("clientId", "clientSecret"),
         "openai", List.of("apiKey"),
-        "linkedin", List.of("clientId", "clientSecret")
+        "linkedin", List.of("clientId", "clientSecret"),
+        "google_sheets_leads", List.of("spreadsheetId", "sheetName")
     );
 
+    private final LeadService leadService;
     private final Map<String, Map<String, String>> configs = new ConcurrentHashMap<>();
     private final Set<String> connected = ConcurrentHashMap.newKeySet();
 
@@ -62,11 +66,31 @@ public class IntegrationService {
 
         validateRequired(testValues, required);
 
+        if ("google_sheets_leads".equals(normalizedId)) {
+            return leadService.testPublicGoogleSheetAccess(testValues);
+        }
+
         return Map.of(
             "ok", true,
             "message", "Connection test passed for " + normalizedId,
             "integration", normalizedId
         );
+    }
+
+    public Map<String, Object> sync(String integrationId, Map<String, String> values) {
+        String normalizedId = normalizeId(integrationId);
+        if (!"google_sheets_leads".equals(normalizedId)) {
+            throw new IllegalStateException("Sync is not supported for integration: " + normalizedId);
+        }
+
+        Map<String, String> savedValues = configs.getOrDefault(normalizedId, Map.of());
+        Map<String, String> merged = new LinkedHashMap<>(savedValues);
+        if (values != null && !values.isEmpty()) {
+            values.forEach((k, v) -> merged.put(k, v == null ? "" : v.trim()));
+        }
+
+        validateRequired(merged, getRequiredFields(normalizedId));
+        return leadService.syncFromPublicGoogleSheet(merged);
     }
 
     public void disconnect(String integrationId) {

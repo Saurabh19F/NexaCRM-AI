@@ -29,6 +29,10 @@ public class Lead extends BaseEntity {
     private String website;
     @Field("designation")
     private String designation;
+    @Field("service")
+    private String service;
+    @Field("specialization")
+    private String specialization;
 
     @Indexed
     @Field("source")

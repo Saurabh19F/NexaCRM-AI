@@ -1,16 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Shield, Plus, Trophy, Edit, Trash2, Crown, UserCheck, User, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { TEAM_PERFORMANCE } from '../../utils/mockData'
-
-const MOCK_TEAM = [
-  { id: 1, name: 'Saurabh Kumar', email: 'saurabhke4@gmail.com', phone: '+91 9876543210', password: 'admin123', role: 'ADMIN', status: 'active', leads: 0, deals: 0, avatar: 'S', badge: '👑', joinedAt: '2025-01-01' },
-  { id: 2, name: 'Priya Sharma', email: 'priya@nexacrm.com', phone: '+91 9876500011', password: 'manager123', role: 'MANAGER', status: 'active', leads: 42, deals: 18, avatar: 'P', badge: '🏆', joinedAt: '2025-03-15' },
-  { id: 3, name: 'Rahul Mehta', email: 'rahul@nexacrm.com', phone: '+91 9876500022', password: 'sales123', role: 'SALES_EXEC', status: 'active', leads: 38, deals: 15, avatar: 'R', badge: '🥈', joinedAt: '2025-04-01' },
-  { id: 4, name: 'Amit Kumar', email: 'amit@nexacrm.com', phone: '+91 9876500033', password: 'sales123', role: 'SALES_EXEC', status: 'active', leads: 31, deals: 10, avatar: 'A', badge: '🥉', joinedAt: '2025-05-10' },
-  { id: 5, name: 'Neha Singh', email: 'neha@nexacrm.com', phone: '+91 9876500044', password: 'sales123', role: 'SALES_EXEC', status: 'inactive', leads: 12, deals: 4, avatar: 'N', badge: '', joinedAt: '2025-08-20' },
-]
+import { teamAPI } from '../../services/api'
+import { useAuthStore } from '../../store/authStore'
+import { PERMISSIONS as APP_PERMISSIONS, hasPermission } from '../../utils/permissions'
 
 const ROLE_CONFIG = {
   ADMIN: { label: 'Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
@@ -18,7 +13,13 @@ const ROLE_CONFIG = {
   SALES_EXEC: { label: 'Sales Exec', icon: User, cls: 'badge bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400' },
 }
 
-const PERMISSIONS = {
+const ROLE_PERFORMANCE_LABEL = {
+  ADMIN: 'Admin account',
+  MANAGER: 'Manager account',
+  SALES_EXEC: 'Sales account',
+}
+
+const ROLE_PERMISSION_LABELS = {
   ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   MANAGER: ['View all data', 'Manage assigned team', 'View reports', 'Create campaigns', 'Export data'],
   SALES_EXEC: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
@@ -26,7 +27,7 @@ const PERMISSIONS = {
 
 const buildPermissionState = () =>
   Object.fromEntries(
-    Object.entries(PERMISSIONS).map(([role, permissions]) => [
+    Object.entries(ROLE_PERMISSION_LABELS).map(([role, permissions]) => [
       role,
       Object.fromEntries(permissions.map((permission) => [permission, true])),
     ])
@@ -45,12 +46,53 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^\+?[0-9\s-]{7,15}$/
 
 export default function TeamPage() {
-  const [team, setTeam] = useState(MOCK_TEAM)
+  const { user } = useAuthStore()
+  const [team, setTeam] = useState([])
+  const [loadingTeam, setLoadingTeam] = useState(true)
   const [selectedRole, setSelectedRole] = useState('SALES_EXEC')
   const [permissionsByRole, setPermissionsByRole] = useState(buildPermissionState)
   const [memberModal, setMemberModal] = useState(null)
   const [memberForm, setMemberForm] = useState(MEMBER_FORM_INITIAL)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const canInvite = hasPermission(user, APP_PERMISSIONS.TEAM_INVITE)
+  const canUpdate = hasPermission(user, APP_PERMISSIONS.TEAM_UPDATE)
+  const canDeactivate = hasPermission(user, APP_PERMISSIONS.TEAM_DEACTIVATE)
+  const canConfigure = hasPermission(user, APP_PERMISSIONS.SETTINGS_UPDATE)
+  const isManager = user?.role === 'MANAGER'
+  const isAdmin = user?.role === 'ADMIN'
+  const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || roleKey !== 'ADMIN')
+
+  useEffect(() => {
+    let mounted = true
+    const loadTeam = async () => {
+      setLoadingTeam(true)
+      try {
+        const users = await teamAPI.getAll()
+        if (!mounted) return
+        const normalized = (users ?? []).map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone || '',
+          role: u.role || 'SALES_EXEC',
+          status: u.isActive === false ? 'inactive' : 'active',
+          leads: 0,
+          deals: 0,
+          avatar: (u.name || 'U').charAt(0).toUpperCase(),
+          badge: '',
+          joinedAt: '',
+        }))
+        setTeam(normalized)
+      } catch (err) {
+        toast.error(err?.message || 'Failed to load team from MongoDB')
+      } finally {
+        if (mounted) setLoadingTeam(false)
+      }
+    }
+
+    loadTeam()
+    return () => { mounted = false }
+  }, [])
 
   const closeMemberModal = () => {
     setMemberModal(null)
@@ -58,11 +100,23 @@ export default function TeamPage() {
   }
 
   const openInviteModal = () => {
+    if (!canInvite) {
+      toast.error('You do not have permission to invite members.')
+      return
+    }
     setMemberForm(MEMBER_FORM_INITIAL)
     setMemberModal({ mode: 'add', memberId: null })
   }
 
   const openEditModal = (member) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to edit members.')
+      return
+    }
+    if (isManager && member.role === 'ADMIN') {
+      toast.error('Managers cannot edit admin users.')
+      return
+    }
     setMemberForm({
       name: member.name,
       email: member.email,
@@ -114,6 +168,10 @@ export default function TeamPage() {
       toast.error('Select a valid role.')
       return null
     }
+    if (isManager && memberForm.role === 'ADMIN') {
+      toast.error('Managers can invite only Manager or Sales Executive.')
+      return null
+    }
     if (!['active', 'inactive'].includes(memberForm.status)) {
       toast.error('Select a valid status.')
       return null
@@ -131,7 +189,7 @@ export default function TeamPage() {
     return { name, email, phone, password }
   }
 
-  const handleMemberSubmit = (e) => {
+  const handleMemberSubmit = async (e) => {
     e.preventDefault()
     const validated = validateMemberForm()
     if (!validated) return
@@ -140,26 +198,36 @@ export default function TeamPage() {
     const avatar = name.charAt(0).toUpperCase() || 'U'
 
     if (memberModal?.mode === 'add') {
-      const nextId = team.length ? Math.max(...team.map((member) => member.id)) + 1 : 1
-      setTeam((prev) => [
-        ...prev,
-        {
-          id: nextId,
+      try {
+        const created = await teamAPI.invite({
           name,
           email,
           phone,
           password,
           role: memberForm.role,
-          status: memberForm.status,
-          leads: 0,
-          deals: 0,
-          avatar,
-          badge: '',
-          joinedAt: new Date().toISOString().slice(0, 10),
-        },
-      ])
-      toast.success(`Member invited: ${name}`)
-      closeMemberModal()
+          isActive: memberForm.status === 'active',
+        })
+        setTeam((prev) => [
+          ...prev,
+          {
+            id: created.id,
+            name: created.name,
+            email: created.email,
+            phone: created.phone || '',
+            role: created.role || memberForm.role,
+            status: created.isActive === false ? 'inactive' : 'active',
+            leads: 0,
+            deals: 0,
+            avatar,
+            badge: '',
+            joinedAt: '',
+          },
+        ])
+        toast.success(`Member invited: ${name}`)
+        closeMemberModal()
+      } catch (err) {
+        toast.error(err?.message || 'Failed to invite member')
+      }
       return
     }
 
@@ -175,27 +243,45 @@ export default function TeamPage() {
       return
     }
 
-    setTeam((prev) =>
-      prev.map((member) => {
-        if (member.id !== currentMember.id) return member
-        const nextMember = {
-          ...member,
-          name,
-          email,
-          phone,
-          role: memberForm.role,
-          status: memberForm.status,
-          avatar,
-        }
-        if (password) nextMember.password = password
-        return nextMember
-      })
-    )
-    toast.success(`Updated ${name}`)
-    closeMemberModal()
+    try {
+      const updatePayload = {
+        name,
+        email,
+        phone,
+        password: password || undefined,
+      }
+      if (isAdmin) {
+        updatePayload.role = memberForm.role
+        updatePayload.isActive = memberForm.status === 'active'
+      }
+
+      const updated = await teamAPI.update(String(currentMember.id), updatePayload)
+      setTeam((prev) =>
+        prev.map((member) => {
+          if (member.id !== currentMember.id) return member
+          return {
+            ...member,
+            name: updated.name,
+            email: updated.email,
+            phone: updated.phone || '',
+            role: updated.role || member.role,
+            status: updated.isActive === false ? 'inactive' : 'active',
+            avatar,
+          }
+        })
+      )
+      toast.success(`Updated ${name}`)
+      closeMemberModal()
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update member')
+    }
   }
 
   const handleDeleteMember = (member) => {
+    if (!canDeactivate) {
+      toast.error('You do not have permission to deactivate members.')
+      return
+    }
     if (member.role === 'ADMIN' && getAdminCount() <= 1) {
       toast.error('Cannot delete the last admin account.')
       return
@@ -203,14 +289,23 @@ export default function TeamPage() {
     setDeleteTarget(member)
   }
 
-  const confirmDeleteMember = () => {
+  const confirmDeleteMember = async () => {
     if (!deleteTarget) return
-    setTeam((prev) => prev.filter((member) => member.id !== deleteTarget.id))
-    toast.success(`Deleted ${deleteTarget.name}`)
-    setDeleteTarget(null)
+    try {
+      await teamAPI.delete(String(deleteTarget.id))
+      setTeam((prev) => prev.filter((member) => member.id !== deleteTarget.id))
+      toast.success(`Deleted ${deleteTarget.name}`)
+      setDeleteTarget(null)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to delete member')
+    }
   }
 
   const togglePermission = (role, permission) => {
+    if (!canConfigure) {
+      toast.error('You do not have permission to configure role permissions.')
+      return
+    }
     setPermissionsByRole((prev) => {
       const nextEnabled = !prev[role][permission]
       const next = {
@@ -234,9 +329,11 @@ export default function TeamPage() {
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">{team.length} members · Role-based access control</p>
         </div>
-        <button onClick={openInviteModal} className="btn-primary gap-1.5 text-sm">
-          <Plus className="w-4 h-4" /> Invite Member
-        </button>
+        {canInvite && (
+          <button onClick={openInviteModal} className="btn-primary gap-1.5 text-sm">
+            <Plus className="w-4 h-4" /> Invite Member
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -252,7 +349,21 @@ export default function TeamPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 dark:divide-slate-700/40">
-              {team.map((member) => {
+              {loadingTeam && (
+                <tr>
+                  <td colSpan={5} className="py-8 px-4 text-center text-slate-500">
+                    Loading team from MongoDB...
+                  </td>
+                </tr>
+              )}
+              {!loadingTeam && team.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 px-4 text-center text-slate-500">
+                    No team members found.
+                  </td>
+                </tr>
+              )}
+              {!loadingTeam && team.map((member) => {
                 const roleCfg = ROLE_CONFIG[member.role]
                 return (
                   <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
@@ -277,26 +388,32 @@ export default function TeamPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-xs text-slate-500">
-                      {member.leads > 0 ? `${member.leads} leads · ${member.deals} deals` : 'Admin account'}
+                      {member.leads > 0
+                        ? `${member.leads} leads · ${member.deals} deals`
+                        : (ROLE_PERFORMANCE_LABEL[member.role] || 'Sales account')}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-1">
-                        <button
-                          onClick={() => openEditModal(member)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-500"
-                          title={`Edit ${member.name}`}
-                          aria-label={`Edit ${member.name}`}
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMember(member)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500"
-                          title={`Delete ${member.name}`}
-                          aria-label={`Delete ${member.name}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canUpdate && (
+                          <button
+                            onClick={() => openEditModal(member)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-500"
+                            title={`Edit ${member.name}`}
+                            aria-label={`Edit ${member.name}`}
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canDeactivate && (
+                          <button
+                            onClick={() => handleDeleteMember(member)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500"
+                            title={`Delete ${member.name}`}
+                            aria-label={`Delete ${member.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -311,7 +428,7 @@ export default function TeamPage() {
         <div className="glass-card p-5 space-y-4">
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Role Permissions</h2>
           <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
-            {Object.keys(PERMISSIONS).map((role) => (
+            {Object.keys(ROLE_PERMISSION_LABELS).map((role) => (
               <button
                 key={role}
                 onClick={() => setSelectedRole(role)}
@@ -442,29 +559,33 @@ export default function TeamPage() {
                       placeholder={memberModal.mode === 'add' ? 'Enter password' : 'Leave blank to keep current password'}
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Role</label>
-                    <select
-                      value={memberForm.role}
-                      onChange={(e) => setMemberForm((prev) => ({ ...prev, role: e.target.value }))}
-                      className="input"
-                    >
-                      {Object.keys(ROLE_CONFIG).map((roleKey) => (
-                        <option key={roleKey} value={roleKey}>{ROLE_CONFIG[roleKey].label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Status</label>
-                    <select
-                      value={memberForm.status}
-                      onChange={(e) => setMemberForm((prev) => ({ ...prev, status: e.target.value }))}
-                      className="input"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
+                  {(memberModal.mode === 'add' || isAdmin) && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Role</label>
+                      <select
+                        value={memberForm.role}
+                        onChange={(e) => setMemberForm((prev) => ({ ...prev, role: e.target.value }))}
+                        className="input"
+                      >
+                        {roleOptions.map((roleKey) => (
+                          <option key={roleKey} value={roleKey}>{ROLE_CONFIG[roleKey].label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {(memberModal.mode === 'add' || isAdmin) && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Status</label>
+                      <select
+                        value={memberForm.status}
+                        onChange={(e) => setMemberForm((prev) => ({ ...prev, status: e.target.value }))}
+                        className="input"
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-2">

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, CheckCircle2, ExternalLink, Copy, Eye, EyeOff,
   RefreshCw, Zap, Brain, Link2, Shield,
-  Users, TrendingUp, MessageSquare, Mail, Calendar, Linkedin
+  Users, TrendingUp, MessageSquare, Mail, Calendar, Linkedin, Sheet
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useIntegrationsStore } from '../store/integrationsStore'
@@ -99,6 +99,30 @@ const INTEGRATIONS = [
     Icon: () => <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="2" y="4" width="20" height="18" rx="2" fill="white" stroke="#4285F4" strokeWidth="1.5"/><path d="M2 9h20" stroke="#4285F4" strokeWidth="1.5"/><rect x="7" y="2" width="2" height="4" rx="1" fill="#4285F4"/><rect x="15" y="2" width="2" height="4" rx="1" fill="#4285F4"/><text x="12" y="18" textAnchor="middle" fill="#EA4335" fontSize="7" fontWeight="bold">AI</text></svg>,
   },
   {
+    id: 'google_sheets_leads', name: 'Google Sheets Leads', category: 'Data Sync',
+    tagline: 'Manual sync from public Google Sheet to CRM Leads',
+    description: 'Connect your public Google Sheet and manually sync lead rows into NexaCRM without Google Cloud Console or OAuth setup.',
+    features: ['Manual configure', 'No console setup', 'Header auto-mapping', 'One-click lead sync'],
+    color: '#16A34A', bg: '#EDFFF3',
+    authType: 'manual',
+    docsUrl: 'https://support.google.com/docs/answer/3093335',
+    defaultValues: {
+      spreadsheetId: '1iiarMz6cIv-eTKI3vJtqlL_oTUUvrE1PYeM3liLFL88',
+      sheetName: 'Leads(Kriscel.com)',
+      gid: '0',
+      sourceLabel: 'Kriscel.com'
+    },
+    fields: [
+      { key: 'spreadsheetId', label: 'Spreadsheet ID', placeholder: '1iiarMz6cIv-eTKI3vJtqlL_oTUUvrE1PYeM3liLFL88', hint: 'From your sheet URL between /d/ and /edit' },
+      { key: 'sheetName', label: 'Sheet Tab Name', placeholder: 'Leads(Kriscel.com)' },
+      { key: 'gid', label: 'Sheet GID (optional)', placeholder: '0', hint: 'From URL: ...?gid=0' },
+      { key: 'sourceLabel', label: 'Source Label (optional)', placeholder: 'Kriscel.com' },
+      { key: 'publishedCsvUrl', label: 'Published CSV URL (recommended)', placeholder: 'https://docs.google.com/spreadsheets/d/e/.../pub?output=csv', hint: 'From File -> Share -> Publish to web -> CSV' },
+      { key: 'appsScriptWebAppUrl', label: 'Apps Script Web App URL (optional)', placeholder: 'https://script.google.com/macros/s/.../exec', hint: 'Store for team reference' },
+    ],
+    Icon: Sheet,
+  },
+  {
     id: 'openai', name: 'OpenAI GPT-4', category: 'AI',
     tagline: 'Power all AI features with GPT-4o',
     description: 'Connect your OpenAI API key to enable AI lead scoring, email drafting, deal prediction, smart replies, and the CRM AI assistant chatbot.',
@@ -119,6 +143,7 @@ const CAT_COLORS = {
   'Messaging':    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   'Email':        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   'Calendar':     'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  'Data Sync':    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   'AI':           'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
 }
 
@@ -135,13 +160,15 @@ function SetupModal({ integration, onClose }) {
     configs,
     connected,
     testing,
+    syncing,
     saving,
     saveIntegration,
+    syncIntegration,
     testIntegration,
     disconnectIntegration,
   } = useIntegrationsStore()
   const saved = configs[integration.id] || {}
-  const [values, setValues] = useState({ ...saved })
+  const [values, setValues] = useState({ ...(integration.defaultValues || {}), ...saved })
   const [revealed, setRevealed] = useState({})
   const [tested, setTested] = useState(false)
   const isConnected = !!connected[integration.id]
@@ -172,6 +199,16 @@ function SetupModal({ integration, onClose }) {
       onClose()
     } catch (err) {
       toast.error(getErrorMessage(err, 'Failed to save integration. Make sure backend is restarted.'))
+    }
+  }
+
+  const handleManualSync = async () => {
+    if (integration.id !== 'google_sheets_leads') return
+    try {
+      const result = await syncIntegration(integration.id, values)
+      toast.success(`Sync complete: ${result.imported || 0} imported, ${result.skipped || 0} skipped`)
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Lead sync failed. Verify sheet settings and backend status.'))
     }
   }
 
@@ -211,12 +248,16 @@ function SetupModal({ integration, onClose }) {
           <div className={`mx-5 mt-4 p-3 rounded-xl border flex gap-3 text-xs ${
             integration.authType === 'oauth'
               ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400'
+              : integration.authType === 'manual'
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
               : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
           }`}>
             <Shield className="w-4 h-4 flex-shrink-0 mt-0.5"/>
             <div>
               {integration.authType === 'oauth'
                 ? <><strong>{integration.oauthProvider} OAuth 2.0</strong> — Create an app in the developer console, paste credentials below.</>
+                : integration.authType === 'manual'
+                ? <><strong>Manual setup mode</strong> — Uses public sheet CSV + backend sync (no Google Cloud Console needed).</>
                 : <><strong>API Key</strong> — Encrypted before storage. Never share publicly.</>}
               {' '}<a href={integration.docsUrl} target="_blank" rel="noreferrer"
                  className="underline font-semibold inline-flex items-center gap-0.5 ml-1">
@@ -257,6 +298,21 @@ function SetupModal({ integration, onClose }) {
             ))}
           </div>
 
+          {integration.id === 'google_sheets_leads' && (
+            <div className="mx-5 mb-4 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-900/20">
+              <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-2">
+                Manual Setup (No Console)
+              </p>
+              <ol className="space-y-1 text-xs text-emerald-800 dark:text-emerald-200 list-decimal list-inside">
+                <li>Open your Google Sheet and keep the tab name exactly <strong>Leads(Kriscel.com)</strong>.</li>
+                <li>Share as <strong>Anyone with link - Viewer</strong> (for CSV read access).</li>
+                <li>Best method: <strong>File, then Share, then Publish to web, then CSV</strong>, then paste that link into <strong>Published CSV URL</strong>.</li>
+                <li>Paste <strong>Spreadsheet ID</strong>, <strong>Sheet Tab Name</strong>, and optional <strong>GID</strong> here.</li>
+                <li>Click <strong>Test</strong>, then <strong>Connect</strong>, then <strong>Sync Existing Leads</strong>.</li>
+              </ol>
+            </div>
+          )}
+
           {/* Features */}
           <div className="px-5 pb-4">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Unlocks</p>
@@ -285,6 +341,12 @@ function SetupModal({ integration, onClose }) {
               <RefreshCw className={`w-3 h-3 ${testing ? 'animate-spin' : ''}`}/>
               {testing ? 'Testing…' : tested ? '✓ Tested' : 'Test'}
             </button>
+            {integration.id === 'google_sheets_leads' && (
+              <button onClick={handleManualSync} disabled={syncing || saving || testing} className="btn-secondary text-xs gap-1.5 disabled:opacity-60">
+                <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`}/>
+                {syncing ? 'Syncing…' : 'Sync Existing Leads'}
+              </button>
+            )}
             <button onClick={handleSave} disabled={saving || testing} className="btn-primary text-xs gap-1.5 disabled:opacity-60" style={{ background: integration.color, borderColor: integration.color }}>
               <Link2 className="w-3 h-3"/>
               {saving ? 'Saving…' : isConnected ? 'Update' : 'Connect'}
@@ -325,7 +387,9 @@ function IntegrationCard({ integration, isConnected, onOpen }) {
       </div>
       <button className="w-full text-xs font-semibold py-2 rounded-xl transition-all mt-auto"
         style={{ background: isConnected ? '#f1f5f9' : integration.color, color: isConnected ? '#475569' : '#fff' }}>
-        {isConnected ? 'Configure' : 'Connect'}
+        {integration.id === 'google_sheets_leads'
+          ? (isConnected ? 'Manual Configure' : 'Manual Connect')
+          : (isConnected ? 'Configure' : 'Connect')}
       </button>
     </motion.div>
   )
@@ -341,7 +405,7 @@ export default function IntegrationsPage() {
     if (!loaded) fetchIntegrations()
   }, [fetchIntegrations, loaded])
 
-  const categories = ['All', 'Social Media', 'Messaging', 'Email', 'Calendar', 'AI']
+  const categories = ['All', 'Social Media', 'Messaging', 'Email', 'Calendar', 'Data Sync', 'AI']
   const filtered = filter === 'All' ? INTEGRATIONS : INTEGRATIONS.filter(i => i.category === filter)
   const connectedCount = Object.values(connected).filter(Boolean).length
 

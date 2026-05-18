@@ -15,9 +15,11 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLeadsStore } from '../../store/leadsStore'
+import { useAuthStore } from '../../store/authStore'
 import { getLeadAgingMeta } from '../../utils/leadSla'
 import { dealsAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
+import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 
 const STAGES = [
   { key: 'new',         label: 'New',         color: 'bg-slate-400' },
@@ -76,6 +78,8 @@ function DealCard({
   onMoveDeal,
   onDeleteDeal,
   agingMeta,
+  canMoveDeal,
+  canDeleteDeal,
 }) {
   const ScoreIcon = SCORE_CONFIG[deal.score]?.icon ?? Flame
   const scoreColor = SCORE_CONFIG[deal.score]?.color ?? 'text-slate-400'
@@ -86,17 +90,19 @@ function DealCard({
         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight pr-2 line-clamp-2">
           {deal.title}
         </p>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleMenu(deal.id)
-          }}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0"
-          data-deal-menu
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
+        {(canMoveDeal || canDeleteDeal) && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleMenu(deal.id)
+            }}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0"
+            data-deal-menu
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <AnimatePresence>
@@ -111,7 +117,7 @@ function DealCard({
             className="absolute right-2 top-8 z-40 w-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg overflow-hidden"
             data-deal-menu
           >
-            {STAGES.filter((s) => s.key !== stage).map((s) => (
+            {canMoveDeal && STAGES.filter((s) => s.key !== stage).map((s) => (
               <button
                 key={s.key}
                 onClick={() => onMoveDeal(deal.id, s.key)}
@@ -120,14 +126,16 @@ function DealCard({
                 Move to {s.label}
               </button>
             ))}
-            <div className="h-px bg-slate-200 dark:bg-slate-700" />
-            <button
-              onClick={() => onDeleteDeal(deal.id)}
-              className="w-full px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete Deal
-            </button>
+            {canMoveDeal && canDeleteDeal && <div className="h-px bg-slate-200 dark:bg-slate-700" />}
+            {canDeleteDeal && (
+              <button
+                onClick={() => onDeleteDeal(deal.id)}
+                className="w-full px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Deal
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -172,6 +180,8 @@ function SortableDealCard({
   onMoveDeal,
   onDeleteDeal,
   agingMeta,
+  canMoveDeal,
+  canDeleteDeal,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
@@ -192,6 +202,8 @@ function SortableDealCard({
         onMoveDeal={onMoveDeal}
         onDeleteDeal={onDeleteDeal}
         agingMeta={agingMeta}
+        canMoveDeal={canMoveDeal}
+        canDeleteDeal={canDeleteDeal}
       />
     </div>
   )
@@ -206,6 +218,9 @@ function KanbanColumn({
   onMoveDeal,
   onDeleteDeal,
   getAgingMetaForDeal,
+  canCreateDeal,
+  canMoveDeal,
+  canDeleteDeal,
 }) {
   const totalValue = deals.reduce((s, d) => s + d.value, 0)
   return (
@@ -219,12 +234,14 @@ function KanbanColumn({
             {deals.length}
           </span>
         </div>
-        <button
-          onClick={() => onAddDeal(stage.key)}
-          className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        {canCreateDeal && (
+          <button
+            onClick={() => onAddDeal(stage.key)}
+            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Column value */}
@@ -247,6 +264,8 @@ function KanbanColumn({
               onMoveDeal={onMoveDeal}
               onDeleteDeal={onDeleteDeal}
               agingMeta={getAgingMetaForDeal(deal)}
+              canMoveDeal={canMoveDeal}
+              canDeleteDeal={canDeleteDeal}
             />
           ))}
         </div>
@@ -262,6 +281,7 @@ function KanbanColumn({
 }
 
 export default function KanbanPage() {
+  const { user } = useAuthStore()
   const { leads } = useLeadsStore()
   const [deals, setDeals] = useState(EMPTY_STAGE_MAP)
   const [loadingDeals, setLoadingDeals] = useState(true)
@@ -284,6 +304,10 @@ export default function KanbanPage() {
     score: 'warm',
     stage: 'new',
   })
+  const canCreateDeal = hasPermission(user, PERMISSIONS.DEALS_CREATE)
+  const canUpdateDeal = hasPermission(user, PERMISSIONS.DEALS_UPDATE)
+  const canMoveDeal = hasPermission(user, PERMISSIONS.DEALS_MOVE_STAGE)
+  const canDeleteDeal = hasPermission(user, PERMISSIONS.DEALS_DELETE)
   const filterRef = useRef(null)
 
   const sensors = useSensors(
@@ -359,6 +383,7 @@ export default function KanbanPage() {
   const handleDragStart = ({ active }) => setActiveId(active.id)
 
   const handleDragEnd = async ({ active, over }) => {
+    if (!canMoveDeal) return
     setActiveId(null)
     if (!over || active.id === over.id) return
 
@@ -391,6 +416,10 @@ export default function KanbanPage() {
   }
 
   const moveDeal = async (dealId, targetStage) => {
+    if (!canMoveDeal) {
+      toast.error('You do not have permission to move deals.')
+      return
+    }
     try {
       await dealsAPI.moveStage(dealId, targetStage.toUpperCase())
       setDeals((prev) => {
@@ -420,6 +449,10 @@ export default function KanbanPage() {
   }
 
   const deleteDeal = async (dealId) => {
+    if (!canDeleteDeal) {
+      toast.error('You do not have permission to delete deals.')
+      return
+    }
     try {
       await dealsAPI.delete(dealId)
       setDeals((prev) => {
@@ -437,6 +470,10 @@ export default function KanbanPage() {
   }
 
   const openAddDealModal = (stage = 'new') => {
+    if (!canCreateDeal) {
+      toast.error('You do not have permission to create deals.')
+      return
+    }
     setNewDeal({
       title: '',
       company: '',
@@ -452,6 +489,10 @@ export default function KanbanPage() {
 
   const createDeal = async (e) => {
     e.preventDefault()
+    if (!canCreateDeal) {
+      toast.error('You do not have permission to create deals.')
+      return
+    }
     const value = Number(newDeal.value)
     if (!newDeal.title.trim() || !newDeal.company.trim() || !value) return
 
@@ -577,9 +618,11 @@ export default function KanbanPage() {
             </AnimatePresence>
           </div>
 
-          <button onClick={() => openAddDealModal('new')} className="btn-primary gap-1.5 text-xs">
-            <Plus className="w-3.5 h-3.5" /> Add Deal
-          </button>
+          {canCreateDeal && (
+            <button onClick={() => openAddDealModal('new')} className="btn-primary gap-1.5 text-xs">
+              <Plus className="w-3.5 h-3.5" /> Add Deal
+            </button>
+          )}
         </div>
       </div>
 
@@ -599,9 +642,12 @@ export default function KanbanPage() {
               onAddDeal={openAddDealModal}
               openDealMenuId={openDealMenuId}
               onToggleDealMenu={toggleDealMenu}
-              onMoveDeal={moveDeal}
-              onDeleteDeal={deleteDeal}
+              onMoveDeal={canMoveDeal ? moveDeal : () => {}}
+              onDeleteDeal={canDeleteDeal ? deleteDeal : () => {}}
               getAgingMetaForDeal={getAgingMetaForDeal}
+              canCreateDeal={canCreateDeal}
+              canMoveDeal={canMoveDeal}
+              canDeleteDeal={canDeleteDeal}
             />
           ))}
         </div>
@@ -617,6 +663,8 @@ export default function KanbanPage() {
               onMoveDeal={() => {}}
               onDeleteDeal={() => {}}
               agingMeta={getAgingMetaForDeal(activeDeal)}
+              canMoveDeal={false}
+              canDeleteDeal={false}
             />
           ) : null}
         </DragOverlay>

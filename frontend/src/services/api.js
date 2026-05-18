@@ -78,6 +78,7 @@ export const authAPI = {
   login:  (data) => api.post('/auth/login', data),
   logout: ()     => api.post('/auth/logout'),
   me:     ()     => api.get('/auth/me'),
+  updateMe:(data)=> api.put('/auth/me', data),
   refresh:()     => api.post('/auth/refresh'),
 }
 
@@ -139,6 +140,8 @@ export const commsAPI = {
   getWhatsAppMessages:       (contact) => api.get('/communications/whatsapp/messages', { params: { contact } }),
   getFacebookConversations:  () => api.get('/communications/facebook/conversations'),
   getFacebookMessages:       (psid) => api.get('/communications/facebook/messages', { params: { psid } }),
+  getInstagramConversations: () => api.get('/communications/instagram/conversations'),
+  getInstagramMessages:      (igsid) => api.get('/communications/instagram/messages', { params: { igsid } }),
   aiSuggestReply:   (data)   => api.post('/communications/ai-suggest', data),
 }
 
@@ -149,7 +152,8 @@ export const integrationsAPI = {
   getAll:      ()           => api.get('/integrations'),
   getById:     (id)         => api.get(`/integrations/${id}`),
   save:        (id, values) => api.put(`/integrations/${id}`, { values }),
-  test:        (id, values) => api.post(`/integrations/${id}/test`, { values }),
+  test:        (id, values) => api.post(`/integrations/${id}/test`, { values }, { timeout: 30000 }),
+  sync:        (id, values) => api.post(`/integrations/${id}/sync`, { values }, { timeout: 45000 }),
   disconnect:  (id)         => api.delete(`/integrations/${id}`),
 }
 
@@ -212,7 +216,7 @@ export const teamAPI = {
   invite:   (data) => api.post('/users/invite', data),
   update:   (id,d) => api.put(`/users/${id}`, d),
   delete:   (id)   => api.delete(`/users/${id}`),
-  getRoles: ()     => api.get('/roles'),
+  getRoles: ()     => api.get('/users/roles'),
 }
 
 // ──────────────────────────────────────────

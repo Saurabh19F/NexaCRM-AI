@@ -6,7 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 @Document(collection = "communications")
 @Getter
@@ -50,10 +50,13 @@ public class CommunicationRecord {
     private String status = "SENT";
 
     @Field("created_at")
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     @Field("contact_identifier")
     private String contactIdentifier;
+
+    @Field("contact_name")
+    private String contactName;
 
     @Field("provider")
     private String provider;

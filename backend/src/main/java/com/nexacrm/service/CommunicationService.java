@@ -21,17 +21,21 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +48,8 @@ public class CommunicationService {
     private final IntegrationService integrationService;
     private final CommunicationRecordRepository communicationRecordRepository;
     private final ObjectMapper objectMapper;
+    private final Map<String, String> facebookNameCache = new ConcurrentHashMap<>();
+    private final Map<String, String> instagramNameCache = new ConcurrentHashMap<>();
 
     @Value("${spring.mail.username}")
     private String smtpFrom;
@@ -62,6 +68,24 @@ public class CommunicationService {
 
     @Value("${nexacrm.whatsapp.aiadrika.access-token:}")
     private String defaultAccessToken;
+
+    @Value("${meta.page-access-token:}")
+    private String defaultFacebookPageAccessToken;
+
+    @Value("${meta.graph-api-version:v19.0}")
+    private String metaGraphApiVersion;
+
+    @Value("${meta.facebook.out-of-window.retry-with-message-tag:false}")
+    private boolean retryFacebookOutOfWindowWithMessageTag;
+
+    @Value("${meta.facebook.message-tag:HUMAN_AGENT}")
+    private String facebookMessageTag;
+
+    @Value("${nexacrm.auto-reply.enabled:true}")
+    private boolean autoReplyEnabled;
+
+    @Value("${nexacrm.auto-reply.message:Thanks for messaging NexaCRM! We received your message and will get back to you shortly.}")
+    private String autoReplyMessage;
 
     public void sendEmail(EmailSendRequest request) {
         validateSmtpConfiguration();
@@ -156,9 +180,10 @@ public class CommunicationService {
         return latestByContact.values().stream()
             .map(row -> WhatsAppConversationResponse.builder()
                 .contact(row.getContactIdentifier())
+                .name(trim(row.getContactName()))
                 .lastMessage(row.getBody())
                 .lastDirection(row.getDirection())
-                .lastAt(row.getCreatedAt())
+                .lastAt(asUtcOffsetDateTime(row.getCreatedAt()))
                 .build())
             .sorted(Comparator.comparing(
                 (WhatsAppConversationResponse c) -> c.getLastAt() == null ? OffsetDateTime.MIN : c.getLastAt()
@@ -176,6 +201,7 @@ public class CommunicationService {
             if (!entries.isArray()) return;
 
             int saved = 0;
+            Map<String, String> localNameCache = new HashMap<>();
             for (JsonNode entry : entries) {
                 JsonNode messaging = entry.path("messaging");
                 if (!messaging.isArray()) continue;
@@ -188,11 +214,18 @@ public class CommunicationService {
                     String text = trim(msgNode.path("text").asText(""));
                     String mid  = trim(msgNode.path("mid").asText(""));
                     if (text.isBlank()) continue;
+                    if (isDuplicateInboundEvent("FACEBOOK", mid)) {
+                        continue;
+                    }
+                    String displayName = localNameCache.computeIfAbsent(psid, this::resolveFacebookProfileName);
 
                     boolean persisted = tryPersistCommunication(
-                        "FACEBOOK", "IN", psid, text, "RECEIVED", mid, toJson(event), "facebook_messenger"
+                        "FACEBOOK", "IN", psid, text, "RECEIVED", mid, toJson(event), "facebook_messenger", displayName
                     );
-                    if (persisted) saved++;
+                    if (persisted) {
+                        saved++;
+                        sendAutoReplySafely("facebook", psid);
+                    }
                 }
             }
             log.info("Facebook Messenger webhook processed, inbound saved={}", saved);
@@ -225,9 +258,96 @@ public class CommunicationService {
         return latestByContact.values().stream()
             .map(row -> WhatsAppConversationResponse.builder()
                 .contact(row.getContactIdentifier())
+                .name(resolveFacebookDisplayName(row))
                 .lastMessage(row.getBody())
                 .lastDirection(row.getDirection())
-                .lastAt(row.getCreatedAt())
+                .lastAt(asUtcOffsetDateTime(row.getCreatedAt()))
+                .build())
+            .sorted(Comparator.comparing(
+                (WhatsAppConversationResponse c) -> c.getLastAt() == null ? OffsetDateTime.MIN : c.getLastAt()
+            ).reversed())
+            .toList();
+    }
+
+    // ── Instagram Messaging ──────────────────────────────────────
+
+    @Async
+    public void processInstagramMessengerWebhookAsync(String rawBody) {
+        try {
+            JsonNode root = objectMapper.readTree(rawBody);
+            JsonNode entries = root.path("entry");
+            if (!entries.isArray()) return;
+
+            int saved = 0;
+            for (JsonNode entry : entries) {
+                JsonNode messaging = entry.path("messaging");
+                if (!messaging.isArray()) continue;
+                for (JsonNode event : messaging) {
+                    String igsid = trim(event.at("/sender/id").asText(""));
+                    JsonNode msgNode = event.path("message");
+                    if (igsid.isBlank() || msgNode.isMissingNode()) continue;
+                    if (msgNode.path("is_echo").asBoolean(false)) continue;
+
+                    String text = trim(msgNode.path("text").asText(""));
+                    String mid = trim(msgNode.path("mid").asText(""));
+                    if (text.isBlank()) continue;
+                    if (isDuplicateInboundEvent("INSTAGRAM", mid)) {
+                        continue;
+                    }
+
+                    String displayName = extractInstagramDisplayName(event, igsid);
+                    boolean persisted = tryPersistCommunication(
+                        "INSTAGRAM",
+                        "IN",
+                        igsid,
+                        text,
+                        "RECEIVED",
+                        mid,
+                        toJson(event),
+                        "instagram_messaging",
+                        displayName
+                    );
+                    if (persisted) {
+                        saved++;
+                        sendAutoReplySafely("instagram", igsid);
+                    }
+                }
+            }
+            log.info("Instagram webhook processed, inbound saved={}", saved);
+        } catch (Exception e) {
+            log.error("Error processing Instagram webhook", e);
+        }
+    }
+
+    public List<WhatsAppMessageResponse> getInstagramMessages(String igsid) {
+        String normalizedIgsid = trim(igsid);
+        return communicationRecordRepository
+            .findTop500ByChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc("INSTAGRAM", normalizedIgsid)
+            .stream()
+            .map(this::toMessageResponse)
+            .toList();
+    }
+
+    public List<WhatsAppConversationResponse> getInstagramConversations() {
+        List<CommunicationRecord> rows = communicationRecordRepository.findByChannelIgnoreCaseOrderByCreatedAtDesc(
+            "INSTAGRAM",
+            PageRequest.of(0, 1000)
+        );
+
+        Map<String, CommunicationRecord> latestByContact = new LinkedHashMap<>();
+        for (CommunicationRecord row : rows) {
+            String contact = trim(row.getContactIdentifier());
+            if (contact.isBlank()) continue;
+            latestByContact.putIfAbsent(contact, row);
+        }
+
+        return latestByContact.values().stream()
+            .map(row -> WhatsAppConversationResponse.builder()
+                .contact(row.getContactIdentifier())
+                .name(resolveInstagramDisplayName(row))
+                .lastMessage(row.getBody())
+                .lastDirection(row.getDirection())
+                .lastAt(asUtcOffsetDateTime(row.getCreatedAt()))
                 .build())
             .sorted(Comparator.comparing(
                 (WhatsAppConversationResponse c) -> c.getLastAt() == null ? OffsetDateTime.MIN : c.getLastAt()
@@ -253,6 +373,9 @@ public class CommunicationService {
             if (!"IN".equals(direction)) {
                 continue;
             }
+            if (isDuplicateInboundEvent("WHATSAPP", externalId)) {
+                continue;
+            }
 
             boolean persisted = tryPersistCommunication(
                 "WHATSAPP",
@@ -266,6 +389,7 @@ public class CommunicationService {
             );
             if (persisted) {
                 saved++;
+                sendAutoReplySafely("whatsapp", contact);
             }
         }
 
@@ -281,6 +405,16 @@ public class CommunicationService {
     private void sendSocialMessage(String channel, String recipient, String body) {
         if ("whatsapp".equals(channel)) {
             sendViaAiadrikaWhatsApp(recipient, body);
+            return;
+        }
+
+        if ("facebook".equals(channel)) {
+            sendViaFacebookMessenger(recipient, body);
+            return;
+        }
+
+        if ("instagram".equals(channel)) {
+            sendViaInstagramMessaging(recipient, body);
             return;
         }
 
@@ -353,9 +487,232 @@ public class CommunicationService {
         }
     }
 
+    private void sendViaFacebookMessenger(String recipient, String body) {
+        String psid = recipient == null ? "" : recipient.replaceAll("\\D", "");
+        if (psid.isBlank()) {
+            throw new IllegalStateException("Invalid Facebook PSID.");
+        }
+
+        Map<String, String> config = integrationService.getConfig("facebook");
+        String accessToken = trim(config.get("accessToken"));
+        if (accessToken.isBlank()) {
+            accessToken = trim(defaultFacebookPageAccessToken);
+        }
+        if (accessToken.isBlank()) {
+            throw new IllegalStateException("Facebook Page access token is missing in Integrations or backend config.");
+        }
+
+        String url = UriComponentsBuilder
+            .fromHttpUrl("https://graph.facebook.com/{version}/me/messages")
+            .queryParam("access_token", accessToken)
+            .buildAndExpand(metaGraphApiVersion)
+            .toUriString();
+
+        Map<String, Object> responsePayload = Map.of(
+            "recipient", Map.of("id", psid),
+            "messaging_type", "RESPONSE",
+            "message", Map.of("text", body)
+        );
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = new RestTemplate().postForObject(url, responsePayload, Map.class);
+            persistFacebookSend(psid, body, response);
+            log.info("Facebook message sent to PSID {}", psid);
+        } catch (HttpStatusCodeException ex) {
+            String apiBody = trim(ex.getResponseBodyAsString());
+            log.error("Facebook send failed: status={}, body={}", ex.getStatusCode(), apiBody);
+
+            if (isOutsideFacebookMessagingWindow(apiBody)) {
+                if (retryFacebookOutOfWindowWithMessageTag) {
+                    String tag = normalizeFacebookMessageTag(facebookMessageTag);
+                    Map<String, Object> taggedPayload = Map.of(
+                        "recipient", Map.of("id", psid),
+                        "messaging_type", "MESSAGE_TAG",
+                        "tag", tag,
+                        "message", Map.of("text", body)
+                    );
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> taggedResponse = new RestTemplate().postForObject(url, taggedPayload, Map.class);
+                        persistFacebookSend(psid, body, taggedResponse);
+                        log.info("Facebook message sent to PSID {} with MESSAGE_TAG {}", psid, tag);
+                        return;
+                    } catch (HttpStatusCodeException tagEx) {
+                        String taggedApiBody = trim(tagEx.getResponseBodyAsString());
+                        log.error(
+                            "Facebook MESSAGE_TAG send failed: status={}, tag={}, body={}",
+                            tagEx.getStatusCode(),
+                            tag,
+                            taggedApiBody
+                        );
+                        throw new IllegalStateException(
+                            "Facebook rejected the message outside the 24-hour window. "
+                                + "Retry with MESSAGE_TAG also failed. "
+                                + "Use an allowed tag/use-case or wait for user re-engagement."
+                        );
+                    } catch (Exception tagEx) {
+                        log.error("Facebook MESSAGE_TAG send failed: {}", tagEx.getMessage(), tagEx);
+                        throw new IllegalStateException(
+                            "Facebook rejected the message outside the 24-hour window and tag retry failed."
+                        );
+                    }
+                }
+
+                throw new IllegalStateException(
+                    "Facebook Messenger 24-hour policy blocked this send. "
+                        + "Ask the contact to message your Page first, or enable message-tag retry in backend config for valid non-promotional use cases."
+                );
+            }
+
+            throw new IllegalStateException(
+                apiBody.isBlank()
+                    ? "Failed to send Facebook message."
+                    : "Facebook send failed: " + apiBody
+            );
+        } catch (Exception ex) {
+            log.error("Facebook send failed: {}", ex.getMessage(), ex);
+            throw new IllegalStateException("Failed to send Facebook message.");
+        }
+    }
+
+    private void persistFacebookSend(String psid, String body, Map<String, Object> response) {
+        String externalId = "";
+        if (response != null && response.get("message_id") != null) {
+            externalId = String.valueOf(response.get("message_id"));
+        }
+        String rawPayload = response == null ? "" : toJson(objectMapper.valueToTree(response));
+        String displayName = resolveFacebookProfileName(psid);
+        tryPersistCommunication(
+            "FACEBOOK",
+            "OUT",
+            psid,
+            body,
+            "SENT",
+            externalId,
+            rawPayload,
+            "facebook_messenger",
+            displayName
+        );
+    }
+
+    private boolean isOutsideFacebookMessagingWindow(String apiBody) {
+        String normalized = trim(apiBody).toLowerCase(Locale.ROOT);
+        return normalized.contains("outside the allowed window")
+            || (normalized.contains("\"code\":10") && normalized.contains("messenger-platform/policy-overview"));
+    }
+
+    private String normalizeFacebookMessageTag(String tag) {
+        String normalized = trim(tag).toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+        return normalized.isBlank() ? "HUMAN_AGENT" : normalized;
+    }
+
+    private void sendViaInstagramMessaging(String recipient, String body) {
+        String igsid = trim(recipient);
+        if (igsid.isBlank()) {
+            throw new IllegalStateException("Invalid Instagram recipient ID.");
+        }
+
+        Map<String, String> instagramConfig = integrationService.getConfig("instagram");
+        String igAccountId = trim(instagramConfig.get("igAccountId"));
+        String accessToken = trim(instagramConfig.get("accessToken"));
+
+        if (accessToken.isBlank()) {
+            accessToken = trim(defaultFacebookPageAccessToken);
+        }
+        if (igAccountId.isBlank()) {
+            throw new IllegalStateException("Instagram Account ID is missing in Integrations.");
+        }
+        if (accessToken.isBlank()) {
+            throw new IllegalStateException("Instagram access token is missing in Integrations or backend config.");
+        }
+
+        String url = UriComponentsBuilder
+            .fromHttpUrl("https://graph.facebook.com/{version}/{igAccountId}/messages")
+            .queryParam("access_token", accessToken)
+            .buildAndExpand(metaGraphApiVersion, igAccountId)
+            .toUriString();
+
+        Map<String, Object> payload = Map.of(
+            "recipient", Map.of("id", igsid),
+            "messaging_type", "RESPONSE",
+            "message", Map.of("text", body)
+        );
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = new RestTemplate().postForObject(url, payload, Map.class);
+            String externalId = "";
+            if (response != null && response.get("message_id") != null) {
+                externalId = String.valueOf(response.get("message_id"));
+            }
+            String rawPayload = response == null ? "" : toJson(objectMapper.valueToTree(response));
+            String displayName = instagramNameCache.getOrDefault(igsid, "");
+            tryPersistCommunication(
+                "INSTAGRAM",
+                "OUT",
+                igsid,
+                body,
+                "SENT",
+                externalId,
+                rawPayload,
+                "instagram_messaging",
+                displayName
+            );
+            log.info("Instagram message sent to IGSID {}", igsid);
+        } catch (HttpStatusCodeException ex) {
+            String apiBody = trim(ex.getResponseBodyAsString());
+            log.error("Instagram send failed: status={}, body={}", ex.getStatusCode(), apiBody);
+            throw new IllegalStateException(
+                apiBody.isBlank()
+                    ? "Failed to send Instagram message."
+                    : "Instagram send failed: " + apiBody
+            );
+        } catch (Exception ex) {
+            log.error("Instagram send failed: {}", ex.getMessage(), ex);
+            throw new IllegalStateException("Failed to send Instagram message.");
+        }
+    }
+
     private String normalizeSubject(String subject) {
         String normalized = subject == null ? "" : subject.trim();
         return normalized.isBlank() ? "NexaCRM message" : normalized;
+    }
+
+    private boolean isDuplicateInboundEvent(String channel, String externalId) {
+        String normalizedExternalId = trim(externalId);
+        if (normalizedExternalId.isBlank()) {
+            return false;
+        }
+        try {
+            boolean duplicate = communicationRecordRepository.existsByChannelIgnoreCaseAndExternalId(
+                channel,
+                normalizedExternalId
+            );
+            if (duplicate) {
+                log.debug("Duplicate inbound {} event skipped for externalId={}", channel, normalizedExternalId);
+            }
+            return duplicate;
+        } catch (Exception ex) {
+            log.warn("Duplicate check failed for {} externalId={}: {}", channel, normalizedExternalId, ex.getMessage());
+            return false;
+        }
+    }
+
+    private void sendAutoReplySafely(String channel, String recipient) {
+        if (!autoReplyEnabled) {
+            return;
+        }
+        String replyText = trim(autoReplyMessage);
+        if (replyText.isBlank()) {
+            return;
+        }
+        try {
+            sendSocialMessage(channel, recipient, replyText);
+            log.info("Auto-reply sent on {} to {}", channel, recipient);
+        } catch (Exception ex) {
+            log.warn("Auto-reply failed on {} to {}: {}", channel, recipient, ex.getMessage());
+        }
     }
 
     private String trim(String value) {
@@ -372,6 +729,20 @@ public class CommunicationService {
         String rawPayload,
         String provider
     ) {
+        persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, null);
+    }
+
+    private void persistCommunication(
+        String channel,
+        String direction,
+        String contactIdentifier,
+        String body,
+        String status,
+        String externalId,
+        String rawPayload,
+        String provider,
+        String contactName
+    ) {
         CommunicationRecord record = new CommunicationRecord();
         record.setTenantId(1L);
         record.setChannel(channel);
@@ -385,9 +756,13 @@ public class CommunicationService {
         } else {
             record.setContactIdentifier(trim(contactIdentifier));
         }
+        String normalizedName = trim(contactName);
+        if (!normalizedName.isBlank()) {
+            record.setContactName(normalizedName);
+        }
         record.setProvider(provider);
         record.setRawPayload(rawPayload);
-        record.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        record.setCreatedAt(Instant.now());
         communicationRecordRepository.save(record);
     }
 
@@ -401,8 +776,22 @@ public class CommunicationService {
         String rawPayload,
         String provider
     ) {
+        return tryPersistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, null);
+    }
+
+    private boolean tryPersistCommunication(
+        String channel,
+        String direction,
+        String contactIdentifier,
+        String body,
+        String status,
+        String externalId,
+        String rawPayload,
+        String provider,
+        String contactName
+    ) {
         try {
-            persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider);
+            persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, contactName);
             return true;
         } catch (Exception ex) {
             log.warn(
@@ -424,8 +813,101 @@ public class CommunicationService {
             .body(row.getBody())
             .status(row.getStatus())
             .externalId(row.getExternalId())
-            .createdAt(row.getCreatedAt())
+            .createdAt(asUtcOffsetDateTime(row.getCreatedAt()))
             .build();
+    }
+
+    private OffsetDateTime asUtcOffsetDateTime(Instant timestamp) {
+        return timestamp == null ? null : timestamp.atOffset(ZoneOffset.UTC);
+    }
+
+    private String resolveFacebookDisplayName(CommunicationRecord row) {
+        String existing = trim(row.getContactName());
+        if (!existing.isBlank()) {
+            return existing;
+        }
+        String psid = trim(row.getContactIdentifier());
+        String resolved = resolveFacebookProfileName(psid);
+        return resolved.isBlank() ? "PSID: " + psid : resolved;
+    }
+
+    private String resolveFacebookProfileName(String psidRaw) {
+        String psid = psidRaw == null ? "" : psidRaw.replaceAll("\\D", "");
+        if (psid.isBlank()) {
+            return "";
+        }
+        String cached = trim(facebookNameCache.get(psid));
+        if (!cached.isBlank()) {
+            return cached;
+        }
+
+        String accessToken = trim(integrationService.getConfig("facebook").get("accessToken"));
+        if (accessToken.isBlank()) {
+            accessToken = trim(defaultFacebookPageAccessToken);
+        }
+        if (accessToken.isBlank()) {
+            return "";
+        }
+
+        try {
+            String url = UriComponentsBuilder
+                .fromHttpUrl("https://graph.facebook.com/{version}/{psid}")
+                .queryParam("fields", "name,first_name,last_name")
+                .queryParam("access_token", accessToken)
+                .buildAndExpand(metaGraphApiVersion, psid)
+                .toUriString();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> profile = new RestTemplate().getForObject(url, Map.class);
+            if (profile == null) return "";
+
+            String name = trim(asText(profile.get("name")));
+            if (name.isBlank()) {
+                String first = trim(asText(profile.get("first_name")));
+                String last = trim(asText(profile.get("last_name")));
+                name = trim((first + " " + last).trim());
+            }
+
+            if (!name.isBlank()) {
+                facebookNameCache.put(psid, name);
+            }
+            return name;
+        } catch (Exception ex) {
+            log.debug("Could not resolve Facebook profile name for PSID {}: {}", psid, ex.getMessage());
+            return "";
+        }
+    }
+
+    private String resolveInstagramDisplayName(CommunicationRecord row) {
+        String existing = trim(row.getContactName());
+        if (!existing.isBlank()) {
+            return existing;
+        }
+        String igsid = trim(row.getContactIdentifier());
+        String cached = trim(instagramNameCache.get(igsid));
+        if (!cached.isBlank()) {
+            return cached;
+        }
+        return "IG: " + igsid;
+    }
+
+    private String extractInstagramDisplayName(JsonNode event, String igsid) {
+        String[] options = {
+            event.at("/sender/username").asText(""),
+            event.at("/sender/name").asText(""),
+            event.at("/sender/profile_name").asText("")
+        };
+        for (String option : options) {
+            String value = trim(option);
+            if (!value.isBlank()) {
+                instagramNameCache.put(igsid, value);
+                return value;
+            }
+        }
+        return trim(instagramNameCache.getOrDefault(igsid, ""));
+    }
+
+    private String asText(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private List<JsonNode> collectCandidates(JsonNode root) {

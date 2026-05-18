@@ -22,14 +22,8 @@ export default function LoginPage() {
       login(data.user, data.accessToken)
       toast.success(`Welcome back, ${data.user?.name ?? 'User'}!`)
       navigate('/dashboard')
-    } catch {
-      // Fall back to demo mode when backend is unavailable
-      login(
-        { id: 1, name: 'Saurabh Kumar', email, role: 'ADMIN', company: 'NexaCRM Demo Co.', tenantId: 1 },
-        null
-      )
-      toast.success('Welcome back, Saurabh! (Demo mode)')
-      navigate('/dashboard')
+    } catch (err) {
+      toast.error(err?.message || 'Login failed. Check backend connection and credentials.')
     } finally {
       setLoading(false)
     }

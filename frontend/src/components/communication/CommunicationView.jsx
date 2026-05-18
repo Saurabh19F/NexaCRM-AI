@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare, Mail, Phone, Instagram, Linkedin, Send, Sparkles, Search, Facebook,
-  CheckCheck, Check, Clock, AlertCircle, Plus, X, SquarePen
+  CheckCheck, Check, Clock, AlertCircle, Plus, X, SquarePen, Reply, Forward, Trash2, Smile
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { commsAPI } from '../../services/api'
@@ -126,6 +126,7 @@ const AI_SUGGESTIONS = [
   'That\'s great to hear! I can arrange a technical walkthrough with our solutions team this week. What time works best for you?',
   'Perfect timing! We have a special offer running this month for teams over 20 users. Let me share the details.',
 ]
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '🔥', '🙏', '😮']
 
 // ── Utility ───────────────────────────────────────────────────
 function nowTime() {
@@ -134,6 +135,7 @@ function nowTime() {
 function cleanPhone(p) { return String(p || '').replace(/\D/g, '') }
 function convIdForWhatsApp(contact) { return `whatsapp-${cleanPhone(contact)}` }
 function convIdForFacebook(psid) { return `facebook-${psid}` }
+function convIdForInstagram(igsid) { return `instagram-${igsid}` }
 function formatMessageTime(iso) {
   if (!iso) return nowTime()
   const dt = new Date(iso)
@@ -146,16 +148,53 @@ function getErrorMessage(err, fallback) {
   if (typeof err?.error === 'string' && err.error.trim()) return err.error
   return fallback
 }
+function messageSignature(msg) {
+  return `${msg.from || ''}|${msg.text || ''}|${msg.time || ''}`
+}
+function mergeSyncedMessages(existing = [], mapped = []) {
+  const existingById = new Map(existing.filter((m) => m?.id).map((m) => [m.id, m]))
+  const existingBySignature = new Map(existing.map((m) => [messageSignature(m), m]))
+
+  const merged = []
+  const usedLocalIds = new Set()
+  const mappedSignatures = new Set()
+
+  for (const incoming of mapped) {
+    const signature = messageSignature(incoming)
+    mappedSignatures.add(signature)
+    const local = existingById.get(incoming.id) || existingBySignature.get(signature)
+    if (local?.id) usedLocalIds.add(local.id)
+    if (local?.deleted) continue
+
+    merged.push({
+      ...incoming,
+      reaction: local?.reaction || '',
+      replyTo: local?.replyTo || null,
+      forwardedFrom: local?.forwardedFrom || null,
+    })
+  }
+
+  for (const local of existing) {
+    if (local?.deleted) continue
+    const existsById = local?.id && usedLocalIds.has(local.id)
+    const existsBySignature = mappedSignatures.has(messageSignature(local))
+    if (!existsById && !existsBySignature) {
+      merged.push(local)
+    }
+  }
+
+  return merged
+}
 
 // ── Message bubble ────────────────────────────────────────────
-function Bubble({ msg, isWA }) {
+function Bubble({ msg, isWA, onReply, onForward, onDelete, onReact, emojiPickerOpen, setEmojiPickerOpen }) {
   const isMe = msg.from === 'me'
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`max-w-[88%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
+      <div className={`group relative max-w-[88%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
         ${isMe
           ? isWA
             ? 'bg-emerald-500 text-white rounded-tr-sm'
@@ -163,6 +202,16 @@ function Bubble({ msg, isWA }) {
           : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm border border-slate-100 dark:border-slate-700'
         }`}
       >
+        {msg.replyTo?.text && (
+          <div className={`mb-2 rounded-lg px-2.5 py-1.5 text-[11px] border-l-2
+            ${isMe
+              ? 'bg-white/15 border-white/60 text-white/90'
+              : 'bg-slate-50 dark:bg-slate-700/50 border-slate-300 dark:border-slate-500 text-slate-500 dark:text-slate-300'}`}
+          >
+            <p className="font-semibold">{msg.replyTo.from === 'me' ? 'Replying to you' : 'Replying to contact'}</p>
+            <p className="line-clamp-2 whitespace-pre-wrap">{msg.replyTo.text}</p>
+          </div>
+        )}
         <p className="whitespace-pre-wrap">{msg.text}</p>
         <div className={`flex items-center justify-end gap-1 mt-1 ${isMe ? 'text-white/60' : 'text-slate-400'}`}>
           <span className="text-[10px]">{msg.time}</span>
@@ -173,6 +222,57 @@ function Bubble({ msg, isWA }) {
                                        <CheckCheck className="w-3 h-3" />
           )}
         </div>
+        {msg.reaction && (
+          <div className={`mt-1.5 flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+            <span className={`inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full text-xs
+              ${isMe ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}>
+              {msg.reaction}
+            </span>
+          </div>
+        )}
+        <div className={`mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isMe ? 'justify-end' : 'justify-start'}`}>
+          <button
+            onClick={() => setEmojiPickerOpen(emojiPickerOpen ? null : msg.id)}
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+            title="React with emoji"
+          >
+            <Smile className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onReply(msg)}
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+            title="Reply"
+          >
+            <Reply className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onForward(msg)}
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+            title="Forward"
+          >
+            <Forward className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onDelete(msg)}
+            className="p-1 rounded-md hover:bg-red-500/20 text-red-500"
+            title="Delete message"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        {emojiPickerOpen && (
+          <div className={`absolute z-10 bottom-0 translate-y-full mt-1 ${isMe ? 'right-0' : 'left-0'} flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-1.5 shadow-lg`}>
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => onReact(msg, emoji)}
+                className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm flex items-center justify-center"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   )
@@ -201,6 +301,8 @@ export default function CommunicationPage() {
   const [composeSubject, setComposeSubject] = useState('')
   const [composeBody, setComposeBody] = useState('')
   const [composeSending, setComposeSending] = useState(false)
+  const [replyToMessage, setReplyToMessage] = useState(null)
+  const [emojiPickerMessageId, setEmojiPickerMessageId] = useState(null)
   const messagesEndRef                = useRef(null)
   const inputRef                      = useRef(null)
 
@@ -234,23 +336,25 @@ export default function CommunicationPage() {
   const convMessages = activeId
     ? (history[activeId] || [])
     : []
+  const visibleMessages = convMessages.filter((m) => !m.deleted)
 
   // Last message preview
   function lastMsg(conv) {
-    const msgs = history[conv.id]
-    if (msgs && msgs.length > 0) return msgs[msgs.length - 1].text
+    const msgs = (history[conv.id] || []).filter((m) => !m.deleted)
+    if (msgs.length > 0) return msgs[msgs.length - 1].text
+    if (conv.lastMessage) return conv.lastMessage
     return 'No messages yet'
   }
 
   function unreadCount(conv) {
-    const msgs = history[conv.id] || []
+    const msgs = (history[conv.id] || []).filter((m) => !m.deleted)
     return msgs.filter((m) => m.from === 'lead' && !m.read).length || (conv.unread || 0)
   }
 
   // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [convMessages.length, activeId])
+  }, [visibleMessages.length, activeId])
 
   // Persist history
   useEffect(() => { saveHistory(history) }, [history])
@@ -260,6 +364,10 @@ export default function CommunicationPage() {
       setActiveId(conversations[0]?.id || null)
     }
   }, [activeId, conversations])
+  useEffect(() => {
+    setReplyToMessage(null)
+    setEmojiPickerMessageId(null)
+  }, [activeId])
 
   useEffect(() => {
     let cancelled = false
@@ -311,24 +419,86 @@ export default function CommunicationPage() {
       try {
         const rows = await commsAPI.getFacebookConversations()
         if (cancelled) return
+        let newestFacebookConvId = null
         setConversations((prev) => {
           const existing = new Map(prev.map((c) => [c.id, c]))
           const backendFacebook = rows.map((row) => {
             const psid = String(row.contact || '').trim()
             const id = convIdForFacebook(psid)
-            return { id, name: `PSID: ${psid}`, phone: '', recipient: psid, company: 'Facebook Messenger', channel: 'facebook', unread: 0 }
+            const displayName = String(row.name || '').trim()
+            return {
+              id,
+              name: displayName || `PSID: ${psid}`,
+              phone: '',
+              recipient: psid,
+              company: 'Facebook Messenger',
+              channel: 'facebook',
+              unread: 0,
+              lastMessage: row.lastMessage || '',
+            }
           })
           for (const conv of backendFacebook) {
+            if (!existing.has(conv.id)) {
+              newestFacebookConvId = conv.id
+            }
             existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
           }
           return Array.from(existing.values())
         })
+        if (newestFacebookConvId) {
+          setActiveId((current) => current || newestFacebookConvId)
+        }
       } catch {
         // keep local conversations when backend unreachable
       }
     }
     syncFacebookConversations()
     const timer = setInterval(syncFacebookConversations, 10000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [])
+
+  // ── Instagram conversations sync ──────────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    const syncInstagramConversations = async () => {
+      try {
+        const rows = await commsAPI.getInstagramConversations()
+        if (cancelled) return
+        let newestInstagramConvId = null
+        setConversations((prev) => {
+          const existing = new Map(prev.map((c) => [c.id, c]))
+          const backendInstagram = rows.map((row) => {
+            const igsid = String(row.contact || '').trim()
+            const id = convIdForInstagram(igsid)
+            const displayName = String(row.name || '').trim()
+            return {
+              id,
+              name: displayName || `IG: ${igsid}`,
+              phone: '',
+              recipient: igsid,
+              company: 'Instagram',
+              channel: 'instagram',
+              unread: 0,
+              lastMessage: row.lastMessage || '',
+            }
+          })
+          for (const conv of backendInstagram) {
+            if (!existing.has(conv.id)) {
+              newestInstagramConvId = conv.id
+            }
+            existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
+          }
+          return Array.from(existing.values())
+        })
+        if (newestInstagramConvId) {
+          setActiveId((current) => current || newestInstagramConvId)
+        }
+      } catch {
+        // keep local conversations when backend unreachable
+      }
+    }
+    syncInstagramConversations()
+    const timer = setInterval(syncInstagramConversations, 10000)
     return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
@@ -352,13 +522,38 @@ export default function CommunicationPage() {
         }))
         setHistory((prev) => {
           const existing = prev[activeConv.id] || []
-          const merged = [...mapped]
-          for (const localMsg of existing) {
-            if (!mapped.some((m) => m.from === localMsg.from && m.text === localMsg.text)) {
-              merged.push(localMsg)
-            }
-          }
-          return { ...prev, [activeConv.id]: merged }
+          return { ...prev, [activeConv.id]: mergeSyncedMessages(existing, mapped) }
+        })
+      } catch {
+        // keep local fallback when sync fails
+      }
+    }
+    syncMessages()
+    const timer = setInterval(syncMessages, 5000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient])
+
+  // ── Instagram message sync ────────────────────────────────────
+  useEffect(() => {
+    if (!activeConv || activeConv.channel !== 'instagram') return
+    const igsid = String(activeConv.recipient || '').trim()
+    if (!igsid) return
+
+    let cancelled = false
+    const syncMessages = async () => {
+      try {
+        const rows = await commsAPI.getInstagramMessages(igsid)
+        if (cancelled) return
+        const mapped = rows.map((row) => ({
+          id: `db-${row.id ?? `${igsid}-${row.createdAt}`}`,
+          from: String(row.direction || '').toUpperCase() === 'IN' ? 'lead' : 'me',
+          text: row.body || '',
+          time: formatMessageTime(row.createdAt),
+          status: String(row.direction || '').toUpperCase() === 'IN' ? 'read' : 'delivered',
+        }))
+        setHistory((prev) => {
+          const existing = prev[activeConv.id] || []
+          return { ...prev, [activeConv.id]: mergeSyncedMessages(existing, mapped) }
         })
       } catch {
         // keep local fallback when sync fails
@@ -390,17 +585,7 @@ export default function CommunicationPage() {
         }))
         setHistory((prev) => {
           const existing = prev[activeConv.id] || []
-
-          // Merge DB rows with local messages so polling never wipes just-sent UI messages.
-          const merged = [...mapped]
-          for (const localMsg of existing) {
-            const alreadyPresent = mapped.some(
-              (dbMsg) => dbMsg.from === localMsg.from && dbMsg.text === localMsg.text
-            )
-            if (!alreadyPresent) merged.push(localMsg)
-          }
-
-          return { ...prev, [activeConv.id]: merged }
+          return { ...prev, [activeConv.id]: mergeSyncedMessages(existing, mapped) }
         })
       } catch {
         // keep local fallback when sync fails
@@ -424,7 +609,14 @@ export default function CommunicationPage() {
     if (!activeConv) return
 
     const tempId = `msg-${Date.now()}`
-    const tempMsg = { id: tempId, from: 'me', text, time: nowTime(), status: 'sending' }
+    const tempMsg = {
+      id: tempId,
+      from: 'me',
+      text,
+      time: nowTime(),
+      status: 'sending',
+      replyTo: replyToMessage ? { ...replyToMessage } : null,
+    }
     const initialThread = history[activeConv.id] ?? []
 
     setHistory((prev) => ({
@@ -432,6 +624,8 @@ export default function CommunicationPage() {
       [activeConv.id]: [...initialThread, tempMsg],
     }))
     setMessage('')
+    setReplyToMessage(null)
+    setEmojiPickerMessageId(null)
     setSending(true)
 
     if (isWA) {
@@ -526,6 +720,55 @@ export default function CommunicationPage() {
   // AI suggestion
   function getAISuggestion() {
     setAiSuggestion(AI_SUGGESTIONS[Math.floor(Math.random() * AI_SUGGESTIONS.length)])
+  }
+
+  function handleReplyMessage(msg) {
+    setReplyToMessage({
+      id: msg.id,
+      text: msg.text,
+      from: msg.from,
+    })
+    setEmojiPickerMessageId(null)
+    inputRef.current?.focus()
+  }
+
+  function handleForwardMessage(msg) {
+    const defaultChannel = activeConv?.channel || 'email'
+    const defaultRecipient = String(
+      activeConv?.recipient || activeConv?.phone || activeConv?.email || ''
+    ).trim()
+
+    setComposeChannel(defaultChannel)
+    setComposeRecipient(defaultRecipient)
+    setComposeSubject(defaultChannel === 'email' ? `Fwd: Message from ${activeConv?.name || 'conversation'}` : '')
+    setComposeBody(`Forwarded message:\n${msg.text}`)
+    setComposeOpen(true)
+    setEmojiPickerMessageId(null)
+  }
+
+  function updateActiveMessage(messageId, updater) {
+    if (!activeId) return
+    setHistory((prev) => ({
+      ...prev,
+      [activeId]: (prev[activeId] || []).map((m) => (m.id === messageId ? updater(m) : m)),
+    }))
+  }
+
+  function handleDeleteMessage(msg) {
+    updateActiveMessage(msg.id, (current) => ({ ...current, deleted: true }))
+    if (replyToMessage?.id === msg.id) {
+      setReplyToMessage(null)
+    }
+    setEmojiPickerMessageId(null)
+    toast.success('Message deleted')
+  }
+
+  function handleMessageReaction(msg, emoji) {
+    updateActiveMessage(msg.id, (current) => ({
+      ...current,
+      reaction: current.reaction === emoji ? '' : emoji,
+    }))
+    setEmojiPickerMessageId(null)
   }
 
   // Start new WA conversation
@@ -656,8 +899,8 @@ export default function CommunicationPage() {
           <button
             onClick={() => {
               setComposeOpen(true)
-              if (activeConv?.channel === 'facebook') {
-                setComposeChannel('facebook')
+              if (activeConv?.channel === 'facebook' || activeConv?.channel === 'instagram') {
+                setComposeChannel(activeConv.channel)
                 setComposeRecipient(activeConv.recipient || '')
               }
             }}
@@ -796,7 +1039,7 @@ export default function CommunicationPage() {
                 ${isWA ? 'bg-[url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E")]' : ''}`}
                 style={isWA ? { background: 'linear-gradient(135deg, rgba(236,253,245,0.3) 0%, rgba(255,255,255,0) 100%)' } : {}}
               >
-                {convMessages.length === 0 ? (
+                {visibleMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
                     {isWA ? (
                       <>
@@ -821,8 +1064,18 @@ export default function CommunicationPage() {
                   </div>
                 ) : (
                   <>
-                    {convMessages.map((msg) => (
-                      <Bubble key={msg.id} msg={msg} isWA={isWA} />
+                    {visibleMessages.map((msg) => (
+                      <Bubble
+                        key={msg.id}
+                        msg={msg}
+                        isWA={isWA}
+                        onReply={handleReplyMessage}
+                        onForward={handleForwardMessage}
+                        onDelete={handleDeleteMessage}
+                        onReact={handleMessageReaction}
+                        emojiPickerOpen={emojiPickerMessageId === msg.id}
+                        setEmojiPickerOpen={setEmojiPickerMessageId}
+                      />
                     ))}
                     <div ref={messagesEndRef} />
                   </>
@@ -856,8 +1109,26 @@ export default function CommunicationPage() {
               </AnimatePresence>
 
               {/* Input bar */}
-              <div className={`p-3 border-t border-slate-200/60 dark:border-slate-700/40 flex items-end gap-2
+              <div className={`relative p-3 border-t border-slate-200/60 dark:border-slate-700/40 flex items-end gap-2
                 ${isWA ? 'bg-emerald-50/30 dark:bg-emerald-950/5' : ''}`}>
+                {replyToMessage && (
+                  <div className="absolute left-3 right-3 -top-[58px] sm:-top-[54px] p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+                          Replying to {replyToMessage.from === 'me' ? 'your message' : activeConv.name}
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 truncate">{replyToMessage.text}</p>
+                      </div>
+                      <button
+                        onClick={() => setReplyToMessage(null)}
+                        className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <button onClick={getAISuggestion}
                   className="p-2.5 rounded-xl hover:bg-brand-50 dark:hover:bg-brand-950/20 text-brand-500 transition-colors flex-shrink-0"
                   title="AI reply suggestion">

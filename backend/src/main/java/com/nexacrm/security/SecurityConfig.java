@@ -34,7 +34,8 @@ public class SecurityConfig {
     private String allowedOrigins;
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/auth/**",
+            "/api/auth/login",
+            "/api/auth/refresh",
             "/api/webhooks/**",
             "/api/leads/facebook",
             "/api/leads/facebook/**",
@@ -54,10 +55,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
-                .requestMatchers("/api/integrations/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/communications/send-channel").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/communications/email/send").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/communications/whatsapp/**").permitAll()
                 // Role-based access
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()

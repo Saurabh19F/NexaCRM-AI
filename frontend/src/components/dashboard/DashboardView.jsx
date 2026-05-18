@@ -16,6 +16,7 @@ import {
   LEAD_SOURCES, MOCK_ACTIVITY, AI_INSIGHTS
 } from '../../utils/mockData'
 import { useLeadsStore } from '../../store/leadsStore'
+import { useAuthStore } from '../../store/authStore'
 import { computeEmployeeSlaPerformance, computeLeadSlaSummary, getLeadAgingLevel } from '../../utils/leadSla'
 
 const fmt = (n, currency) => {
@@ -75,7 +76,9 @@ const INSIGHT_ROUTES = {
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { leads } = useLeadsStore()
+  const { user } = useAuthStore()
   const [timeTick, setTimeTick] = useState(Date.now())
+  const firstName = (user?.name || 'User').trim().split(/\s+/)[0]
 
   useEffect(() => {
     const id = window.setInterval(() => setTimeTick(Date.now()), 60 * 1000)
@@ -100,7 +103,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Welcome back, Saurabh 👋 — Here's your overview</p>
+          <p className="text-sm text-slate-500 mt-0.5">Welcome back, {firstName} 👋 — Here&apos;s your overview</p>
         </div>
       </div>
 

@@ -28,6 +28,7 @@ public class LeadController {
     private final LeadService leadService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('leads.read')")
     @Operation(summary = "Get all leads with pagination and filters")
     public ResponseEntity<PageResponse<LeadDTO>> getLeads(
             @RequestParam(required = false) String search,
@@ -40,6 +41,7 @@ public class LeadController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('leads.read')")
     @Operation(summary = "Get lead by ID")
     public ResponseEntity<LeadDTO> getLeadById(@PathVariable String id) {
         return ResponseEntity.ok(leadService.findById(id));
@@ -47,6 +49,7 @@ public class LeadController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('leads.create')")
     @Operation(summary = "Create a new lead")
     public ResponseEntity<LeadDTO> createLead(@Valid @RequestBody LeadDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(leadService.create(dto));
@@ -88,13 +91,14 @@ public class LeadController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('leads.update')")
     @Operation(summary = "Update lead")
     public ResponseEntity<LeadDTO> updateLead(@PathVariable String id, @Valid @RequestBody LeadDTO dto) {
         return ResponseEntity.ok(leadService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAuthority('leads.delete')")
     @Operation(summary = "Delete lead")
     public ResponseEntity<Void> deleteLead(@PathVariable String id) {
         leadService.delete(id);
@@ -102,7 +106,7 @@ public class LeadController {
     }
 
     @PostMapping("/bulk-delete")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAuthority('leads.delete')")
     @Operation(summary = "Bulk delete leads")
     public ResponseEntity<Map<String, Integer>> bulkDelete(@RequestBody Map<String, List<String>> body) {
         int count = leadService.bulkDelete(body.get("ids"));
@@ -110,6 +114,7 @@ public class LeadController {
     }
 
     @PostMapping("/import")
+    @PreAuthorize("hasAuthority('leads.import')")
     @Operation(summary = "Import leads from CSV/Excel")
     public ResponseEntity<Map<String, Object>> importLeads(@RequestParam("file") MultipartFile file) {
         var result = leadService.importFromFile(file);
@@ -117,6 +122,7 @@ public class LeadController {
     }
 
     @GetMapping("/export")
+    @PreAuthorize("hasAuthority('leads.export')")
     @Operation(summary = "Export leads to CSV/Excel")
     public ResponseEntity<byte[]> exportLeads(
             @RequestParam(defaultValue = "csv") String format,
@@ -131,12 +137,14 @@ public class LeadController {
     }
 
     @PostMapping("/{id}/score")
+    @PreAuthorize("hasAuthority('ai.use')")
     @Operation(summary = "Trigger AI lead scoring")
     public ResponseEntity<Map<String, Object>> scoreLead(@PathVariable String id) {
         return ResponseEntity.ok(leadService.scoreWithAI(id));
     }
 
     @PostMapping("/{id}/convert")
+    @PreAuthorize("hasAuthority('customers.create') and hasAuthority('deals.create')")
     @Operation(summary = "Convert lead to customer and create deal")
     public ResponseEntity<Map<String, Object>> convertLead(
             @PathVariable String id,

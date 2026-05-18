@@ -6,11 +6,13 @@ import com.nexacrm.model.User;
 import com.nexacrm.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,17 +42,28 @@ public class UserService {
     }
 
     public UserDTO invite(UserDTO dto) {
-        if (userRepository.existsByEmailAndTenantId(dto.getEmail(), DEFAULT_TENANT)) {
-            throw new IllegalArgumentException("User already exists with email: " + dto.getEmail());
+        String email = normalizeEmail(dto.getEmail());
+        if (email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
         }
+        if (userRepository.existsByEmailAndTenantId(email, DEFAULT_TENANT)) {
+            throw new IllegalArgumentException("User already exists with email: " + email);
+        }
+        String rawPassword = dto.getPassword();
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new IllegalArgumentException("Password is required");
+        }
+        User.Role requestedRole = dto.getRole() != null ? dto.getRole() : User.Role.SALES_EXEC;
+        validateRoleAssignmentAllowed(requestedRole);
+
         User user = User.builder()
             .name(dto.getName())
-            .email(dto.getEmail())
-            .password(passwordEncoder.encode("Welcome@123"))
-            .role(dto.getRole() != null ? dto.getRole() : User.Role.SALES_EXEC)
+            .email(email)
+            .password(passwordEncoder.encode(rawPassword.trim()))
+            .role(requestedRole)
             .phone(dto.getPhone())
             .avatarUrl(dto.getAvatarUrl())
-            .isActive(true)
+            .isActive(dto.getIsActive() != null ? dto.getIsActive() : true)
             .build();
         user.setTenantId(DEFAULT_TENANT);
         User saved = userRepository.save(user);
@@ -61,11 +74,39 @@ public class UserService {
     public UserDTO update(String id, UserDTO dto) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
+
+        User.Role actorRole = getCurrentActorRole();
+        if (actorRole == User.Role.MANAGER && user.getRole() == User.Role.ADMIN) {
+            throw new IllegalArgumentException("Managers cannot edit admin users");
+        }
+
+        String nextEmail = normalizeEmail(dto.getEmail());
+        if (!nextEmail.isBlank() && !nextEmail.equalsIgnoreCase(user.getEmail())) {
+            if (userRepository.existsByEmailAndTenantId(nextEmail, DEFAULT_TENANT)) {
+                throw new IllegalArgumentException("User already exists with email: " + nextEmail);
+            }
+            user.setEmail(nextEmail);
+        }
+
         user.setName(dto.getName());
         user.setPhone(dto.getPhone());
         user.setAvatarUrl(dto.getAvatarUrl());
-        if (dto.getRole() != null)     user.setRole(dto.getRole());
-        if (dto.getIsActive() != null) user.setIsActive(dto.getIsActive());
+        if (dto.getRole() != null) {
+            if (actorRole != User.Role.ADMIN && dto.getRole() != user.getRole()) {
+                throw new IllegalArgumentException("Only admin can change user role");
+            }
+            validateRoleAssignmentAllowed(dto.getRole());
+            user.setRole(dto.getRole());
+        }
+        if (dto.getIsActive() != null) {
+            if (actorRole != User.Role.ADMIN && !dto.getIsActive().equals(user.getIsActive())) {
+                throw new IllegalArgumentException("Only admin can change user status");
+            }
+            user.setIsActive(dto.getIsActive());
+        }
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(dto.getPassword().trim()));
+        }
         return toDTO(userRepository.save(user));
     }
 
@@ -87,5 +128,24 @@ public class UserService {
             .isActive(u.getIsActive())
             .tenantId(u.getTenantId())
             .build();
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) return "";
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void validateRoleAssignmentAllowed(User.Role targetRole) {
+        User.Role actorRole = getCurrentActorRole();
+        if (actorRole == User.Role.MANAGER && targetRole == User.Role.ADMIN) {
+            throw new IllegalArgumentException("Managers can invite or assign only Manager or Sales Executive roles");
+        }
+    }
+
+    private User.Role getCurrentActorRole() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User actor = userRepository.findByEmailAndDeletedFalse(email)
+            .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
+        return actor.getRole() != null ? actor.getRole() : User.Role.SALES_EXEC;
     }
 }

@@ -50,7 +50,10 @@ public class WebhookController {
     public ResponseEntity<Map<String, Object>> webhookRoot() {
         return ResponseEntity.ok(Map.of(
             "ok", true,
-            "facebookVerifyPath", "/api/webhooks/facebook/leads",
+            "facebookLeadsPath", "/api/webhooks/facebook/leads",
+            "facebookMessagesPath", "/api/webhooks/facebook/messages",
+            "facebookMessengerAliasPath", "/api/webhooks/facebook/messenger",
+            "instagramMessagesPath", "/api/webhooks/instagram/messages",
             "facebookLegacyPath", "/api/webhooks/meta",
             "whatsappPath", "/api/webhooks/whatsapp"
         ));
@@ -86,9 +89,9 @@ public class WebhookController {
 
     // ── Facebook Lead Ads ─────────────────────────────────────────
 
-    @GetMapping({"/facebook/leads", "/meta"})
-    @Operation(summary = "Facebook Lead Ads webhook verification")
-    public ResponseEntity<String> verifyFacebookLeadsWebhook(@RequestParam Map<String, String> query) {
+    @GetMapping({"/facebook/leads", "/facebook/messages", "/facebook/messenger", "/instagram/messages", "/meta"})
+    @Operation(summary = "Facebook/Meta webhook verification (Lead Ads + Messenger)")
+    public ResponseEntity<String> verifyFacebookWebhook(@RequestParam Map<String, String> query) {
         String mode = firstNonBlank(query, "hub.mode", "hub_mode", "mode");
         String verifyToken = firstNonBlank(query, "hub.verify_token", "hub_verify_token", "verify_token");
         String challenge = firstNonBlank(query, "hub.challenge", "hub_challenge", "challenge");
@@ -99,7 +102,7 @@ public class WebhookController {
         }
 
         if (Objects.equals(trim(metaWebhookToken), trim(verifyToken))) {
-            log.info("Facebook Lead Ads webhook verified");
+            log.info("Facebook/Meta webhook verified");
             return ResponseEntity.ok(challenge);
         }
         log.warn(
@@ -110,18 +113,55 @@ public class WebhookController {
         return ResponseEntity.status(403).build();
     }
 
-    @PostMapping({"/facebook/leads", "/meta"})
-    @Operation(summary = "Receive Facebook page events (Lead Ads + Messenger)")
+    @PostMapping("/facebook/leads")
+    @Operation(summary = "Receive Facebook Lead Ads webhook events")
     public ResponseEntity<Void> receiveFacebookLeadsWebhook(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
             @RequestBody String rawBody) {
         if (!isValidFacebookSignature(rawBody, signature)) {
-            log.warn("Facebook webhook rejected: invalid signature");
+            log.warn("Facebook Lead Ads webhook rejected: invalid signature");
             return ResponseEntity.status(403).build();
         }
-        // Route to both services; each ignores events outside its domain.
         leadService.processFacebookLeadsWebhookAsync(rawBody);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping({"/facebook/messages", "/facebook/messenger"})
+    @Operation(summary = "Receive Facebook Messenger webhook events")
+    public ResponseEntity<Void> receiveFacebookMessagesWebhook(
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
+            @RequestBody String rawBody) {
+        if (!isValidFacebookSignature(rawBody, signature)) {
+            log.warn("Facebook Messenger webhook rejected: invalid signature");
+            return ResponseEntity.status(403).build();
+        }
         communicationService.processFacebookMessengerWebhookAsync(rawBody);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/instagram/messages")
+    @Operation(summary = "Receive Instagram Messaging webhook events")
+    public ResponseEntity<Void> receiveInstagramMessagesWebhook(
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
+            @RequestBody String rawBody) {
+        if (!isValidFacebookSignature(rawBody, signature)) {
+            log.warn("Instagram webhook rejected: invalid signature");
+            return ResponseEntity.status(403).build();
+        }
+        communicationService.processInstagramMessengerWebhookAsync(rawBody);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/meta")
+    @Operation(summary = "Receive legacy Facebook/Meta webhook events (auto-routes by payload)")
+    public ResponseEntity<Void> receiveFacebookLegacyWebhook(
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
+            @RequestBody String rawBody) {
+        if (!isValidFacebookSignature(rawBody, signature)) {
+            log.warn("Facebook legacy webhook rejected: invalid signature");
+            return ResponseEntity.status(403).build();
+        }
+        routeLegacyMetaWebhook(rawBody);
         return ResponseEntity.ok().build();
     }
 
@@ -140,6 +180,46 @@ public class WebhookController {
         } catch (Exception e) {
             log.error("Signature verification error", e);
             return false;
+        }
+    }
+
+    private void routeLegacyMetaWebhook(String rawBody) {
+        boolean routedAny = false;
+        try {
+            var root = objectMapper.readTree(rawBody);
+            String object = trim(root.path("object").asText(""));
+            if ("instagram".equalsIgnoreCase(object)) {
+                communicationService.processInstagramMessengerWebhookAsync(rawBody);
+                return;
+            }
+            var entries = root.path("entry");
+            if (entries.isArray()) {
+                for (var entry : entries) {
+                    var changes = entry.path("changes");
+                    if (changes.isArray()) {
+                        for (var change : changes) {
+                            if ("leadgen".equals(change.path("field").asText())) {
+                                leadService.processFacebookLeadsWebhookAsync(rawBody);
+                                routedAny = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (entry.path("messaging").isArray()) {
+                        communicationService.processFacebookMessengerWebhookAsync(rawBody);
+                        routedAny = true;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not parse legacy Meta webhook payload for route split", e);
+        }
+
+        if (!routedAny) {
+            // Legacy compatibility fallback: previous behavior attempted both handlers.
+            leadService.processFacebookLeadsWebhookAsync(rawBody);
+            communicationService.processFacebookMessengerWebhookAsync(rawBody);
         }
     }
 

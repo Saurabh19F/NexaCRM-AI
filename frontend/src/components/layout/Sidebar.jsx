@@ -1,30 +1,48 @@
+import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
-  Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2,
+  Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
   ChevronLeft, ChevronRight, X
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 
 const NAV_ITEMS = [
-  { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard' },
-  { label: 'Leads',          icon: Users,            path: '/leads' },
-  { label: 'Pipeline',       icon: Kanban,           path: '/pipeline' },
-  { label: 'Customers',      icon: UserCircle,       path: '/customers' },
-  { label: 'Communication',  icon: MessageSquare,    path: '/communication' },
-  { label: 'AI Engine',      icon: Sparkles,         path: '/ai-engine' },
-  { label: 'Automation',     icon: Zap,              path: '/automation' },
-  { label: 'Invoices',       icon: Receipt,          path: '/invoices' },
-  { label: 'Analytics',      icon: BarChart3,        path: '/analytics' },
-  { label: 'Team',           icon: Shield,           path: '/team' },
-  { label: 'Integrations',   icon: Link2,            path: '/integrations' },
-  { label: 'Settings',       icon: Settings,         path: '/settings' },
+  { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
+  { label: 'Leads',          icon: Users,           path: '/leads', permission: PERMISSIONS.LEADS_READ },
+  { label: 'Pipeline',       icon: Kanban,          path: '/pipeline', permission: PERMISSIONS.DEALS_READ },
+  { label: 'Customers',      icon: UserCircle,      path: '/customers', permission: PERMISSIONS.CUSTOMERS_READ },
+  { label: 'Communication',  icon: MessageSquare,   path: '/communication', permission: PERMISSIONS.COMMUNICATIONS_READ },
+  { label: 'AI Engine',      icon: Sparkles,        path: '/ai-engine', permission: PERMISSIONS.AI_USE },
+  { label: 'Automation',     icon: Zap,             path: '/automation', permission: PERMISSIONS.WORKFLOWS_VIEW },
+  { label: 'Invoices',       icon: Receipt,         path: '/invoices', permission: PERMISSIONS.INVOICES_READ },
+  { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.ANALYTICS_VIEW },
+  { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_VIEW },
+  { label: 'My Profile',     icon: User,             path: '/profile' },
+  { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_VIEW },
+  { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
 ]
+const AVATAR_STYLE_CLASS = {
+  brand: 'from-brand-400 to-accent-500',
+  ocean: 'from-sky-500 to-cyan-500',
+  sunset: 'from-orange-500 to-rose-500',
+  violet: 'from-violet-500 to-fuchsia-500',
+  forest: 'from-emerald-500 to-teal-500',
+  steel: 'from-slate-500 to-slate-700',
+}
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const { user } = useAuthStore()
   const location = useLocation()
+  const [avatarBroken, setAvatarBroken] = useState(false)
+  const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission(user, item.permission))
+
+  useEffect(() => {
+    setAvatarBroken(false)
+  }, [user?.avatarUrl])
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -54,7 +72,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto custom-scrollbar">
-        {NAV_ITEMS.map(({ label, icon: Icon, path }) => (
+        {visibleNavItems.map(({ label, icon: Icon, path }) => (
           <NavLink
             key={path}
             to={path}
@@ -84,8 +102,17 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       {/* User */}
       <div className="p-3 border-t border-slate-200/60 dark:border-slate-700/40">
         <div className="flex items-center gap-3 px-1">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-            {user?.name?.charAt(0) ?? 'U'}
+          <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarStyle} flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden`}>
+            {user?.avatarUrl && !avatarBroken ? (
+              <img
+                src={user.avatarUrl}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+                onError={() => setAvatarBroken(true)}
+              />
+            ) : (
+              user?.name?.charAt(0) ?? 'U'
+            )}
           </div>
           <AnimatePresence>
             {!collapsed && (

@@ -2,12 +2,14 @@ package com.nexacrm.controller;
 
 import com.nexacrm.dto.AuthRequest;
 import com.nexacrm.dto.AuthResponse;
+import com.nexacrm.dto.UserDTO;
 import com.nexacrm.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -40,8 +42,16 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get current authenticated user")
     public ResponseEntity<Map<String, Object>> me() {
         return ResponseEntity.ok(authService.getCurrentUser());
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("hasAuthority('profile.update')")
+    @Operation(summary = "Update current authenticated user's profile")
+    public ResponseEntity<UserDTO> updateMe(@RequestBody UserDTO dto) {
+        return ResponseEntity.ok(authService.updateCurrentUser(dto));
     }
 }

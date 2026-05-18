@@ -22,35 +22,38 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('team.view')")
     public ResponseEntity<List<UserDTO>> getAll() {
         return ResponseEntity.ok(userService.findAll());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('team.view')")
     public ResponseEntity<UserDTO> getById(@PathVariable String id) {
         return ResponseEntity.ok(userService.findById(id));
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAuthority('team.invite')")
     public ResponseEntity<UserDTO> invite(@RequestBody UserDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.invite(dto));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAuthority('team.update')")
     public ResponseEntity<UserDTO> update(@PathVariable String id, @RequestBody UserDTO dto) {
         return ResponseEntity.ok(userService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('team.deactivate')")
     public ResponseEntity<Map<String, String>> deactivate(@PathVariable String id) {
         userService.deactivate(id);
         return ResponseEntity.ok(Map.of("message", "User deactivated", "id", id));
     }
 
     @GetMapping("/roles")
+    @PreAuthorize("hasAuthority('team.view')")
     public ResponseEntity<List<Map<String, String>>> getRoles() {
         List<Map<String, String>> roles = Arrays.stream(User.Role.values())
             .map(r -> Map.of("value", r.name(), "label", formatRoleLabel(r)))

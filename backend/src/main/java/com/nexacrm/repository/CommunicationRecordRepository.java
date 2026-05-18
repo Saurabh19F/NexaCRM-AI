@@ -14,4 +14,6 @@ public interface CommunicationRecordRepository extends MongoRepository<Communica
     );
 
     List<CommunicationRecord> findByChannelIgnoreCaseOrderByCreatedAtDesc(String channel, Pageable pageable);
+
+    boolean existsByChannelIgnoreCaseAndExternalId(String channel, String externalId);
 }

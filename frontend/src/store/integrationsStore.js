@@ -11,6 +11,7 @@ export const useIntegrationsStore = create(
       loaded: false,
       saving: false,
       testing: false,
+      syncing: false,
 
       setConfig: (id, values) => set(s => ({ configs: { ...s.configs, [id]: values } })),
       setConnected: (id, val) => set(s => ({ connected: { ...s.connected, [id]: val } })),
@@ -54,6 +55,15 @@ export const useIntegrationsStore = create(
           return await integrationsAPI.test(id, values)
         } finally {
           set({ testing: false })
+        }
+      },
+
+      syncIntegration: async (id, values) => {
+        set({ syncing: true })
+        try {
+          return await integrationsAPI.sync(id, values)
+        } finally {
+          set({ syncing: false })
         }
       },
 

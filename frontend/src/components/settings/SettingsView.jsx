@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Settings, Bell, Shield, Palette, Link, CreditCard, Save,
          ShieldCheck, ShieldOff, Copy, X, CheckCircle2,
          Smartphone, KeyRound, Eye, EyeOff, AlertTriangle,
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'integrations',  label: 'Integrations',  icon: Link },
   { key: 'billing',       label: 'Billing',       icon: CreditCard },
 ]
+const VALID_TAB_KEYS = new Set(TABS.map((tab) => tab.key))
 
 const INTEGRATIONS = [
   { name: 'Facebook / Instagram', status: 'connected', icon: '📘', color: 'bg-blue-50 dark:bg-blue-950/20' },
@@ -624,7 +626,11 @@ function ManagePlanModal({ onClose }) {
 
 /* ── Main Settings Page ──────────────────────────────────────────── */
 export default function SettingsPage() {
-  const [tab, setTab]               = useState('general')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tab, setTab]               = useState(() => {
+    const tabFromUrl = searchParams.get('tab')
+    return VALID_TAB_KEYS.has(tabFromUrl) ? tabFromUrl : 'general'
+  })
   const { isDark, toggleTheme }     = useThemeStore()
   const [twoFAEnabled, setTwoFAEnabled]     = useState(false)
   const [showSetupModal, setShowSetupModal] = useState(false)
@@ -637,6 +643,22 @@ export default function SettingsPage() {
 
   const handle2FAToggle = () => twoFAEnabled ? setShowDisableModal(true) : setShowSetupModal(true)
   const save = () => toast.success('Settings saved!')
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab')
+    if (VALID_TAB_KEYS.has(tabFromUrl) && tabFromUrl !== tab) {
+      setTab(tabFromUrl)
+    }
+  }, [searchParams, tab])
+
+  const handleTabChange = (nextTab) => {
+    setTab(nextTab)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', nextTab)
+      return next
+    }, { replace: true })
+  }
 
   const toggleIntegration = (name) => {
     setIntegrations((prev) =>
@@ -657,7 +679,7 @@ export default function SettingsPage() {
         <div className="w-full lg:w-48 lg:flex-shrink-0">
           <nav className="flex lg:block gap-1 overflow-x-auto custom-scrollbar">
             {TABS.map(({ key, label, icon: Icon }) => (
-              <button key={key} onClick={() => setTab(key)} className={`nav-item whitespace-nowrap lg:w-full ${tab === key ? 'active' : ''}`}>
+              <button key={key} onClick={() => handleTabChange(key)} className={`nav-item whitespace-nowrap lg:w-full ${tab === key ? 'active' : ''}`}>
                 <Icon className="w-4 h-4" /> {label}
               </button>
             ))}

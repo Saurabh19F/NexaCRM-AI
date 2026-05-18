@@ -16,8 +16,10 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import TeamPage from './pages/TeamPage'
 import SettingsPage from './pages/SettingsPage'
 import IntegrationsPage from './pages/IntegrationsPage'
+import ProfilePage from './pages/ProfilePage'
 import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
+import { PERMISSIONS, hasPermission } from './utils/permissions'
 
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null } }
@@ -45,6 +47,11 @@ class ErrorBoundary extends Component {
 function PrivateRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
   return isAuthenticated ? children : <Navigate to="/login" replace />
+}
+
+function PermissionRoute({ permission, children }) {
+  const { user } = useAuthStore()
+  return hasPermission(user, permission) ? children : <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -90,18 +97,19 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/leads" element={<LeadsPage />} />
-          <Route path="/pipeline" element={<KanbanPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/communication" element={<CommunicationPage />} />
-          <Route path="/ai-engine" element={<AIEnginePage />} />
-          <Route path="/automation" element={<AutomationPage />} />
-          <Route path="/invoices" element={<InvoicesPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/team" element={<TeamPage />} />
-          <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/dashboard" element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><DashboardPage /></PermissionRoute>} />
+          <Route path="/leads" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><LeadsPage /></PermissionRoute>} />
+          <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.DEALS_READ}><KanbanPage /></PermissionRoute>} />
+          <Route path="/customers" element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_READ}><CustomersPage /></PermissionRoute>} />
+          <Route path="/communication" element={<PermissionRoute permission={PERMISSIONS.COMMUNICATIONS_READ}><CommunicationPage /></PermissionRoute>} />
+          <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />
+          <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.WORKFLOWS_VIEW}><AutomationPage /></PermissionRoute>} />
+          <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
+          <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.ANALYTICS_VIEW}><AnalyticsPage /></PermissionRoute>} />
+          <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_VIEW}><TeamPage /></PermissionRoute>} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_VIEW}><IntegrationsPage /></PermissionRoute>} />
+          <Route path="/settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><SettingsPage /></PermissionRoute>} />
         </Route>
 
         {/* Fallback */}

@@ -189,6 +189,14 @@ GET /api/leads?status=NEW&score=HOT&page=0&size=20&sort=createdAt,desc
 | GET | `/communications` | Unified inbox |
 | GET | `/communications/lead/{leadId}` | Conversation with a lead |
 | POST | `/communications/send` | Send message |
+| POST | `/communications/send-channel` | Send over channel (email/whatsapp/facebook/linkedin/etc.) |
+| POST | `/communications/email/send` | Send email |
+| GET | `/communications/whatsapp/conversations` | WhatsApp conversation summaries |
+| GET | `/communications/whatsapp/messages?contact={number}` | WhatsApp messages by contact |
+| GET | `/communications/facebook/conversations` | Facebook Messenger conversation summaries |
+| GET | `/communications/facebook/messages?psid={pageScopedUserId}` | Facebook Messenger messages by PSID |
+| GET | `/communications/instagram/conversations` | Instagram DM conversation summaries |
+| GET | `/communications/instagram/messages?igsid={instagramScopedUserId}` | Instagram DMs by IGSID |
 | POST | `/communications/ai-suggest` | AI reply suggestion |
 
 ---
@@ -266,9 +274,22 @@ stomp.connect({ Authorization: `Bearer ${token}` }, () => {
 
 ## Webhooks
 
-### Facebook / Instagram Lead Ads
-`POST /api/webhooks/facebook/leads` (legacy alias: `/api/webhooks/meta`)  
-`GET /api/webhooks/facebook/leads` (legacy alias: `/api/webhooks/meta`) — for webhook verification
+### Facebook Lead Ads
+`POST /api/webhooks/facebook/leads`  
+`GET /api/webhooks/facebook/leads` — for webhook verification
+
+### Facebook Messenger (Incoming)
+`POST /api/webhooks/facebook/messages` (alias: `/api/webhooks/facebook/messenger`)  
+`GET /api/webhooks/facebook/messages` (alias: `/api/webhooks/facebook/messenger`) — for webhook verification
+
+### Instagram Messaging (Incoming)
+`POST /api/webhooks/instagram/messages`  
+`GET /api/webhooks/instagram/messages` — for webhook verification
+
+### Facebook Legacy Combined Webhook
+`POST /api/webhooks/meta`  
+`GET /api/webhooks/meta` — for webhook verification  
+Legacy endpoint auto-routes payloads to lead handler (`leadgen`) and message handlers (`messaging`) for Facebook/Instagram.
 
 ### WhatsApp Business
 `POST /api/webhooks/whatsapp`

@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 @Builder
 public class WhatsAppConversationResponse {
     private String contact;
+    private String name;
     private String lastMessage;
     private String lastDirection;
     private OffsetDateTime lastAt;

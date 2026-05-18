@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -86,6 +87,41 @@ public class AuthService {
         );
     }
 
+    public UserDTO updateCurrentUser(UserDTO dto) {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmailAndDeletedFalse(currentEmail)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String nextEmail = normalizeEmail(dto.getEmail());
+        if (!nextEmail.isBlank() && !nextEmail.equalsIgnoreCase(user.getEmail())) {
+            User conflict = userRepository.findByEmail(nextEmail).orElse(null);
+            if (conflict != null && !conflict.getId().equals(user.getId())) {
+                throw new IllegalArgumentException("User already exists with email: " + nextEmail);
+            }
+            user.setEmail(nextEmail);
+        }
+
+        if (dto.getName() != null) {
+            String name = dto.getName().trim();
+            if (name.isBlank()) {
+                throw new IllegalArgumentException("Name is required");
+            }
+            user.setName(name);
+        }
+
+        if (dto.getPhone() != null) {
+            user.setPhone(dto.getPhone().trim());
+        }
+
+        if (dto.getAvatarUrl() != null) {
+            user.setAvatarUrl(dto.getAvatarUrl().trim());
+        }
+
+        User saved = userRepository.save(user);
+        log.info("User profile updated: id={}, email={}", saved.getId(), saved.getEmail());
+        return toUserDTO(saved);
+    }
+
     private UserDTO toUserDTO(User user) {
         return UserDTO.builder()
             .id(user.getId())
@@ -97,5 +133,10 @@ public class AuthService {
             .isActive(user.getIsActive())
             .tenantId(user.getTenantId())
             .build();
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) return "";
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

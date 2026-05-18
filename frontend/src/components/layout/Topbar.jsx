@@ -11,6 +11,15 @@ import DelayAlertPanel from './DelayAlertPanel'
 import { getLeadAgeMinutes } from '../../utils/leadSla'
 import { connectWebSocket, disconnectWebSocket } from '../../services/websocket'
 
+const AVATAR_STYLE_CLASS = {
+  brand: 'from-brand-400 to-accent-500',
+  ocean: 'from-sky-500 to-cyan-500',
+  sunset: 'from-orange-500 to-rose-500',
+  violet: 'from-violet-500 to-fuchsia-500',
+  forest: 'from-emerald-500 to-teal-500',
+  steel: 'from-slate-500 to-slate-700',
+}
+
 export default function Topbar({ onMenuClick }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
@@ -22,10 +31,12 @@ export default function Topbar({ onMenuClick }) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showDelayAlerts, setShowDelayAlerts] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [avatarBroken, setAvatarBroken] = useState(false)
   const [timeTick, setTimeTick] = useState(Date.now())
   const notifRef = useRef(null)
   const delayRef = useRef(null)
   const userRef = useRef(null)
+  const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
 
   const SLA_MINUTES = 60
   const REASSIGN_POOL = ['Priya S.', 'Rahul M.', 'Amit K.']
@@ -59,6 +70,10 @@ export default function Topbar({ onMenuClick }) {
     const id = window.setInterval(() => setTimeTick(Date.now()), 60 * 1000)
     return () => window.clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    setAvatarBroken(false)
+  }, [user?.avatarUrl])
 
   useEffect(() => {
     try {
@@ -264,8 +279,17 @@ export default function Topbar({ onMenuClick }) {
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center gap-2 pl-2 pr-1 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-xs font-bold">
-              {user?.name?.charAt(0) ?? 'U'}
+            <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarStyle} flex items-center justify-center text-white text-xs font-bold overflow-hidden`}>
+              {user?.avatarUrl && !avatarBroken ? (
+                <img
+                  src={user.avatarUrl}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarBroken(true)}
+                />
+              ) : (
+                user?.name?.charAt(0) ?? 'U'
+              )}
             </div>
             <span className="hidden sm:block text-sm font-medium text-slate-700 dark:text-slate-300">
               {user?.name?.split(' ')[0]}
@@ -286,7 +310,13 @@ export default function Topbar({ onMenuClick }) {
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user?.name}</p>
                   <p className="text-xs text-slate-500">{user?.email}</p>
                 </div>
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    navigate('/profile')
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                >
                   <User className="w-4 h-4" />
                   My Profile
                 </button>

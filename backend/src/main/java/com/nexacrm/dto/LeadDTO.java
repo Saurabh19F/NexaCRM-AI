@@ -23,6 +23,8 @@ public class LeadDTO {
     private String company;
     private String website;
     private String designation;
+    private String service;
+    private String specialization;
 
     @NotNull(message = "Source is required")
     private Lead.LeadSource source;
