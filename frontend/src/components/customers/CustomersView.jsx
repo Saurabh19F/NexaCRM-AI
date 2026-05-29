@@ -145,6 +145,15 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [pageSize] = useState(4)
+  const [pageMeta, setPageMeta] = useState({
+    page: 0,
+    totalPages: 0,
+    total: 0,
+    first: true,
+    last: true,
+  })
 
   const mapCustomerFromApi = (customer) => ({
     id: customer.id,
@@ -165,13 +174,22 @@ export default function CustomersPage() {
     const loadCustomers = async () => {
       setLoading(true)
       try {
-        const page = await customersAPI.getAll()
+        const page = await customersAPI.getAll({ page: currentPage, size: pageSize })
         if (cancelled) return
         const rows = Array.isArray(page?.content) ? page.content.map(mapCustomerFromApi) : []
         setCustomers(rows)
-        if (rows.length > 0) {
-          setSelected((prev) => prev ?? rows[0])
-        }
+        setPageMeta({
+          page: Number(page?.page ?? currentPage),
+          totalPages: Number(page?.totalPages ?? 0),
+          total: Number(page?.total ?? rows.length),
+          first: Boolean(page?.first ?? currentPage === 0),
+          last: Boolean(page?.last ?? true),
+        })
+        setSelected((prev) => {
+          if (rows.length === 0) return null
+          const stillVisible = prev && rows.some((c) => c.id === prev.id)
+          return stillVisible ? prev : rows[0]
+        })
       } catch (err) {
         if (!cancelled) toast.error(err?.message || 'Failed to load customers')
       } finally {
@@ -180,7 +198,7 @@ export default function CustomersPage() {
     }
     loadCustomers()
     return () => { cancelled = true }
-  }, [])
+  }, [currentPage, pageSize])
 
   const createCustomer = async (customer) => {
     try {
@@ -196,7 +214,8 @@ export default function CustomersPage() {
       }
       const created = await customersAPI.create(payload)
       const mapped = mapCustomerFromApi(created)
-      setCustomers((prev) => [mapped, ...prev])
+      setCustomers((prev) => [mapped, ...prev].slice(0, pageSize))
+      setPageMeta((prev) => ({ ...prev, total: prev.total + 1 }))
       setSelected(mapped)
       return mapped
     } catch (err) {
@@ -210,7 +229,7 @@ export default function CustomersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageHeading
           title="Customers"
-          subtitle={`${customers.length} customers · ${customers.filter((c) => c.status === 'active').length} active`}
+          subtitle={`${pageMeta.total || customers.length} customers · ${customers.filter((c) => c.status === 'active').length} active`}
         />
         <button onClick={() => setShowAdd(true)} className="btn-primary gap-1.5 text-sm">
           <Plus className="w-4 h-4" /> Add Customer
@@ -248,6 +267,31 @@ export default function CustomersPage() {
               </div>
             </button>
           ))}
+          {!loading && pageMeta.totalPages > 1 && (
+            <div className="glass-card p-3">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 0))}
+                  disabled={loading || pageMeta.first}
+                  className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <p className="text-xs text-slate-500">
+                  Page {pageMeta.page + 1} of {pageMeta.totalPages}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  disabled={loading || pageMeta.last}
+                  className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Detail */}

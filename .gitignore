@@ -24,3 +24,8 @@ frontend/dist/
 # Logs
 *.log
 logs/
+
+# Python / LiveKit worker
+livekit-agent/.venv/
+livekit-agent/__pycache__/
+*.pyc

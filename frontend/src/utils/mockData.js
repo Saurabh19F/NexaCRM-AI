@@ -21,10 +21,10 @@ export const MONTHLY_REVENUE = [
 ]
 
 export const FUNNEL_DATA = [
-  { stage: 'New Leads',     count: 1247, color: '#6366f1' },
-  { stage: 'Contacted',     count:  892, color: '#8b5cf6' },
-  { stage: 'Qualified',     count:  541, color: '#a855f7' },
-  { stage: 'Proposal',      count:  284, color: '#ec4899' },
+  { stage: 'New Leads',     count: 1247, color: '#7c3aed' },
+  { stage: 'Contacted',     count:  892, color: '#9333ea' },
+  { stage: 'Qualified',     count:  541, color: '#c026d3' },
+  { stage: 'Proposal',      count:  284, color: '#db2777' },
   { stage: 'Negotiation',   count:  148, color: '#f59e0b' },
   { stage: 'Won',           count:   72, color: '#10b981' },
 ]
@@ -33,7 +33,7 @@ export const LEAD_SOURCES = [
   { name: 'Facebook',  value: 32, color: '#1877f2' },
   { name: 'Instagram', value: 18, color: '#e1306c' },
   { name: 'LinkedIn',  value: 15, color: '#0077b5' },
-  { name: 'Website',   value: 22, color: '#6366f1' },
+  { name: 'Website',   value: 22, color: '#8b5cf6' },
   { name: 'WhatsApp',  value:  8, color: '#25d366' },
   { name: 'Referral',  value:  5, color: '#f59e0b' },
 ]

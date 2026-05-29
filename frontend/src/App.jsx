@@ -26,13 +26,12 @@ class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) { return { error } }
   render() {
     if (this.state.error) {
+      const showDebug = import.meta.env.DEV
       return (
         <div style={{ padding: 32, fontFamily: 'monospace' }}>
           <h2 style={{ color: '#ef4444' }}>Something went wrong</h2>
           <pre style={{ background: '#f1f5f9', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 13 }}>
-            {this.state.error?.message}
-            {'\n\n'}
-            {this.state.error?.stack}
+            {showDebug ? `${this.state.error?.message}\n\n${this.state.error?.stack}` : 'An unexpected UI error occurred. Please reload and try again.'}
           </pre>
           <button onClick={() => this.setState({ error: null })} style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}>
             Try again
@@ -55,7 +54,8 @@ function PermissionRoute({ permission, children }) {
 }
 
 export default function App() {
-  const { isDark } = useThemeStore()
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (isDark) {
@@ -63,7 +63,8 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark')
     }
-  }, [isDark])
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme, isDark])
 
   return (
     <ErrorBoundary>

@@ -1,16 +1,19 @@
 package com.nexacrm.service;
 
 import com.nexacrm.dto.IntegrationConfigResponse;
+import com.nexacrm.model.IntegrationConfig;
+import com.nexacrm.repository.IntegrationConfigRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +22,9 @@ public class IntegrationService {
     private static final Map<String, List<String>> REQUIRED_FIELDS = Map.of(
         "facebook", List.of("pageId", "accessToken"),
         "instagram", List.of("igAccountId", "accessToken"),
+        "reddit", List.of("clientId", "clientSecret", "refreshToken", "username"),
         "whatsapp", List.of("instanceId", "accessToken"),
+        "voice_call_agent", List.of(),
         "gmail", List.of("clientId", "clientSecret", "refreshToken"),
         "google_calendar", List.of("clientId", "clientSecret"),
         "openai", List.of("apiKey"),
@@ -27,47 +32,69 @@ public class IntegrationService {
         "google_sheets_leads", List.of("spreadsheetId", "sheetName")
     );
 
-    private final LeadService leadService;
-    private final Map<String, Map<String, String>> configs = new ConcurrentHashMap<>();
-    private final Set<String> connected = ConcurrentHashMap.newKeySet();
+    private static final Long DEFAULT_TENANT = 1L;
+    private static final Set<String> SENSITIVE_KEYS = Set.of(
+        "apikey", "api_key", "access_token", "token", "secret", "password", "refresh_token", "webhooksecret"
+    );
+
+    private final ObjectProvider<LeadService> leadServiceProvider;
+    private final IntegrationConfigRepository integrationConfigRepository;
 
     public List<IntegrationConfigResponse> getAll() {
+        Map<String, IntegrationConfig> byId = new LinkedHashMap<>();
+        integrationConfigRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT)
+            .forEach(cfg -> byId.put(cfg.getIntegrationId(), cfg));
+
         List<IntegrationConfigResponse> all = new ArrayList<>();
-        REQUIRED_FIELDS.forEach((id, requiredFields) -> all.add(buildResponse(id, requiredFields)));
+        REQUIRED_FIELDS.forEach((id, requiredFields) -> all.add(buildResponse(id, requiredFields, byId.get(id))));
         return all;
     }
 
     public IntegrationConfigResponse getById(String integrationId) {
         String normalizedId = normalizeId(integrationId);
         List<String> required = getRequiredFields(normalizedId);
-        return buildResponse(normalizedId, required);
+        IntegrationConfig cfg = integrationConfigRepository
+            .findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
+            .orElse(null);
+        return buildResponse(normalizedId, required, cfg);
     }
 
     public IntegrationConfigResponse save(String integrationId, Map<String, String> values) {
         String normalizedId = normalizeId(integrationId);
         List<String> required = getRequiredFields(normalizedId);
-        validateRequired(values, required);
 
-        Map<String, String> sanitizedValues = new LinkedHashMap<>();
-        values.forEach((k, v) -> sanitizedValues.put(k, v == null ? "" : v.trim()));
-        configs.put(normalizedId, sanitizedValues);
-        connected.add(normalizedId);
+        IntegrationConfig existing = integrationConfigRepository
+            .findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
+            .orElse(null);
+        Map<String, String> existingValues = existing != null
+            ? safeCopy(existing.getValues())
+            : Map.of();
 
-        return buildResponse(normalizedId, required);
+        Map<String, String> mergedValues = mergeValues(existingValues, values);
+        validateRequired(mergedValues, required);
+
+        IntegrationConfig config = existing != null ? existing : new IntegrationConfig();
+        config.setIntegrationId(normalizedId);
+        config.setTenantId(DEFAULT_TENANT);
+        config.setDeleted(false);
+        config.setConnected(true);
+        config.setValues(mergedValues);
+        integrationConfigRepository.save(config);
+
+        return buildResponse(normalizedId, required, config);
     }
 
     public Map<String, Object> test(String integrationId, Map<String, String> values) {
         String normalizedId = normalizeId(integrationId);
         List<String> required = getRequiredFields(normalizedId);
 
-        Map<String, String> testValues = values != null && !values.isEmpty()
-            ? values
-            : configs.getOrDefault(normalizedId, Map.of());
+        Map<String, String> persisted = getConfig(normalizedId);
+        Map<String, String> testValues = mergeValues(persisted, values);
 
         validateRequired(testValues, required);
 
         if ("google_sheets_leads".equals(normalizedId)) {
-            return leadService.testPublicGoogleSheetAccess(testValues);
+            return leadService().testPublicGoogleSheetAccess(testValues);
         }
 
         return Map.of(
@@ -83,38 +110,43 @@ public class IntegrationService {
             throw new IllegalStateException("Sync is not supported for integration: " + normalizedId);
         }
 
-        Map<String, String> savedValues = configs.getOrDefault(normalizedId, Map.of());
-        Map<String, String> merged = new LinkedHashMap<>(savedValues);
-        if (values != null && !values.isEmpty()) {
-            values.forEach((k, v) -> merged.put(k, v == null ? "" : v.trim()));
-        }
+        Map<String, String> merged = mergeValues(getConfig(normalizedId), values);
 
         validateRequired(merged, getRequiredFields(normalizedId));
-        return leadService.syncFromPublicGoogleSheet(merged);
+        return leadService().syncFromPublicGoogleSheet(merged);
     }
 
     public void disconnect(String integrationId) {
         String normalizedId = normalizeId(integrationId);
-        configs.remove(normalizedId);
-        connected.remove(normalizedId);
+        integrationConfigRepository.findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
+            .ifPresent(cfg -> {
+                cfg.setConnected(false);
+                cfg.setValues(new LinkedHashMap<>());
+                integrationConfigRepository.save(cfg);
+            });
     }
 
     public boolean isConnected(String integrationId) {
         String normalizedId = normalizeId(integrationId);
-        return connected.contains(normalizedId);
+        return integrationConfigRepository.findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
+            .map(IntegrationConfig::getConnected)
+            .orElse(false);
     }
 
     public Map<String, String> getConfig(String integrationId) {
         String normalizedId = normalizeId(integrationId);
-        return new LinkedHashMap<>(configs.getOrDefault(normalizedId, Map.of()));
+        return integrationConfigRepository.findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
+            .map(cfg -> safeCopy(cfg.getValues()))
+            .orElseGet(LinkedHashMap::new);
     }
 
-    private IntegrationConfigResponse buildResponse(String id, List<String> requiredFields) {
-        Map<String, String> stored = new LinkedHashMap<>(configs.getOrDefault(id, Map.of()));
+    private IntegrationConfigResponse buildResponse(String id, List<String> requiredFields, IntegrationConfig cfg) {
+        Map<String, String> stored = cfg == null ? new LinkedHashMap<>() : safeCopy(cfg.getValues());
+        maskSensitiveValues(stored);
 
         return IntegrationConfigResponse.builder()
             .id(id)
-            .connected(connected.contains(id))
+            .connected(cfg != null && Boolean.TRUE.equals(cfg.getConnected()))
             .requiredFields(requiredFields)
             .values(stored)
             .build();
@@ -137,11 +169,94 @@ public class IntegrationService {
 
     private void validateRequired(Map<String, String> values, List<String> requiredFields) {
         List<String> missing = requiredFields.stream()
-            .filter(field -> values.get(field) == null || values.get(field).isBlank())
+            .filter(field -> trim(values.get(field)).isBlank())
             .toList();
 
         if (!missing.isEmpty()) {
             throw new IllegalStateException("Missing required fields: " + String.join(", ", missing));
         }
+    }
+
+    private Map<String, String> mergeValues(Map<String, String> existing, Map<String, String> incoming) {
+        Map<String, String> merged = safeCopy(existing);
+        if (incoming == null || incoming.isEmpty()) {
+            return merged;
+        }
+
+        Set<String> knownSensitive = new HashSet<>();
+        incoming.forEach((key, value) -> {
+            String normalizedKey = normalizeKey(key);
+            String clean = trim(value);
+            if (isSensitiveKey(normalizedKey)) {
+                knownSensitive.add(key);
+                if (clean.isBlank() || isMaskedValue(clean)) {
+                    if (existing.containsKey(key)) {
+                        merged.put(key, trim(existing.get(key)));
+                    }
+                } else {
+                    merged.put(key, clean);
+                }
+                return;
+            }
+            merged.put(key, clean);
+        });
+
+        existing.forEach((key, value) -> {
+            if (knownSensitive.contains(key) && !merged.containsKey(key)) {
+                merged.put(key, trim(value));
+            }
+        });
+
+        return merged;
+    }
+
+    private void maskSensitiveValues(Map<String, String> values) {
+        values.replaceAll((key, value) -> {
+            if (!isSensitiveKey(normalizeKey(key))) {
+                return value;
+            }
+            return maskValue(value);
+        });
+    }
+
+    private boolean isSensitiveKey(String normalizedKey) {
+        return SENSITIVE_KEYS.stream().anyMatch(normalizedKey::contains);
+    }
+
+    private String normalizeKey(String key) {
+        return trim(key).toLowerCase(Locale.ROOT);
+    }
+
+    private String maskValue(String value) {
+        String v = trim(value);
+        if (v.isBlank()) {
+            return "";
+        }
+        if (v.length() <= 4) {
+            return "****";
+        }
+        return "********" + v.substring(v.length() - 4);
+    }
+
+    private boolean isMaskedValue(String value) {
+        String v = trim(value);
+        return v.startsWith("****");
+    }
+
+    private Map<String, String> safeCopy(Map<String, String> source) {
+        Map<String, String> copy = new LinkedHashMap<>();
+        if (source == null) {
+            return copy;
+        }
+        source.forEach((k, v) -> copy.put(k, trim(v)));
+        return copy;
+    }
+
+    private String trim(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private LeadService leadService() {
+        return leadServiceProvider.getObject();
     }
 }

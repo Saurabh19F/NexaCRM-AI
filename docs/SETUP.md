@@ -147,6 +147,21 @@ Open **http://localhost:3000** and sign in with:
 3. Set webhook URL to: `https://yourdomain.com/api/webhooks/whatsapp`
 4. Set `WHATSAPP_PHONE_NUMBER_ID` and `WHATSAPP_ACCESS_TOKEN`
 
+### Bolna (AI Calling Agent)
+1. Create a Bolna account, generate an API key, and create a Bolna voice agent.
+2. In NexaCRM Integrations, open **Voice Call Agent** and set:
+   - `provider=bolna`
+   - `bolnaApiUrl` (usually `https://api.bolna.ai`)
+   - `bolnaApiKey`
+   - `bolnaAgentId`
+3. Optional:
+   - `fromNumber` for caller ID (`from_phone_number` in Bolna call API)
+   - `bolnaVoiceId` to override agent voice per call
+   - `callbackWebhookUrl` (defaults to `http://localhost:8080/api/calls/webhook` if omitted)
+   - `webhookSecret` (recommended for callback verification)
+4. In Bolna agent settings (Analytics/Webhook), point outbound execution updates to `POST /api/calls/webhook`.
+5. Keep webhook endpoint `POST /api/calls/webhook` reachable from the Bolna runtime (use ngrok or Cloudflare Tunnel for local testing).
+
 ### Gmail / Google Calendar
 1. Create a project in Google Cloud Console
 2. Enable Gmail API and Google Calendar API

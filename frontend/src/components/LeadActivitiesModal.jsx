@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, Clock, Phone, Users, Trophy, ChevronRight, Save, AlertCircle } from 'lucide-react'
+import { X, CheckCircle2, Clock, Phone, Users, Trophy, ChevronRight, Save } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 const TEAM_MEMBERS = ['Priya S.', 'Rahul M.', 'Amit K.', 'Neha T.', 'Vikram D.', 'Sonia P.']
 
@@ -107,10 +108,17 @@ function FieldInput({ field, value, onChange }) {
   return <input type={field.type} value={value||''} onChange={e=>onChange(e.target.value)} className={base} />
 }
 
-export default function LeadActivitiesModal({ lead, onClose }) {
+export default function LeadActivitiesModal({ lead, onClose, onPersist, initialData, initialSaved }) {
   const [activeTab, setActiveTab] = useState(0)
-  const [saved, setSaved] = useState([false, false, false, false])
-  const [data, setData] = useState([{},{},{},{}])
+  const [saved, setSaved] = useState(initialSaved || [false, false, false, false])
+  const [data, setData] = useState(initialData || [{},{},{},{}])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setActiveTab(0)
+    setSaved(initialSaved || [false, false, false, false])
+    setData(initialData || [{},{},{},{}])
+  }, [lead?.id, initialData, initialSaved])
 
   const act = ACTIVITIES[activeTab]
   const Icon = act.icon
@@ -123,8 +131,31 @@ export default function LeadActivitiesModal({ lead, onClose }) {
     })
   }
 
-  const handleSave = () => {
-    setSaved(prev => { const n=[...prev]; n[activeTab]=true; return n })
+  const handleSave = async () => {
+    if (!String(data?.[activeTab]?.assignedTo || '').trim()) {
+      toast.error('Please assign a team member before saving.')
+      return false
+    }
+    setSaving(true)
+    try {
+      if (onPersist) {
+        await onPersist({
+          lead,
+          activityIndex: activeTab,
+          activity: ACTIVITIES[activeTab],
+          values: data[activeTab] || {},
+          allValues: data,
+        })
+      }
+      setSaved(prev => { const n=[...prev]; n[activeTab]=true; return n })
+      toast.success(`${ACTIVITIES[activeTab].label} saved`)
+      return true
+    } catch (err) {
+      toast.error(err?.message || 'Failed to save activity')
+      return false
+    } finally {
+      setSaving(false)
+    }
   }
 
   const isComplete = (idx) => saved[idx]
@@ -252,16 +283,16 @@ export default function LeadActivitiesModal({ lead, onClose }) {
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSave} className="btn-primary text-xs gap-1.5">
+            <button onClick={handleSave} disabled={saving} className="btn-primary text-xs gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed">
               <Save className="w-3.5 h-3.5" /> Save Activity
             </button>
             {activeTab < ACTIVITIES.length - 1 && (
-              <button onClick={() => { handleSave(); setActiveTab(t => t + 1) }} className="btn-secondary text-xs">
+              <button onClick={async () => { const ok = await handleSave(); if (ok) setActiveTab(t => t + 1) }} disabled={saving} className="btn-secondary text-xs disabled:opacity-60 disabled:cursor-not-allowed">
                 Next Activity →
               </button>
             )}
             {activeTab === ACTIVITIES.length - 1 && (
-              <button onClick={() => { handleSave(); onClose() }} className="btn-primary text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              <button onClick={async () => { const ok = await handleSave(); if (ok) onClose() }} disabled={saving} className="btn-primary text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Complete All
               </button>
             )}

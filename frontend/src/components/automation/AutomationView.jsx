@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Plus, Play, Pause, Trash2, ChevronRight, CheckCircle2, Clock, AlertTriangle, X } from 'lucide-react'
+import { Zap, Plus, Play, Pause, Trash2, ChevronRight, CheckCircle2, Clock, AlertTriangle, X, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { automationAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
@@ -148,6 +148,19 @@ const WORKFLOW_FORM_INITIAL = {
   ],
 }
 
+const RULE_EXAMPLES = [
+  { label: 'Trigger: Lead Created', type: 'IF', text: 'trigger: LEAD_CREATED' },
+  { label: 'Trigger: Deal Stage Changed', type: 'IF', text: 'trigger: DEAL_STAGE_CHANGED' },
+  { label: 'If Stage = WON', type: 'CONDITION', text: 'stage is won' },
+  { label: 'Set Deal Stage WON', type: 'THEN', text: 'set_deal_stage:WON' },
+  { label: 'Set Lead Status QUALIFIED', type: 'THEN', text: 'set_lead_status:QUALIFIED' },
+  { label: 'Set Lead Score HOT', type: 'THEN', text: 'set_lead_score:HOT' },
+  { label: 'Assign Lead', type: 'THEN', text: 'assign_lead:user@email.com' },
+  { label: 'Broadcast Notify', type: 'THEN', text: 'notify:Lead requires immediate follow-up' },
+  { label: 'Send Email', type: 'THEN', text: 'send_email:ops@example.com|Workflow Alert|Lead entered high-priority stage' },
+  { label: 'Send Call', type: 'THEN', text: 'send_call:+919876543210|Hi, this is NexaCRM calling about your enquiry.' },
+]
+
 export default function AutomationPage() {
   const [workflows, setWorkflows] = useState([])
   const [loadingWorkflows, setLoadingWorkflows] = useState(true)
@@ -269,6 +282,18 @@ export default function AutomationPage() {
       return {
         ...prev,
         steps: prev.steps.filter((_, stepIndex) => stepIndex !== index),
+      }
+    })
+  }
+
+  const addExampleStep = (example) => {
+    setNewWorkflow((prev) => ({
+      ...prev,
+      steps: [...prev.steps, { type: example.type, text: example.text }],
+    }))
+    requestAnimationFrame(() => {
+      if (stepsScrollRef.current) {
+        stepsScrollRef.current.scrollTop = stepsScrollRef.current.scrollHeight
       }
     })
   }
@@ -421,124 +446,192 @@ export default function AutomationPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={closeCreateModal}
-              className="absolute inset-0 bg-black/60"
+              className="absolute inset-0 bg-slate-950/70"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="relative w-full max-w-lg p-3.5 md:p-4 z-10 max-h-[76vh] overflow-y-auto custom-scrollbar rounded-2xl border border-slate-200/20 dark:border-slate-700/40 shadow-glass dark:shadow-glass-dark bg-slate-900/95"
+              className="relative w-full max-w-2xl z-10 max-h-[88vh] overflow-hidden rounded-3xl border border-slate-200 dark:border-cyan-300/20 shadow-2xl bg-gradient-to-br from-white via-slate-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/40"
             >
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base md:text-lg font-bold text-slate-800 dark:text-slate-200">Create New Workflow</h2>
-                <button onClick={closeCreateModal} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
+              <div className="pointer-events-none absolute -top-24 -right-20 h-56 w-56 rounded-full bg-cyan-400/20 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-28 -left-20 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
 
-              <div className="mb-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/50">
-                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Load Advanced Template</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <select
-                    value={selectedTemplateId}
-                    onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="input text-sm py-2"
+              <div className="relative px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-cyan-50 via-indigo-50 to-transparent dark:from-cyan-500/10 dark:via-indigo-500/10">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-cyan-300/40 dark:border-cyan-300/20 bg-cyan-100 dark:bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-700 dark:text-cyan-200">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Automation Studio
+                    </span>
+                    <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">Create New Workflow</h2>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Build rule chains that trigger actions across your CRM funnel.</p>
+                  </div>
+                  <button
+                    onClick={closeCreateModal}
+                    className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
-                    <option value="">Select template...</option>
-                    {ADVANCED_TEMPLATES.map((template) => (
-                      <option key={template.id} value={template.id}>{template.name}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={loadTemplate} className="btn-secondary whitespace-nowrap px-3 py-2 text-xs">Use Template</button>
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
 
-              <form onSubmit={createWorkflow} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Workflow Name *</label>
-                    <input
-                      value={newWorkflow.name}
-                      onChange={(e) => setNewWorkflow((prev) => ({ ...prev, name: e.target.value }))}
-                      className="input py-2"
-                      placeholder="Instagram High Budget Assignment"
-                    />
+              <form onSubmit={createWorkflow} className="relative flex flex-col min-h-0 max-h-[calc(88vh-96px)]">
+                <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 pb-6 custom-scrollbar space-y-4 bg-gradient-to-b from-white/60 to-slate-100/60 dark:from-slate-950/35 dark:to-slate-900/25">
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/70">
+                    <p className="text-xs font-semibold tracking-wide text-slate-700 dark:text-slate-300 mb-2">Load Advanced Template</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className="input text-sm py-2.5 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600"
+                      >
+                        <option value="">Select template...</option>
+                        {ADVANCED_TEMPLATES.map((template) => (
+                          <option key={template.id} value={template.id}>{template.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={loadTemplate}
+                        className="whitespace-nowrap px-4 py-2.5 text-xs font-semibold rounded-xl text-cyan-700 dark:text-cyan-100 border border-cyan-300/50 dark:border-cyan-300/30 bg-cyan-100 dark:bg-cyan-400/10 hover:bg-cyan-200 dark:hover:bg-cyan-400/20 transition-colors"
+                      >
+                        Use Template
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Category</label>
-                    <select
-                      value={newWorkflow.category}
-                      onChange={(e) => setNewWorkflow((prev) => ({ ...prev, category: e.target.value }))}
-                      className="input py-2"
-                    >
-                      {Object.keys(CATEGORY_COLORS).map((category) => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Initial Status</label>
-                    <select
-                      value={newWorkflow.status}
-                      onChange={(e) => setNewWorkflow((prev) => ({ ...prev, status: e.target.value }))}
-                      className="input py-2"
-                    >
-                      <option value="active">Active</option>
-                      <option value="paused">Paused</option>
-                    </select>
-                  </div>
-                </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Workflow Chain Steps *</label>
-                    <button type="button" onClick={addStep} className="btn-secondary text-xs px-2.5 py-1.5">Add Step</button>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mb-2">Scroll inside this box after adding steps.</p>
-                  <div
-                    ref={stepsScrollRef}
-                    className="space-y-2 max-h-52 overflow-y-auto pr-2 custom-scrollbar rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-2 bg-slate-50/40 dark:bg-slate-900/20"
-                  >
-                    {newWorkflow.steps.map((step, index) => (
-                      <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                        <select
-                          value={step.type}
-                          onChange={(e) => updateStep(index, 'type', e.target.value)}
-                          className="input col-span-1 sm:col-span-3 py-2"
-                        >
-                          {STEP_TYPES.map((type) => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                        <input
-                          value={step.text}
-                          onChange={(e) => updateStep(index, 'text', e.target.value)}
-                          className="input col-span-1 sm:col-span-8 py-2"
-                          placeholder={
-                            step.type === 'WAIT'
-                              ? 'e.g. 30 minutes'
-                              : step.type === 'CONDITION'
-                              ? 'e.g. If no response then reassign'
-                              : 'Describe this step'
-                          }
-                        />
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/70">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-xs font-semibold tracking-wide text-slate-700 dark:text-slate-300">Rule Examples</p>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">Click to add as new step</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {RULE_EXAMPLES.map((example) => (
                         <button
+                          key={example.label}
                           type="button"
-                          onClick={() => removeStep(index)}
-                          className="col-span-1 sm:col-span-1 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500 justify-self-start sm:justify-self-auto"
-                          title="Remove step"
+                          onClick={() => addExampleStep(example)}
+                          className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-cyan-400 dark:hover:border-cyan-500 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
+                          title={`${example.type}: ${example.text}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          {example.label}
                         </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] uppercase tracking-wide font-semibold text-slate-600 dark:text-slate-300 block mb-1.5">Workflow Name *</label>
+                      <input
+                        value={newWorkflow.name}
+                        onChange={(e) => setNewWorkflow((prev) => ({ ...prev, name: e.target.value }))}
+                        className="input py-2.5 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600"
+                        placeholder="Instagram High Budget Assignment"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wide font-semibold text-slate-600 dark:text-slate-300 block mb-1.5">Category</label>
+                      <select
+                        value={newWorkflow.category}
+                        onChange={(e) => setNewWorkflow((prev) => ({ ...prev, category: e.target.value }))}
+                        className="input py-2.5 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600"
+                      >
+                        {Object.keys(CATEGORY_COLORS).map((category) => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wide font-semibold text-slate-600 dark:text-slate-300 block mb-1.5">Initial Status</label>
+                      <select
+                        value={newWorkflow.status}
+                        onChange={(e) => setNewWorkflow((prev) => ({ ...prev, status: e.target.value }))}
+                        className="input py-2.5 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600"
+                      >
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/70 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Workflow Chain Steps *</label>
+                      <button
+                        type="button"
+                        onClick={addStep}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 dark:text-slate-100 border border-indigo-300/50 dark:border-indigo-300/30 bg-indigo-100 dark:bg-indigo-500/25 hover:bg-indigo-200 dark:hover:bg-indigo-500/35 transition-colors"
+                      >
+                        Add Step
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">Build your sequence from trigger to action.</p>
+                    <div
+                      ref={stepsScrollRef}
+                      className="space-y-2 max-h-[42vh] overflow-y-auto pr-2 custom-scrollbar rounded-xl border border-slate-200 dark:border-slate-600/60 p-2.5 bg-white dark:bg-slate-800/65"
+                    >
+                      {newWorkflow.steps.map((step, index) => (
+                        <div
+                          key={index}
+                          className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center rounded-xl border border-slate-200 dark:border-slate-500/40 bg-slate-50 dark:bg-slate-900/50 p-2"
+                        >
+                          <div className="hidden sm:flex sm:col-span-1 h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                            {index + 1}
+                          </div>
+                          <select
+                            value={step.type}
+                            onChange={(e) => updateStep(index, 'type', e.target.value)}
+                            className="input col-span-1 sm:col-span-3 py-2 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600 font-semibold"
+                          >
+                            {STEP_TYPES.map((type) => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                          </select>
+                          <input
+                            value={step.text}
+                            onChange={(e) => updateStep(index, 'text', e.target.value)}
+                            className="input col-span-1 sm:col-span-7 py-2 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600"
+                            placeholder={
+                              step.type === 'WAIT'
+                                ? 'e.g. 30 minutes'
+                                : step.type === 'CONDITION'
+                                ? 'e.g. If no response then reassign'
+                                : 'Describe this step'
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeStep(index)}
+                            className="col-span-1 sm:col-span-1 p-1.5 rounded-lg border border-transparent hover:border-red-300/40 hover:bg-red-500/10 text-slate-400 hover:text-red-300 transition-colors justify-self-start sm:justify-self-auto"
+                            title="Remove step"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="sticky bottom-0 -mx-4 md:-mx-5 mt-2 px-4 md:px-5 pt-3 pb-1 bg-gradient-to-t from-slate-50/95 via-slate-50/90 to-transparent dark:from-slate-900/95 dark:via-slate-900/85 dark:to-transparent border-t border-slate-200/60 dark:border-slate-700/40">
-                  <div className="flex gap-2">
-                    <button type="button" onClick={closeCreateModal} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
-                    <button type="submit" className="btn-primary flex-1 py-2 text-sm">Create Workflow</button>
+                <div className="px-4 sm:px-5 pt-3 pb-4 border-t border-slate-200 dark:border-slate-700 bg-gradient-to-t from-slate-100 to-white dark:from-slate-900 dark:to-slate-900/80">
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/75 backdrop-blur px-3 py-3">
+                  <div className="flex gap-2.5">
+                    <button
+                      type="button"
+                      onClick={closeCreateModal}
+                      className="flex-1 py-2.5 text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500 hover:from-indigo-400 hover:via-blue-400 hover:to-cyan-400 shadow-lg shadow-blue-500/25 transition-all"
+                    >
+                      Create Workflow
+                    </button>
+                  </div>
                   </div>
                 </div>
               </form>

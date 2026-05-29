@@ -1,11 +1,12 @@
 import axios from 'axios'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000)
 
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 6000,
+  timeout: API_TIMEOUT_MS,
 })
 
 const isLikelyJwt = (token) =>
@@ -14,6 +15,13 @@ const isLikelyJwt = (token) =>
   !token.includes(' ')
 
 const parseApiError = (err) => {
+  const isTimeout =
+    err?.code === 'ECONNABORTED' ||
+    (typeof err?.message === 'string' && err.message.toLowerCase().includes('timeout'))
+  if (isTimeout) {
+    return `Request timed out after ${API_TIMEOUT_MS}ms. Please retry.`
+  }
+
   const status = err?.response?.status
   const data = err?.response?.data
   if (status === 403) {
@@ -67,6 +75,7 @@ api.interceptors.response.use(
       message: parseApiError(err),
       status: err?.response?.status,
       data: err?.response?.data,
+      code: err?.code,
     })
   }
 )
@@ -79,7 +88,7 @@ export const authAPI = {
   logout: ()     => api.post('/auth/logout'),
   me:     ()     => api.get('/auth/me'),
   updateMe:(data)=> api.put('/auth/me', data),
-  refresh:()     => api.post('/auth/refresh'),
+  refresh:(refreshToken) => api.post('/auth/refresh', { refreshToken }),
 }
 
 // ──────────────────────────────────────────
@@ -99,6 +108,16 @@ export const leadsAPI = {
   },
   export:    (params) => api.get('/leads/export', { params, responseType: 'blob' }),
   score:     (id)     => api.post(`/leads/${id}/score`),
+  convert:   (id, d)  => api.post(`/leads/${id}/convert`, d ?? {}),
+  callNow:   (id, d)  => api.post(`/leads/${id}/call`, d ?? {}),
+  getActivities:(id)   => api.get(`/leads/${id}/activities`),
+  addActivity: (id, d) => api.post(`/leads/${id}/activities`, d),
+}
+
+export const callsAPI = {
+  trigger: (leadId, d) => api.post(`/calls/trigger/${leadId}`, d ?? {}),
+  getByLead: (leadId) => api.get(`/calls/${leadId}`),
+  retry: (callId) => api.post(`/calls/retry/${callId}`),
 }
 
 // ──────────────────────────────────────────
@@ -106,7 +125,7 @@ export const leadsAPI = {
 // ──────────────────────────────────────────
 export const dealsAPI = {
   getAll:       (params)   => api.get('/deals', { params }),
-  getBoard:     (params)   => api.get('/deals/board', { params }),
+  getBoard:     (params)   => api.get('/deals/board', { params, timeout: Number(import.meta.env.VITE_DEALS_BOARD_TIMEOUT_MS || 25000) }),
   getById:      (id)       => api.get(`/deals/${id}`),
   create:       (data)     => api.post('/deals', data),
   update:       (id, d)    => api.put(`/deals/${id}`, d),

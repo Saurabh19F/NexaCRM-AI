@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, CheckCircle2, ExternalLink, Copy, Eye, EyeOff,
-  RefreshCw, Zap, Brain, Link2, Shield,
-  Users, TrendingUp, MessageSquare, Mail, Calendar, Linkedin, Sheet
+  RefreshCw, Zap, Link2, Shield, Linkedin, Sheet, PhoneCall
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useIntegrationsStore } from '../store/integrationsStore'
@@ -53,6 +52,28 @@ const INTEGRATIONS = [
     Icon: Linkedin,
   },
   {
+    id: 'reddit', name: 'Reddit', category: 'Social Media',
+    tagline: 'Track subreddit discussions and capture intent signals',
+    description: 'Connect Reddit API credentials to monitor selected subreddits, capture buying-intent conversations, and turn high-signal threads into actionable CRM follow-up tasks.',
+    features: ['Subreddit monitoring', 'Keyword tracking', 'Intent signals', 'Lead research workflow'],
+    color: '#FF4500', bg: '#FFF2EC',
+    authType: 'oauth', oauthProvider: 'Reddit',
+    docsUrl: 'https://www.reddit.com/prefs/apps',
+    defaultValues: {
+      userAgent: 'NexaCRM/1.0 by u/your_username',
+      subredditKeywords: 'crm,sales,lead generation'
+    },
+    fields: [
+      { key: 'clientId', label: 'Reddit Client ID', placeholder: 'abc123xyz', hint: 'Create a script app at reddit.com/prefs/apps' },
+      { key: 'clientSecret', label: 'Reddit Client Secret', placeholder: 'xxxxxxxxxxxx', secret: true },
+      { key: 'refreshToken', label: 'Refresh Token', placeholder: '1234567890_refresh_token', secret: true },
+      { key: 'username', label: 'Reddit Username', placeholder: 'your_username' },
+      { key: 'userAgent', label: 'User Agent (optional)', placeholder: 'NexaCRM/1.0 by u/your_username' },
+      { key: 'subredditKeywords', label: 'Subreddit Keywords (optional)', placeholder: 'crm,sales,saas,startups' },
+    ],
+    Icon: () => <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><circle cx="12" cy="12" r="10" fill="#FF4500"/><path d="M16.58 14.38c.07.32.11.64.11.97 0 2.1-2.1 3.8-4.69 3.8-2.59 0-4.69-1.7-4.69-3.8 0-.33.04-.65.12-.97a1.5 1.5 0 1 1 .97-2.28 6.15 6.15 0 0 1 3.6-1.16c1.34 0 2.59.44 3.6 1.16a1.5 1.5 0 1 1 .98 2.28Z" fill="white"/><circle cx="10.14" cy="14.07" r=".9" fill="#FF4500"/><circle cx="13.86" cy="14.07" r=".9" fill="#FF4500"/><path d="M10.2 16.18c.43.34 1.03.54 1.8.54.77 0 1.37-.2 1.8-.54" stroke="#FF4500" strokeWidth="1.1" strokeLinecap="round"/><path d="m14.97 9.74.6-2.08 1.8.42" stroke="white" strokeWidth="1.1" strokeLinecap="round"/></svg>,
+  },
+  {
     id: 'whatsapp', name: 'WhatsApp Business', category: 'Messaging',
     tagline: 'Send & receive WhatsApp messages from CRM',
     description: 'Integrate Aiadrika WhatsApp API to send automated follow-ups and manage WhatsApp conversations inside your CRM inbox.',
@@ -67,6 +88,40 @@ const INTEGRATIONS = [
       { key: 'webhookToken',label: 'Webhook Verify Token (optional)',  placeholder: 'my_secret_token' },
     ],
     Icon: () => <svg viewBox="0 0 24 24" fill="#25D366" className="w-7 h-7"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>,
+  },
+  {
+    id: 'voice_call_agent', name: 'Voice Call Agent', category: 'Messaging',
+    tagline: 'Auto-call new leads using Bolna or webhook providers',
+    description: 'Run outbound AI calls with Bolna directly from NexaCRM, or keep using any webhook-based calling agent.',
+    features: ['Bolna outbound calls', 'Auto-call on lead create', 'Webhook fallback mode', 'Transcript + call activity logging'],
+    color: '#7C3AED', bg: '#F5F1FF',
+    authType: 'apikey',
+    docsUrl: 'https://www.bolna.ai/docs/api-reference/calls/make',
+    defaultValues: {
+      enabled: 'true',
+      autoCallOnLeadCreate: 'true',
+      provider: 'bolna',
+      bolnaApiUrl: 'https://api.bolna.ai',
+    },
+    fields: [
+      { key: 'provider', label: 'Provider (bolna or webhook)', placeholder: 'bolna', hint: 'Use bolna for direct API-based outbound calls from backend' },
+      { key: 'bolnaApiUrl', label: 'Bolna API URL (for provider=bolna)', placeholder: 'https://api.bolna.ai', hint: 'Defaults to https://api.bolna.ai' },
+      { key: 'bolnaApiKey', label: 'Bolna API Key (for provider=bolna)', placeholder: 'sk_live_...', secret: true },
+      { key: 'bolnaAgentId', label: 'Bolna Agent ID (for provider=bolna)', placeholder: '123e4567-e89b-12d3-a456-426655440000' },
+      { key: 'bolnaVoiceId', label: 'Bolna Voice ID (optional)', placeholder: 'Sam', hint: 'Overrides default agent voice for this call' },
+      { key: 'callbackWebhookUrl', label: 'Callback Webhook URL (optional)', placeholder: 'https://your-backend.example.com/api/calls/webhook', hint: 'Where the AI worker should POST call outcomes (defaults to localhost)' },
+      { key: 'webhookUrl', label: 'Webhook URL (for provider=webhook)', placeholder: 'https://your-agent.example.com/outbound-call' },
+      { key: 'apiKey', label: 'Provider API Key (optional)', placeholder: 'sk_live_...', secret: true },
+      { key: 'webhookSecret', label: 'Webhook Secret (optional)', placeholder: 'super-secret', secret: true },
+      { key: 'agentId', label: 'Agent ID (optional)', placeholder: 'agent_123' },
+      { key: 'fromNumber', label: 'Caller Number (optional)', placeholder: '+911234567890', hint: 'For Bolna, this maps to from_phone_number when provided' },
+      { key: 'enabled', label: 'Enabled (optional, true/false)', placeholder: 'true' },
+      { key: 'autoCallOnLeadCreate', label: 'Auto Call On New Lead (optional, true/false)', placeholder: 'true' },
+      { key: 'autoAssignHotLead', label: 'Auto Assign Hot Lead (optional, true/false)', placeholder: 'true' },
+      { key: 'agentName', label: 'Agent Name (optional)', placeholder: 'Riya from NexaCRM' },
+      { key: 'scriptTemplate', label: 'Call Script Template (optional)', placeholder: 'Hi {leadName}, this is {agentName}...' },
+    ],
+    Icon: PhoneCall,
   },
   {
     id: 'gmail', name: 'Gmail / Google', category: 'Email',
@@ -175,9 +230,27 @@ function SetupModal({ integration, onClose }) {
 
   const update = (key, val) => setValues(p => ({ ...p, [key]: val }))
   const copy = (val) => { navigator.clipboard?.writeText(val); toast.success('Copied!') }
+  const providerMode = String(values.provider || '').trim().toLowerCase()
+
+  const getRequiredFields = () => {
+    if (integration.id !== 'voice_call_agent') {
+      return integration.fields.filter(
+        f => !f.label.toLowerCase().includes('optional') && !f.hint?.includes('after auth')
+      )
+    }
+
+    const baseKeys = ['provider']
+    const bolnaKeys = ['bolnaApiUrl', 'bolnaApiKey', 'bolnaAgentId']
+    const webhookKeys = ['webhookUrl']
+    const requiredKeys = providerMode === 'webhook'
+      ? [...baseKeys, ...webhookKeys]
+      : [...baseKeys, ...bolnaKeys]
+
+    return integration.fields.filter(f => requiredKeys.includes(f.key))
+  }
 
   const handleTest = async () => {
-    const required = integration.fields.filter(f => !f.label.toLowerCase().includes('optional'))
+    const required = getRequiredFields()
     const missing = required.filter(f => !values[f.key]?.trim())
     if (missing.length) { toast.error('Please fill required fields first'); return }
     try {
@@ -190,7 +263,7 @@ function SetupModal({ integration, onClose }) {
   }
 
   const handleSave = async () => {
-    const required = integration.fields.filter(f => !f.label.toLowerCase().includes('optional') && !f.hint?.includes('after auth'))
+    const required = getRequiredFields()
     const missing = required.filter(f => !values[f.key]?.trim())
     if (missing.length) { toast.error(`Required: ${missing.map(f => f.label).join(', ')}`); return }
     try {
@@ -286,7 +359,7 @@ function SetupModal({ integration, onClose }) {
                         {revealed[f.key] ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}
                       </button>
                     )}
-                    {values[f.key] && (
+                    {!f.secret && values[f.key] && (
                       <button onClick={() => copy(values[f.key])} className="p-1 rounded text-slate-400 hover:text-slate-600 transition">
                         <Copy className="w-3.5 h-3.5"/>
                       </button>

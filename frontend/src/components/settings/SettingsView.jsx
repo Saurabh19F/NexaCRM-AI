@@ -624,6 +624,122 @@ function ManagePlanModal({ onClose }) {
   )
 }
 
+/* ── Theme Picker Config ─────────────────────────────────────────── */
+const THEME_OPTIONS = [
+  {
+    id: 'light',
+    name: 'Light',
+    emoji: '☀️',
+    desc: 'Clean violet & white',
+    preview: {
+      bg: '#f8fafc',
+      card: 'rgba(255,255,255,0.75)',
+      cardShadow: '4px 4px 12px rgba(109,40,217,0.12)',
+      cardBorder: '1px solid rgba(255,255,255,0.3)',
+      cardRadius: '10px',
+      accent: 'linear-gradient(135deg, #7c3aed, #c026d3)',
+      btnRadius: '7px',
+      text: '#1e293b',
+    },
+  },
+  {
+    id: 'dark',
+    name: 'Dark',
+    emoji: '🌙',
+    desc: 'Deep midnight purple',
+    preview: {
+      bg: '#0d0a1e',
+      card: 'rgba(139,92,246,0.15)',
+      cardShadow: '0 4px 16px rgba(0,0,0,0.5)',
+      cardBorder: '1px solid rgba(139,92,246,0.2)',
+      cardRadius: '10px',
+      accent: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+      btnRadius: '7px',
+      text: '#e2e8f0',
+    },
+  },
+  {
+    id: 'neumorphism',
+    name: 'Neumorphism',
+    emoji: '🪨',
+    desc: 'Soft extruded clay',
+    preview: {
+      bg: '#E0E5EC',
+      card: '#E0E5EC',
+      cardShadow: '4px 4px 8px rgba(163,177,198,0.6), -4px -4px 8px rgba(255,255,255,0.5)',
+      cardBorder: 'none',
+      cardRadius: '16px',
+      accent: 'linear-gradient(135deg, #6C63FF, #8B84FF)',
+      btnRadius: '10px',
+      text: '#3D4852',
+    },
+  },
+  {
+    id: 'industrial',
+    name: 'Industrial',
+    emoji: '⚙️',
+    desc: 'Mechanical precision',
+    preview: {
+      bg: '#e0e5ec',
+      card: '#f0f2f5',
+      cardShadow: '5px 5px 10px #babecc, -5px -5px 10px #ffffff',
+      cardBorder: 'none',
+      cardRadius: '6px',
+      accent: '#ff4757',
+      btnRadius: '3px',
+      text: '#2d3436',
+    },
+  },
+  {
+    id: 'corporate',
+    name: 'Corporate',
+    emoji: '💼',
+    desc: 'Enterprise blue trust',
+    preview: {
+      bg: '#F8FAFC',
+      card: '#ffffff',
+      cardShadow: '0 4px 12px rgba(79,70,229,0.1)',
+      cardBorder: '1px solid #E2E8F0',
+      cardRadius: '10px',
+      accent: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+      btnRadius: '16px',
+      text: '#0F172A',
+    },
+  },
+  {
+    id: 'clay',
+    name: 'Clay',
+    emoji: '🫧',
+    desc: 'Playful soft clay',
+    preview: {
+      bg: '#F4F1FA',
+      card: 'rgba(255,255,255,0.75)',
+      cardShadow: '6px 6px 12px rgba(160,150,180,0.2), -4px -4px 8px rgba(255,255,255,0.9)',
+      cardBorder: 'none',
+      cardRadius: '20px',
+      accent: 'linear-gradient(135deg, #A78BFA, #7C3AED)',
+      btnRadius: '14px',
+      text: '#332F3A',
+    },
+  },
+  {
+    id: 'tech',
+    name: 'Tech',
+    emoji: '⚡',
+    desc: 'Minimal electric blue',
+    preview: {
+      bg: '#FAFAFA',
+      card: '#ffffff',
+      cardShadow: '0 2px 6px rgba(0,0,0,0.07)',
+      cardBorder: '1px solid #E2E8F0',
+      cardRadius: '10px',
+      accent: 'linear-gradient(135deg, #0052FF, #4D7CFF)',
+      btnRadius: '6px',
+      text: '#0F172A',
+    },
+  },
+]
+
 /* ── Main Settings Page ──────────────────────────────────────────── */
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -631,7 +747,7 @@ export default function SettingsPage() {
     const tabFromUrl = searchParams.get('tab')
     return VALID_TAB_KEYS.has(tabFromUrl) ? tabFromUrl : 'general'
   })
-  const { isDark, toggleTheme }     = useThemeStore()
+  const { theme, setTheme }         = useThemeStore()
   const [twoFAEnabled, setTwoFAEnabled]     = useState(false)
   const [showSetupModal, setShowSetupModal] = useState(false)
   const [showDisableModal, setShowDisableModal] = useState(false)
@@ -736,21 +852,87 @@ export default function SettingsPage() {
           )}
 
           {tab === 'appearance' && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Appearance</h2>
+
               <div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Theme</p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  {[
-                    { label:'Light', active:!isDark, fn:() => isDark  && toggleTheme() },
-                    { label:'Dark',  active: isDark, fn:() => !isDark && toggleTheme() },
-                  ].map(({ label, active, fn }) => (
-                    <button key={label} onClick={fn}
-                      className={`flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-6 rounded-2xl border-2 text-sm font-semibold transition-all
-                        ${active ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-400' : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}>
-                      {label === 'Light' ? '☀️' : '🌙'} {label}
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">Theme</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {THEME_OPTIONS.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTheme(t.id)}
+                      className={`relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200 text-left
+                        ${theme === t.id
+                          ? 'ring-2 ring-brand-500 ring-offset-2 shadow-lg shadow-brand-500/20'
+                          : 'ring-1 ring-slate-200 dark:ring-slate-700 hover:ring-brand-300 dark:hover:ring-brand-700 hover:shadow-md'}`}
+                    >
+                      {/* Mini visual preview */}
+                      <div
+                        className="h-[72px] w-full p-2 relative flex flex-col gap-1.5"
+                        style={{ background: t.preview.bg }}
+                      >
+                        {/* Simulated card */}
+                        <div
+                          className="flex-1 flex flex-col justify-center gap-1 px-2 py-1"
+                          style={{
+                            background: t.preview.card,
+                            boxShadow: t.preview.cardShadow,
+                            border: t.preview.cardBorder || 'none',
+                            borderRadius: t.preview.cardRadius,
+                          }}
+                        >
+                          <div
+                            className="h-1.5 rounded-full w-3/5"
+                            style={{ background: t.preview.accent, opacity: 0.75 }}
+                          />
+                          <div
+                            className="h-1 rounded-full w-4/5"
+                            style={{ background: t.preview.text, opacity: 0.14 }}
+                          />
+                          <div
+                            className="h-1 rounded-full w-2/5"
+                            style={{ background: t.preview.text, opacity: 0.09 }}
+                          />
+                        </div>
+                        {/* Simulated button */}
+                        <div
+                          className="h-3.5 w-11 self-end"
+                          style={{ background: t.preview.accent, borderRadius: t.preview.btnRadius, opacity: 0.88 }}
+                        />
+                        {/* Active check badge */}
+                        {theme === t.id && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-brand-500 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Label row */}
+                      <div className="px-2.5 py-2 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm leading-none">{t.emoji}</span>
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{t.name}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight truncate">{t.desc}</p>
+                      </div>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Active theme summary */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 bg-slate-50/60 dark:bg-slate-800/30 flex items-center gap-3">
+                <span className="text-2xl leading-none">{THEME_OPTIONS.find(t => t.id === theme)?.emoji}</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {THEME_OPTIONS.find(t => t.id === theme)?.name} Theme
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {THEME_OPTIONS.find(t => t.id === theme)?.desc} — applies to the full interface
+                  </p>
                 </div>
               </div>
             </div>

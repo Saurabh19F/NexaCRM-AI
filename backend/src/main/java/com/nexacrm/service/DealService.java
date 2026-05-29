@@ -1,5 +1,6 @@
 package com.nexacrm.service;
 
+import com.nexacrm.automation.WorkflowEngine;
 import com.nexacrm.dto.DealDTO;
 import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
@@ -13,8 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -28,56 +33,45 @@ public class DealService {
     private final DealRepository dealRepository;
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
+    private final MongoTemplate mongoTemplate;
     private final NotificationPublisher notificationPublisher;
+    private final WorkflowEngine workflowEngine;
 
     private static final Long DEFAULT_TENANT = 1L;
 
     @Transactional(readOnly = true)
     public PageResponse<DealDTO> findAll(String stage, String ownerId, Long pipelineId, Pageable pageable) {
-        List<Deal> filtered;
-        Deal.DealStage stageEnum = null;
-        if (stage != null && !stage.isBlank()) {
-            stageEnum = Deal.DealStage.valueOf(stage.toUpperCase());
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("deleted").ne(true));
+
+        Deal.DealStage stageEnum = parseStage(stage);
+        if (stageEnum != null) {
+            query.addCriteria(Criteria.where("stage").is(stageEnum));
+        }
+        if (ownerId != null && !ownerId.isBlank()) {
+            query.addCriteria(Criteria.where("owner.$id").is(ownerId));
+        }
+        if (pipelineId != null) {
+            query.addCriteria(new Criteria().orOperator(
+                Criteria.where("pipeline_id").is(pipelineId),
+                Criteria.where("pipeline_id").is(null),
+                Criteria.where("pipeline_id").exists(false)
+            ));
         }
 
-        if (stageEnum != null && ownerId != null && !ownerId.isBlank() && pipelineId != null) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndStageAndOwner_IdAndPipelineId(
-                DEFAULT_TENANT, stageEnum, ownerId, pipelineId
-            );
-        } else if (stageEnum != null && ownerId != null && !ownerId.isBlank()) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndStageAndOwner_Id(
-                DEFAULT_TENANT, stageEnum, ownerId
-            );
-        } else if (stageEnum != null && pipelineId != null) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndStageAndPipelineId(
-                DEFAULT_TENANT, stageEnum, pipelineId
-            );
-        } else if (ownerId != null && !ownerId.isBlank() && pipelineId != null) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndOwner_IdAndPipelineId(
-                DEFAULT_TENANT, ownerId, pipelineId
-            );
-        } else if (stageEnum != null) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndStage(DEFAULT_TENANT, stageEnum);
-        } else if (ownerId != null && !ownerId.isBlank()) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndOwner_Id(DEFAULT_TENANT, ownerId);
-        } else if (pipelineId != null) {
-            filtered = dealRepository.findByTenantIdAndDeletedFalseAndPipelineId(DEFAULT_TENANT, pipelineId);
-        } else {
-            filtered = dealRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
-        }
+        long total = mongoTemplate.count(query, Deal.class);
+        query.with(pageable);
+        List<Deal> content = mongoTemplate.find(query, Deal.class);
+        Page<Deal> page = new PageImpl<>(content, pageable, total);
 
-        if (pageable.getSort().isSorted()) {
-            Comparator<Deal> comparator = Comparator.comparing(Deal::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
-            filtered.sort(comparator.reversed());
-        }
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), filtered.size());
-        List<Deal> content = start >= filtered.size() ? List.of() : filtered.subList(start, end);
-        Page<Deal> page = new PageImpl<>(content, pageable, filtered.size());
+        Map<String, String> ownerNameById = buildOwnerNameById(content);
+        Map<String, String> companyByLeadId = buildCompanyByLeadId(content);
 
         return PageResponse.<DealDTO>builder()
-            .content(page.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
+            .content(page.getContent().stream()
+                .map(deal -> toDTO(deal, ownerNameById, companyByLeadId))
+                .collect(Collectors.toList()))
             .page(page.getNumber()).size(page.getSize())
             .total(page.getTotalElements()).totalPages(page.getTotalPages())
             .first(page.isFirst()).last(page.isLast())
@@ -88,21 +82,36 @@ public class DealService {
     public Map<String, List<DealDTO>> getBoardView(Long pipelineId) {
         Map<String, List<DealDTO>> board = new LinkedHashMap<>();
         for (Deal.DealStage stage : Deal.DealStage.values()) {
-            List<Deal> deals = dealRepository.findByStageAndTenantIdAndDeletedFalse(stage, DEFAULT_TENANT);
-            if (pipelineId != null) {
-                deals = deals.stream()
-                    .filter(d -> Objects.equals(d.getPipelineId(), pipelineId))
-                    .toList();
-            }
-            board.put(stage.name().toLowerCase(), deals.stream().map(this::toDTO).collect(Collectors.toList()));
+            board.put(stage.name().toLowerCase(), new ArrayList<>());
         }
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("deleted").ne(true));
+        if (pipelineId != null) {
+            query.addCriteria(new Criteria().orOperator(
+                Criteria.where("pipeline_id").is(pipelineId),
+                Criteria.where("pipeline_id").is(null),
+                Criteria.where("pipeline_id").exists(false)
+            ));
+        }
+        List<Deal> deals = mongoTemplate.find(query, Deal.class);
+
+        Map<String, String> ownerNameById = buildOwnerNameById(deals);
+        Map<String, String> companyByLeadId = buildCompanyByLeadId(deals);
+
+        for (Deal deal : deals) {
+            String stageKey = (deal.getStage() != null ? deal.getStage() : Deal.DealStage.NEW).name().toLowerCase();
+            List<DealDTO> bucket = board.computeIfAbsent(stageKey, key -> new ArrayList<>());
+            bucket.add(toDTO(deal, ownerNameById, companyByLeadId));
+        }
+
         return board;
     }
 
     @Transactional(readOnly = true)
     public DealDTO findById(String id) {
-        return dealRepository.findById(id)
-            .filter(d -> !d.getDeleted())
+        return dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
     }
@@ -110,12 +119,16 @@ public class DealService {
     public DealDTO create(DealDTO dto) {
         Deal deal = fromDTO(dto);
         deal.setTenantId(DEFAULT_TENANT);
-        return toDTO(dealRepository.save(deal));
+        Deal saved = dealRepository.save(deal);
+        workflowEngine.processEvent("DEAL_CREATED", Map.of(
+            "dealId", saved.getId(),
+            "stage", saved.getStage() != null ? saved.getStage().name() : "UNKNOWN"
+        ));
+        return toDTO(saved);
     }
 
     public DealDTO update(String id, DealDTO dto) {
-        Deal deal = dealRepository.findById(id)
-            .filter(d -> !d.getDeleted())
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
 
         deal.setTitle(dto.getTitle());
@@ -144,8 +157,7 @@ public class DealService {
     }
 
     public DealDTO moveStage(String id, String stageName) {
-        Deal deal = dealRepository.findById(id)
-            .filter(d -> !d.getDeleted())
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
 
         Deal.DealStage newStage;
@@ -155,25 +167,33 @@ public class DealService {
             throw new IllegalArgumentException("Invalid stage: " + stageName + ". Valid values: " +
                 java.util.Arrays.toString(Deal.DealStage.values()));
         }
-        String prevStage = deal.getStage().name();
+        String prevStage = deal.getStage() != null ? deal.getStage().name() : "UNKNOWN";
         deal.setStage(newStage);
         Deal saved = dealRepository.save(deal);
 
-        // Notify deal owner
-        if (saved.getOwner() != null) {
-            notificationPublisher.notifyDealStageChange(
-                saved.getOwner().getEmail(),
-                saved.getTitle(),
-                newStage.name()
-            );
+        // Notify deal owner if owner email exists. Notification failures should never block a stage move.
+        String ownerEmail = saved.getOwner() != null ? saved.getOwner().getEmail() : null;
+        if (StringUtils.hasText(ownerEmail)) {
+            try {
+                notificationPublisher.notifyDealStageChange(ownerEmail, saved.getTitle(), newStage.name());
+            } catch (Exception ex) {
+                log.warn("Failed to publish deal stage notification for deal {}: {}", id, ex.getMessage());
+            }
+        } else if (saved.getOwner() != null) {
+            log.warn("Skipping deal stage notification for deal {} because owner email is missing", id);
         }
 
         log.info("Deal {} moved from {} to {}", id, prevStage, newStage);
+        workflowEngine.processEvent("DEAL_STAGE_CHANGED", Map.of(
+            "dealId", saved.getId(),
+            "fromStage", prevStage,
+            "toStage", newStage.name()
+        ));
         return toDTO(saved);
     }
 
     public void delete(String id) {
-        Deal deal = dealRepository.findById(id)
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
         deal.setDeleted(true);
         dealRepository.save(deal);
@@ -193,6 +213,72 @@ public class DealService {
     }
 
     // ── Mapping ───────────────────────────────────────────────────
+
+    private Map<String, String> buildOwnerNameById(List<Deal> deals) {
+        Set<String> ownerIds = deals.stream()
+            .map(deal -> deal.getOwner() != null ? deal.getOwner().getId() : null)
+            .filter(id -> id != null && !id.isBlank())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (ownerIds.isEmpty()) return Map.of();
+
+        Map<String, String> result = new LinkedHashMap<>();
+        for (var user : userRepository.findAllById(ownerIds)) {
+            if (user == null || user.getId() == null || user.getId().isBlank()) continue;
+            result.putIfAbsent(user.getId(), user.getName() != null ? user.getName() : "");
+        }
+        return result;
+    }
+
+    private Map<String, String> buildCompanyByLeadId(List<Deal> deals) {
+        Set<String> leadIds = deals.stream()
+            .map(deal -> deal.getLead() != null ? deal.getLead().getId() : null)
+            .filter(id -> id != null && !id.isBlank())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (leadIds.isEmpty()) return Map.of();
+
+        Map<String, String> result = new LinkedHashMap<>();
+        for (var lead : leadRepository.findAllById(leadIds)) {
+            if (lead == null || lead.getId() == null || lead.getId().isBlank()) continue;
+            result.putIfAbsent(lead.getId(), lead.getCompany() != null ? lead.getCompany() : "");
+        }
+        return result;
+    }
+
+    private Deal.DealStage parseStage(String stage) {
+        if (stage == null || stage.isBlank()) return null;
+        return Deal.DealStage.valueOf(stage.toUpperCase());
+    }
+
+    private DealDTO toDTO(Deal d, Map<String, String> ownerNameById, Map<String, String> companyByLeadId) {
+        String ownerId = d.getOwner() != null ? d.getOwner().getId() : null;
+        String leadId = d.getLead() != null ? d.getLead().getId() : null;
+        String ownerName = ownerId != null ? ownerNameById.get(ownerId) : null;
+        String company = leadId != null ? companyByLeadId.get(leadId) : null;
+
+        return DealDTO.builder()
+            .id(d.getId())
+            .title(d.getTitle())
+            .description(d.getDescription())
+            .stage(d.getStage())
+            .priority(d.getPriority())
+            .dealValue(d.getDealValue())
+            .expectedCloseDate(d.getExpectedCloseDate())
+            .actualCloseDate(d.getActualCloseDate())
+            .winProbability(d.getWinProbability())
+            .pipelineId(d.getPipelineId())
+            .leadId(leadId)
+            .company(company)
+            .ownerId(ownerId)
+            .ownerName(ownerName)
+            .aiScore(d.getAiScore())
+            .tags(d.getTags())
+            .notes(d.getNotes())
+            .createdAt(d.getCreatedAt())
+            .updatedAt(d.getUpdatedAt())
+            .build();
+    }
 
     private DealDTO toDTO(Deal d) {
         return DealDTO.builder()

@@ -6,10 +6,12 @@ export const useAuthStore = create(
     (set) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
 
-      login: (user, token) => set({ user, token, isAuthenticated: true }),
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      login: (user, token, refreshToken = null) => set({ user, token, refreshToken, isAuthenticated: true }),
+      logout: () => set({ user: null, token: null, refreshToken: null, isAuthenticated: false }),
+      setTokens: (token, refreshToken = null) => set((s) => ({ token, refreshToken: refreshToken ?? s.refreshToken })),
       updateUser: (updates) => set((s) => ({ user: { ...s.user, ...updates } })),
     }),
     { name: 'nexacrm-auth' }

@@ -9,8 +9,8 @@ import toast from 'react-hot-toast'
 export default function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
-  const [email, setEmail] = useState('saurabhke4@gmail.com')
-  const [password, setPassword] = useState('demo1234')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const data = await authAPI.login({ email, password })
-      login(data.user, data.accessToken)
+      login(data.user, data.accessToken, data.refreshToken || null)
       toast.success(`Welcome back, ${data.user?.name ?? 'User'}!`)
       navigate('/dashboard')
     } catch (err) {
@@ -98,8 +98,7 @@ export default function LoginPage() {
       </form>
 
       <div className="text-center text-xs text-slate-500">
-        <p>Demo credentials are pre-filled.</p>
-        <p>No account needed — just click Sign In!</p>
+        <p>Use your assigned workspace credentials to sign in.</p>
       </div>
     </motion.div>
   )

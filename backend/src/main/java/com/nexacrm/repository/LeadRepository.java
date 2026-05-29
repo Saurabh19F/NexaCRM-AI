@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface LeadRepository extends MongoRepository<Lead, String> {
 
+    Optional<Lead> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
+
     Optional<Lead> findByEmailAndTenantIdAndDeletedFalse(String email, Long tenantId);
 
     Optional<Lead> findByFacebookLeadIdAndDeletedFalse(String facebookLeadId);

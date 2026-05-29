@@ -1,6 +1,8 @@
 package com.nexacrm.model;
 
 import lombok.*;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -10,6 +12,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Document(collection = "deals")
+@CompoundIndexes({
+    @CompoundIndex(name = "deal_tenant_deleted_idx", def = "{'tenant_id': 1, 'deleted': 1}"),
+    @CompoundIndex(name = "deal_tenant_deleted_pipeline_stage_idx", def = "{'tenant_id': 1, 'deleted': 1, 'pipeline_id': 1, 'stage': 1}"),
+    @CompoundIndex(name = "deal_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Deal extends BaseEntity {
 

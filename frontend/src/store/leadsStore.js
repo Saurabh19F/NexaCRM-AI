@@ -2,12 +2,19 @@ import { create } from 'zustand'
 import { leadsAPI } from '../services/api'
 
 const DEFAULT_SLA_MINUTES = 60
+const DEFAULT_PAGE_SIZE = 200
 
 const toIso = (value) => {
   if (!value) return null
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return null
   return d.toISOString()
+}
+
+const toBackendLocalDateTime = (value) => {
+  const iso = toIso(value)
+  if (!iso) return null
+  return iso.slice(0, 19)
 }
 
 const formatCreatedDate = (value) => {
@@ -52,7 +59,8 @@ const toFrontendLead = (lead, index = 0) => {
     : DEFAULT_SLA_MINUTES
 
   const firstResponseAtTs = toIso(lead?.firstResponseAtTs)
-  const lastActivityAtTs = toIso(lead?.lastActivityAtTs) ?? firstResponseAtTs ?? createdAtTs
+  const lastContactedAtTs = toIso(lead?.lastContactedAt)
+  const lastActivityAtTs = toIso(lead?.lastActivityAtTs) ?? lastContactedAtTs ?? firstResponseAtTs ?? createdAtTs
 
   return {
     id: lead?.id,
@@ -73,6 +81,7 @@ const toFrontendLead = (lead, index = 0) => {
     createdAt: formatCreatedDate(createdAtTs),
     createdAtTs,
     lastActivityAtTs,
+    lastContactedAtTs,
     firstResponseAtTs,
     followUpSlaMinutes,
     reminder15SentAt: toIso(lead?.reminder15SentAt),
@@ -100,6 +109,7 @@ const toBackendLead = (lead) => ({
     .map((tag) => tag.trim())
     .filter(Boolean),
   notes: lead?.notes || null,
+  lastContactedAt: toBackendLocalDateTime(lead?.lastContactedAtTs || lead?.lastActivityAtTs),
 })
 
 export const useLeadsStore = create((set, get) => ({
@@ -136,11 +146,45 @@ export const useLeadsStore = create((set, get) => ({
       if (query.assignedTo === 'all') delete query.assignedTo
       if (!query.search) delete query.search
 
-      const data = await leadsAPI.getAll(query)
-      const leads = (data?.content ?? []).map((lead, i) => toFrontendLead(lead, i))
+      const hasExplicitPage = query.page !== undefined || query.size !== undefined
+      let rows = []
+      let pageInfo = { page: 0, size: DEFAULT_PAGE_SIZE, total: 0, totalPages: 0 }
+
+      if (hasExplicitPage) {
+        const data = await leadsAPI.getAll(query)
+        rows = data?.content ?? []
+        pageInfo = {
+          page: data?.page ?? 0,
+          size: data?.size ?? (Number(query.size) || DEFAULT_PAGE_SIZE),
+          total: data?.total ?? rows.length,
+          totalPages: data?.totalPages ?? 1,
+        }
+      } else {
+        const pageSize = Number(query.size) > 0 ? Number(query.size) : DEFAULT_PAGE_SIZE
+        const firstPage = await leadsAPI.getAll({ ...query, page: 0, size: pageSize })
+        rows = firstPage?.content ?? []
+
+        const totalPages = Math.max(1, Number(firstPage?.totalPages ?? 1))
+        const total = Number(firstPage?.total ?? rows.length)
+
+        if (totalPages > 1) {
+          const requests = []
+          for (let page = 1; page < totalPages; page += 1) {
+            requests.push(leadsAPI.getAll({ ...query, page, size: pageSize }))
+          }
+          const remainingPages = await Promise.all(requests)
+          for (const pageData of remainingPages) {
+            rows = rows.concat(pageData?.content ?? [])
+          }
+        }
+
+        pageInfo = { page: 0, size: pageSize, total: total || rows.length, totalPages }
+      }
+
+      const leads = rows.map((lead, i) => toFrontendLead(lead, i))
       set({
         leads,
-        pagination: { page: data?.page ?? 0, size: data?.size ?? 20, total: data?.total ?? leads.length },
+        pagination: { page: pageInfo.page, size: pageInfo.size, total: pageInfo.total },
         loading: false,
       })
       return leads

@@ -2,16 +2,25 @@ package com.nexacrm.service;
 
 import com.nexacrm.model.Lead;
 import com.nexacrm.repository.LeadRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * AI Service — integrates with OpenAI GPT-4 for:
@@ -32,33 +41,40 @@ public class AIService {
     @Value("${openai.api.key:placeholder}")
     private String openAiApiKey;
 
-    @Value("${openai.model:gpt-4-turbo-preview}")
+    @Value("${openai.model:gpt-4o-mini}")
     private String model;
 
+    @Value("${openai.max-tokens:1500}")
+    private int defaultMaxTokens;
+
     private final LeadRepository leadRepository;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     // ── Chat ──────────────────────────────────────────────────────
 
     public String chat(List<Map<String, String>> messages) {
-        log.info("AI chat request with {} messages", messages.size());
+        List<Map<String, String>> safeMessages = messages == null ? Collections.emptyList() : messages;
+        log.info("AI chat request with {} messages", safeMessages.size());
 
-        // Production: call OpenAI ChatCompletion API
-        // ChatCompletionRequest request = ChatCompletionRequest.builder()
-        //     .model(model)
-        //     .messages(messages.stream().map(m ->
-        //         new ChatMessage(m.get("role"), m.get("content"))).collect(Collectors.toList()))
-        //     .maxTokens(1500)
-        //     .build();
-        // return openAiService.createChatCompletion(request).getChoices().get(0).getMessage().getContent();
+        List<Map<String, String>> payloadMessages = new ArrayList<>();
+        payloadMessages.add(Map.of(
+            "role", "system",
+            "content", "You are NexaAI, an expert CRM copilot. Be concise, practical, and actionable."
+        ));
+        payloadMessages.addAll(safeMessages);
 
-        // Demo response
-        String lastUserMessage = messages.stream()
-            .filter(m -> "user".equals(m.get("role")))
-            .reduce((first, second) -> second)
-            .map(m -> m.get("content"))
-            .orElse("");
-
-        return generateDemoResponse(lastUserMessage);
+        try {
+            return callOpenAIText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
+        } catch (Exception e) {
+            log.warn("OpenAI chat failed, using fallback: {}", e.getMessage());
+            String lastUserMessage = safeMessages.stream()
+                .filter(m -> "user".equals(m.get("role")))
+                .reduce((first, second) -> second)
+                .map(m -> m.get("content"))
+                .orElse("");
+            return generateDemoResponse(lastUserMessage);
+        }
     }
 
     // ── Lead Scoring ──────────────────────────────────────────────
@@ -70,12 +86,54 @@ public class AIService {
         }
         Lead lead = leadOpt.get();
 
-        // Production: send lead context to GPT-4 with scoring prompt
-        // Calculate score based on: company size, engagement, deal value, last contact, source
         int scoreValue = calculateHeuristicScore(lead);
         String scoreLabel = scoreValue >= 70 ? "HOT" : scoreValue >= 40 ? "WARM" : "COLD";
         String reasoning = buildScoreReasoning(lead, scoreValue);
         String nextAction = suggestAction(lead, scoreLabel);
+
+        try {
+            String prompt = """
+                Score this CRM lead and return strict JSON:
+                {
+                  "scoreLabel": "HOT|WARM|COLD",
+                  "scoreValue": <integer 0-99>,
+                  "reasoning": "<short reason>",
+                  "nextAction": "<single clear action>"
+                }
+
+                Lead:
+                %s
+                """.formatted(Map.of(
+                    "id", lead.getId(),
+                    "name", lead.getName(),
+                    "company", lead.getCompany(),
+                    "source", String.valueOf(lead.getSource()),
+                    "status", String.valueOf(lead.getStatus()),
+                    "dealValue", lead.getDealValue()
+                ));
+
+            Map<String, Object> ai = callOpenAIJson(
+                "You are a CRM lead scoring analyst. Output only valid JSON.",
+                prompt,
+                500,
+                0.2
+            );
+
+            scoreLabel = String.valueOf(ai.getOrDefault("scoreLabel", scoreLabel)).toUpperCase();
+            if (!List.of("HOT", "WARM", "COLD").contains(scoreLabel)) {
+                scoreLabel = scoreValue >= 70 ? "HOT" : scoreValue >= 40 ? "WARM" : "COLD";
+            }
+
+            Object aiScoreValue = ai.get("scoreValue");
+            if (aiScoreValue instanceof Number n) {
+                scoreValue = Math.max(0, Math.min(99, n.intValue()));
+            }
+
+            reasoning = String.valueOf(ai.getOrDefault("reasoning", reasoning));
+            nextAction = String.valueOf(ai.getOrDefault("nextAction", nextAction));
+        } catch (Exception e) {
+            log.warn("OpenAI lead scoring failed, using heuristic fallback: {}", e.getMessage());
+        }
 
         // Persist back to DB
         lead.setAiScoreValue(scoreValue);
@@ -106,21 +164,63 @@ public class AIService {
     // ── Deal Prediction ───────────────────────────────────────────
 
     public Map<String, Object> predictDealOutcome(String dealId) {
-        // Production: call GPT-4 with deal history, activities, stage, value
-        int probability = 65 + (int)(Math.random() * 30);
-        return Map.of(
-            "dealId", dealId,
-            "winProbability", probability,
-            "confidence", "HIGH",
-            "keyFactors", List.of(
-                "Decision maker engaged",
-                "Budget confirmed",
-                "Timeline agreed",
-                "Competitor analysis completed"
-            ),
-            "riskFactors", List.of("Procurement approval pending"),
-            "recommendation", "Schedule closing call within 48 hours"
-        );
+        String prompt = """
+            Predict win probability for this CRM opportunity and return strict JSON:
+            {
+              "winProbability": <integer 0-100>,
+              "confidence": "LOW|MEDIUM|HIGH",
+              "keyFactors": ["..."],
+              "riskFactors": ["..."],
+              "recommendation": "..."
+            }
+
+            DealId: %s
+            """.formatted(dealId);
+
+        try {
+            Map<String, Object> ai = callOpenAIJson(
+                "You are a B2B sales forecasting assistant. Output only valid JSON.",
+                prompt,
+                700,
+                0.3
+            );
+
+            int winProbability = 70;
+            Object winProbabilityObj = ai.get("winProbability");
+            if (winProbabilityObj instanceof Number n) {
+                winProbability = Math.max(0, Math.min(100, n.intValue()));
+            }
+
+            String confidence = String.valueOf(ai.getOrDefault("confidence", "MEDIUM"));
+            List<String> keyFactors = asStringList(ai.get("keyFactors"), List.of("Strong stakeholder engagement"));
+            List<String> riskFactors = asStringList(ai.get("riskFactors"), List.of("Insufficient recent activity"));
+            String recommendation = String.valueOf(ai.getOrDefault("recommendation", "Schedule a next-step call this week"));
+
+            return Map.of(
+                "dealId", dealId,
+                "winProbability", winProbability,
+                "confidence", confidence,
+                "keyFactors", keyFactors,
+                "riskFactors", riskFactors,
+                "recommendation", recommendation
+            );
+        } catch (Exception e) {
+            log.warn("OpenAI deal prediction failed, using fallback: {}", e.getMessage());
+            int probability = 65 + (int)(Math.random() * 30);
+            return Map.of(
+                "dealId", dealId,
+                "winProbability", probability,
+                "confidence", "HIGH",
+                "keyFactors", List.of(
+                    "Decision maker engaged",
+                    "Budget confirmed",
+                    "Timeline agreed",
+                    "Competitor analysis completed"
+                ),
+                "riskFactors", List.of("Procurement approval pending"),
+                "recommendation", "Schedule closing call within 48 hours"
+            );
+        }
     }
 
     // ── Email Generation ──────────────────────────────────────────
@@ -132,73 +232,165 @@ public class AIService {
         String tone        = (String) params.getOrDefault("tone", "Professional");
         String keyPoints   = (String) params.getOrDefault("keyPoints", "");
 
-        // Production: GPT-4 prompt with lead context
-        return String.format("""
-            Subject: %s — Continuing Our Conversation
+        String userPrompt = """
+            Write a complete sales email draft.
+            Constraints:
+            - Include a clear subject line as first line prefixed with "Subject:".
+            - Keep the tone: %s.
+            - Email type: %s.
+            - Personalize for contact: %s, company: %s.
+            - Use this context where relevant: %s.
+            - Keep it concise, persuasive, and natural.
+            - Do not include markdown.
+            """.formatted(
+                tone,
+                emailType,
+                leadName.isBlank() ? "there" : leadName,
+                company.isBlank() ? "their organization" : company,
+                keyPoints.isBlank() ? "No extra context" : keyPoints
+            );
 
-            Dear %s,
+        try {
+            return callOpenAIText(
+                List.of(
+                    Map.of("role", "system", "content", "You are an expert B2B sales copywriter."),
+                    Map.of("role", "user", "content", userPrompt)
+                ),
+                900,
+                0.8
+            );
+        } catch (Exception e) {
+            log.warn("OpenAI email generation failed, using fallback: {}", e.getMessage());
+            return String.format("""
+                Subject: %s — Continuing Our Conversation
 
-            I hope this message finds you well. I'm following up on our recent discussion about implementing NexaCRM AI at %s.
+                Dear %s,
 
-            %s
+                I hope this message finds you well. I'm following up on our recent discussion about implementing NexaCRM AI at %s.
 
-            Based on your requirements, I believe we have an excellent solution that can help your team:
-            • Reduce sales cycle by 35%%
-            • Improve lead conversion by 2.5x with AI scoring
-            • Automate 80%% of routine follow-ups
+                %s
 
-            I'd love to schedule a brief call to address any questions and discuss next steps.
-            Would Thursday or Friday work for a 30-minute demo?
+                Based on your requirements, I believe we have an excellent solution that can help your team:
+                • Reduce sales cycle by 35%%
+                • Improve lead conversion by 2.5x with AI scoring
+                • Automate 80%% of routine follow-ups
 
-            Looking forward to your response.
+                I'd love to schedule a brief call to address any questions and discuss next steps.
+                Would Thursday or Friday work for a 30-minute demo?
 
-            Best regards,
-            Your NexaCRM AI Assistant
-            """,
-            emailType, leadName.isEmpty() ? "there" : leadName,
-            company.isEmpty() ? "your organization" : company,
-            keyPoints.isEmpty() ? "" : "\n" + keyPoints + "\n"
-        );
+                Looking forward to your response.
+
+                Best regards,
+                Your NexaCRM AI Assistant
+                """,
+                emailType, leadName.isEmpty() ? "there" : leadName,
+                company.isEmpty() ? "your organization" : company,
+                keyPoints.isEmpty() ? "" : "\n" + keyPoints + "\n"
+            );
+        }
     }
 
     // ── Insights ─────────────────────────────────────────────────
 
     public List<Map<String, Object>> generateInsights() {
-        return List.of(
-            Map.of("id", 1, "type", "prediction",  "title", "High Win Probability",
-                   "body", "HCL Tech Package has 89% win probability — schedule demo call this week.",
-                   "action", "Schedule Call"),
-            Map.of("id", 2, "type", "warning",     "title", "At-Risk Deal",
-                   "body", "Wipro Cloud Suite stalled for 8 days. Send follow-up now.",
-                   "action", "Send Follow-up"),
-            Map.of("id", 3, "type", "opportunity", "title", "Upsell Opportunity",
-                   "body", "Bajaj Finserv may be ready for add-ons based on usage patterns.",
-                   "action", "View Profile"),
-            Map.of("id", 4, "type", "insight",     "title", "Best Contact Time",
-                   "body", "LinkedIn leads respond 3x better between 10am–12pm on weekdays.",
-                   "action", "Plan Campaign")
-        );
+        String prompt = """
+            Return strict JSON array with exactly 4 CRM insights.
+            Each item format:
+            {
+              "id": <integer>,
+              "type": "prediction|warning|opportunity|insight",
+              "title": "...",
+              "body": "...",
+              "action": "..."
+            }
+            """;
+
+        try {
+            String raw = callOpenAIText(
+                List.of(
+                    Map.of("role", "system", "content", "You are a CRM analytics assistant. Output valid JSON only."),
+                    Map.of("role", "user", "content", prompt)
+                ),
+                900,
+                0.5
+            );
+            String jsonArray = extractJsonArray(raw);
+            return objectMapper.readValue(jsonArray, new TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception e) {
+            log.warn("OpenAI insights generation failed, using fallback: {}", e.getMessage());
+            return List.of(
+                Map.of("id", 1, "type", "prediction",  "title", "High Win Probability",
+                       "body", "HCL Tech Package has 89% win probability — schedule demo call this week.",
+                       "action", "Schedule Call"),
+                Map.of("id", 2, "type", "warning",     "title", "At-Risk Deal",
+                       "body", "Wipro Cloud Suite stalled for 8 days. Send follow-up now.",
+                       "action", "Send Follow-up"),
+                Map.of("id", 3, "type", "opportunity", "title", "Upsell Opportunity",
+                       "body", "Bajaj Finserv may be ready for add-ons based on usage patterns.",
+                       "action", "View Profile"),
+                Map.of("id", 4, "type", "insight",     "title", "Best Contact Time",
+                       "body", "LinkedIn leads respond 3x better between 10am–12pm on weekdays.",
+                       "action", "Plan Campaign")
+            );
+        }
     }
 
     // ── Next Actions ──────────────────────────────────────────────
 
     public List<String> suggestNextActions(String leadId) {
-        return List.of(
-            "Schedule a discovery call within 24 hours",
-            "Send personalized case study from similar industry",
-            "Connect on LinkedIn to build rapport",
-            "Share ROI calculator tailored to their company size"
-        );
+        String prompt = """
+            Suggest 4 next best sales actions for lead id %s.
+            Return strict JSON array of strings only.
+            """.formatted(leadId);
+
+        try {
+            String raw = callOpenAIText(
+                List.of(
+                    Map.of("role", "system", "content", "You are a CRM sales coach. Output valid JSON only."),
+                    Map.of("role", "user", "content", prompt)
+                ),
+                400,
+                0.4
+            );
+            String jsonArray = extractJsonArray(raw);
+            return objectMapper.readValue(jsonArray, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            log.warn("OpenAI next-actions generation failed, using fallback: {}", e.getMessage());
+            return List.of(
+                "Schedule a discovery call within 24 hours",
+                "Send personalized case study from similar industry",
+                "Connect on LinkedIn to build rapport",
+                "Share ROI calculator tailored to their company size"
+            );
+        }
     }
 
     // ── Summarize ─────────────────────────────────────────────────
 
     public String summarizeEntity(String entityType, String entityId) {
-        return String.format(
-            "AI Summary for %s #%s: High-value prospect with strong engagement signals. " +
-            "Last interaction was 2 days ago. Recommend priority follow-up within 24 hours.",
-            entityType, entityId
-        );
+        String prompt = """
+            Summarize this CRM entity in 3-5 sentences with actionable guidance.
+            Entity type: %s
+            Entity id: %s
+            """.formatted(entityType, entityId);
+
+        try {
+            return callOpenAIText(
+                List.of(
+                    Map.of("role", "system", "content", "You are a CRM analyst. Be specific and concise."),
+                    Map.of("role", "user", "content", prompt)
+                ),
+                500,
+                0.4
+            );
+        } catch (Exception e) {
+            log.warn("OpenAI summary generation failed, using fallback: {}", e.getMessage());
+            return String.format(
+                "AI Summary for %s #%s: High-value prospect with strong engagement signals. " +
+                "Last interaction was 2 days ago. Recommend priority follow-up within 24 hours.",
+                entityType, entityId
+            );
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────
@@ -273,5 +465,105 @@ public class AIService {
         return "I'm analyzing your CRM data... Based on current pipeline metrics, you have " +
                "8 active deals worth ₹24.2L. Your top priority today should be the HCL Tech deal " +
                "in Negotiation stage. Would you like me to draft a follow-up email or schedule a call?";
+    }
+
+    private String callOpenAIText(List<Map<String, String>> messages, int maxTokens, double temperature) {
+        if (!hasRealApiKey()) {
+            throw new IllegalStateException("OPENAI_API_KEY is not configured");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(openAiApiKey);
+
+        Map<String, Object> payload = Map.of(
+            "model", model,
+            "messages", messages,
+            "max_tokens", maxTokens,
+            "temperature", temperature
+        );
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> response = restTemplate.postForObject(
+            "https://api.openai.com/v1/chat/completions",
+            entity,
+            Map.class
+        );
+
+        if (response == null) {
+            throw new IllegalStateException("Empty OpenAI response");
+        }
+
+        Object choicesObj = response.get("choices");
+        if (!(choicesObj instanceof List<?> choices) || choices.isEmpty()) {
+            throw new IllegalStateException("OpenAI response missing choices");
+        }
+
+        Object firstObj = choices.get(0);
+        if (!(firstObj instanceof Map<?, ?> firstChoice)) {
+            throw new IllegalStateException("OpenAI response choice format invalid");
+        }
+
+        Object messageObj = firstChoice.get("message");
+        if (!(messageObj instanceof Map<?, ?> message)) {
+            throw new IllegalStateException("OpenAI response missing message");
+        }
+
+        Object content = message.get("content");
+        if (!(content instanceof String text) || text.isBlank()) {
+            throw new IllegalStateException("OpenAI response content empty");
+        }
+
+        return text.trim();
+    }
+
+    private Map<String, Object> callOpenAIJson(String systemPrompt, String userPrompt, int maxTokens, double temperature) throws Exception {
+        String raw = callOpenAIText(
+            List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)
+            ),
+            maxTokens,
+            temperature
+        );
+        String json = extractJsonObject(raw);
+        return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+    }
+
+    private List<String> asStringList(Object value, List<String> fallback) {
+        if (value instanceof List<?> list) {
+            List<String> converted = list.stream()
+                .map(String::valueOf)
+                .filter(s -> !s.isBlank())
+                .toList();
+            if (!converted.isEmpty()) return converted;
+        }
+        return fallback;
+    }
+
+    private String extractJsonObject(String input) {
+        String trimmed = input == null ? "" : input.trim();
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed;
+        Matcher matcher = Pattern.compile("\\{[\\s\\S]*\\}").matcher(trimmed);
+        if (matcher.find()) return matcher.group();
+        throw new IllegalStateException("No JSON object found in model output");
+    }
+
+    private String extractJsonArray(String input) {
+        String trimmed = input == null ? "" : input.trim();
+        if (trimmed.startsWith("[") && trimmed.endsWith("]")) return trimmed;
+        Matcher matcher = Pattern.compile("\\[[\\s\\S]*\\]").matcher(trimmed);
+        if (matcher.find()) return matcher.group();
+        throw new IllegalStateException("No JSON array found in model output");
+    }
+
+    private boolean hasRealApiKey() {
+        if (openAiApiKey == null) return false;
+        String key = openAiApiKey.trim();
+        return !key.isEmpty()
+            && !key.equalsIgnoreCase("placeholder")
+            && !key.equalsIgnoreCase("your-openai-key-here")
+            && !key.equalsIgnoreCase("replace-me");
     }
 }

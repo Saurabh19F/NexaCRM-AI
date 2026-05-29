@@ -15,7 +15,10 @@ const CHANNEL_CONFIG = {
   instagram: { icon: Instagram, color: 'text-pink-500',    bg: 'bg-pink-50 dark:bg-pink-950/20',        label: 'Instagram', badge: 'bg-pink-500' },
   linkedin:  { icon: Linkedin,  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-950/20',        label: 'LinkedIn',  badge: 'bg-blue-600' },
   facebook:  { icon: Facebook,  color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-950/20',        label: 'Facebook',  badge: 'bg-blue-500' },
+  reddit:    { icon: MessageSquare, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/20', label: 'Reddit', badge: 'bg-orange-500' },
 }
+
+const ENABLE_DEMO_COMMUNICATION_DATA = import.meta.env.VITE_ENABLE_DEMO_COMM_DATA === 'true'
 
 // ── Local storage keys ───────────────────────────────────────
 const HISTORY_KEY = 'nexacrm_wa_history'
@@ -83,9 +86,10 @@ const DEMO_HISTORY = {
 function loadHistory() {
   try {
     const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}')
+    if (!ENABLE_DEMO_COMMUNICATION_DATA) return stored
     const merged = { ...DEMO_HISTORY, ...stored }
     return merged
-  } catch { return DEMO_HISTORY }
+  } catch { return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_HISTORY : {} }
 }
 function saveHistory(h) {
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)) } catch {}
@@ -94,7 +98,7 @@ function saveHistory(h) {
 function loadConversations() {
   try {
     const raw = JSON.parse(localStorage.getItem(CONVERSATIONS_KEY) || '[]')
-    if (!Array.isArray(raw)) return DEMO_CONVERSATIONS
+    if (!Array.isArray(raw)) return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
     const persisted = raw.filter((conv) => {
       if (!conv || typeof conv !== 'object') return false
       const id = String(conv.id || '')
@@ -107,13 +111,14 @@ function loadConversations() {
       return true
     })
     // Seed demo conversations on first load (if nothing has been saved yet)
-    if (persisted.length === 0) return DEMO_CONVERSATIONS
+    if (persisted.length === 0) return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
+    if (!ENABLE_DEMO_COMMUNICATION_DATA) return persisted
     // Merge: keep persisted user conversations; add demo ones not already present
     const existingIds = new Set(persisted.map((c) => c.id))
     const demoToAdd = DEMO_CONVERSATIONS.filter((c) => !existingIds.has(c.id))
     return [...persisted, ...demoToAdd]
   } catch {
-    return DEMO_CONVERSATIONS
+    return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
   }
 }
 function saveConversations(conversations) {
@@ -133,6 +138,7 @@ function nowTime() {
   return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
 function cleanPhone(p) { return String(p || '').replace(/\D/g, '') }
+function isNumericScopedId(value) { return /^\d+$/.test(String(value || '').trim()) }
 function convIdForWhatsApp(contact) { return `whatsapp-${cleanPhone(contact)}` }
 function convIdForFacebook(psid) { return `facebook-${psid}` }
 function convIdForInstagram(igsid) { return `instagram-${igsid}` }
@@ -688,6 +694,23 @@ export default function CommunicationPage() {
         return
       }
 
+      if ((channel === 'instagram' || channel === 'facebook') && !isNumericScopedId(recipient)) {
+        setHistory((prev) => ({
+          ...prev,
+          [activeConv.id]: (prev[activeConv.id] || []).map((m) =>
+            m.id === tempId ? { ...m, status: 'error' } : m
+          ),
+        }))
+        setSending(false)
+        toast.error(
+          channel === 'instagram'
+            ? 'Instagram recipient must be a numeric IGSID. Select a real synced Instagram conversation.'
+            : 'Facebook recipient must be a numeric PSID. Select a real synced Facebook conversation.'
+        )
+        inputRef.current?.focus()
+        return
+      }
+
       try {
         await commsAPI.sendChannel({
           channel,
@@ -824,6 +847,14 @@ export default function CommunicationPage() {
       toast.error(`Connect ${channel} in Integrations page first.`)
       return
     }
+    if ((channel === 'instagram' || channel === 'facebook') && !isNumericScopedId(recipient)) {
+      toast.error(
+        channel === 'instagram'
+          ? 'Instagram recipient must be a numeric IGSID.'
+          : 'Facebook recipient must be a numeric PSID.'
+      )
+      return
+    }
 
     setComposeSending(true)
     try {
@@ -885,6 +916,7 @@ export default function CommunicationPage() {
     { key: 'instagram', label: 'Instagram' },
     { key: 'linkedin',  label: 'LinkedIn' },
     { key: 'facebook',  label: 'Facebook' },
+    { key: 'reddit',    label: 'Reddit' },
   ]
 
   return (
@@ -893,7 +925,7 @@ export default function CommunicationPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Communication Hub</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Unified inbox — WhatsApp, Email, Instagram, LinkedIn, Facebook</p>
+          <p className="text-sm text-slate-500 mt-0.5">Unified inbox — WhatsApp, Email, Instagram, LinkedIn, Facebook, Reddit</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -1214,6 +1246,7 @@ export default function CommunicationPage() {
                   <option value="instagram">Instagram</option>
                   <option value="linkedin">LinkedIn</option>
                   <option value="facebook">Facebook</option>
+                  <option value="reddit">Reddit</option>
                 </select>
               </div>
 
@@ -1225,6 +1258,7 @@ export default function CommunicationPage() {
                   facebook:  { label: 'Facebook Page-Scoped User ID (PSID)', placeholder: '3948201234567890',      hint: 'PSIDs are captured automatically when users message your Facebook Page. Select a Facebook conversation to auto-fill.' },
                   instagram: { label: 'Instagram-Scoped User ID',    placeholder: '17841400000000000',             hint: 'Linked via Facebook Business Manager → Instagram account.' },
                   linkedin:  { label: 'LinkedIn Member ID / URN',    placeholder: 'urn:li:person:XXXXXX',          hint: 'e.g. urn:li:person:AbCdEfGhIj (from LinkedIn API).' },
+                  reddit:    { label: 'Reddit Username',             placeholder: 'u/example_user',                 hint: 'Use Reddit username or profile ID from a monitored thread.' },
                 }[composeChannel] || { label: 'Recipient', placeholder: 'Recipient identifier', hint: null }
                 return (
                   <div>

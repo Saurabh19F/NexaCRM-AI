@@ -1,6 +1,8 @@
 package com.nexacrm.model;
 
 import lombok.*;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -11,6 +13,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Document(collection = "leads")
+@CompoundIndexes({
+    @CompoundIndex(name = "lead_tenant_deleted_idx", def = "{'tenant_id': 1, 'deleted': 1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_status_idx", def = "{'tenant_id': 1, 'deleted': 1, 'status': 1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_score_idx", def = "{'tenant_id': 1, 'deleted': 1, 'score': 1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_source_idx", def = "{'tenant_id': 1, 'deleted': 1, 'source': 1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Lead extends BaseEntity {
 

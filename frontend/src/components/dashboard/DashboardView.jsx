@@ -109,12 +109,12 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        <KPICard title="Total Leads"        value={MOCK_KPI.totalLeads.value}     change={MOCK_KPI.totalLeads.change}     period={MOCK_KPI.totalLeads.period}     icon={Users}          color="bg-gradient-to-br from-brand-500 to-brand-600" />
-        <KPICard title="Active Deals"       value={MOCK_KPI.totalDeals.value}     change={MOCK_KPI.totalDeals.change}     period={MOCK_KPI.totalDeals.period}     icon={TrendingUp}     color="bg-gradient-to-br from-emerald-500 to-emerald-600" />
-        <KPICard title="Revenue (MTD)"      value={MOCK_KPI.revenue.value}        change={MOCK_KPI.revenue.change}        period={MOCK_KPI.revenue.period}        icon={IndianRupee}    color="bg-gradient-to-br from-sky-500 to-sky-600" currency="₹" />
-        <KPICard title="Overdue Tasks"      value={MOCK_KPI.overdueTasks.value}   change={MOCK_KPI.overdueTasks.change}   period={MOCK_KPI.overdueTasks.period}   icon={AlertTriangle}  color="bg-gradient-to-br from-amber-500 to-amber-600" />
-        <KPICard title="Conversion Rate"    value={MOCK_KPI.conversionRate.value} change={MOCK_KPI.conversionRate.change} period={MOCK_KPI.conversionRate.period} icon={Activity}       color="bg-gradient-to-br from-purple-500 to-purple-600" />
-        <KPICard title="Avg Deal Size"      value={MOCK_KPI.avgDealSize.value}    change={MOCK_KPI.avgDealSize.change}    period={MOCK_KPI.avgDealSize.period}    icon={TrendingUp}     color="bg-gradient-to-br from-pink-500 to-pink-600" currency="₹" />
+        <KPICard title="Total Leads"        value={MOCK_KPI.totalLeads.value}     change={MOCK_KPI.totalLeads.change}     period={MOCK_KPI.totalLeads.period}     icon={Users}          color="bg-gradient-to-br from-violet-500 to-fuchsia-600" />
+        <KPICard title="Active Deals"       value={MOCK_KPI.totalDeals.value}     change={MOCK_KPI.totalDeals.change}     period={MOCK_KPI.totalDeals.period}     icon={TrendingUp}     color="bg-gradient-to-br from-emerald-500 to-teal-600" />
+        <KPICard title="Revenue (MTD)"      value={MOCK_KPI.revenue.value}        change={MOCK_KPI.revenue.change}        period={MOCK_KPI.revenue.period}        icon={IndianRupee}    color="bg-gradient-to-br from-cyan-500 to-blue-600" currency="₹" />
+        <KPICard title="Overdue Tasks"      value={MOCK_KPI.overdueTasks.value}   change={MOCK_KPI.overdueTasks.change}   period={MOCK_KPI.overdueTasks.period}   icon={AlertTriangle}  color="bg-gradient-to-br from-orange-500 to-rose-600" />
+        <KPICard title="Conversion Rate"    value={MOCK_KPI.conversionRate.value} change={MOCK_KPI.conversionRate.change} period={MOCK_KPI.conversionRate.period} icon={Activity}       color="bg-gradient-to-br from-fuchsia-500 to-pink-600" />
+        <KPICard title="Avg Deal Size"      value={MOCK_KPI.avgDealSize.value}    change={MOCK_KPI.avgDealSize.change}    period={MOCK_KPI.avgDealSize.period}    icon={TrendingUp}     color="bg-gradient-to-br from-amber-500 to-orange-600" currency="₹" />
       </div>
 
       {/* Lead Aging + SLA Monitoring */}
@@ -195,11 +195,11 @@ export default function DashboardPage() {
             <AreaChart data={MONTHLY_REVENUE} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gradDeals" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
@@ -208,7 +208,7 @@ export default function DashboardPage() {
               <YAxis yAxisId="revenue" orientation="left" tickFormatter={(v) => `₹${v / 100000}L`} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="deals" orientation="right" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CUSTOM_TOOLTIP />} />
-              <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#6366f1" strokeWidth={2.5} fill="url(#gradRevenue)" />
+              <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#gradRevenue)" />
               <Area yAxisId="deals"   type="monotone" dataKey="deals"   name="Deals"   stroke="#10b981" strokeWidth={2.5} fill="url(#gradDeals)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -273,21 +273,21 @@ export default function DashboardPage() {
         {/* AI Insights */}
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-4 h-4 text-brand-500" />
+            <Sparkles className="w-4 h-4 text-fuchsia-500" />
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">AI Insights</h2>
           </div>
           <div className="space-y-3">
             {AI_INSIGHTS.map((insight) => (
               <div key={insight.id} className={`rounded-xl p-3 border text-xs space-y-1.5
                 ${insight.type === 'prediction' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40' :
-                  insight.type === 'warning'    ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40' :
-                  insight.type === 'opportunity'? 'bg-brand-50 border-brand-200 dark:bg-brand-950/20 dark:border-brand-800/40' :
-                  'bg-purple-50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800/40'}`}>
+                  insight.type === 'warning'    ? 'bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/40' :
+                  insight.type === 'opportunity'? 'bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800/40' :
+                  'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:border-fuchsia-800/40'}`}>
                 <p className="font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{insight.body}</p>
                 <button
                   onClick={() => navigate(INSIGHT_ROUTES[insight.action] ?? '/dashboard')}
-                  className="text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                  className="text-violet-600 dark:text-violet-400 font-semibold hover:underline">
                   {insight.action} →
                 </button>
               </div>

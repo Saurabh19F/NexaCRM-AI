@@ -2,7 +2,7 @@
 
 > **Production-ready, AI-powered CRM platform** — Lead capture · Kanban pipeline · AI scoring · Automation · Real-time notifications
 
-Built with **React + Vite** (frontend) and **Spring Boot** (backend), powered by **OpenAI GPT-4**, with **MongoDB Atlas** as the primary database and native integrations for Facebook, Instagram, LinkedIn, WhatsApp, Gmail, and Google Calendar.
+Built with **React + Vite** (frontend) and **Spring Boot** (backend), powered by **OpenAI GPT-4**, with **MongoDB Atlas** as the primary database and native integrations for Facebook, Instagram, LinkedIn, Reddit, WhatsApp, Gmail, and Google Calendar.
 
 ---
 
@@ -15,6 +15,7 @@ Built with **React + Vite** (frontend) and **Spring Boot** (backend), powered by
 | 🎯 **Kanban Pipeline** | Drag-and-drop board, 7 stages, multi-pipeline, deal cards with value & priority |
 | 🤖 **AI Engine** | GPT-4 chat assistant, lead scoring (Hot/Warm/Cold), deal win prediction, email writer |
 | ⚡ **Automation** | IF–THEN workflow builder, auto-assign, follow-up reminders, payment alerts |
+| 📞 **AI Calling Agent** | Auto-call new leads via Bolna or webhook provider, transcript capture, hot-lead auto-assignment |
 | 💬 **Communication Hub** | Unified inbox — Email, WhatsApp, Instagram, LinkedIn, AI reply suggestions |
 | 🏢 **Customer 360** | Full profile, activity timeline, health score, notes, documents |
 | 🧾 **Invoices** | Generate, track, send reminders, GST support, Tally integration |
@@ -38,6 +39,10 @@ cd backend && mvn spring-boot:run
 
 # 3. Frontend
 cd frontend && npm install && npm run dev
+
+# 4. (Optional) Configure Bolna webhook
+# In your Bolna agent Analytics tab, set webhook URL:
+# http://localhost:8080/api/calls/webhook
 ```
 
 Open **http://localhost:3000** → login with `saurabhke4@gmail.com` / `demo1234`

@@ -12,10 +12,10 @@ import { getLeadAgeMinutes } from '../../utils/leadSla'
 import { connectWebSocket, disconnectWebSocket } from '../../services/websocket'
 
 const AVATAR_STYLE_CLASS = {
-  brand: 'from-brand-400 to-accent-500',
-  ocean: 'from-sky-500 to-cyan-500',
+  brand: 'from-violet-500 to-fuchsia-500',
+  ocean: 'from-cyan-500 to-blue-500',
   sunset: 'from-orange-500 to-rose-500',
-  violet: 'from-violet-500 to-fuchsia-500',
+  violet: 'from-violet-600 to-purple-600',
   forest: 'from-emerald-500 to-teal-500',
   steel: 'from-slate-500 to-slate-700',
 }
@@ -23,7 +23,8 @@ const AVATAR_STYLE_CLASS = {
 export default function Topbar({ onMenuClick }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { isDark, toggleTheme } = useThemeStore()
+  const { theme, toggleTheme } = useThemeStore()
+  const isDark = theme === 'dark'
   const { unreadCount, addNotification, fetchNotifications } = useNotificationStore()
   const { leads, patchLeadLocal } = useLeadsStore()
   const [searchFocused, setSearchFocused] = useState(false)
@@ -179,8 +180,8 @@ export default function Topbar({ onMenuClick }) {
 
   return (
     <header className="sticky top-0 z-20 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-4 py-2 sm:py-0 gap-2 sm:gap-4
-                       bg-white/80 dark:bg-slate-900/80 backdrop-blur-md
-                       border-b border-slate-200/60 dark:border-slate-700/40">
+                       bg-white/80 dark:bg-[#0f0b1e]/90 backdrop-blur-md
+                       border-b border-slate-200/60 dark:border-violet-800/20">
       {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
@@ -193,8 +194,8 @@ export default function Topbar({ onMenuClick }) {
       <div className="order-3 w-full sm:order-none sm:w-auto flex-1 sm:max-w-md">
         <div className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200
                          ${searchFocused
-                           ? 'bg-white dark:bg-slate-800 ring-2 ring-brand-500/40 shadow-sm'
-                           : 'bg-slate-100 dark:bg-slate-800/60'}`}>
+                           ? 'bg-white dark:bg-violet-950/40 ring-2 ring-brand-500/40 shadow-sm'
+                           : 'bg-slate-100 dark:bg-violet-950/20'}`}>
           <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
           <input
             value={searchQuery}

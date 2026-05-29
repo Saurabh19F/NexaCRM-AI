@@ -5,16 +5,16 @@ import {
   Edit, ChevronUp, ChevronDown, Flame, Thermometer,
   Snowflake, ExternalLink, X, History,
   PhoneCall, Mail, MessageSquare, UserCheck,
-  FileText, DollarSign, AlertCircle, Building2,
+  FileText, DollarSign, AlertCircle, Building2, MoreVertical,
   Tag, Calendar, User, Phone, AtSign, TrendingUp, ClipboardList, MessageCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LeadActivitiesModal from '../../components/LeadActivitiesModal'
-import { sendWhatsApp, WA_CONFIGURED } from '../../utils/whatsapp'
+import { sendWhatsApp } from '../../utils/whatsapp'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
 import { getLeadAgingMeta, getLeadAgeMinutes } from '../../utils/leadSla'
-import { leadsAPI } from '../../services/api'
+import { leadsAPI, teamAPI } from '../../services/api'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 
 const SCORE_BADGE = {
@@ -33,11 +33,16 @@ const STATUS_BADGE = {
   lost:         { label: 'Lost',         cls: 'badge-lost' },
 }
 
-function AddLeadModal({ onClose, onAdd }) {
+const LEAD_SOURCES = [
+  'Facebook', 'Instagram', 'LinkedIn', 'Website', 'WhatsApp',
+  'Google Ads', 'Meta Ads', 'Referral', 'Email', 'Other',
+]
+
+function AddLeadModal({ onClose, onAdd, teamMembers }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '', service: '', specialization: '',
     source: 'Website', score: 'warm', status: 'new',
-    assignedTo: '', value: '', tags: ''
+    assignedToId: '', value: '', tags: ''
   })
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -104,7 +109,7 @@ function AddLeadModal({ onClose, onAdd }) {
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Source</label>
               <select name="source" value={form.source} onChange={handleChange} className="input">
-                {['Facebook','Instagram','LinkedIn','Website','WhatsApp','Google Ads','Referral'].map((s) => (
+                {LEAD_SOURCES.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
@@ -132,9 +137,11 @@ function AddLeadModal({ onClose, onAdd }) {
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>
-            <select name="assignedTo" value={form.assignedTo} onChange={handleChange} className="input">
+            <select name="assignedToId" value={form.assignedToId} onChange={handleChange} className="input">
               <option value="">Unassigned</option>
-              {['Priya S.', 'Rahul M.', 'Amit K.'].map((u) => <option key={u}>{u}</option>)}
+              {(teamMembers || []).map((member) => (
+                <option key={member.id} value={member.id}>{member.name}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -152,8 +159,8 @@ function AddLeadModal({ onClose, onAdd }) {
 }
 
 /* ── Edit Lead Modal ─────────────────────────────────────────────── */
-function EditLeadModal({ lead, onClose, onSave }) {
-  const [form, setForm] = useState({ ...lead })
+function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
+  const [form, setForm] = useState({ ...lead, assignedToId: lead?.assignedToId || '' })
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
   const handleSubmit = (e) => {
@@ -204,7 +211,7 @@ function EditLeadModal({ lead, onClose, onSave }) {
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Source</label>
               <select name="source" value={form.source} onChange={handleChange} className="input">
-                {['Facebook','Instagram','LinkedIn','Website','WhatsApp','Google Ads','Referral'].map(s => <option key={s}>{s}</option>)}
+                {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
@@ -228,9 +235,11 @@ function EditLeadModal({ lead, onClose, onSave }) {
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>
-            <select name="assignedTo" value={form.assignedTo} onChange={handleChange} className="input">
+            <select name="assignedToId" value={form.assignedToId || ''} onChange={handleChange} className="input">
               <option value="">Unassigned</option>
-              {['Priya S.','Rahul M.','Amit K.'].map(u => <option key={u}>{u}</option>)}
+              {(teamMembers || []).map((member) => (
+                <option key={member.id} value={member.id}>{member.name}</option>
+              ))}
             </select>
           </div>
           <div className="flex gap-3 pt-2">
@@ -332,17 +341,45 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete }
   )
 }
 
-const HISTORY_EVENTS = [
-  { type: 'call',    icon: PhoneCall,     color: 'text-blue-500   bg-blue-100   dark:bg-blue-950/40',   label: 'Call Made',          note: 'Discussed product demo. Lead is interested.',         time: 'Today, 10:30 AM' },
-  { type: 'email',   icon: Mail,          color: 'text-violet-500 bg-violet-100 dark:bg-violet-950/40', label: 'Email Sent',         note: 'Sent proposal document and pricing sheet.',           time: 'Today, 09:15 AM' },
-  { type: 'message', icon: MessageSquare, color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-950/40', label: 'WhatsApp Message', note: 'Follow-up message sent via WhatsApp.',               time: 'Yesterday, 4:45 PM' },
-  { type: 'status',  icon: UserCheck,     color: 'text-amber-500  bg-amber-100  dark:bg-amber-950/40',  label: 'Status Changed',     note: 'Status updated from New → Contacted.',                time: 'Yesterday, 2:00 PM' },
-  { type: 'note',    icon: FileText,      color: 'text-slate-500  bg-slate-100  dark:bg-slate-800',     label: 'Note Added',         note: 'Client prefers morning calls. Budget ≈ ₹2L.',          time: 'Apr 28, 11:00 AM' },
-  { type: 'deal',    icon: DollarSign,    color: 'text-green-500  bg-green-100  dark:bg-green-950/40',  label: 'Deal Value Updated', note: 'Deal value revised to ₹1,80,000.',                    time: 'Apr 27, 3:20 PM' },
-  { type: 'alert',   icon: AlertCircle,   color: 'text-red-500    bg-red-100    dark:bg-red-950/40',    label: 'Follow-up Overdue',  note: 'Scheduled follow-up was missed.',                     time: 'Apr 26, 9:00 AM' },
-]
+const HISTORY_STYLE = {
+  activity: { icon: ClipboardList, color: 'text-brand-500 bg-brand-100 dark:bg-brand-950/40' },
+  call: { icon: PhoneCall, color: 'text-blue-500 bg-blue-100 dark:bg-blue-950/40' },
+  email: { icon: Mail, color: 'text-violet-500 bg-violet-100 dark:bg-violet-950/40' },
+  message: { icon: MessageSquare, color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-950/40' },
+  status: { icon: UserCheck, color: 'text-amber-500 bg-amber-100 dark:bg-amber-950/40' },
+  note: { icon: FileText, color: 'text-slate-500 bg-slate-100 dark:bg-slate-800' },
+  deal: { icon: DollarSign, color: 'text-green-500 bg-green-100 dark:bg-green-950/40' },
+  alert: { icon: AlertCircle, color: 'text-red-500 bg-red-100 dark:bg-red-950/40' },
+}
 
-function LeadHistoryPanel({ lead, onClose }) {
+const ACTIVITY_STYLE_BY_INDEX = {
+  0: { type: 'call', icon: PhoneCall, color: 'text-blue-500 bg-blue-100 dark:bg-blue-950/40' },
+  1: { type: 'email', icon: Mail, color: 'text-violet-500 bg-violet-100 dark:bg-violet-950/40' },
+  2: { type: 'meeting', icon: UserCheck, color: 'text-purple-500 bg-purple-100 dark:bg-purple-950/40' },
+  3: { type: 'outcome', icon: TrendingUp, color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-950/40' },
+}
+
+const CALL_OUTCOME_BADGE = {
+  connected: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  'no answer': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  busy: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  'callback requested': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  'wrong number': 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  'not interested': 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+}
+
+const getCallOutcomeBadgeClass = (outcome) => {
+  const key = String(outcome || '').trim().toLowerCase()
+  return CALL_OUTCOME_BADGE[key] || 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+}
+
+const normalizeCallOutcome = (value) => String(value || '').trim().toLowerCase()
+
+function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) {
+  const events = historyEvents
+  const calls = events.filter(e => String(e.type || '').toLowerCase().includes('call')).length
+  const emails = events.filter(e => String(e.type || '').toLowerCase().includes('email')).length
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end">
       {/* Backdrop */}
@@ -373,9 +410,9 @@ function LeadHistoryPanel({ lead, onClose }) {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-px bg-slate-200 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-700">
           {[
-            { label: 'Activities', value: HISTORY_EVENTS.length },
-            { label: 'Calls',      value: HISTORY_EVENTS.filter(e => e.type === 'call').length },
-            { label: 'Emails',     value: HISTORY_EVENTS.filter(e => e.type === 'email').length },
+            { label: 'Activities', value: events.length },
+            { label: 'Calls',      value: calls },
+            { label: 'Emails',     value: emails },
           ].map(({ label, value }) => (
             <div key={label} className="bg-white dark:bg-slate-900 px-4 py-3 text-center">
               <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{value}</p>
@@ -392,14 +429,19 @@ function LeadHistoryPanel({ lead, onClose }) {
             <div className="absolute left-4 top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700" />
 
             <div className="space-y-4">
-              {HISTORY_EVENTS.map((event, i) => {
-                const Icon = event.icon
+              {events.length === 0 && (
+                <p className="text-xs text-slate-400">No saved activities yet.</p>
+              )}
+              {events.map((event, i) => {
+                const keyType = String(event.type || '').toLowerCase()
+                const style = HISTORY_STYLE[keyType] || HISTORY_STYLE.note
+                const Icon = event.icon || style.icon
                 return (
                   <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04 }}
                     className="flex gap-4 relative">
                     {/* Icon dot */}
-                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center z-10 ${event.color}`}>
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center z-10 ${event.color || style.color}`}>
                       <Icon className="w-3.5 h-3.5" />
                     </div>
                     {/* Content */}
@@ -419,7 +461,13 @@ function LeadHistoryPanel({ lead, onClose }) {
 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-700">
-          <button className="btn-primary w-full justify-center gap-2 text-xs">
+          <button
+            onClick={() => {
+              onClose()
+              onLogActivity?.(lead)
+            }}
+            className="btn-primary w-full justify-center gap-2 text-xs"
+          >
             <Plus className="w-3.5 h-3.5" /> Log Activity
           </button>
         </div>
@@ -555,19 +603,139 @@ function WhatsAppModal({ lead, onClose }) {
   )
 }
 
+function CallOutcomeModal({ lead, user, onClose, onSave }) {
+  const [outcome, setOutcome] = useState('Connected')
+  const [note, setNote] = useState('')
+  const [callbackAt, setCallbackAt] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const assignee = user?.name || user?.email || 'Sales Team'
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!outcome) {
+      toast.error('Please choose call outcome.')
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({
+        lead,
+        outcome,
+        note: note.trim(),
+        callbackAt: callbackAt || null,
+        assignedTo: assignee,
+      })
+      toast.success('Call outcome saved')
+      onClose()
+    } catch (err) {
+      toast.error(err?.message || 'Failed to save call outcome')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        className="relative glass-card w-full max-w-lg p-6 z-10"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Call Outcome</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {lead?.name} · {lead?.phone || 'No number'}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Outcome *</label>
+            <select
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value)}
+              className="input"
+            >
+              <option value="Connected">Connected</option>
+              <option value="No Answer">No Answer</option>
+              <option value="Busy">Busy</option>
+              <option value="Callback Requested">Callback Requested</option>
+              <option value="Wrong Number">Wrong Number</option>
+              <option value="Not Interested">Not Interested</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Callback Time (optional)</label>
+            <input
+              type="datetime-local"
+              value={callbackAt}
+              onChange={(e) => setCallbackAt(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Notes</label>
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="What happened on this call?"
+              className="input resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>
+            <input value={assignee} readOnly className="input bg-slate-50 dark:bg-slate-800/60" />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Skip</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1 gap-2 disabled:opacity-60">
+              {saving ? 'Saving...' : 'Save Outcome'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  )
+}
+
 export default function LeadsPage() {
+  const PAGE_SIZE = 50
   const { user } = useAuthStore()
   const {
     leads,
+    pagination,
     fetchLeads,
     createLead,
     updateLead,
     deleteLead,
     bulkDelete,
+    patchLeadLocal,
   } = useLeadsStore()
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [scoreFilter, setScoreFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [lastCallFilter, setLastCallFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(0)
   const [sortField, setSortField] = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
   const [showAddModal, setShowAddModal] = useState(false)
@@ -577,7 +745,13 @@ export default function LeadsPage() {
   const [detailLead, setDetailLead]         = useState(null)
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [waLead, setWaLead]                 = useState(null)
+  const [callOutcomeLead, setCallOutcomeLead] = useState(null)
+  const [teamMembers, setTeamMembers]       = useState([])
+  const [leadActivitiesByLeadId, setLeadActivitiesByLeadId] = useState({})
+  const [callOutcomeByLeadId, setCallOutcomeByLeadId] = useState({})
   const [expandedLeadId, setExpandedLeadId] = useState(null)
+  const [openActionsLeadId, setOpenActionsLeadId] = useState(null)
+  const [callingLeadId, setCallingLeadId] = useState(null)
   const [timeTick, setTimeTick]             = useState(Date.now())
   const importRef                           = useRef(null)
   const canCreate = hasPermission(user, PERMISSIONS.LEADS_CREATE)
@@ -585,6 +759,10 @@ export default function LeadsPage() {
   const canDelete = hasPermission(user, PERMISSIONS.LEADS_DELETE)
   const canImport = hasPermission(user, PERMISSIONS.LEADS_IMPORT)
   const canExport = hasPermission(user, PERMISSIONS.LEADS_EXPORT)
+  const canAiScore = hasPermission(user, PERMISSIONS.AI_USE)
+  const canConvert = hasPermission(user, PERMISSIONS.CUSTOMERS_CREATE) && hasPermission(user, PERMISSIONS.DEALS_CREATE)
+  const canViewTeam = hasPermission(user, PERMISSIONS.TEAM_VIEW)
+  const canCall = hasPermission(user, PERMISSIONS.COMMUNICATIONS_SEND)
 
   useEffect(() => {
     const id = window.setInterval(() => setTimeTick(Date.now()), 60 * 1000)
@@ -592,10 +770,69 @@ export default function LeadsPage() {
   }, [])
 
   useEffect(() => {
-    fetchLeads().catch((err) => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
+
+  useEffect(() => {
+    fetchLeads({
+      page: currentPage,
+      size: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      score: scoreFilter === 'all' ? undefined : scoreFilter,
+      status: statusFilter === 'all' ? undefined : statusFilter,
+    }).catch((err) => {
       toast.error(err?.message || 'Failed to load leads')
     })
-  }, [fetchLeads])
+  }, [fetchLeads, currentPage, debouncedSearch, scoreFilter, statusFilter])
+
+  useEffect(() => {
+    setSelected([])
+    setExpandedLeadId(null)
+    setOpenActionsLeadId(null)
+  }, [currentPage, debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
+
+  const reloadCurrentPage = async () => {
+    return fetchLeads({
+      page: currentPage,
+      size: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      score: scoreFilter === 'all' ? undefined : scoreFilter,
+      status: statusFilter === 'all' ? undefined : statusFilter,
+    })
+  }
+
+  useEffect(() => {
+    if (!canViewTeam) {
+      setTeamMembers([])
+      return
+    }
+    teamAPI.getAll()
+      .then((rows) => {
+        const members = (rows || [])
+          .filter((row) => row && row.id && row.name && row.isActive !== false)
+          .map((row) => ({ id: row.id, name: row.name }))
+        setTeamMembers(members)
+      })
+      .catch(() => {
+        setTeamMembers([])
+      })
+  }, [canViewTeam])
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (e.target instanceof Element && e.target.closest('.lead-actions-dropdown')) return
+      setOpenActionsLeadId(null)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [])
 
   const handleSort = (field) => {
     if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
@@ -607,26 +844,31 @@ export default function LeadsPage() {
   }
 
   const filtered = leads
-    .filter((l) => {
-      const q = search.toLowerCase()
-      const matchSearch = !q
-        || l.name.toLowerCase().includes(q)
-        || l.email.toLowerCase().includes(q)
-        || l.company.toLowerCase().includes(q)
-        || String(l.phone || '').toLowerCase().includes(q)
-        || String(l.service || '').toLowerCase().includes(q)
-        || String(l.specialization || '').toLowerCase().includes(q)
-      const matchScore = scoreFilter === 'all' || l.score === scoreFilter
-      const matchStatus = statusFilter === 'all' || l.status === statusFilter
-      return matchSearch && matchScore && matchStatus
+    .filter((lead) => {
+      if (lastCallFilter === 'all') return true
+      const outcome = normalizeCallOutcome(callOutcomeByLeadId[lead.id])
+      if (lastCallFilter === 'not_logged') return !outcome
+      return outcome === lastCallFilter
     })
     .sort((a, b) => {
-      let va = a[sortField], vb = b[sortField]
+      let va
+      let vb
+      if (sortField === 'activity' || sortField === 'aging') {
+        va = getLeadAgeMinutes(a, timeTick) ?? -1
+        vb = getLeadAgeMinutes(b, timeTick) ?? -1
+      } else {
+        va = a[sortField]
+        vb = b[sortField]
+      }
       if (typeof va === 'string') va = va.toLowerCase(), vb = vb.toLowerCase()
       if (va < vb) return sortDir === 'asc' ? -1 : 1
       if (va > vb) return sortDir === 'asc' ? 1 : -1
       return 0
     })
+
+  const totalCount = Number(pagination?.total ?? 0)
+  const pageSize = Number(pagination?.size ?? PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   const SortIcon = ({ field }) =>
     sortField === field ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null
@@ -683,12 +925,18 @@ export default function LeadsPage() {
       toast.error('You do not have permission to export leads.')
       return
     }
-    const cols = ['name','email','phone','company','service','specialization','source','score','status','value','assignedTo','createdAt']
-    const rows = [cols.join(','), ...leads.map(l => cols.map(c => `"${l[c] ?? ''}"`).join(','))]
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-    a.download = 'leads.csv'; a.click()
-    toast.success('Leads exported to CSV.')
+    leadsAPI.export({ format: 'csv', status: statusFilter === 'all' ? undefined : statusFilter })
+      .then((blob) => {
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`
+        a.click()
+        URL.revokeObjectURL(a.href)
+        toast.success('Leads exported successfully.')
+      })
+      .catch((err) => {
+        toast.error(err?.message || 'Failed to export leads')
+      })
   }
 
   const handleImport = async (e) => {
@@ -700,12 +948,228 @@ export default function LeadsPage() {
     const file = e.target.files?.[0]; if (!file) return
     try {
       await leadsAPI.import(file)
-      await fetchLeads()
+      await reloadCurrentPage()
       toast.success('Leads imported.')
     } catch (err) {
       toast.error(err?.message || 'Failed to import leads')
     }
     e.target.value = ''
+  }
+
+  const handleScoreLead = async (lead) => {
+    if (!canAiScore) {
+      toast.error('You do not have permission to use AI scoring.')
+      return
+    }
+    try {
+      const res = await leadsAPI.score(lead.id)
+      const nextScore = String(res?.score || '').toLowerCase()
+      if (nextScore === 'hot' || nextScore === 'warm' || nextScore === 'cold') {
+        patchLeadLocal(lead.id, { score: nextScore })
+      }
+      toast.success(res?.message || 'Lead scored by AI')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to score lead')
+    }
+  }
+
+  const handleConvertLead = async (lead) => {
+    if (!canConvert) {
+      toast.error('You do not have permission to convert leads.')
+      return
+    }
+    try {
+      const res = await leadsAPI.convert(lead.id, {})
+      await reloadCurrentPage()
+      toast.success(res?.message || 'Lead converted successfully')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to convert lead')
+    }
+  }
+
+  const handleCallLead = async (lead) => {
+    if (!canCall) {
+      toast.error('You do not have permission to place calls.')
+      return
+    }
+    if (!lead?.phone) {
+      toast.error('This lead has no phone number.')
+      return
+    }
+
+    try {
+      setCallingLeadId(lead.id)
+      const res = await leadsAPI.callNow(lead.id, {})
+      const nowIso = new Date().toISOString()
+      patchLeadLocal(lead.id, {
+        lastContactedAtTs: nowIso,
+        lastActivityAtTs: nowIso,
+      })
+      toast.success(res?.message || 'Call queued successfully')
+      setCallOutcomeLead(lead)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to place call')
+    } finally {
+      setCallingLeadId((prev) => (prev === lead.id ? null : prev))
+    }
+  }
+
+  const handleSaveCallOutcome = async ({ lead, outcome, note, callbackAt, assignedTo }) => {
+    if (!canUpdate) {
+      throw new Error('You do not have permission to save lead activities.')
+    }
+    const summary = [
+      `Call outcome: ${outcome}`,
+      note ? `Note: ${note}` : null,
+      callbackAt ? `Callback: ${callbackAt}` : null,
+    ].filter(Boolean).join(' | ')
+
+    const payload = {
+      activityIndex: 0,
+      activityId: 'act01',
+      activityLabel: 'Activity 01',
+      activityTitle: 'Call Outcome',
+      assignedTo,
+      values: {
+        assignedTo,
+        callOutcome: outcome,
+        note: note || '',
+        callbackAt: callbackAt || '',
+        channel: 'voice_call_agent',
+        phone: lead?.phone || '',
+      },
+      summary,
+    }
+
+    const savedRow = await leadsAPI.addActivity(lead.id, payload)
+    const event = mapLeadActivityToHistoryEvent(savedRow)
+    setLeadActivitiesByLeadId((prev) => {
+      const existing = prev[lead.id] || []
+      return { ...prev, [lead.id]: [event, ...existing] }
+    })
+
+    const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
+    patchLeadLocal(lead.id, {
+      lastActivityAtTs: touchedAt,
+      lastContactedAtTs: touchedAt,
+      status: lead?.status === 'new' ? 'contacted' : lead?.status,
+    })
+  }
+
+  const formatActivityTime = (value) => {
+    if (!value) return 'Just now'
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return String(value)
+    return d.toLocaleString()
+  }
+
+  const mapLeadActivityToHistoryEvent = (row) => {
+    const idx = Number(row?.activityIndex ?? -1)
+    const style = ACTIVITY_STYLE_BY_INDEX[idx] || HISTORY_STYLE.activity
+    return {
+      id: row?.id || `${idx}-${row?.savedAt || row?.createdAt || Date.now()}`,
+      type: style.type || 'activity',
+      icon: style.icon || HISTORY_STYLE.activity.icon,
+      color: style.color || HISTORY_STYLE.activity.color,
+      label: row?.activityLabel || row?.activityTitle || `Activity ${idx + 1}`,
+      note: row?.summary || row?.activityTitle || 'Saved activity',
+      time: formatActivityTime(row?.savedAt || row?.createdAt),
+      raw: row,
+    }
+  }
+
+  const extractCallOutcome = (row) => {
+    const values = row?.values || {}
+    const raw = values?.callOutcome || values?.status || ''
+    const outcome = String(raw || '').trim()
+    if (!outcome) return null
+    const idx = Number(row?.activityIndex ?? -1)
+    if (idx !== 0) return null
+    return outcome
+  }
+
+  const loadLeadActivities = async (leadId) => {
+    if (!leadId) return []
+    try {
+      const rows = await leadsAPI.getActivities(leadId)
+      const events = (rows || []).map(mapLeadActivityToHistoryEvent)
+      setLeadActivitiesByLeadId((prev) => ({ ...prev, [leadId]: events }))
+      const latestCallRow = (rows || []).find((row) => extractCallOutcome(row))
+      if (latestCallRow) {
+        setCallOutcomeByLeadId((prev) => ({ ...prev, [leadId]: extractCallOutcome(latestCallRow) }))
+      }
+      return events
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load lead activities')
+      return []
+    }
+  }
+
+  const openHistoryLead = (lead) => {
+    setHistoryLead(lead)
+    loadLeadActivities(lead?.id)
+  }
+
+  const openActivitiesLead = async (lead) => {
+    await loadLeadActivities(lead?.id)
+    setActivitiesLead(lead)
+  }
+
+  const getActivityModalState = (leadId) => {
+    const events = leadActivitiesByLeadId[leadId] || []
+    const data = [{}, {}, {}, {}]
+    const saved = [false, false, false, false]
+    const seen = new Set()
+
+    for (const ev of events) {
+      const row = ev?.raw || {}
+      const idx = Number(row?.activityIndex)
+      if (!(idx >= 0 && idx < 4) || seen.has(idx)) continue
+      seen.add(idx)
+      data[idx] = {
+        ...(row?.values || {}),
+        assignedTo: row?.assignedTo || row?.values?.assignedTo || '',
+      }
+      saved[idx] = true
+    }
+
+    return { data, saved }
+  }
+
+  const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
+    if (!canUpdate) {
+      throw new Error('You do not have permission to edit leads.')
+    }
+    const summaryParts = Object.entries(values || {})
+      .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+      .map(([key, value]) => `${key}: ${value}`)
+    const summary = summaryParts.length ? summaryParts.join(' | ') : 'No extra details'
+    const payload = {
+      activityIndex,
+      activityId: activity?.id || null,
+      activityLabel: activity?.label || `Activity ${Number(activityIndex) + 1}`,
+      activityTitle: activity?.title || '',
+      assignedTo: values?.assignedTo || null,
+      values: values || {},
+      summary,
+    }
+    const savedRow = await leadsAPI.addActivity(lead.id, payload)
+    const event = mapLeadActivityToHistoryEvent(savedRow)
+    setLeadActivitiesByLeadId((prev) => {
+      const existing = prev[lead.id] || []
+      return { ...prev, [lead.id]: [event, ...existing] }
+    })
+    const persistedOutcome = normalizeCallOutcome(values?.callOutcome)
+    if (persistedOutcome) {
+      setCallOutcomeByLeadId((prev) => ({ ...prev, [lead.id]: persistedOutcome }))
+    }
+
+    const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
+    patchLeadLocal(lead.id, {
+      lastActivityAtTs: touchedAt,
+      lastContactedAtTs: touchedAt,
+      status: lead?.status === 'new' ? 'contacted' : lead?.status,
+    })
   }
 
   return (
@@ -714,7 +1178,7 @@ export default function LeadsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Leads</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{leads.length} leads total · {leads.filter((l) => l.score === 'hot').length} hot</p>
+          <p className="text-sm text-slate-500 mt-0.5">{totalCount} leads total · {leads.filter((l) => l.score === 'hot').length} hot on this page</p>
         </div>
         <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
           {selected.length > 0 && canDelete && (
@@ -724,7 +1188,7 @@ export default function LeadsPage() {
           )}
           {canImport && (
             <>
-              <input ref={importRef} type="file" accept=".csv" onChange={handleImport} className="hidden" />
+              <input ref={importRef} type="file" accept=".csv,.xlsx" onChange={handleImport} className="hidden" />
               <button onClick={() => importRef.current?.click()} className="btn-secondary text-xs gap-1.5">
                 <Upload className="w-3.5 h-3.5" /> Import
               </button>
@@ -771,6 +1235,20 @@ export default function LeadsPage() {
             <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
           ))}
         </select>
+        <select
+          value={lastCallFilter}
+          onChange={(e) => setLastCallFilter(e.target.value)}
+          className="input w-full sm:w-auto text-xs"
+        >
+          <option value="all">Last Call: Any</option>
+          <option value="connected">Last Call: Connected</option>
+          <option value="no answer">Last Call: No Answer</option>
+          <option value="busy">Last Call: Busy</option>
+          <option value="callback requested">Last Call: Callback Requested</option>
+          <option value="wrong number">Last Call: Wrong Number</option>
+          <option value="not interested">Last Call: Not Interested</option>
+          <option value="not_logged">Last Call: Not Logged</option>
+        </select>
       </div>
 
       {/* Mobile cards */}
@@ -787,6 +1265,7 @@ export default function LeadsPage() {
             const ScoreIcon = scoreCfg?.icon
             const aging = getLeadAgingMeta(lead, timeTick)
             const ageMin = getLeadAgeMinutes(lead, timeTick)
+            const lastCallOutcome = callOutcomeByLeadId[lead.id]
             return (
               <div key={lead.id} className="glass-card p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -810,6 +1289,11 @@ export default function LeadsPage() {
                   </span>
                   <span className={statusCfg.cls}>{statusCfg.label}</span>
                   <span className={`badge ${aging.badge}`}>{aging.label}</span>
+                  {lastCallOutcome && (
+                    <span className={`badge ${getCallOutcomeBadgeClass(lastCallOutcome)}`}>
+                      Last Call: {lastCallOutcome}
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
@@ -833,12 +1317,22 @@ export default function LeadsPage() {
                       <Edit className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  <button onClick={() => setHistoryLead(lead)}
+                  {canCall && (
+                    <button
+                      onClick={() => handleCallLead(lead)}
+                      disabled={callingLeadId === lead.id || !lead.phone}
+                      className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={!lead.phone ? 'No phone number' : (callingLeadId === lead.id ? 'Calling…' : 'Call now')}
+                    >
+                      <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
+                    </button>
+                  )}
+                  <button onClick={() => openHistoryLead(lead)}
                     className="p-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/20 text-slate-400 hover:text-violet-500 transition-colors"
                     title="View history">
                     <History className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => setActivitiesLead(lead)}
+                  <button onClick={() => openActivitiesLead(lead)}
                     className="p-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/20 text-slate-400 hover:text-brand-600 transition-colors"
                     title="Lead Activities">
                     <ClipboardList className="w-3.5 h-3.5" />
@@ -848,6 +1342,20 @@ export default function LeadsPage() {
                     title="Send WhatsApp">
                     <MessageCircle className="w-3.5 h-3.5" />
                   </button>
+                  {canAiScore && (
+                    <button onClick={() => handleScoreLead(lead)}
+                      className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-400 hover:text-indigo-600 transition-colors"
+                      title="AI Score Lead">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {canConvert && (
+                    <button onClick={() => handleConvertLead(lead)}
+                      className="p-1.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 text-slate-400 hover:text-teal-600 transition-colors"
+                      title="Convert to Customer">
+                      <UserCheck className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button onClick={() => setDetailLead(lead)}
                     className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
                     title="View details">
@@ -869,7 +1377,7 @@ export default function LeadsPage() {
 
       {/* Table */}
       <div className="hidden sm:block glass-card overflow-hidden">
-        <div className="overflow-x-hidden">
+        <div className="overflow-x-auto">
           <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="border-b border-slate-200/70 dark:border-slate-700/40 bg-white/50 dark:bg-slate-900/20">
@@ -878,20 +1386,22 @@ export default function LeadsPage() {
                     className="rounded border-slate-300 text-brand-600" />
                 </th>
                 {[
-                  { key: 'name',      label: 'Name' },
-                  { key: 'company',   label: 'Company' },
-                  { key: 'service',   label: 'Service' },
-                  { key: 'score',     label: 'AI Score' },
-                  { key: 'status',    label: 'Status' },
-                  { key: 'aging',     label: 'Aging' },
-                  { key: 'createdAt', label: 'Date' },
-                ].map(({ key, label }) => (
-                  <th key={key} className="py-2.5 px-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200"
+                  { key: 'name',      label: 'Name', cls: 'w-[220px]' },
+                  { key: 'company',   label: 'Company', cls: 'w-[78px]' },
+                  { key: 'service',   label: 'Service', cls: 'w-[78px]' },
+                  { key: 'score',     label: 'AI Score', cls: 'w-[84px]' },
+                  { key: 'status',    label: 'Status', cls: 'w-[84px]' },
+                  { key: 'source',    label: 'Source', cls: 'w-[78px]' },
+                  { key: 'activity',  label: 'Activity', cls: 'w-[88px]' },
+                  { key: 'aging',     label: 'Aging', cls: 'w-[88px]' },
+                  { key: 'createdAt', label: 'Date', cls: 'w-[74px]' },
+                ].map(({ key, label, cls }) => (
+                  <th key={key} className={`py-2.5 px-1.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 ${cls}`}
                     onClick={() => handleSort(key)}>
                     <span className="flex items-center gap-1">{label} <SortIcon field={key} /></span>
                   </th>
                 ))}
-                <th className="py-2.5 px-3 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 w-[140px]">Actions</th>
+                <th className="py-2.5 px-1 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 w-[54px]">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/30">
@@ -903,6 +1413,7 @@ export default function LeadsPage() {
                   const aging = getLeadAgingMeta(lead, timeTick)
                   const ageMin = getLeadAgeMinutes(lead, timeTick)
                   const isExpandedRow = expandedLeadId === lead.id
+                  const lastCallOutcome = callOutcomeByLeadId[lead.id]
                   return (
                     <Fragment key={lead.id}>
                       <motion.tr
@@ -917,101 +1428,171 @@ export default function LeadsPage() {
                             className="rounded border-slate-300 text-brand-600" />
                         </td>
                         <td className="py-2.5 px-3 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <div className="max-w-[280px]">
-                            <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate">{lead.name}</p>
-                            <p className="text-[11px] text-slate-500 truncate">{lead.email || 'N/A'}</p>
-                            <p className={`text-[11px] truncate ${lead.phone ? 'text-slate-500' : 'text-slate-400 italic'}`}>
+                          <div className="max-w-[300px]">
+                            <p className="font-semibold text-[15px] leading-snug text-slate-800 dark:text-slate-200 break-words">{lead.name}</p>
+                            <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words whitespace-normal">{lead.email || 'N/A'}</p>
+                            <p className={`mt-1 text-xs leading-snug break-words whitespace-normal ${lead.phone ? 'text-slate-500' : 'text-slate-400 italic'}`}>
                               {lead.phone || 'No mobile'}
                             </p>
-                            {isExpandedRow && (
-                              <div className="mt-1.5 pt-1.5 border-t border-slate-200/70 dark:border-slate-700/50 space-y-0.5 text-[11px] leading-tight">
-                                <p className="text-slate-500 dark:text-slate-400">
-                                  <span className="font-medium text-slate-600 dark:text-slate-300">Spec:</span>{' '}
-                                  {lead.specialization ? lead.specialization : <span className="text-slate-400 italic">—</span>}
-                                </p>
-                                <p className="text-slate-500 dark:text-slate-400">
-                                  <span className="font-medium text-slate-600 dark:text-slate-300">Source:</span> {lead.source || '—'}
-                                </p>
-                                <p className="text-slate-500 dark:text-slate-400">
-                                  <span className="font-medium text-slate-600 dark:text-slate-300">Value:</span> ₹{(lead.value / 1000).toFixed(0)}k
-                                </p>
-                                <p className="text-slate-500 dark:text-slate-400">
-                                  <span className="font-medium text-slate-600 dark:text-slate-300">Owner:</span> {lead.assignedTo || 'Unassigned'}
-                                </p>
-                              </div>
+                            {lastCallOutcome && (
+                              <span className={`mt-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${getCallOutcomeBadgeClass(lastCallOutcome)}`}>
+                                Last Call: {lastCallOutcome}
+                              </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 max-w-[160px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
+                        <td className="py-2.5 px-2 max-w-[110px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
                           <p className="truncate">
                             {lead.company
                               ? <span className="text-slate-600 dark:text-slate-400">{lead.company}</span>
                               : <span className="text-slate-400 italic">—</span>}
                           </p>
                         </td>
-                        <td className="py-2.5 px-3 max-w-[160px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
+                        <td className="py-2.5 px-2 max-w-[110px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
                           <p className="truncate">
                             {lead.service
                               ? <span className="text-slate-600 dark:text-slate-400">{lead.service}</span>
                               : <span className="text-slate-400 italic">—</span>}
                           </p>
                         </td>
-                        <td className="py-2.5 px-3 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
+                        <td className="py-2.5 px-2 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
                           <span className={scoreCfg?.cls}>
                             {ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
+                        <td className="py-2.5 px-2 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
                           <span className={statusCfg.cls}>{statusCfg.label}</span>
                         </td>
-                        <td className="py-2.5 px-3 align-top cursor-pointer" onClick={() => toggleExpandedLead(lead.id)}>
-                          <div className="flex flex-col justify-center gap-0.5 leading-tight">
-                            <span className={`badge ${aging.badge}`}>{aging.label}</span>
-                            <span className="text-[10px] text-slate-400">
-                              {ageMin === null ? 'No timer' : `${ageMin} min since activity`}
-                            </span>
-                          </div>
+                        <td className="py-2.5 px-2 max-w-[95px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
+                          <p className="truncate text-slate-600 dark:text-slate-400">{lead.source || '—'}</p>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-500 text-xs max-w-[140px] cursor-pointer truncate align-top" onClick={() => toggleExpandedLead(lead.id)}>{lead.createdAt}</td>
-                        <td className="py-2.5 px-3 align-top">
-                          <div className="flex items-center justify-end gap-1">
-                            {canUpdate && (
-                              <button onClick={() => setEditLead(lead)}
-                                className="p-1 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                                title="Edit lead">
-                                <Edit className="w-3.5 h-3.5" />
+                        <td className="py-2.5 px-2 max-w-[100px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
+                          <span className={`badge ${aging.badge}`}>
+                            {ageMin === null ? 'No timer' : `${ageMin} min`}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 align-top cursor-pointer" onClick={() => toggleExpandedLead(lead.id)}>
+                          <span className={`badge ${aging.badge}`}>{aging.label}</span>
+                        </td>
+                        <td className="py-2.5 px-1 text-slate-500 text-xs w-[74px] cursor-pointer truncate align-top" onClick={() => toggleExpandedLead(lead.id)}>{lead.createdAt}</td>
+                        <td className="py-2.5 px-1 align-top w-[54px]">
+                          <div className="relative flex items-start justify-end gap-1 lead-actions-dropdown">
+                            {canCall && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleCallLead(lead)
+                                }}
+                                disabled={callingLeadId === lead.id || !lead.phone}
+                                className="p-1 rounded-md border border-transparent hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/20 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={!lead.phone ? 'No phone number' : (callingLeadId === lead.id ? 'Calling…' : 'Call now')}
+                              >
+                                <PhoneCall className={`w-4 h-4 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
                               </button>
                             )}
-                            <button onClick={() => setHistoryLead(lead)}
-                              className="p-1 rounded-md border border-transparent hover:border-violet-200 dark:hover:border-violet-900 hover:bg-violet-50 dark:hover:bg-violet-950/20 text-slate-400 hover:text-violet-500 dark:hover:text-violet-400 transition-colors"
-                              title="View history">
-                              <History className="w-3.5 h-3.5" />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setOpenActionsLeadId((prev) => (prev === lead.id ? null : lead.id))
+                              }}
+                              className="p-1 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
+                              title="Actions"
+                            >
+                              <MoreVertical className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setActivitiesLead(lead)}
-                              className="p-1 rounded-md border border-transparent hover:border-brand-200 dark:hover:border-brand-900 hover:bg-brand-50 dark:hover:bg-brand-950/20 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                              title="Lead Activities">
-                              <ClipboardList className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setWaLead(lead)}
-                              className="p-1 rounded-md border border-transparent hover:border-green-200 dark:hover:border-green-900 hover:bg-green-50 dark:hover:bg-green-950/20 text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                              title="Send WhatsApp">
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setDetailLead(lead)}
-                              className="p-1 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                              title="View details">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </button>
-                            {canDelete && (
-                              <button onClick={() => handleDelete([lead.id])}
-                                className="p-1 rounded-md border border-transparent hover:border-red-200 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500"
-                                title="Delete lead">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+
+                            {openActionsLeadId === lead.id && (
+                              <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1">
+                                {canUpdate && (
+                                  <button onClick={() => { setEditLead(lead); setOpenActionsLeadId(null) }}
+                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                    <Edit className="w-3.5 h-3.5" /> Edit Lead
+                                  </button>
+                                )}
+                                <button onClick={() => { openHistoryLead(lead); setOpenActionsLeadId(null) }}
+                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                  <History className="w-3.5 h-3.5" /> View History
+                                </button>
+                                <button onClick={() => { openActivitiesLead(lead); setOpenActionsLeadId(null) }}
+                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                  <ClipboardList className="w-3.5 h-3.5" /> Lead Activities
+                                </button>
+                                <button onClick={() => { setWaLead(lead); setOpenActionsLeadId(null) }}
+                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                  <MessageCircle className="w-3.5 h-3.5" /> Send WhatsApp
+                                </button>
+                                {canCall && (
+                                  <button
+                                    onClick={() => { handleCallLead(lead); setOpenActionsLeadId(null) }}
+                                    disabled={callingLeadId === lead.id || !lead.phone}
+                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
+                                    {callingLeadId === lead.id ? 'Calling…' : 'Call Now'}
+                                  </button>
+                                )}
+                                {canAiScore && (
+                                  <button onClick={() => { handleScoreLead(lead); setOpenActionsLeadId(null) }}
+                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                    <TrendingUp className="w-3.5 h-3.5" /> AI Score
+                                  </button>
+                                )}
+                                {canConvert && (
+                                  <button onClick={() => { handleConvertLead(lead); setOpenActionsLeadId(null) }}
+                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                    <UserCheck className="w-3.5 h-3.5" /> Convert Lead
+                                  </button>
+                                )}
+                                <button onClick={() => { setDetailLead(lead); setOpenActionsLeadId(null) }}
+                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
+                                  <ExternalLink className="w-3.5 h-3.5" /> View Details
+                                </button>
+                                {canDelete && (
+                                  <button onClick={() => { handleDelete([lead.id]); setOpenActionsLeadId(null) }}
+                                    className="w-full px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2">
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete Lead
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
                       </motion.tr>
+                      {isExpandedRow && (
+                        <motion.tr
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="bg-slate-50/60 dark:bg-slate-900/20"
+                        >
+                          <td colSpan={11} className="px-3 pb-3 pt-0">
+                            <div className="ml-9 rounded-lg border border-slate-200/70 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/30 px-3 py-2">
+                              <div className="grid grid-cols-[1fr_1.3fr_1fr_.8fr_1.1fr] gap-x-4 text-sm leading-snug text-slate-600 dark:text-slate-400">
+                                <p className="truncate">
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Source:</span>{' '}
+                                  {lead.source || '—'}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Activity:</span>{' '}
+                                  {ageMin === null ? 'No timer' : `${ageMin} min since activity`}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Spec:</span>{' '}
+                                  {lead.specialization || '—'}
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Value:</span>{' '}
+                                  ₹{(lead.value / 1000).toFixed(0)}k
+                                </p>
+                                <p className="truncate">
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Owner:</span>{' '}
+                                  {lead.assignedTo || 'Unassigned'}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      )}
                     </Fragment>
                   )
                 })}
@@ -1028,25 +1609,52 @@ export default function LeadsPage() {
 
         {/* Pagination */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200/60 dark:border-slate-700/40">
-          <p className="text-xs text-slate-500">Showing {filtered.length} of {leads.length} leads</p>
+          <p className="text-xs text-slate-500">
+            Showing page {currentPage + 1} of {totalPages} · {filtered.length} leads on this page · {totalCount} total
+          </p>
           <div className="flex gap-1">
-            {[1,2,3,'...'].map((p, i) => (
-              <button key={i} className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors
-                ${p === 1 ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-              >{p}</button>
-            ))}
+            <button
+              disabled={currentPage <= 0}
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              Prev
+            </button>
+            <button className="px-3 h-8 rounded-lg text-xs font-medium bg-brand-600 text-white">
+              {currentPage + 1}
+            </button>
+            <button
+              disabled={currentPage + 1 >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
 
       {/* Add Lead Modal */}
       <AnimatePresence>
-        {showAddModal && <AddLeadModal onClose={() => setShowAddModal(false)} onAdd={handleAdd} />}
+        {showAddModal && (
+          <AddLeadModal
+            onClose={() => setShowAddModal(false)}
+            onAdd={handleAdd}
+            teamMembers={teamMembers}
+          />
+        )}
       </AnimatePresence>
 
       {/* Edit Lead Modal */}
       <AnimatePresence>
-        {editLead && <EditLeadModal lead={editLead} onClose={() => setEditLead(null)} onSave={handleSave} />}
+        {editLead && (
+          <EditLeadModal
+            lead={editLead}
+            onClose={() => setEditLead(null)}
+            onSave={handleSave}
+            teamMembers={teamMembers}
+          />
+        )}
       </AnimatePresence>
 
       {/* Lead Detail Modal */}
@@ -1065,17 +1673,44 @@ export default function LeadsPage() {
 
       {/* Lead History Drawer */}
       <AnimatePresence>
-        {historyLead && <LeadHistoryPanel lead={historyLead} onClose={() => setHistoryLead(null)} />}
+        {historyLead && (
+          <LeadHistoryPanel
+            lead={historyLead}
+            onClose={() => setHistoryLead(null)}
+            onLogActivity={openActivitiesLead}
+            historyEvents={leadActivitiesByLeadId[historyLead.id] || []}
+          />
+        )}
       </AnimatePresence>
 
       {/* Lead Activities Modal */}
       <AnimatePresence>
-        {activitiesLead && <LeadActivitiesModal lead={activitiesLead} onClose={() => setActivitiesLead(null)} />}
+        {activitiesLead && (
+          <LeadActivitiesModal
+            lead={activitiesLead}
+            onClose={() => setActivitiesLead(null)}
+            onPersist={handlePersistActivity}
+            initialData={getActivityModalState(activitiesLead.id).data}
+            initialSaved={getActivityModalState(activitiesLead.id).saved}
+          />
+        )}
       </AnimatePresence>
 
       {/* WhatsApp Modal */}
       <AnimatePresence>
         {waLead && <WhatsAppModal lead={waLead} onClose={() => setWaLead(null)} />}
+      </AnimatePresence>
+
+      {/* Call Outcome Modal */}
+      <AnimatePresence>
+        {callOutcomeLead && (
+          <CallOutcomeModal
+            lead={callOutcomeLead}
+            user={user}
+            onSave={handleSaveCallOutcome}
+            onClose={() => setCallOutcomeLead(null)}
+          />
+        )}
       </AnimatePresence>
     </div>
   )

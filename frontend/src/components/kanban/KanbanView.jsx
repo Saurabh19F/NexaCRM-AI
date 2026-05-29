@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   DndContext, DragOverlay, closestCorners,
+  useDroppable,
   KeyboardSensor, PointerSensor, useSensor, useSensors
 } from '@dnd-kit/core'
 import {
@@ -47,6 +48,8 @@ const EMPTY_STAGE_MAP = STAGES.reduce((acc, stage) => {
   acc[stage.key] = []
   return acc
 }, {})
+const STAGE_DROP_PREFIX = 'stage:'
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const parsePrefixedValue = (text, key) => {
   const value = String(text || '')
@@ -57,7 +60,7 @@ const parsePrefixedValue = (text, key) => {
 }
 
 const mapDealFromApi = (deal) => ({
-  id: deal.id,
+  id: String(deal.id),
   title: deal.title || 'Untitled Deal',
   company: deal.company || parsePrefixedValue(deal.description, 'Company'),
   value: Number(deal.dealValue || 0),
@@ -183,7 +186,11 @@ function SortableDealCard({
   canMoveDeal,
   canDeleteDeal,
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: deal.id,
+    disabled: !canMoveDeal,
+    data: { stage },
+  })
   const style = { transform: CSS.Transform.toString(transform), transition }
   return (
     <div
@@ -223,8 +230,16 @@ function KanbanColumn({
   canDeleteDeal,
 }) {
   const totalValue = deals.reduce((s, d) => s + d.value, 0)
+  const dropId = `${STAGE_DROP_PREFIX}${stage.key}`
+  const { setNodeRef, isOver } = useDroppable({
+    id: dropId,
+    data: { stage: stage.key, type: 'stage' },
+  })
   return (
-    <div className="kanban-column">
+    <div
+      ref={setNodeRef}
+      className={`kanban-column transition-colors ${isOver ? 'ring-2 ring-brand-300 dark:ring-brand-500/60' : ''}`}
+    >
       {/* Column header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
@@ -252,7 +267,7 @@ function KanbanColumn({
       )}
 
       {/* Deal cards */}
-      <SortableContext items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext id={stage.key} items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 flex-1">
           {deals.map((deal) => (
             <SortableDealCard
@@ -352,23 +367,38 @@ export default function KanbanPage() {
     let cancelled = false
     const loadBoard = async () => {
       setLoadingDeals(true)
-      try {
-        const board = await dealsAPI.getBoard()
-        if (cancelled) return
-        const next = { ...EMPTY_STAGE_MAP }
-        for (const stage of STAGES) {
-          const rows = Array.isArray(board?.[stage.key]) ? board[stage.key] : []
-          next[stage.key] = rows.map(mapDealFromApi)
+      let lastError = null
+
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const board = await dealsAPI.getBoard()
+          if (cancelled) return
+          const next = { ...EMPTY_STAGE_MAP }
+          for (const stage of STAGES) {
+            const rows = Array.isArray(board?.[stage.key]) ? board[stage.key] : []
+            next[stage.key] = rows.map(mapDealFromApi)
+          }
+          setDeals(next)
+          return
+        } catch (err) {
+          lastError = err
+          if (err?.code !== 'ECONNABORTED' || attempt === 2) break
+          await wait(600)
         }
-        setDeals(next)
-      } catch (err) {
-        if (!cancelled) toast.error(err?.message || 'Failed to load pipeline')
-      } finally {
-        if (!cancelled) setLoadingDeals(false)
+      }
+
+      if (!cancelled) {
+        const message = lastError?.code === 'ECONNABORTED'
+          ? 'Pipeline load timed out. Backend may be slow right now, please retry.'
+          : (lastError?.message || 'Failed to load pipeline')
+        toast.error(message)
       }
     }
 
-    loadBoard()
+    loadBoard().finally(() => {
+      if (!cancelled) setLoadingDeals(false)
+    })
+
     return () => { cancelled = true }
   }, [])
 
@@ -390,9 +420,19 @@ export default function KanbanPage() {
     const source = findDealAndStage(active.id)
     if (!source) return
 
-    // Check if dropped on a column or another card
-    const targetStage = Object.keys(deals).find((s) =>
-      s === over.id || deals[s].some((d) => d.id === over.id)
+    // Resolve target stage from column drop zone id, then sortable metadata, then hovered deal id.
+    const overId = over?.id
+    const stageFromDropId =
+      typeof overId === 'string' && overId.startsWith(STAGE_DROP_PREFIX)
+        ? overId.slice(STAGE_DROP_PREFIX.length)
+        : null
+    const stageFromItem = over?.data?.current?.stage
+    const stageFromSortable = over?.data?.current?.sortable?.containerId
+    const targetStage = (
+      stageFromDropId ||
+      stageFromItem ||
+      (typeof stageFromSortable === 'string' && deals[stageFromSortable] ? stageFromSortable : null) ||
+      Object.keys(deals).find((s) => deals[s].some((d) => d.id === overId))
     )
     if (!targetStage || targetStage === source.stage) return
 

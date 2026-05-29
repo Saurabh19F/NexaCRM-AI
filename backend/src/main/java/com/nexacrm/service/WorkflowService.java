@@ -3,11 +3,15 @@ package com.nexacrm.service;
 import com.nexacrm.dto.WorkflowDTO;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Workflow;
+import com.nexacrm.model.WorkflowRunLog;
 import com.nexacrm.repository.WorkflowRepository;
+import com.nexacrm.repository.WorkflowRunLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +23,7 @@ import java.util.stream.Collectors;
 public class WorkflowService {
 
     private final WorkflowRepository workflowRepository;
+    private final WorkflowRunLogRepository workflowRunLogRepository;
 
     private static final Long DEFAULT_TENANT = 1L;
 
@@ -31,17 +36,19 @@ public class WorkflowService {
     }
 
     public WorkflowDTO create(WorkflowDTO dto) {
+        validateWorkflowStructure(dto.getSteps());
         Workflow workflow = fromDTO(dto);
         workflow.setTenantId(DEFAULT_TENANT);
         if (workflow.getStatus() == null) workflow.setStatus(Workflow.WorkflowStatus.ACTIVE);
         if (workflow.getRuns() == null) workflow.setRuns(0);
         if (workflow.getLastRun() == null || workflow.getLastRun().isBlank()) workflow.setLastRun("Never");
-        return toDTO(workflowRepository.save(workflow));
+        Workflow saved = workflowRepository.save(workflow);
+        saveLog(saved, "WORKFLOW_CREATED", "SUCCESS", "Workflow created");
+        return toDTO(saved);
     }
 
     public WorkflowDTO update(String id, WorkflowDTO dto) {
-        Workflow workflow = workflowRepository.findById(id)
-            .filter(w -> !w.getDeleted())
+        Workflow workflow = workflowRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Workflow not found: " + id));
 
         if (dto.getName() != null) workflow.setName(dto.getName());
@@ -51,41 +58,97 @@ public class WorkflowService {
         if (dto.getLastRun() != null) workflow.setLastRun(dto.getLastRun());
         workflow.setPriority(dto.getPriority());
         if (dto.getSteps() != null) {
+            validateWorkflowStructure(dto.getSteps());
             workflow.setSteps(dto.getSteps().stream()
                 .map(s -> Workflow.WorkflowStep.builder().type(s.getType()).text(s.getText()).build())
                 .collect(Collectors.toList()));
         }
-        return toDTO(workflowRepository.save(workflow));
+        Workflow saved = workflowRepository.save(workflow);
+        saveLog(saved, "WORKFLOW_UPDATED", "SUCCESS", "Workflow updated");
+        return toDTO(saved);
     }
 
     public void delete(String id) {
-        Workflow workflow = workflowRepository.findById(id)
+        Workflow workflow = workflowRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Workflow not found: " + id));
         workflow.setDeleted(true);
         workflowRepository.save(workflow);
+        saveLog(workflow, "WORKFLOW_DELETED", "SUCCESS", "Workflow deleted");
     }
 
     public WorkflowDTO toggle(String id) {
-        Workflow workflow = workflowRepository.findById(id)
-            .filter(w -> !w.getDeleted())
+        Workflow workflow = workflowRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Workflow not found: " + id));
         workflow.setStatus(
             workflow.getStatus() == Workflow.WorkflowStatus.ACTIVE
                 ? Workflow.WorkflowStatus.PAUSED
                 : Workflow.WorkflowStatus.ACTIVE
         );
-        return toDTO(workflowRepository.save(workflow));
+        Workflow saved = workflowRepository.save(workflow);
+        saveLog(saved, "WORKFLOW_TOGGLED", "SUCCESS", "Workflow status changed to " + saved.getStatus().name());
+        return toDTO(saved);
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> logs(String id) {
-        Workflow workflow = workflowRepository.findById(id)
-            .filter(w -> !w.getDeleted())
+        Workflow workflow = workflowRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Workflow not found: " + id));
 
-        return List.of(
-            Map.of("workflowId", workflow.getId(), "status", "OK", "message", "Workflow fetched", "time", "just now")
-        );
+        return workflowRunLogRepository
+            .findTop100ByWorkflowIdAndTenantIdAndDeletedFalseOrderByRunAtDesc(workflow.getId(), DEFAULT_TENANT)
+            .stream()
+            .map(log -> {
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("id", log.getId());
+                row.put("workflowId", log.getWorkflowId());
+                row.put("workflowName", log.getWorkflowName());
+                row.put("trigger", log.getTrigger());
+                row.put("status", log.getStatus());
+                row.put("message", log.getMessage());
+                row.put("runAt", log.getRunAt());
+                row.put("createdAt", log.getCreatedAt());
+                return row;
+            })
+            .collect(Collectors.toList());
+    }
+
+    private void validateWorkflowStructure(List<WorkflowDTO.WorkflowStepDTO> steps) {
+        if (steps == null || steps.size() < 2) {
+            throw new IllegalArgumentException("At least 2 workflow steps are required");
+        }
+
+        boolean hasIf = false;
+        boolean hasThen = false;
+
+        for (WorkflowDTO.WorkflowStepDTO step : steps) {
+            String type = step.getType() != null ? step.getType().trim().toUpperCase() : "";
+            String text = step.getText() != null ? step.getText().trim() : "";
+
+            if (!StringUtils.hasText(type)) {
+                throw new IllegalArgumentException("Step type is required");
+            }
+            if (!StringUtils.hasText(text)) {
+                throw new IllegalArgumentException("Step text is required");
+            }
+            if ("IF".equals(type)) hasIf = true;
+            if ("THEN".equals(type)) hasThen = true;
+        }
+
+        if (!hasIf) throw new IllegalArgumentException("Workflow must include an IF step");
+        if (!hasThen) throw new IllegalArgumentException("Workflow must include a THEN step");
+    }
+
+    private void saveLog(Workflow workflow, String trigger, String status, String message) {
+        WorkflowRunLog log = WorkflowRunLog.builder()
+            .workflowId(workflow.getId())
+            .workflowName(workflow.getName())
+            .trigger(trigger)
+            .status(status)
+            .message(message)
+            .runAt(LocalDateTime.now())
+            .build();
+        log.setTenantId(DEFAULT_TENANT);
+        workflowRunLogRepository.save(log);
     }
 
     private WorkflowDTO toDTO(Workflow workflow) {

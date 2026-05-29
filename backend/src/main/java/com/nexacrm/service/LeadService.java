@@ -1,15 +1,23 @@
 package com.nexacrm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexacrm.automation.WorkflowEngine;
 import com.nexacrm.dto.LeadDTO;
 import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
+import com.nexacrm.model.Customer;
+import com.nexacrm.model.Deal;
 import com.nexacrm.model.Lead;
+import com.nexacrm.repository.CustomerRepository;
+import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.websocket.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Page;
@@ -30,14 +38,23 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
@@ -48,9 +65,14 @@ import java.util.stream.Collectors;
 public class LeadService {
 
     private final LeadRepository leadRepository;
+    private final CustomerRepository customerRepository;
+    private final DealRepository dealRepository;
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
     private final NotificationPublisher notificationPublisher;
+    private final WorkflowEngine workflowEngine;
+    private final CommunicationService communicationService;
+    private final IntegrationService integrationService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -96,9 +118,24 @@ public class LeadService {
         query.with(pageable);
         List<Lead> leads = mongoTemplate.find(query, Lead.class);
         Page<Lead> page = new PageImpl<>(leads, pageable, total);
+        Set<String> assignedIds = page.getContent().stream()
+            .map(lead -> lead.getAssignedTo() != null ? lead.getAssignedTo().getId() : null)
+            .filter(id -> id != null && !id.isBlank())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<String, String> assignedNameById = assignedIds.isEmpty()
+            ? Map.of()
+            : userRepository.findAllById(assignedIds).stream()
+                .collect(Collectors.toMap(
+                    user -> user.getId(),
+                    user -> user.getName(),
+                    (existing, replacement) -> existing
+                ));
 
         return PageResponse.<LeadDTO>builder()
-            .content(page.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
+            .content(page.getContent().stream()
+                .map(lead -> toDTO(lead, assignedNameById))
+                .collect(Collectors.toList()))
             .page(page.getNumber())
             .size(page.getSize())
             .total(page.getTotalElements())
@@ -119,12 +156,17 @@ public class LeadService {
     // ── Commands ─────────────────────────────────────────────────
 
     public LeadDTO create(LeadDTO dto) {
-        // Deduplication check
-        leadRepository.findByEmailAndTenantIdAndDeletedFalse(dto.getEmail(), DEFAULT_TENANT)
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+        if (normalizedEmail == null || normalizedEmail.isBlank()) {
+            throw new IllegalStateException("Email is required");
+        }
+
+        leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT)
             .ifPresent(existing -> {
-                log.warn("Duplicate lead detected for email: {}", dto.getEmail());
-                // Could throw ConflictException or merge — for now just warn
+                throw new IllegalStateException("Lead with email already exists: " + normalizedEmail);
             });
+
+        dto.setEmail(normalizedEmail);
 
         Lead lead = fromDTO(dto);
         lead.setTenantId(DEFAULT_TENANT);
@@ -132,6 +174,21 @@ public class LeadService {
 
         // Trigger WebSocket notification
         notificationPublisher.notifyNewLead(saved.getName(), saved.getSource().name());
+        workflowEngine.processEvent("LEAD_CREATED", Map.of(
+            "leadId", saved.getId(),
+            "leadEmail", saved.getEmail() != null ? saved.getEmail() : "",
+            "leadPhone", saved.getPhone() != null ? saved.getPhone() : "",
+            "source", saved.getSource() != null ? saved.getSource().name() : "OTHER",
+            "status", saved.getStatus() != null ? saved.getStatus().name() : "NEW"
+        ));
+        communicationService.autoCallNewLeadAsync(
+            saved.getId(),
+            saved.getName(),
+            saved.getPhone(),
+            saved.getCompany(),
+            saved.getService(),
+            saved.getAssignedTo() != null ? saved.getAssignedTo().getName() : null
+        );
 
         log.info("Lead created: id={}, name={}", saved.getId(), saved.getName());
         return toDTO(saved);
@@ -142,8 +199,19 @@ public class LeadService {
             .filter(l -> !l.getDeleted())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
+        String normalizedEmail = normalizeEmail(dto.getEmail());
+        if (normalizedEmail == null || normalizedEmail.isBlank()) {
+            throw new IllegalStateException("Email is required");
+        }
+        if (!normalizedEmail.equalsIgnoreCase(lead.getEmail())) {
+            leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT)
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("Lead with email already exists: " + normalizedEmail);
+                });
+        }
+
         lead.setName(dto.getName());
-        lead.setEmail(dto.getEmail());
+        lead.setEmail(normalizedEmail);
         lead.setPhone(dto.getPhone());
         lead.setCompany(dto.getCompany());
         lead.setService(dto.getService());
@@ -160,6 +228,9 @@ public class LeadService {
             }
         }
         lead.setNotes(dto.getNotes());
+        if (dto.getLastContactedAt() != null) {
+            lead.setLastContactedAt(dto.getLastContactedAt());
+        }
 
         return toDTO(leadRepository.save(lead));
     }
@@ -180,8 +251,90 @@ public class LeadService {
     }
 
     public Map<String, Object> importFromFile(MultipartFile file) {
-        // TODO: parse CSV/Excel with Apache POI, batch insert
-        return Map.of("imported", 0, "skipped", 0, "errors", 0);
+        if (file == null || file.isEmpty()) {
+            throw new IllegalStateException("Import file is empty.");
+        }
+
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase(Locale.ROOT) : "";
+        List<List<String>> rows;
+        try {
+            if (fileName.endsWith(".xlsx")) {
+                rows = parseExcel(file);
+            } else {
+                String csv = new String(file.getBytes(), StandardCharsets.UTF_8);
+                rows = parseCsv(csv);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read import file.", e);
+        }
+
+        if (rows.isEmpty()) {
+            return Map.of("imported", 0, "skipped", 0, "errors", 0, "message", "No rows found in file.");
+        }
+
+        Map<String, Integer> headerIndex = buildHeaderIndex(rows.get(0));
+        List<String> errorList = new ArrayList<>();
+        int imported = 0;
+        int skipped = 0;
+
+        for (int i = 1; i < rows.size(); i++) {
+            List<String> row = rows.get(i);
+            String name = readCell(row, headerIndex, "name", "full name");
+            String email = readCell(row, headerIndex, "email");
+            String phone = readCell(row, headerIndex, "phone", "mobile", "mobile number");
+            String company = readCell(row, headerIndex, "company");
+            String service = readCell(row, headerIndex, "service");
+            String specialization = readCell(row, headerIndex, "specialization", "subservice", "sub service", "sub_service");
+            String source = readCell(row, headerIndex, "source");
+            String score = readCell(row, headerIndex, "score");
+            String status = readCell(row, headerIndex, "status");
+            String value = readCell(row, headerIndex, "value", "deal value", "dealvalue");
+            String tags = readCell(row, headerIndex, "tags");
+            String notes = readCell(row, headerIndex, "notes", "remark", "remarks");
+
+            if (email == null || email.isBlank()) {
+                skipped++;
+                errorList.add("Row " + (i + 1) + ": missing email");
+                continue;
+            }
+
+            String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+            if (leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT).isPresent()) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                LeadDTO dto = LeadDTO.builder()
+                    .name((name == null || name.isBlank()) ? normalizedEmail : name.trim())
+                    .email(normalizedEmail)
+                    .phone(phone)
+                    .company(company)
+                    .service(service)
+                    .specialization(specialization)
+                    .source(parseSource(source))
+                    .score(parseScore(score))
+                    .status(parseStatus(status))
+                    .dealValue(parseAmount(value))
+                    .tags(parseTags(tags))
+                    .notes(notes != null && !notes.isBlank() ? notes : "Imported from file")
+                    .build();
+                create(dto);
+                imported++;
+            } catch (Exception ex) {
+                skipped++;
+                errorList.add("Row " + (i + 1) + ": " + ex.getMessage());
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("imported", imported);
+        result.put("skipped", skipped);
+        result.put("errors", errorList.size());
+        if (!errorList.isEmpty()) {
+            result.put("errorDetails", errorList.size() > 20 ? errorList.subList(0, 20) : errorList);
+        }
+        return result;
     }
 
     public Map<String, Object> syncFromPublicGoogleSheet(Map<String, String> config) {
@@ -271,6 +424,111 @@ public class LeadService {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> syncFacebookLeadAds(Map<String, String> options) {
+        Map<String, String> config = new LinkedHashMap<>(integrationService.getConfig("facebook"));
+        if (options != null) {
+            options.forEach((k, v) -> {
+                if (k != null && v != null && !v.isBlank()) {
+                    config.put(k, v.trim());
+                }
+            });
+        }
+
+        String pageId = trim(config.get("pageId"));
+        if (pageId == null || pageId.isBlank()) {
+            throw new IllegalStateException("Facebook pageId is missing. Set it in Integrations > Facebook.");
+        }
+
+        String accessToken = trim(config.get("accessToken"));
+        if (accessToken == null || accessToken.isBlank()) {
+            accessToken = resolveFacebookLeadAccessToken();
+        }
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalStateException("Facebook access token is missing. Set it in Integrations > Facebook or META_PAGE_ACCESS_TOKEN.");
+        }
+
+        String requestedFormId = trim(config.get("formId"));
+        int formPageSize = parsePositiveInt(config.get("formPageSize"), 50);
+        int leadPageSize = parsePositiveInt(config.get("leadPageSize"), 100);
+        boolean includeArchived = parseBoolean(config.get("includeArchived"), true);
+
+        int formsProcessed = 0;
+        int leadsFetched = 0;
+        int imported = 0;
+        int merged = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        String formsUrl = UriComponentsBuilder
+            .fromHttpUrl("https://graph.facebook.com/{version}/{pageId}/leadgen_forms")
+            .queryParam("fields", "id,name,status,created_time")
+            .queryParam("limit", formPageSize)
+            .queryParam("access_token", accessToken)
+            .buildAndExpand(graphApiVersion, pageId)
+            .toUriString();
+
+        while (formsUrl != null && !formsUrl.isBlank()) {
+            Map<String, Object> formsResponse;
+            try {
+                formsResponse = restTemplate.getForObject(formsUrl, Map.class);
+            } catch (Exception ex) {
+                throw new IllegalStateException("Failed to fetch Facebook lead forms: " + ex.getMessage(), ex);
+            }
+
+            List<Map<String, Object>> forms = formsResponse != null && formsResponse.get("data") instanceof List<?>
+                ? (List<Map<String, Object>>) formsResponse.get("data")
+                : List.of();
+
+            for (Map<String, Object> form : forms) {
+                String formId = trim(String.valueOf(form.get("id")));
+                if (formId == null || formId.isBlank()) continue;
+
+                if (requestedFormId != null && !requestedFormId.isBlank() && !requestedFormId.equals(formId)) {
+                    continue;
+                }
+
+                String status = trim(String.valueOf(form.get("status")));
+                if (!includeArchived && status != null && !status.isBlank() && !"ACTIVE".equalsIgnoreCase(status)) {
+                    continue;
+                }
+
+                formsProcessed++;
+                String formName = trim(String.valueOf(form.get("name")));
+                Map<String, Object> perForm = syncFacebookFormLeads(formId, formName, accessToken, leadPageSize);
+                leadsFetched += toInt(perForm.get("fetched"));
+                imported += toInt(perForm.get("imported"));
+                merged += toInt(perForm.get("merged"));
+                skipped += toInt(perForm.get("skipped"));
+                List<String> formErrors = (List<String>) perForm.get("errors");
+                if (formErrors != null && !formErrors.isEmpty()) {
+                    errors.addAll(formErrors);
+                }
+            }
+
+            if (requestedFormId != null && !requestedFormId.isBlank() && formsProcessed > 0) {
+                break;
+            }
+            formsUrl = extractPagingNext(formsResponse);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ok", true);
+        result.put("message", "Facebook lead sync completed.");
+        result.put("pageId", pageId);
+        result.put("formId", requestedFormId != null ? requestedFormId : "");
+        result.put("formsProcessed", formsProcessed);
+        result.put("fetched", leadsFetched);
+        result.put("imported", imported);
+        result.put("merged", merged);
+        result.put("skipped", skipped);
+        result.put("errors", errors.size());
+        if (!errors.isEmpty()) {
+            result.put("errorDetails", errors.size() > 50 ? errors.subList(0, 50) : errors);
+        }
+        return result;
+    }
+
     public Map<String, Object> testPublicGoogleSheetAccess(Map<String, String> config) {
         String csv = fetchPublicSheetCsv(config);
         List<List<String>> rows = parseCsv(csv);
@@ -295,21 +553,150 @@ public class LeadService {
     }
 
     public byte[] export(String format, String status) {
-        // TODO: generate CSV or Excel with Apache POI
-        return new byte[0];
+        List<Lead> leads;
+        if (status != null && !status.isBlank()) {
+            leads = leadRepository.findByTenantIdAndDeletedFalseAndStatus(
+                DEFAULT_TENANT,
+                Lead.LeadStatus.valueOf(status.toUpperCase(Locale.ROOT))
+            );
+        } else {
+            leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
+        }
+
+        String normalized = format == null ? "csv" : format.trim().toLowerCase(Locale.ROOT);
+        if ("xlsx".equals(normalized)) return exportAsXlsx(leads);
+        return exportAsCsv(leads);
     }
 
     public Map<String, Object> scoreWithAI(String id) {
-        return Map.of("leadId", id, "score", "WARM", "scoreValue", 55, "message", "AI scoring placeholder");
+        Lead lead = leadRepository.findById(id)
+            .filter(l -> !l.getDeleted())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+
+        int scoreValue = calculateLeadScoreValue(lead);
+        Lead.LeadScore score = mapScore(scoreValue);
+        String nextAction = suggestNextAction(lead, score, scoreValue);
+
+        lead.setAiScoreValue(scoreValue);
+        lead.setScore(score);
+        lead.setAiNextAction(nextAction);
+        leadRepository.save(lead);
+
+        return Map.of(
+            "leadId", id,
+            "score", score.name(),
+            "scoreValue", scoreValue,
+            "nextAction", nextAction,
+            "message", "Lead scored successfully"
+        );
     }
 
     public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
         Lead lead = leadRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+
+        Customer customer = customerRepository
+            .findByEmailAndTenantIdAndDeletedFalse(lead.getEmail(), DEFAULT_TENANT)
+            .orElseGet(() -> {
+                Customer.CustomerBuilder builder = Customer.builder()
+                    .name(lead.getName())
+                    .email(lead.getEmail())
+                    .phone(lead.getPhone())
+                    .company(lead.getCompany())
+                    .website(lead.getWebsite())
+                    .industry(lead.getService())
+                    .primaryContact(lead.getName())
+                    .status(Customer.CustomerStatus.ACTIVE)
+                    .notes(lead.getNotes());
+
+                if (lead.getAssignedTo() != null) {
+                    builder.accountManager(lead.getAssignedTo());
+                }
+
+                Customer created = builder.build();
+                created.setTenantId(DEFAULT_TENANT);
+                return customerRepository.save(created);
+            });
+
+        Deal deal = dealRepository
+            .findByLead_IdAndTenantIdAndDeletedFalse(lead.getId(), DEFAULT_TENANT)
+            .orElseGet(() -> {
+                String title = (lead.getCompany() != null && !lead.getCompany().isBlank())
+                    ? lead.getCompany() + " Opportunity"
+                    : lead.getName() + " Opportunity";
+
+                Deal.DealBuilder builder = Deal.builder()
+                    .title(title)
+                    .description("Auto-created from converted lead")
+                    .stage(Deal.DealStage.WON)
+                    .priority(Deal.DealPriority.MEDIUM)
+                    .dealValue(lead.getDealValue())
+                    .pipelineId(1L)
+                    .lead(lead)
+                    .notes(lead.getNotes());
+
+                if (lead.getAssignedTo() != null) {
+                    builder.owner(lead.getAssignedTo());
+                }
+
+                Deal created = builder.build();
+                created.setTenantId(DEFAULT_TENANT);
+                return dealRepository.save(created);
+            });
+
         lead.setStatus(Lead.LeadStatus.WON);
+        lead.setLastContactedAt(LocalDateTime.now());
         leadRepository.save(lead);
-        // TODO: create Customer and Deal records
-        return Map.of("message", "Lead converted to customer", "leadId", id);
+
+        return Map.of(
+            "message", "Lead converted to customer",
+            "leadId", lead.getId(),
+            "customerId", customer.getId(),
+            "dealId", deal.getId()
+        );
+    }
+
+    public Map<String, Object> callLeadNow(String id, String script) {
+        Lead lead = leadRepository.findById(id)
+            .filter(l -> !l.getDeleted())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+
+        String phone = lead.getPhone() == null ? "" : lead.getPhone().trim();
+        if (phone.isBlank()) {
+            throw new IllegalStateException("Lead phone number is missing.");
+        }
+
+        String callScript = script == null ? "" : script.trim();
+        if (callScript.isBlank()) {
+            String leadName = lead.getName() == null ? "" : lead.getName().trim();
+            String service = lead.getService() == null ? "" : lead.getService().trim();
+            String serviceSnippet = service.isBlank() ? "" : " for " + service;
+            callScript = "Hi " + (leadName.isBlank() ? "there" : leadName)
+                + ", this is NexaCRM calling regarding your enquiry"
+                + serviceSnippet
+                + ". Is this a good time to talk?";
+        }
+
+        communicationService.sendLeadVoiceCall(
+            lead.getId(),
+            lead.getName(),
+            phone,
+            callScript,
+            "manual_lead_call",
+            Map.of(
+                "leadId", lead.getId(),
+                "leadName", lead.getName() != null ? lead.getName() : "",
+                "source", lead.getSource() != null ? lead.getSource().name() : "OTHER"
+            )
+        );
+        lead.setLastContactedAt(LocalDateTime.now());
+        leadRepository.save(lead);
+
+        return Map.of(
+            "message", "Call queued successfully",
+            "leadId", lead.getId(),
+            "phone", phone
+        );
     }
 
     // ── Facebook Lead Ads ─────────────────────────────────────────
@@ -348,9 +735,15 @@ public class LeadService {
                 return;
             }
 
+            String accessToken = resolveFacebookLeadAccessToken();
+            if (accessToken.isBlank()) {
+                log.error("Facebook lead fetch failed: missing access token (integration + env both empty)");
+                return;
+            }
+
             String url = UriComponentsBuilder
                 .fromHttpUrl("https://graph.facebook.com/{version}/{id}")
-                .queryParam("access_token", pageAccessToken)
+                .queryParam("access_token", accessToken)
                 .queryParam("fields", "field_data,created_time,ad_id,form_id,campaign_id")
                 .buildAndExpand(graphApiVersion, leadgenId)
                 .toUriString();
@@ -393,14 +786,245 @@ public class LeadService {
                 .facebookLeadId(leadgenId)
                 .facebookFormId(resolvedFormId)
                 .facebookAdId(resolvedAdId)
-                .notes("Facebook Lead Ad | Form: " + resolvedFormId
-                    + (resolvedAdId != null ? " | Ad: " + resolvedAdId : ""))
+                .notes(buildFacebookWebhookNotes(resolvedFormId, resolvedAdId, response))
                 .build();
 
             create(dto);
             log.info("Facebook lead saved: leadgen_id={}, name={}, email={}", leadgenId, name, email);
         } catch (Exception e) {
             log.error("Failed to fetch/save Facebook lead for leadgen_id={}", leadgenId, e);
+        }
+    }
+
+    private String resolveFacebookLeadAccessToken() {
+        String integrationToken = trim(integrationService.getConfig("facebook").get("accessToken"));
+        if (integrationToken != null && !integrationToken.isBlank()) {
+            return integrationToken;
+        }
+        return trim(pageAccessToken);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> syncFacebookFormLeads(String formId, String formName, String accessToken, int leadPageSize) {
+        int fetched = 0;
+        int imported = 0;
+        int merged = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        String leadsUrl = UriComponentsBuilder
+            .fromHttpUrl("https://graph.facebook.com/{version}/{formId}/leads")
+            .queryParam("fields", "id,created_time,ad_id,form_id,campaign_name,field_data")
+            .queryParam("limit", leadPageSize)
+            .queryParam("access_token", accessToken)
+            .buildAndExpand(graphApiVersion, formId)
+            .toUriString();
+
+        while (leadsUrl != null && !leadsUrl.isBlank()) {
+            Map<String, Object> leadsResponse;
+            try {
+                leadsResponse = restTemplate.getForObject(leadsUrl, Map.class);
+            } catch (Exception ex) {
+                errors.add("Form " + formId + ": fetch failed - " + ex.getMessage());
+                break;
+            }
+
+            List<Map<String, Object>> leads = leadsResponse != null && leadsResponse.get("data") instanceof List<?>
+                ? (List<Map<String, Object>>) leadsResponse.get("data")
+                : List.of();
+
+            for (Map<String, Object> rawLead : leads) {
+                fetched++;
+                String leadgenId = trim(String.valueOf(rawLead.get("id")));
+                if (leadgenId == null || leadgenId.isBlank()) {
+                    skipped++;
+                    continue;
+                }
+                if (leadRepository.findByFacebookLeadIdAndDeletedFalse(leadgenId).isPresent()) {
+                    skipped++;
+                    continue;
+                }
+
+                try {
+                    List<Map<String, Object>> fieldData = rawLead.get("field_data") instanceof List<?>
+                        ? (List<Map<String, Object>>) rawLead.get("field_data")
+                        : List.of();
+
+                    String name = extractFieldValue(fieldData, "full_name", "first_name");
+                    String email = extractFieldValue(fieldData, "email");
+                    String phone = extractFieldValue(fieldData, "phone_number", "phone");
+                    String company = extractFieldValue(fieldData, "company_name", "company");
+                    String designation = extractFieldValue(fieldData, "job_title", "work_job_title");
+                    String service = extractFieldValue(fieldData, "service", "service_name");
+                    String specialization = extractFieldValue(fieldData, "specialization", "subservice", "sub_service");
+                    String campaignName = trim(String.valueOf(rawLead.get("campaign_name")));
+                    String adId = trim(String.valueOf(rawLead.get("ad_id")));
+                    String responseFormId = trim(String.valueOf(rawLead.get("form_id")));
+
+                    if (name == null || name.isBlank()) {
+                        name = "Facebook Lead " + leadgenId;
+                    }
+                    if (email == null || email.isBlank()) {
+                        email = leadgenId + "@facebook-lead.local";
+                    }
+
+                    Map<String, Object> enrichedPayload = new HashMap<>(rawLead);
+                    enrichedPayload.putIfAbsent("form_name", formName);
+
+                    LeadDTO dto = LeadDTO.builder()
+                        .name(name)
+                        .email(email)
+                        .phone(phone)
+                        .company(company)
+                        .designation(designation)
+                        .service(service)
+                        .specialization(specialization)
+                        .source(Lead.LeadSource.META_ADS)
+                        .status(Lead.LeadStatus.NEW)
+                        .score(Lead.LeadScore.COLD)
+                        .priority(Lead.LeadPriority.MEDIUM)
+                        .utmSource("facebook")
+                        .utmMedium("lead_ads_sync")
+                        .utmCampaign(campaignName != null && !campaignName.isBlank() ? campaignName : adId)
+                        .facebookLeadId(leadgenId)
+                        .facebookFormId(responseFormId != null && !responseFormId.isBlank() ? responseFormId : formId)
+                        .facebookAdId(adId)
+                        .notes(buildFacebookWebhookNotes(
+                            responseFormId != null && !responseFormId.isBlank() ? responseFormId : formId,
+                            adId,
+                            enrichedPayload
+                        ))
+                        .build();
+
+                    create(dto);
+                    imported++;
+                } catch (Exception ex) {
+                    if (isDuplicateEmailError(ex)) {
+                        if (mergeIntoExistingLeadByEmail(rawLead, formId, formName)) {
+                            merged++;
+                        } else {
+                            skipped++;
+                        }
+                        continue;
+                    }
+                    errors.add("Lead " + leadgenId + ": " + ex.getMessage());
+                }
+            }
+
+            leadsUrl = extractPagingNext(leadsResponse);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("fetched", fetched);
+        result.put("imported", imported);
+        result.put("merged", merged);
+        result.put("skipped", skipped);
+        result.put("errors", errors);
+        return result;
+    }
+
+    private String buildFacebookWebhookNotes(String formId, String adId, Map<String, Object> graphResponse) {
+        StringBuilder sb = new StringBuilder("Facebook Lead Ad | Form: ");
+        sb.append(formId);
+        if (adId != null && !adId.isBlank()) {
+            sb.append(" | Ad: ").append(adId);
+        }
+        sb.append("\n\nRaw Payload:\n");
+        try {
+            sb.append(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(graphResponse));
+        } catch (Exception e) {
+            sb.append(String.valueOf(graphResponse));
+        }
+        return sb.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean mergeIntoExistingLeadByEmail(Map<String, Object> rawLead, String fallbackFormId, String fallbackFormName) {
+        try {
+            List<Map<String, Object>> fieldData = rawLead.get("field_data") instanceof List<?>
+                ? (List<Map<String, Object>>) rawLead.get("field_data")
+                : List.of();
+            String email = extractFieldValue(fieldData, "email");
+            if (email == null || email.isBlank()) return false;
+
+            String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+            Optional<Lead> existingOpt = leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT);
+            if (existingOpt.isEmpty()) return false;
+
+            Lead existing = existingOpt.get();
+            String leadgenId = trim(String.valueOf(rawLead.get("id")));
+            String adId = trim(String.valueOf(rawLead.get("ad_id")));
+            String responseFormId = trim(String.valueOf(rawLead.get("form_id")));
+            String formId = responseFormId != null && !responseFormId.isBlank() ? responseFormId : fallbackFormId;
+
+            Map<String, Object> enrichedPayload = new HashMap<>(rawLead);
+            enrichedPayload.putIfAbsent("form_name", fallbackFormName);
+
+            String mergeNote = "\n\n[Meta Sync Merge]\n"
+                + buildFacebookWebhookNotes(formId, adId, enrichedPayload);
+            existing.setNotes(appendNote(existing.getNotes(), mergeNote));
+            if (existing.getFacebookLeadId() == null || existing.getFacebookLeadId().isBlank()) {
+                existing.setFacebookLeadId(leadgenId);
+            }
+            if (existing.getFacebookFormId() == null || existing.getFacebookFormId().isBlank()) {
+                existing.setFacebookFormId(formId);
+            }
+            if (existing.getFacebookAdId() == null || existing.getFacebookAdId().isBlank()) {
+                existing.setFacebookAdId(adId);
+            }
+            if (existing.getSource() == null || existing.getSource() == Lead.LeadSource.OTHER) {
+                existing.setSource(Lead.LeadSource.META_ADS);
+            }
+            leadRepository.save(existing);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean isDuplicateEmailError(Exception ex) {
+        String message = ex.getMessage();
+        return message != null && message.toLowerCase(Locale.ROOT).contains("already exists");
+    }
+
+    private String appendNote(String existing, String addition) {
+        String base = existing == null ? "" : existing.trim();
+        String extra = addition == null ? "" : addition.trim();
+        if (extra.isBlank()) return base;
+        if (base.isBlank()) return extra;
+        return base + "\n" + extra;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractPagingNext(Map<String, Object> response) {
+        if (response == null) return null;
+        Object pagingObj = response.get("paging");
+        if (!(pagingObj instanceof Map<?, ?> paging)) return null;
+        Object next = ((Map<String, Object>) paging).get("next");
+        return next == null ? null : String.valueOf(next);
+    }
+
+    private int parsePositiveInt(String value, int defaultValue) {
+        try {
+            int parsed = Integer.parseInt(trim(value));
+            return parsed > 0 ? parsed : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    private boolean parseBoolean(String value, boolean defaultValue) {
+        String v = trim(value);
+        if (v == null || v.isBlank()) return defaultValue;
+        return "true".equalsIgnoreCase(v) || "1".equals(v) || "yes".equalsIgnoreCase(v);
+    }
+
+    private int toInt(Object value) {
+        if (value instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (Exception e) {
+            return 0;
         }
     }
 
@@ -460,6 +1084,137 @@ public class LeadService {
         return sb.toString();
     }
 
+    private List<String> parseTags(String tags) {
+        if (tags == null || tags.isBlank()) return null;
+        List<String> values = Arrays.stream(tags.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isBlank())
+            .toList();
+        return values.isEmpty() ? null : values;
+    }
+
+    private BigDecimal parseAmount(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String normalized = raw.replace(",", "").replace("₹", "").trim();
+        if (normalized.isBlank()) return null;
+        return new BigDecimal(normalized);
+    }
+
+    private Lead.LeadSource parseSource(String source) {
+        if (source == null || source.isBlank()) return Lead.LeadSource.OTHER;
+        String s = source.trim().toUpperCase(Locale.ROOT).replace(" ", "_");
+        if ("GOOGLEADS".equals(s)) s = "GOOGLE_ADS";
+        if ("METAADS".equals(s)) s = "META_ADS";
+        try {
+            return Lead.LeadSource.valueOf(s);
+        } catch (IllegalArgumentException ex) {
+            return Lead.LeadSource.OTHER;
+        }
+    }
+
+    private Lead.LeadScore parseScore(String score) {
+        if (score == null || score.isBlank()) return Lead.LeadScore.COLD;
+        try {
+            return Lead.LeadScore.valueOf(score.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return Lead.LeadScore.COLD;
+        }
+    }
+
+    private Lead.LeadStatus parseStatus(String status) {
+        if (status == null || status.isBlank()) return Lead.LeadStatus.NEW;
+        try {
+            return Lead.LeadStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return Lead.LeadStatus.NEW;
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) return null;
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private int calculateLeadScoreValue(Lead lead) {
+        int scoreValue = 10;
+
+        if (lead.getEmail() != null && !lead.getEmail().isBlank()) scoreValue += 12;
+        if (lead.getPhone() != null && !lead.getPhone().isBlank()) scoreValue += 10;
+        if (lead.getCompany() != null && !lead.getCompany().isBlank()) scoreValue += 8;
+        if (lead.getAssignedTo() != null) scoreValue += 6;
+
+        if (lead.getSource() != null) {
+            scoreValue += switch (lead.getSource()) {
+                case REFERRAL -> 20;
+                case LINKEDIN -> 15;
+                case WEBSITE -> 12;
+                case EMAIL -> 10;
+                case GOOGLE_ADS, META_ADS -> 8;
+                case WHATSAPP, FACEBOOK, INSTAGRAM -> 7;
+                default -> 5;
+            };
+        }
+
+        if (lead.getStatus() != null) {
+            scoreValue += switch (lead.getStatus()) {
+                case NEW -> 0;
+                case CONTACTED -> 8;
+                case QUALIFIED -> 18;
+                case PROPOSAL -> 22;
+                case NEGOTIATION -> 26;
+                case WON -> 30;
+                case LOST -> -25;
+            };
+        }
+
+        if (lead.getPriority() != null) {
+            scoreValue += switch (lead.getPriority()) {
+                case HIGH -> 12;
+                case MEDIUM -> 4;
+                case LOW -> -4;
+            };
+        }
+
+        if (lead.getDealValue() != null) {
+            int valueBand = lead.getDealValue().compareTo(BigDecimal.valueOf(1_000_000)) >= 0 ? 20
+                : lead.getDealValue().compareTo(BigDecimal.valueOf(300_000)) >= 0 ? 14
+                : lead.getDealValue().compareTo(BigDecimal.valueOf(100_000)) >= 0 ? 8 : 3;
+            scoreValue += valueBand;
+        }
+
+        if (lead.getLastContactedAt() != null) {
+            long daysSinceContact = Math.max(0, Duration.between(lead.getLastContactedAt(), LocalDateTime.now()).toDays());
+            if (daysSinceContact <= 2) scoreValue += 10;
+            else if (daysSinceContact <= 7) scoreValue += 4;
+            else if (daysSinceContact > 14) scoreValue -= 10;
+        }
+
+        return Math.max(0, Math.min(100, scoreValue));
+    }
+
+    private Lead.LeadScore mapScore(int scoreValue) {
+        if (scoreValue >= 75) return Lead.LeadScore.HOT;
+        if (scoreValue >= 45) return Lead.LeadScore.WARM;
+        return Lead.LeadScore.COLD;
+    }
+
+    private String suggestNextAction(Lead lead, Lead.LeadScore score, int scoreValue) {
+        if (lead.getStatus() == Lead.LeadStatus.LOST) {
+            return "Review loss reason and schedule a re-engagement plan in 30 days.";
+        }
+        if (score == Lead.LeadScore.HOT) {
+            return "Schedule a decision-maker call within 24 hours and push to negotiation.";
+        }
+        if (score == Lead.LeadScore.WARM) {
+            return "Follow up with a personalized proposal and timeline this week.";
+        }
+        if (scoreValue < 30) {
+            return "Run a discovery call to validate budget, authority, and timeline.";
+        }
+        return "Continue qualification and capture missing requirements.";
+    }
+
     private List<List<String>> parseCsv(String csv) {
         List<List<String>> rows = new ArrayList<>();
         List<String> currentRow = new ArrayList<>();
@@ -503,6 +1258,110 @@ public class LeadService {
         }
 
         return rows;
+    }
+
+    private List<List<String>> parseExcel(MultipartFile file) throws IOException {
+        List<List<String>> rows = new ArrayList<>();
+        try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getNumberOfSheets() > 0 ? workbook.getSheetAt(0) : null;
+            if (sheet == null) return rows;
+
+            for (Row row : sheet) {
+                int cellCount = Math.max(1, row.getLastCellNum());
+                List<String> cells = new ArrayList<>();
+                for (int i = 0; i < cellCount; i++) {
+                    var cell = row.getCell(i);
+                    cells.add(cell == null ? "" : cell.toString());
+                }
+                rows.add(cells);
+            }
+        }
+        return rows;
+    }
+
+    private byte[] exportAsCsv(List<Lead> leads) {
+        String[] headers = {
+            "name","email","phone","company","service","specialization","source",
+            "score","status","value","assignedTo","createdAt","updatedAt","notes","tags"
+        };
+        StringBuilder sb = new StringBuilder(String.join(",", headers)).append('\n');
+
+        for (Lead lead : leads) {
+            List<String> row = List.of(
+                safe(lead.getName()),
+                safe(lead.getEmail()),
+                safe(lead.getPhone()),
+                safe(lead.getCompany()),
+                safe(lead.getService()),
+                safe(lead.getSpecialization()),
+                lead.getSource() != null ? lead.getSource().name() : "",
+                lead.getScore() != null ? lead.getScore().name() : "",
+                lead.getStatus() != null ? lead.getStatus().name() : "",
+                lead.getDealValue() != null ? lead.getDealValue().toPlainString() : "",
+                lead.getAssignedTo() != null ? safe(lead.getAssignedTo().getName()) : "",
+                lead.getCreatedAt() != null ? lead.getCreatedAt().toString() : "",
+                lead.getUpdatedAt() != null ? lead.getUpdatedAt().toString() : "",
+                safe(lead.getNotes()),
+                safe(lead.getTags())
+            );
+            sb.append(row.stream().map(this::csvEscape).collect(Collectors.joining(","))).append('\n');
+        }
+
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] exportAsXlsx(List<Lead> leads) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Leads");
+            String[] headers = {
+                "Name","Email","Phone","Company","Service","Specialization","Source",
+                "Score","Status","Value","Assigned To","Created At","Updated At","Notes","Tags"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                headerRow.createCell(i).setCellValue(headers[i]);
+            }
+
+            int rowIdx = 1;
+            for (Lead lead : leads) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(safe(lead.getName()));
+                row.createCell(1).setCellValue(safe(lead.getEmail()));
+                row.createCell(2).setCellValue(safe(lead.getPhone()));
+                row.createCell(3).setCellValue(safe(lead.getCompany()));
+                row.createCell(4).setCellValue(safe(lead.getService()));
+                row.createCell(5).setCellValue(safe(lead.getSpecialization()));
+                row.createCell(6).setCellValue(lead.getSource() != null ? lead.getSource().name() : "");
+                row.createCell(7).setCellValue(lead.getScore() != null ? lead.getScore().name() : "");
+                row.createCell(8).setCellValue(lead.getStatus() != null ? lead.getStatus().name() : "");
+                row.createCell(9).setCellValue(lead.getDealValue() != null ? lead.getDealValue().doubleValue() : 0d);
+                row.createCell(10).setCellValue(lead.getAssignedTo() != null ? safe(lead.getAssignedTo().getName()) : "");
+                row.createCell(11).setCellValue(lead.getCreatedAt() != null ? lead.getCreatedAt().toString() : "");
+                row.createCell(12).setCellValue(lead.getUpdatedAt() != null ? lead.getUpdatedAt().toString() : "");
+                row.createCell(13).setCellValue(safe(lead.getNotes()));
+                row.createCell(14).setCellValue(safe(lead.getTags()));
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to export leads as XLSX", e);
+        }
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String csvEscape(String value) {
+        String v = value == null ? "" : value;
+        return "\"" + v.replace("\"", "\"\"") + "\"";
     }
 
     private String fetchPublicSheetCsv(Map<String, String> config) {
@@ -575,7 +1434,19 @@ public class LeadService {
 
     // ── Mapping helpers ──────────────────────────────────────────
 
+    private LeadDTO toDTO(Lead l, Map<String, String> assignedNameById) {
+        String assignedToId = l.getAssignedTo() != null ? l.getAssignedTo().getId() : null;
+        String assignedToName = assignedToId != null ? assignedNameById.get(assignedToId) : null;
+        return toDTO(l, assignedToId, assignedToName);
+    }
+
     private LeadDTO toDTO(Lead l) {
+        String assignedToId = l.getAssignedTo() != null ? l.getAssignedTo().getId() : null;
+        String assignedToName = l.getAssignedTo() != null ? l.getAssignedTo().getName() : null;
+        return toDTO(l, assignedToId, assignedToName);
+    }
+
+    private LeadDTO toDTO(Lead l, String assignedToId, String assignedToName) {
         return LeadDTO.builder()
             .id(l.getId())
             .name(l.getName())
@@ -595,8 +1466,8 @@ public class LeadService {
             .utmCampaign(l.getUtmCampaign())
             .aiScoreValue(l.getAiScoreValue())
             .aiNextAction(l.getAiNextAction())
-            .assignedToId(l.getAssignedTo() != null ? l.getAssignedTo().getId() : null)
-            .assignedToName(l.getAssignedTo() != null ? l.getAssignedTo().getName() : null)
+            .assignedToId(assignedToId)
+            .assignedToName(assignedToName)
             .tags(l.getTags() != null && !l.getTags().isBlank()
                 ? Arrays.asList(l.getTags().split(",")) : null)
             .notes(l.getNotes())

@@ -58,6 +58,7 @@ Revokes the refresh token. Pass `Authorization: Bearer <token>`.
 | GET | `/leads/export` | Export CSV/Excel | All |
 | POST | `/leads/{id}/score` | AI score this lead | All |
 | POST | `/leads/{id}/convert` | Convert to customer + deal | All |
+| POST | `/leads/{id}/call` | Trigger outbound call via voice call agent | All |
 
 **Query params for GET `/leads`:**
 - `search` — name, email, company substring
@@ -180,6 +181,8 @@ GET /api/leads?status=NEW&score=HOT&page=0&size=20&sort=createdAt,desc
 | PATCH | `/workflows/{id}/toggle` | Enable / pause workflow |
 | GET | `/workflows/{id}/logs` | Execution logs |
 
+Workflow action text supports `send_call:<phone>|<script>` for outbound voice calls via the `voice_call_agent` integration.
+
 ---
 
 ## Communications
@@ -189,7 +192,7 @@ GET /api/leads?status=NEW&score=HOT&page=0&size=20&sort=createdAt,desc
 | GET | `/communications` | Unified inbox |
 | GET | `/communications/lead/{leadId}` | Conversation with a lead |
 | POST | `/communications/send` | Send message |
-| POST | `/communications/send-channel` | Send over channel (email/whatsapp/facebook/linkedin/etc.) |
+| POST | `/communications/send-channel` | Send over channel (`email`, `whatsapp`, `facebook`, `instagram`, `linkedin`, `reddit`, `call`) |
 | POST | `/communications/email/send` | Send email |
 | GET | `/communications/whatsapp/conversations` | WhatsApp conversation summaries |
 | GET | `/communications/whatsapp/messages?contact={number}` | WhatsApp messages by contact |
@@ -198,6 +201,169 @@ GET /api/leads?status=NEW&score=HOT&page=0&size=20&sort=createdAt,desc
 | GET | `/communications/instagram/conversations` | Instagram DM conversation summaries |
 | GET | `/communications/instagram/messages?igsid={instagramScopedUserId}` | Instagram DMs by IGSID |
 | POST | `/communications/ai-suggest` | AI reply suggestion |
+
+---
+
+## Calls (AI Calling Agent)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/calls/trigger/{leadId}` | Trigger AI outbound call for a lead (alias flow to lead call) |
+| GET | `/calls/{leadId}` | Fetch latest AI call logs for one lead |
+| POST | `/calls/retry/{callId}` | Retry a previous call by call-log ID |
+| POST | `/calls/webhook` | Public provider callback endpoint for call status/outcome updates |
+
+**Webhook security (optional):**
+- If `voice_call_agent.webhookSecret` is configured in integration settings, provide it in one of:
+  - Header `X-Call-Agent-Secret`
+  - Header `Authorization: Bearer <secret>`
+  - Body field `secret`
+
+### Bolna/WebRTC Call Webhook Contract (Recommended)
+
+Use this payload shape when your Bolna agent (or any call provider) posts call updates to `POST /api/calls/webhook`.
+
+**Minimum fields:**
+- `externalId` (or `callId` / `sip_call_id`) — stable call identifier
+- `leadId` — NexaCRM lead ID
+- `status` — call lifecycle state (`queued`, `ringing`, `in_progress`, `completed`, `failed`, etc.)
+- `outcome` — business result (`connected`, `no_answer`, `busy`, `not_interested`, etc.)
+- `summary` — short summary string
+- `transcript` or `transcripts` — full call transcript
+
+**Transcript options supported by NexaCRM:**
+1. Single text field:
+```json
+{
+  "transcript": "[agent] Hello ...\n[user] Hi ..."
+}
+```
+2. Speaker-separated array:
+```json
+{
+  "transcripts": [
+    { "speaker": "agent", "text": "Hello, this is NexaCRM." },
+    { "speaker": "user", "text": "Yes, speaking." }
+  ]
+}
+```
+
+**Example: in-progress update**
+```json
+{
+  "externalId": "123e4567-e89b-12d3-a456-426614174000",
+  "leadId": "lead_12345",
+  "status": "in_progress",
+  "outcome": "connected",
+  "summary": "Lead answered, discovery questions started",
+  "metadata": {
+    "provider": "bolna",
+    "executionStatus": "in-progress"
+  }
+}
+```
+
+**Example: completed update with transcript**
+```json
+{
+  "externalId": "123e4567-e89b-12d3-a456-426614174000",
+  "leadId": "lead_12345",
+  "status": "completed",
+  "outcome": "callback requested",
+  "summary": "Lead requested a callback tomorrow 11:00 AM",
+  "transcripts": [
+    { "speaker": "agent", "text": "Is this a good time to discuss your requirement?" },
+    { "speaker": "user", "text": "Can we do tomorrow at 11?" },
+    { "speaker": "agent", "text": "Sure, I will arrange a callback." }
+  ],
+  "metadata": {
+    "provider": "bolna",
+    "recordingUrl": "https://your-recording-url",
+    "durationSec": 184
+  }
+}
+```
+
+NexaCRM stores this payload in call `rawPayload`, updates call status/outcome, and attaches transcript + summary to lead activity.
+
+### Node/TypeScript Helper (Bolna/Any Worker)
+
+```ts
+type TranscriptRow = {
+  speaker: 'agent' | 'user' | string
+  text: string
+}
+
+type CallWebhookUpdate = {
+  externalId?: string
+  callId?: string
+  sip_call_id?: string
+  leadId: string
+  status: string
+  outcome?: string
+  summary?: string
+  transcript?: string
+  transcripts?: TranscriptRow[]
+  metadata?: Record<string, unknown>
+}
+
+export async function sendCallWebhookUpdate(
+  update: CallWebhookUpdate,
+  config?: {
+    baseUrl?: string
+    secret?: string
+    timeoutMs?: number
+  }
+) {
+  const baseUrl = (config?.baseUrl ?? process.env.NEXACRM_BASE_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
+  const secret = config?.secret ?? process.env.NEXACRM_CALL_WEBHOOK_SECRET ?? ''
+  const timeoutMs = config?.timeoutMs ?? 10000
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(`${baseUrl}/api/calls/webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(secret ? { 'X-Call-Agent-Secret': secret } : {}),
+      },
+      body: JSON.stringify(update),
+      signal: controller.signal,
+    })
+
+    const text = await res.text()
+    if (!res.ok) {
+      throw new Error(`Webhook failed (${res.status}): ${text}`)
+    }
+
+    return text ? JSON.parse(text) : { ok: true }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+```
+
+**Example usage:**
+
+```ts
+await sendCallWebhookUpdate({
+  externalId: '123e4567-e89b-12d3-a456-426614174000',
+  leadId: 'lead_12345',
+  status: 'completed',
+  outcome: 'callback requested',
+  summary: 'Lead requested a callback tomorrow 11:00 AM',
+  transcripts: [
+    { speaker: 'agent', text: 'Is this a good time to discuss your requirement?' },
+    { speaker: 'user', text: 'Can we do tomorrow at 11?' },
+  ],
+  metadata: {
+    provider: 'bolna',
+    durationSec: 184,
+  },
+})
+```
 
 ---
 
@@ -293,6 +459,9 @@ Legacy endpoint auto-routes payloads to lead handler (`leadgen`) and message han
 
 ### WhatsApp Business
 `POST /api/webhooks/whatsapp`
+
+### AI Call Agent Callback
+`POST /api/calls/webhook`
 
 Webhook verification challenge uses `META_WEBHOOK_TOKEN`, while `X-Hub-Signature-256` payload validation uses `META_APP_SECRET`.
 

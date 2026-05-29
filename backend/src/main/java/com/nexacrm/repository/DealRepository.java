@@ -4,6 +4,7 @@ import com.nexacrm.model.Deal;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DealRepository extends MongoRepository<Deal, String> {
 
@@ -26,6 +27,10 @@ public interface DealRepository extends MongoRepository<Deal, String> {
     List<Deal> findByTenantIdAndDeletedFalseAndStageAndOwner_IdAndPipelineId(
         Long tenantId, Deal.DealStage stage, String ownerId, Long pipelineId
     );
+
+    Optional<Deal> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
+
+    Optional<Deal> findByLead_IdAndTenantIdAndDeletedFalse(String leadId, Long tenantId);
 
     long countByTenantIdAndDeletedFalse(Long tenantId);
 

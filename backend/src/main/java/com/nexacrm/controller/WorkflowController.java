@@ -4,6 +4,7 @@ import com.nexacrm.dto.WorkflowDTO;
 import com.nexacrm.service.WorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +32,7 @@ public class WorkflowController {
     @PostMapping
     @PreAuthorize("hasAuthority('workflows.manage')")
     @Operation(summary = "Create workflow")
-    public ResponseEntity<WorkflowDTO> create(@RequestBody WorkflowDTO dto) {
+    public ResponseEntity<WorkflowDTO> create(@Valid @RequestBody WorkflowDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(workflowService.create(dto));
     }
 

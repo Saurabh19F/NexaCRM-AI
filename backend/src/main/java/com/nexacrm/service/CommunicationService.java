@@ -21,6 +21,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -87,6 +92,45 @@ public class CommunicationService {
     @Value("${nexacrm.auto-reply.message:Thanks for messaging NexaCRM! We received your message and will get back to you shortly.}")
     private String autoReplyMessage;
 
+    @Value("${nexacrm.call-agent.enabled:false}")
+    private boolean defaultCallAgentEnabled;
+
+    @Value("${nexacrm.call-agent.auto-call-on-lead-create:false}")
+    private boolean defaultAutoCallOnLeadCreate;
+
+    @Value("${nexacrm.call-agent.webhook-url:}")
+    private String defaultCallAgentWebhookUrl;
+
+    @Value("${nexacrm.call-agent.api-key:}")
+    private String defaultCallAgentApiKey;
+
+    @Value("${nexacrm.call-agent.agent-id:}")
+    private String defaultCallAgentAgentId;
+
+    @Value("${nexacrm.call-agent.from-number:}")
+    private String defaultCallAgentFromNumber;
+
+    @Value("${nexacrm.call-agent.timeout-ms:12000}")
+    private int callAgentTimeoutMs;
+
+    @Value("${nexacrm.call-agent.provider:bolna}")
+    private String defaultCallAgentProvider;
+
+    @Value("${nexacrm.call-agent.bolna.api-url:https://api.bolna.ai}")
+    private String defaultBolnaApiUrl;
+
+    @Value("${nexacrm.call-agent.bolna.api-key:}")
+    private String defaultBolnaApiKey;
+
+    @Value("${nexacrm.call-agent.bolna.agent-id:}")
+    private String defaultBolnaAgentId;
+
+    @Value("${nexacrm.call-agent.bolna.voice-id:}")
+    private String defaultBolnaVoiceId;
+
+    @Value("${nexacrm.call-agent.callback-webhook-url:}")
+    private String defaultCallAgentCallbackWebhookUrl;
+
     public void sendEmail(EmailSendRequest request) {
         validateSmtpConfiguration();
         try {
@@ -148,8 +192,77 @@ public class CommunicationService {
                     "smtp"
                 );
             }
-            case "whatsapp", "instagram", "facebook", "linkedin" -> sendSocialMessage(normalizedChannel, recipient, body);
+            case "call", "voice", "voice_call" -> sendVoiceCall(
+                resolveVoiceAgentConfig(),
+                recipient,
+                body,
+                "manual_send",
+                Map.of("channel", "call")
+            );
+            case "whatsapp", "instagram", "facebook", "linkedin", "reddit" -> sendSocialMessage(normalizedChannel, recipient, body);
             default -> throw new IllegalStateException("Unsupported channel: " + normalizedChannel);
+        }
+    }
+
+    public void sendLeadVoiceCall(
+        String leadId,
+        String leadName,
+        String leadPhone,
+        String script,
+        String triggerSource,
+        Map<String, Object> metadata
+    ) {
+        Map<String, Object> mergedMetadata = new LinkedHashMap<>();
+        if (metadata != null && !metadata.isEmpty()) {
+            mergedMetadata.putAll(metadata);
+        }
+        if (!trim(leadId).isBlank()) {
+            mergedMetadata.put("leadId", trim(leadId));
+        }
+        if (!trim(leadName).isBlank()) {
+            mergedMetadata.put("leadName", trim(leadName));
+        }
+        sendVoiceCall(
+            resolveVoiceAgentConfig(),
+            leadPhone,
+            script,
+            trim(triggerSource).isBlank() ? "manual_lead_call" : triggerSource,
+            mergedMetadata
+        );
+    }
+
+    @Async
+    public void autoCallNewLeadAsync(
+        String leadId,
+        String leadName,
+        String leadPhone,
+        String company,
+        String service,
+        String assignedToName
+    ) {
+        VoiceAgentConfig config = resolveVoiceAgentConfig();
+        if (!config.enabled() || !config.autoCallOnLeadCreate()) {
+            return;
+        }
+        if (trim(leadPhone).isBlank()) {
+            log.info("Auto-call skipped for lead {} because phone number is missing", trim(leadId));
+            return;
+        }
+
+        String script = buildLeadCallScript(leadName, company, service);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("leadId", trim(leadId));
+        metadata.put("leadName", trim(leadName));
+        metadata.put("company", trim(company));
+        metadata.put("service", trim(service));
+        metadata.put("assignedTo", trim(assignedToName));
+        metadata.put("trigger", "LEAD_CREATED");
+
+        try {
+            sendLeadVoiceCall(leadId, leadName, leadPhone, script, "lead_auto_call", metadata);
+            log.info("Auto-call queued for lead {}", trim(leadId));
+        } catch (Exception ex) {
+            log.warn("Auto-call failed for lead {}: {}", trim(leadId), ex.getMessage());
         }
     }
 
@@ -674,6 +787,453 @@ public class CommunicationService {
         }
     }
 
+    private void sendVoiceCall(
+        VoiceAgentConfig config,
+        String recipient,
+        String script,
+        String triggerSource,
+        Map<String, Object> metadata
+    ) {
+        if (!config.enabled()) {
+            throw new IllegalStateException("Voice call agent is disabled.");
+        }
+        String normalizedPhone = normalizePhoneForCall(recipient);
+        if (normalizedPhone.isBlank()) {
+            throw new IllegalStateException("Invalid phone number for voice call.");
+        }
+
+        String callScript = trim(script);
+        if (callScript.isBlank()) {
+            callScript = "Hello, this is NexaCRM. We are calling to follow up on your enquiry.";
+        }
+
+        String leadId = extractLeadId(metadata);
+        String leadName = extractLeadName(metadata);
+
+        String provider = trim(config.provider()).toLowerCase(Locale.ROOT);
+        if ("webhook".equals(provider)) {
+            queueWebhookCall(config, normalizedPhone, callScript, triggerSource, metadata, leadId, leadName);
+            return;
+        }
+        queueBolnaCall(config, normalizedPhone, callScript, triggerSource, metadata, leadId, leadName);
+    }
+
+    private void queueWebhookCall(
+        VoiceAgentConfig config,
+        String normalizedPhone,
+        String callScript,
+        String triggerSource,
+        Map<String, Object> metadata,
+        String leadId,
+        String leadName
+    ) {
+        if (config.webhookUrl().isBlank()) {
+            throw new IllegalStateException("Voice call webhook URL is missing.");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (!config.apiKey().isBlank()) {
+            headers.setBearerAuth(config.apiKey());
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("to", normalizedPhone);
+        payload.put("script", callScript);
+        payload.put("triggerSource", trim(triggerSource));
+        payload.put("provider", "nexacrm_voice_call_agent");
+        payload.put("timeoutMs", Math.max(3000, callAgentTimeoutMs));
+        if (!config.fromNumber().isBlank()) {
+            payload.put("from", config.fromNumber());
+        }
+        if (!config.agentId().isBlank()) {
+            payload.put("agentId", config.agentId());
+        }
+        if (metadata != null && !metadata.isEmpty()) {
+            payload.put("metadata", metadata);
+        }
+
+        try {
+            ResponseEntity<String> response = new RestTemplate().exchange(
+                config.webhookUrl(),
+                HttpMethod.POST,
+                new HttpEntity<>(payload, headers),
+                String.class
+            );
+
+            String responseBody = trim(response.getBody());
+            String externalId = extractExternalIdFromRawResponse(responseBody);
+            String status = response.getStatusCode().is2xxSuccessful() ? "QUEUED" : "FAILED";
+            boolean persisted = tryPersistCommunication(
+                "CALL",
+                "OUT",
+                normalizedPhone,
+                callScript,
+                status,
+                externalId,
+                responseBody,
+                "voice_call_agent",
+                leadName,
+                leadId
+            );
+            if (!persisted) {
+                log.warn("Could not persist CALL communication for {}", normalizedPhone);
+            }
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new IllegalStateException("Voice call provider returned status " + response.getStatusCode().value());
+            }
+        } catch (HttpStatusCodeException ex) {
+            String apiBody = trim(ex.getResponseBodyAsString());
+            tryPersistCommunication(
+                "CALL",
+                "OUT",
+                normalizedPhone,
+                callScript,
+                "FAILED",
+                "",
+                apiBody,
+                "voice_call_agent",
+                leadName,
+                leadId
+            );
+            throw new IllegalStateException(
+                apiBody.isBlank()
+                    ? "Failed to queue voice call."
+                    : "Voice call provider error: " + apiBody
+            );
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to queue voice call.");
+        }
+    }
+
+    private void queueBolnaCall(
+        VoiceAgentConfig config,
+        String normalizedPhone,
+        String callScript,
+        String triggerSource,
+        Map<String, Object> metadata,
+        String leadId,
+        String leadName
+    ) {
+        String bolnaCallApiUrl = resolveBolnaCallApiUrl(config.bolnaApiUrl());
+        String bolnaApiKey = firstNonBlank(config.bolnaApiKey(), config.apiKey());
+        String bolnaAgentId = firstNonBlank(config.bolnaAgentId(), config.agentId());
+
+        if (bolnaApiKey.isBlank()) {
+            throw new IllegalStateException("Bolna API key is missing.");
+        }
+        if (bolnaAgentId.isBlank()) {
+            throw new IllegalStateException("Bolna agent ID is missing.");
+        }
+
+        Map<String, Object> userData = new LinkedHashMap<>();
+        if (!trim(leadId).isBlank()) {
+            userData.put("lead_id", trim(leadId));
+        }
+        if (!trim(leadName).isBlank()) {
+            userData.put("lead_name", trim(leadName));
+        }
+        userData.put("trigger_source", trim(triggerSource));
+        userData.put("call_script", callScript);
+        String callbackWebhookUrl = resolveCallAgentWebhookUrl(config);
+        if (!callbackWebhookUrl.isBlank()) {
+            userData.put("callback_webhook_url", callbackWebhookUrl);
+        }
+        if (!config.webhookSecret().isBlank()) {
+            userData.put("callback_webhook_secret", config.webhookSecret());
+        }
+        if (metadata != null && !metadata.isEmpty()) {
+            userData.put("metadata", metadata);
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("agent_id", bolnaAgentId);
+        payload.put("recipient_phone_number", normalizedPhone);
+        if (!config.fromNumber().isBlank()) {
+            payload.put("from_phone_number", config.fromNumber());
+        }
+        if (!userData.isEmpty()) {
+            payload.put("user_data", userData);
+        }
+        String voiceId = trim(config.bolnaVoiceId());
+        if (!voiceId.isBlank()) {
+            payload.put("agent_data", Map.of("voice_id", voiceId));
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(bolnaApiKey);
+
+        try {
+            ResponseEntity<String> response = new RestTemplate().exchange(
+                bolnaCallApiUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(payload, headers),
+                String.class
+            );
+
+            String responseBody = trim(response.getBody());
+            String externalId = extractExternalIdFromRawResponse(responseBody);
+            if (externalId.isBlank()) {
+                externalId = extractExternalIdFromMap(readJsonMap(responseBody));
+            }
+
+            Map<String, Object> raw = new LinkedHashMap<>();
+            raw.put("provider", "bolna");
+            raw.put("request", payload);
+            raw.put("response", readJsonObject(responseBody));
+
+            boolean persisted = tryPersistCommunication(
+                "CALL",
+                "OUT",
+                normalizedPhone,
+                callScript,
+                response.getStatusCode().is2xxSuccessful() ? "QUEUED" : "FAILED",
+                externalId,
+                toJsonSafe(raw),
+                "bolna",
+                leadName,
+                leadId
+            );
+            if (!persisted) {
+                log.warn("Could not persist Bolna CALL communication for {}", normalizedPhone);
+            }
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new IllegalStateException("Bolna call API returned status " + response.getStatusCode().value());
+            }
+        } catch (HttpStatusCodeException ex) {
+            String apiBody = trim(ex.getResponseBodyAsString());
+            tryPersistCommunication(
+                "CALL",
+                "OUT",
+                normalizedPhone,
+                callScript,
+                "FAILED",
+                "",
+                apiBody,
+                "bolna",
+                leadName,
+                leadId
+            );
+            throw new IllegalStateException(
+                apiBody.isBlank()
+                    ? "Failed to queue Bolna call."
+                    : "Bolna error: " + apiBody
+            );
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to queue Bolna call.");
+        }
+    }
+
+    private Map<String, Object> readJsonMap(String value) {
+        if (trim(value).isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(value, MAP_TYPE);
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    private String resolveCallAgentWebhookUrl(VoiceAgentConfig config) {
+        String candidate = firstNonBlank(
+            config.callbackWebhookUrl(),
+            config.webhookUrl()
+        );
+        if (!candidate.isBlank()) {
+            return candidate;
+        }
+        return "http://localhost:8080/api/calls/webhook";
+    }
+
+    private String resolveBolnaCallApiUrl(String value) {
+        String normalized = trim(value);
+        if (normalized.isBlank()) {
+            normalized = "https://api.bolna.ai";
+        } else if (!normalized.startsWith("https://") && !normalized.startsWith("http://")) {
+            normalized = "https://" + normalized;
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if (normalized.endsWith("/call")) {
+            return normalized;
+        }
+        return normalized + "/call";
+    }
+
+    private String toJsonSafe(Object value) {
+        if (value == null) {
+            return "";
+        }
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private Object readJsonObject(String value) {
+        try {
+            if (trim(value).isBlank()) {
+                return Map.of();
+            }
+            return objectMapper.readValue(value, Object.class);
+        } catch (Exception ignored) {
+            return trim(value);
+        }
+    }
+
+    private VoiceAgentConfig resolveVoiceAgentConfig() {
+        Map<String, String> config = integrationService.getConfig("voice_call_agent");
+        String provider = firstNonBlank(config.get("provider"), defaultCallAgentProvider, "bolna").toLowerCase(Locale.ROOT);
+        boolean enabled = parseBooleanFlag(firstNonBlank(config.get("enabled"), String.valueOf(defaultCallAgentEnabled)));
+        boolean autoCallOnLeadCreate = parseBooleanFlag(
+            firstNonBlank(config.get("autoCallOnLeadCreate"), String.valueOf(defaultAutoCallOnLeadCreate))
+        );
+        String webhookUrl = firstNonBlank(config.get("webhookUrl"), defaultCallAgentWebhookUrl);
+        String apiKey = firstNonBlank(config.get("apiKey"), defaultCallAgentApiKey);
+        String agentId = firstNonBlank(config.get("agentId"), defaultCallAgentAgentId);
+        String fromNumber = firstNonBlank(config.get("fromNumber"), defaultCallAgentFromNumber);
+        String webhookSecret = trim(config.get("webhookSecret"));
+        String callbackWebhookUrl = firstNonBlank(config.get("callbackWebhookUrl"), defaultCallAgentCallbackWebhookUrl);
+        String bolnaApiUrl = firstNonBlank(config.get("bolnaApiUrl"), defaultBolnaApiUrl);
+        String bolnaApiKey = firstNonBlank(config.get("bolnaApiKey"), defaultBolnaApiKey);
+        String bolnaAgentId = firstNonBlank(config.get("bolnaAgentId"), defaultBolnaAgentId);
+        String bolnaVoiceId = firstNonBlank(config.get("bolnaVoiceId"), defaultBolnaVoiceId);
+        return new VoiceAgentConfig(
+            enabled,
+            autoCallOnLeadCreate,
+            provider,
+            webhookUrl,
+            apiKey,
+            agentId,
+            fromNumber,
+            webhookSecret,
+            callbackWebhookUrl,
+            bolnaApiUrl,
+            bolnaApiKey,
+            bolnaAgentId,
+            bolnaVoiceId
+        );
+    }
+
+    private String buildLeadCallScript(String leadName, String company, String service) {
+        Map<String, String> providerConfig = integrationService.getConfig("voice_call_agent");
+        String template = trim(providerConfig.get("scriptTemplate"));
+        if (template.isBlank()) {
+            template = "Hi {leadName}, this is {agentName} from NexaCRM. We are calling regarding your enquiry{serviceSnippet}. Is now a good time to talk?";
+        }
+
+        String safeLeadName = trim(leadName).isBlank() ? "there" : trim(leadName);
+        String safeAgentName = trim(providerConfig.get("agentName")).isBlank() ? "our team" : trim(providerConfig.get("agentName"));
+        String safeService = trim(service);
+        String safeCompany = trim(company);
+        String serviceSnippet = safeService.isBlank() ? "" : " for " + safeService;
+
+        return template
+            .replace("{leadName}", safeLeadName)
+            .replace("{agentName}", safeAgentName)
+            .replace("{company}", safeCompany)
+            .replace("{service}", safeService)
+            .replace("{serviceSnippet}", serviceSnippet);
+    }
+
+    private String extractExternalIdFromRawResponse(String responseBody) {
+        if (trim(responseBody).isBlank()) {
+            return "";
+        }
+        try {
+            String fromJsonNode = extractExternalId(objectMapper.readTree(responseBody));
+            if (!fromJsonNode.isBlank()) {
+                return fromJsonNode;
+            }
+            return extractExternalIdFromMap(readJsonMap(responseBody));
+        } catch (Exception ex) {
+            return "";
+        }
+    }
+
+    private String extractExternalIdFromMap(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return "";
+        }
+        return firstNonBlank(
+            asText(payload.get("execution_id")),
+            asText(payload.get("executionId")),
+            asText(payload.get("call_id")),
+            asText(payload.get("callId")),
+            asText(payload.get("externalId")),
+            asText(payload.get("id"))
+        );
+    }
+
+    private String normalizePhoneForCall(String raw) {
+        String value = trim(raw);
+        if (value.isBlank()) {
+            return "";
+        }
+        boolean hasPlus = value.startsWith("+");
+        String digits = value.replaceAll("\\D", "");
+        if (digits.isBlank()) {
+            return "";
+        }
+        if (hasPlus) {
+            return "+" + digits;
+        }
+        if (digits.length() == 10) {
+            return "+91" + digits;
+        }
+        if (digits.startsWith("91") && digits.length() == 12) {
+            return "+" + digits;
+        }
+        return "+" + digits;
+    }
+
+    private String extractLeadId(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return "";
+        }
+        Object value = metadata.get("leadId");
+        if (value == null) {
+            value = metadata.get("lead_id");
+        }
+        return trim(value == null ? "" : String.valueOf(value));
+    }
+
+    private String extractLeadName(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return "";
+        }
+        Object value = metadata.get("leadName");
+        if (value == null) {
+            value = metadata.get("lead_name");
+        }
+        return trim(value == null ? "" : String.valueOf(value));
+    }
+
+    private boolean parseBooleanFlag(String raw) {
+        String normalized = trim(raw).toLowerCase(Locale.ROOT);
+        return "true".equals(normalized)
+            || "1".equals(normalized)
+            || "yes".equals(normalized)
+            || "on".equals(normalized)
+            || "enabled".equals(normalized);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            String normalized = trim(value);
+            if (!normalized.isBlank()) {
+                return normalized;
+            }
+        }
+        return "";
+    }
+
     private String normalizeSubject(String subject) {
         String normalized = subject == null ? "" : subject.trim();
         return normalized.isBlank() ? "NexaCRM message" : normalized;
@@ -729,7 +1289,7 @@ public class CommunicationService {
         String rawPayload,
         String provider
     ) {
-        persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, null);
+        persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, null, null);
     }
 
     private void persistCommunication(
@@ -742,6 +1302,21 @@ public class CommunicationService {
         String rawPayload,
         String provider,
         String contactName
+    ) {
+        persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, contactName, null);
+    }
+
+    private void persistCommunication(
+        String channel,
+        String direction,
+        String contactIdentifier,
+        String body,
+        String status,
+        String externalId,
+        String rawPayload,
+        String provider,
+        String contactName,
+        String leadId
     ) {
         CommunicationRecord record = new CommunicationRecord();
         record.setTenantId(1L);
@@ -762,6 +1337,10 @@ public class CommunicationService {
         }
         record.setProvider(provider);
         record.setRawPayload(rawPayload);
+        String normalizedLeadId = trim(leadId);
+        if (!normalizedLeadId.isBlank()) {
+            record.setLeadId(normalizedLeadId);
+        }
         record.setCreatedAt(Instant.now());
         communicationRecordRepository.save(record);
     }
@@ -776,7 +1355,7 @@ public class CommunicationService {
         String rawPayload,
         String provider
     ) {
-        return tryPersistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, null);
+        return tryPersistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, null, null);
     }
 
     private boolean tryPersistCommunication(
@@ -790,8 +1369,34 @@ public class CommunicationService {
         String provider,
         String contactName
     ) {
+        return tryPersistCommunication(
+            channel,
+            direction,
+            contactIdentifier,
+            body,
+            status,
+            externalId,
+            rawPayload,
+            provider,
+            contactName,
+            null
+        );
+    }
+
+    private boolean tryPersistCommunication(
+        String channel,
+        String direction,
+        String contactIdentifier,
+        String body,
+        String status,
+        String externalId,
+        String rawPayload,
+        String provider,
+        String contactName,
+        String leadId
+    ) {
         try {
-            persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, contactName);
+            persistCommunication(channel, direction, contactIdentifier, body, status, externalId, rawPayload, provider, contactName, leadId);
             return true;
         } catch (Exception ex) {
             log.warn(
@@ -1038,4 +1643,20 @@ public class CommunicationService {
             return "";
         }
     }
+
+    private record VoiceAgentConfig(
+        boolean enabled,
+        boolean autoCallOnLeadCreate,
+        String provider,
+        String webhookUrl,
+        String apiKey,
+        String agentId,
+        String fromNumber,
+        String webhookSecret,
+        String callbackWebhookUrl,
+        String bolnaApiUrl,
+        String bolnaApiKey,
+        String bolnaAgentId,
+        String bolnaVoiceId
+    ) { }
 }

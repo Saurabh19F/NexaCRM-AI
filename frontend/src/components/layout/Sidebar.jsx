@@ -25,10 +25,10 @@ const NAV_ITEMS = [
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
 ]
 const AVATAR_STYLE_CLASS = {
-  brand: 'from-brand-400 to-accent-500',
-  ocean: 'from-sky-500 to-cyan-500',
+  brand: 'from-violet-500 to-fuchsia-500',
+  ocean: 'from-cyan-500 to-blue-500',
   sunset: 'from-orange-500 to-rose-500',
-  violet: 'from-violet-500 to-fuchsia-500',
+  violet: 'from-violet-600 to-purple-600',
   forest: 'from-emerald-500 to-teal-500',
   steel: 'from-slate-500 to-slate-700',
 }
@@ -61,10 +61,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
               className="overflow-hidden flex-shrink-0"
             >
               <div className="flex items-baseline gap-0.5 leading-none">
-                <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Nexa</span>
-                <span className="text-xl font-extrabold tracking-wider" style={{ background: 'linear-gradient(90deg,#22d3ee,#06b6d4)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>CRM</span>
+                <span className="text-xl font-extrabold tracking-tight" style={{ background: 'linear-gradient(90deg,#8b5cf6,#d946ef)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Nexa</span>
+                <span className="text-xl font-extrabold tracking-wider" style={{ background: 'linear-gradient(90deg,#d946ef,#ec4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>CRM</span>
               </div>
-              <p className="text-[8px] font-semibold tracking-[0.2em] text-slate-400 mt-0.5 uppercase">Connect · Automate · Grow</p>
+              <p className="text-[8px] font-semibold tracking-[0.2em] text-violet-400 dark:text-violet-400 mt-0.5 uppercase">Connect · Automate · Grow</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -138,14 +138,14 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       <motion.aside
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="hidden md:flex flex-col h-screen bg-white dark:bg-slate-900 border-r border-slate-200/60 dark:border-slate-700/40 relative z-30 flex-shrink-0"
+        className="hidden md:flex flex-col h-screen bg-white dark:bg-[#0f0b1e] border-r border-slate-200/60 dark:border-violet-800/20 relative z-30 flex-shrink-0"
       >
         <SidebarContent />
 
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-[#1a1030] border border-slate-200 dark:border-violet-700/40 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow text-slate-500 dark:text-violet-400 hover:text-violet-600 dark:hover:text-violet-300"
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -167,7 +167,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed left-0 top-0 bottom-0 w-64 bg-white dark:bg-slate-900 z-50 md:hidden"
+              className="fixed left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#0f0b1e] z-50 md:hidden"
             >
               <button
                 onClick={() => setMobileOpen(false)}
