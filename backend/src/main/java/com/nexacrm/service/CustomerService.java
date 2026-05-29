@@ -63,8 +63,7 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerDTO findById(String id) {
-        return customerRepository.findById(id)
-            .filter(c -> !c.getDeleted())
+        return customerRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
     }
@@ -78,8 +77,7 @@ public class CustomerService {
     }
 
     public CustomerDTO update(String id, CustomerDTO dto) {
-        Customer customer = customerRepository.findById(id)
-            .filter(c -> !c.getDeleted())
+        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
 
         customer.setName(dto.getName());
@@ -93,7 +91,8 @@ public class CustomerService {
             if (dto.getAccountManagerId().isBlank()) {
                 customer.setAccountManager(null);
             } else {
-                userRepository.findById(dto.getAccountManagerId()).ifPresent(customer::setAccountManager);
+                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAccountManagerId(), DEFAULT_TENANT)
+                    .ifPresent(customer::setAccountManager);
             }
         }
         if (dto.getHealthScore() != null) customer.setHealthScore(dto.getHealthScore());
@@ -106,7 +105,7 @@ public class CustomerService {
     }
 
     public void delete(String id) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
         customer.setDeleted(true);
         customerRepository.save(customer);
@@ -150,7 +149,8 @@ public class CustomerService {
             .avatarUrl(dto.getAvatarUrl());
 
         if (dto.getAccountManagerId() != null && !dto.getAccountManagerId().isBlank()) {
-            userRepository.findById(dto.getAccountManagerId()).ifPresent(builder::accountManager);
+            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAccountManagerId(), DEFAULT_TENANT)
+                .ifPresent(builder::accountManager);
         }
 
         return builder.build();

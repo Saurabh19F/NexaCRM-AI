@@ -13,12 +13,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.util.List;
@@ -45,16 +47,20 @@ class LeadControllerWebMvcTest {
     @Mock
     private LeadActivityService leadActivityService;
 
+    @Spy
+    private ObjectMapper controllerObjectMapper = new ObjectMapper();
+
     @InjectMocks
     private LeadController leadController;
 
     private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper testObjectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
+        ReflectionTestUtils.setField(leadController, "facebookIngestionToken", "test-webhook-token");
 
         mockMvc = MockMvcBuilders.standaloneSetup(leadController)
             .setControllerAdvice(new GlobalExceptionHandler())
@@ -81,7 +87,7 @@ class LeadControllerWebMvcTest {
 
         mockMvc.perform(post("/api/leads")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .content(testObjectMapper.writeValueAsString(request)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.id").value("lead-123"))
             .andExpect(jsonPath("$.email").value("jane@example.com"));
@@ -96,7 +102,7 @@ class LeadControllerWebMvcTest {
 
         mockMvc.perform(post("/api/leads")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(body)))
+                .content(testObjectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("Validation Failed"))
             .andExpect(jsonPath("$.fieldErrors.source").exists());
@@ -107,8 +113,9 @@ class LeadControllerWebMvcTest {
         Map<String, Object> body = Map.of("phone", "9999999999");
 
         mockMvc.perform(post("/api/leads/facebook")
+                .header("X-Webhook-Token", "test-webhook-token")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(body)))
+                .content(testObjectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("name and email are required"));
     }
@@ -127,8 +134,9 @@ class LeadControllerWebMvcTest {
         );
 
         mockMvc.perform(post("/api/leads/facebook")
+                .header("X-Webhook-Token", "test-webhook-token")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(body)))
+                .content(testObjectMapper.writeValueAsString(body)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.leadId").value("lead-fb-1"))
             .andExpect(jsonPath("$.message").value("Lead saved successfully"));
@@ -189,7 +197,7 @@ class LeadControllerWebMvcTest {
 
         mockMvc.perform(post("/api/leads/lead-1/activities")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(body)))
+                .content(testObjectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("Validation Failed"))
             .andExpect(jsonPath("$.fieldErrors.assignedTo").exists());
@@ -210,7 +218,7 @@ class LeadControllerWebMvcTest {
 
         mockMvc.perform(post("/api/leads/lead-1/activities")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(body)))
+                .content(testObjectMapper.writeValueAsString(body)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("Validation Failed"))
             .andExpect(jsonPath("$.fieldErrors.activityIndex").exists());
@@ -229,7 +237,7 @@ class LeadControllerWebMvcTest {
 
         mockMvc.perform(post("/api/leads/lead-1/call")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of("script", "Please call now"))))
+                .content(testObjectMapper.writeValueAsString(Map.of("script", "Please call now"))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.leadId").value("lead-1"))
             .andExpect(jsonPath("$.message").value("Call queued successfully"));

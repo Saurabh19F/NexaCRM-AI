@@ -297,12 +297,11 @@ public class WorkflowEngine {
         User assignee = null;
         if (StringUtils.hasText(assigneeToken)) {
             assignee = assigneeToken.contains("@")
-                ? userRepository.findByEmailAndDeletedFalse(assigneeToken).orElse(null)
-                : userRepository.findById(assigneeToken).orElse(null);
+                ? userRepository.findByEmailAndTenantIdAndDeletedFalse(assigneeToken, DEFAULT_TENANT).orElse(null)
+                : userRepository.findByIdAndTenantIdAndDeletedFalse(assigneeToken, DEFAULT_TENANT).orElse(null);
         }
         if (assignee == null) {
-            assignee = userRepository.findAll().stream()
-                .filter(u -> !Boolean.TRUE.equals(u.getDeleted()))
+            assignee = userRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
                 .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
                 .filter(u -> u.getRole() == User.Role.SALES_EXEC || u.getRole() == User.Role.MANAGER)
                 .findFirst()

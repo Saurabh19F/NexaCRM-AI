@@ -85,19 +85,19 @@ const DEMO_HISTORY = {
 
 function loadHistory() {
   try {
-    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}')
+    const stored = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '{}')
     if (!ENABLE_DEMO_COMMUNICATION_DATA) return stored
     const merged = { ...DEMO_HISTORY, ...stored }
     return merged
   } catch { return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_HISTORY : {} }
 }
 function saveHistory(h) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)) } catch {}
+  try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(h)) } catch {}
 }
 
 function loadConversations() {
   try {
-    const raw = JSON.parse(localStorage.getItem(CONVERSATIONS_KEY) || '[]')
+    const raw = JSON.parse(sessionStorage.getItem(CONVERSATIONS_KEY) || '[]')
     if (!Array.isArray(raw)) return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
     const persisted = raw.filter((conv) => {
       if (!conv || typeof conv !== 'object') return false
@@ -122,7 +122,7 @@ function loadConversations() {
   }
 }
 function saveConversations(conversations) {
-  try { localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations)) } catch {}
+  try { sessionStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations)) } catch {}
 }
 
 const AI_SUGGESTIONS = [

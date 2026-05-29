@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @RequiredArgsConstructor
@@ -16,6 +17,8 @@ public class FacebookLeadLiveSyncScheduler {
 
     private final LeadService leadService;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicLong expiredTokenCooldownUntilEpochMs = new AtomicLong(0L);
+    private final AtomicBoolean cooldownNoticeLogged = new AtomicBoolean(false);
 
     @Value("${nexacrm.facebook.live-sync.enabled:true}")
     private boolean enabled;
@@ -26,9 +29,13 @@ public class FacebookLeadLiveSyncScheduler {
     @Value("${nexacrm.facebook.live-sync.lead-page-size:100}")
     private int leadPageSize;
 
+    @Value("${nexacrm.facebook.live-sync.expired-token-cooldown-ms:21600000}")
+    private long expiredTokenCooldownMs;
+
     @Scheduled(fixedDelayString = "${nexacrm.facebook.live-sync.fixed-delay-ms:60000}")
     public void runLiveSync() {
         if (!enabled) return;
+        if (isInExpiredTokenCooldown()) return;
         if (!running.compareAndSet(false, true)) {
             log.debug("Facebook live sync skipped: previous run still in progress");
             return;
@@ -40,6 +47,7 @@ public class FacebookLeadLiveSyncScheduler {
                 "leadPageSize", String.valueOf(leadPageSize)
             );
             Map<String, Object> result = leadService.syncFacebookLeadAds(options);
+            clearCooldownIfPresent();
             log.info(
                 "Facebook live sync completed: formsProcessed={}, fetched={}, imported={}, merged={}, skipped={}, errors={}",
                 result.get("formsProcessed"),
@@ -50,9 +58,58 @@ public class FacebookLeadLiveSyncScheduler {
                 result.get("errors")
             );
         } catch (Exception ex) {
+            if (isExpiredTokenError(ex)) {
+                long cooldown = Math.max(60_000L, expiredTokenCooldownMs);
+                long until = System.currentTimeMillis() + cooldown;
+                expiredTokenCooldownUntilEpochMs.set(until);
+                cooldownNoticeLogged.set(false);
+                log.warn(
+                    "Facebook live sync paused for {} ms because Meta access token is expired (code 190/subcode 463). "
+                        + "Refresh token in Integrations > Facebook or META_PAGE_ACCESS_TOKEN.",
+                    cooldown
+                );
+                return;
+            }
             log.warn("Facebook live sync failed: {}", ex.getMessage());
         } finally {
             running.set(false);
         }
+    }
+
+    private boolean isInExpiredTokenCooldown() {
+        long now = System.currentTimeMillis();
+        long until = expiredTokenCooldownUntilEpochMs.get();
+        if (until <= now) {
+            if (until > 0 && expiredTokenCooldownUntilEpochMs.compareAndSet(until, 0L)) {
+                cooldownNoticeLogged.set(false);
+                log.info("Facebook live sync cooldown ended; retries resumed.");
+            }
+            return false;
+        }
+
+        if (cooldownNoticeLogged.compareAndSet(false, true)) {
+            log.warn(
+                "Skipping Facebook live sync until epochMs={} due to expired Meta access token.",
+                until
+            );
+        }
+        return true;
+    }
+
+    private void clearCooldownIfPresent() {
+        if (expiredTokenCooldownUntilEpochMs.getAndSet(0L) > 0L) {
+            cooldownNoticeLogged.set(false);
+            log.info("Facebook live sync recovered after token refresh.");
+        }
+    }
+
+    private boolean isExpiredTokenError(Exception ex) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("code\":190")
+            && normalized.contains("error_subcode\":463");
     }
 }

@@ -5,8 +5,11 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface InvoiceRepository extends MongoRepository<Invoice, String> {
+
+    Optional<Invoice> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
 
     List<Invoice> findByTenantIdAndDeletedFalse(Long tenantId);
 

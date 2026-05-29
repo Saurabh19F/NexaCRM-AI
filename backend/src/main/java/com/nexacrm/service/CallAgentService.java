@@ -14,6 +14,7 @@ import com.nexacrm.repository.UserRepository;
 import com.nexacrm.websocket.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,11 +45,17 @@ public class CallAgentService {
     private final NotificationPublisher notificationPublisher;
     private final ObjectMapper objectMapper;
 
+    @Value("${nexacrm.call-agent.webhook-secret:}")
+    private String defaultWebhookSecret;
+
     @Transactional(readOnly = true)
     public boolean isWebhookAuthorized(String secretHeader, String authorizationHeader, Map<String, Object> payload) {
-        String expectedSecret = trim(integrationService.getConfig("voice_call_agent").get("webhookSecret"));
+        String expectedSecret = firstNonBlank(
+            trim(integrationService.getConfig("voice_call_agent").get("webhookSecret")),
+            trim(defaultWebhookSecret)
+        );
         if (expectedSecret.isBlank()) {
-            return true;
+            return false;
         }
 
         String payloadSecret = trim(stringValue(payload.get("secret")));
@@ -148,8 +155,7 @@ public class CallAgentService {
 
         Lead lead = null;
         if (!leadId.isBlank()) {
-            lead = leadRepository.findById(leadId)
-                .filter(l -> !Boolean.TRUE.equals(l.getDeleted()))
+            lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT)
                 .orElse(null);
         }
 
@@ -224,7 +230,7 @@ public class CallAgentService {
         Lead lead = null;
         String leadId = trim(record.getLeadId());
         if (!leadId.isBlank()) {
-            lead = leadRepository.findById(leadId).orElse(null);
+            lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT).orElse(null);
         }
 
         String leadName = lead != null ? trim(lead.getName()) : "";
@@ -263,8 +269,7 @@ public class CallAgentService {
     }
 
     private Lead ensureLeadExists(String leadId) {
-        return leadRepository.findById(leadId)
-            .filter(l -> !Boolean.TRUE.equals(l.getDeleted()))
+        return leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
     }
 
@@ -406,8 +411,7 @@ public class CallAgentService {
             return false;
         }
 
-        Optional<User> assignee = userRepository.findAll().stream()
-            .filter(user -> !Boolean.TRUE.equals(user.getDeleted()))
+        Optional<User> assignee = userRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
             .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
             .min(Comparator
                 .comparingInt((User user) -> roleRank(user.getRole()))

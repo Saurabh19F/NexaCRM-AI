@@ -1,9 +1,3 @@
-databases:
-  - name: nexacrm-db
-    databaseName: nexacrm
-    user: nexacrm
-    plan: free
-
 services:
 
   # ── Backend (Spring Boot) ──────────────────────────────────────
@@ -16,35 +10,21 @@ services:
     healthCheckPath: /actuator/health/render
 
     envVars:
-      # ── Database (auto-wired from Render PostgreSQL) ────────────
-      - key: DB_HOST
-        fromDatabase:
-          name: nexacrm-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: nexacrm-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: nexacrm-db
-          property: database
-      - key: DB_USERNAME
-        fromDatabase:
-          name: nexacrm-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: nexacrm-db
-          property: password
+      # ── MongoDB Atlas (set in Render dashboard) ────────────────
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: nexacrm
 
       # ── Security ───────────────────────────────────────────────
       - key: JWT_SECRET
         generateValue: true
 
-      # ── CORS (must include your frontend Render URL) ────────────
+      # ── CORS (open wildcard mode; disable credentials for safety) ─
       - key: CORS_ORIGINS
-        value: https://nexacrm-frontend.onrender.com
+        value: "*"
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "false"
 
       # ── Facebook / Meta (set manually in Render dashboard) ──────
       - key: META_APP_ID

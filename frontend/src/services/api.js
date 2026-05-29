@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '../store/authStore'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000)
@@ -7,6 +8,7 @@ const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: API_TIMEOUT_MS,
+  withCredentials: true,
 })
 
 const isLikelyJwt = (token) =>
@@ -44,13 +46,7 @@ const parseApiError = (err) => {
 // Request interceptor — attach JWT
 api.interceptors.request.use(
   (config) => {
-    let token = null
-    try {
-      const raw = localStorage.getItem('nexacrm-auth')
-      token = raw ? JSON.parse(raw)?.state?.token : null
-    } catch {
-      token = null
-    }
+    const token = useAuthStore.getState().token
 
     if (isLikelyJwt(token)) {
       config.headers.Authorization = `Bearer ${token}`
@@ -68,8 +64,8 @@ api.interceptors.response.use(
   (err) => {
     const isAuthEndpoint = err.config?.url?.includes('/auth/')
     if (err.response?.status === 401 && !isAuthEndpoint) {
-      localStorage.removeItem('nexacrm-auth')
-      window.location.href = '/login'
+      useAuthStore.getState().logout()
+      window.location.assign('/login')
     }
     return Promise.reject({
       message: parseApiError(err),
@@ -88,7 +84,7 @@ export const authAPI = {
   logout: ()     => api.post('/auth/logout'),
   me:     ()     => api.get('/auth/me'),
   updateMe:(data)=> api.put('/auth/me', data),
-  refresh:(refreshToken) => api.post('/auth/refresh', { refreshToken }),
+  refresh:(refreshToken) => api.post('/auth/refresh', refreshToken ? { refreshToken } : {}),
 }
 
 // ──────────────────────────────────────────
@@ -150,9 +146,6 @@ export const customersAPI = {
 //  Communications
 // ──────────────────────────────────────────
 export const commsAPI = {
-  getInbox:         (params) => api.get('/communications', { params }),
-  getConversation:  (leadId) => api.get(`/communications/lead/${leadId}`),
-  send:             (data)   => api.post('/communications/send', data),
   sendEmail:        (data)   => api.post('/communications/email/send', data),
   sendChannel:      (data)   => api.post('/communications/send-channel', data),
   getWhatsAppConversations:  () => api.get('/communications/whatsapp/conversations'),
@@ -161,7 +154,6 @@ export const commsAPI = {
   getFacebookMessages:       (psid) => api.get('/communications/facebook/messages', { params: { psid } }),
   getInstagramConversations: () => api.get('/communications/instagram/conversations'),
   getInstagramMessages:      (igsid) => api.get('/communications/instagram/messages', { params: { igsid } }),
-  aiSuggestReply:   (data)   => api.post('/communications/ai-suggest', data),
 }
 
 // ──────────────────────────────────────────

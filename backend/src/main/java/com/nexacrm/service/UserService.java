@@ -28,7 +28,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserDTO> findAll() {
-        return userRepository.findAll().stream()
+        return userRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
             .filter(u -> !Boolean.FALSE.equals(u.getIsActive()) || u.getIsActive() == null)
             .map(this::toDTO)
             .collect(Collectors.toList());
@@ -36,7 +36,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserDTO findById(String id) {
-        return userRepository.findById(id)
+        return userRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
     }
@@ -72,7 +72,7 @@ public class UserService {
     }
 
     public UserDTO update(String id, UserDTO dto) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
 
         User.Role actorRole = getCurrentActorRole();
@@ -111,7 +111,7 @@ public class UserService {
     }
 
     public void deactivate(String id) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
         user.setIsActive(false);
         userRepository.save(user);
@@ -144,7 +144,7 @@ public class UserService {
 
     private User.Role getCurrentActorRole() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User actor = userRepository.findByEmailAndDeletedFalse(email)
+        User actor = userRepository.findByEmailAndTenantIdAndDeletedFalse(email, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
         return actor.getRole() != null ? actor.getRole() : User.Role.SALES_EXEC;
     }

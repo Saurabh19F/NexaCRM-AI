@@ -123,7 +123,7 @@ class LeadServiceTest {
             .source(Lead.LeadSource.WEBSITE)
             .build();
 
-        when(leadRepository.findById("lead-1")).thenReturn(Optional.of(current));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-1", 1L)).thenReturn(Optional.of(current));
         when(leadRepository.findByEmailAndTenantIdAndDeletedFalse("taken@example.com", 1L))
             .thenReturn(Optional.of(another));
 
@@ -156,7 +156,7 @@ class LeadServiceTest {
             .build();
         lead.setId("lead-hot");
 
-        when(leadRepository.findById("lead-hot")).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-hot", 1L)).thenReturn(Optional.of(lead));
         when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Map<String, Object> result = leadService.scoreWithAI("lead-hot");
@@ -182,7 +182,7 @@ class LeadServiceTest {
             .build();
         lead.setId("lead-1");
 
-        when(leadRepository.findById("lead-1")).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-1", 1L)).thenReturn(Optional.of(lead));
         when(customerRepository.findByEmailAndTenantIdAndDeletedFalse("lead1@example.com", 1L))
             .thenReturn(Optional.empty());
         when(dealRepository.findByLead_IdAndTenantIdAndDeletedFalse("lead-1", 1L))
@@ -233,7 +233,7 @@ class LeadServiceTest {
             .build();
         existingDeal.setId("deal-existing");
 
-        when(leadRepository.findById("lead-2")).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-2", 1L)).thenReturn(Optional.of(lead));
         when(customerRepository.findByEmailAndTenantIdAndDeletedFalse("lead2@example.com", 1L))
             .thenReturn(Optional.of(existingCustomer));
         when(dealRepository.findByLead_IdAndTenantIdAndDeletedFalse("lead-2", 1L))
@@ -261,7 +261,7 @@ class LeadServiceTest {
             .build();
         lead.setId("lead-call-1");
 
-        when(leadRepository.findById("lead-call-1")).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-call-1", 1L)).thenReturn(Optional.of(lead));
         when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Map<String, Object> result = leadService.callLeadNow("lead-call-1", null);
@@ -289,7 +289,7 @@ class LeadServiceTest {
             .build();
         lead.setId("lead-call-2");
 
-        when(leadRepository.findById("lead-call-2")).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-call-2", 1L)).thenReturn(Optional.of(lead));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> leadService.callLeadNow("lead-call-2", null));
         assertTrue(ex.getMessage().toLowerCase().contains("phone"));

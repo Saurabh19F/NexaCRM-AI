@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,9 @@ public class LeadController {
     private final LeadService leadService;
     private final LeadActivityService leadActivityService;
     private final ObjectMapper objectMapper;
+
+    @Value("${meta.webhook-token:}")
+    private String facebookIngestionToken;
 
     @GetMapping
     @PreAuthorize("hasAuthority('leads.read')")
@@ -66,7 +70,15 @@ public class LeadController {
 
     @PostMapping("/facebook")
     @Operation(summary = "Create a lead from Facebook/Zapier webhook payload")
-    public ResponseEntity<?> createFacebookLead(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<?> createFacebookLead(
+            @RequestHeader(value = "X-Webhook-Token", required = false) String webhookToken,
+            @RequestBody Map<String, Object> payload) {
+        if (!isFacebookIngestionAuthorized(webhookToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "error", "Unauthorized webhook token"
+            ));
+        }
+
         String leadgenId = pickString(payload, "leadgen_id", "lead_id", "id");
         String name = pickString(payload, "name", "full_name", "first_name");
         String email = pickString(payload, "email");
@@ -80,16 +92,10 @@ public class LeadController {
         String adId = pickString(payload, "ad_id", "adid");
         String formId = pickString(payload, "form_id", "formid");
 
-        if (email == null || email.isBlank()) {
-            String syntheticId = (leadgenId != null && !leadgenId.isBlank())
-                ? leadgenId
-                : String.valueOf(System.currentTimeMillis());
-            email = syntheticId + "@facebook-lead.local";
-        }
-
-        if (name == null || name.isBlank()) {
-            String fromEmail = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
-            name = (fromEmail == null || fromEmail.isBlank()) ? "Facebook Lead" : fromEmail;
+        if (name == null || name.isBlank() || email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "name and email are required"
+            ));
         }
 
         LeadDTO dto = LeadDTO.builder()
@@ -296,5 +302,14 @@ public class LeadController {
     private String normalizeKey(String key) {
         if (key == null) return "";
         return key.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private boolean isFacebookIngestionAuthorized(String providedToken) {
+        String expected = facebookIngestionToken == null ? "" : facebookIngestionToken.trim();
+        if (expected.isBlank()) {
+            return false;
+        }
+        String provided = providedToken == null ? "" : providedToken.trim();
+        return expected.equals(provided);
     }
 }

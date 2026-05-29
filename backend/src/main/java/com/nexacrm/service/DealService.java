@@ -141,14 +141,16 @@ public class DealService {
             if (dto.getLeadId().isBlank()) {
                 deal.setLead(null);
             } else {
-                leadRepository.findById(dto.getLeadId()).ifPresent(deal::setLead);
+                leadRepository.findByIdAndTenantIdAndDeletedFalse(dto.getLeadId(), DEFAULT_TENANT)
+                    .ifPresent(deal::setLead);
             }
         }
         if (dto.getOwnerId() != null) {
             if (dto.getOwnerId().isBlank()) {
                 deal.setOwner(null);
             } else {
-                userRepository.findById(dto.getOwnerId()).ifPresent(deal::setOwner);
+                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getOwnerId(), DEFAULT_TENANT)
+                    .ifPresent(deal::setOwner);
             }
         }
         deal.setNotes(dto.getNotes());
@@ -316,10 +318,12 @@ public class DealService {
             .notes(dto.getNotes());
 
         if (dto.getLeadId() != null && !dto.getLeadId().isBlank()) {
-            leadRepository.findById(dto.getLeadId()).ifPresent(builder::lead);
+            leadRepository.findByIdAndTenantIdAndDeletedFalse(dto.getLeadId(), DEFAULT_TENANT)
+                .ifPresent(builder::lead);
         }
         if (dto.getOwnerId() != null && !dto.getOwnerId().isBlank()) {
-            userRepository.findById(dto.getOwnerId()).ifPresent(builder::owner);
+            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getOwnerId(), DEFAULT_TENANT)
+                .ifPresent(builder::owner);
         }
 
         return builder.build();

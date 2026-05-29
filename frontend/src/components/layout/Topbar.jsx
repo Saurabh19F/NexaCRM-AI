@@ -10,6 +10,7 @@ import NotificationPanel from './NotificationPanel'
 import DelayAlertPanel from './DelayAlertPanel'
 import { getLeadAgeMinutes } from '../../utils/leadSla'
 import { connectWebSocket, disconnectWebSocket } from '../../services/websocket'
+import { authAPI } from '../../services/api'
 
 const AVATAR_STYLE_CLASS = {
   brand: 'from-violet-500 to-fuchsia-500',
@@ -169,7 +170,12 @@ export default function Topbar({ onMenuClick }) {
     }
   }, [timeTick, leads, addNotification, patchLeadLocal])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout()
+    } catch {
+      // Ignore API logout failure and clear local state anyway.
+    }
     logout()
     navigate('/login')
   }

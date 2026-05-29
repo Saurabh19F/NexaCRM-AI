@@ -4,8 +4,13 @@
  */
 import SockJS from 'sockjs-client'
 import StompModule from 'stompjs/lib/stomp.js'
+import { useAuthStore } from '../store/authStore'
 
 const Stomp = StompModule?.Stomp ?? StompModule
+const isLikelyJwt = (token) =>
+  typeof token === 'string' &&
+  token.split('.').length === 3 &&
+  !token.includes(' ')
 
 let stompClient = null
 const subscriptions = new Map()
@@ -21,10 +26,11 @@ export function connectWebSocket(onNotification) {
     // Silence STOMP debug logs in production
     stompClient.debug = import.meta.env.DEV ? console.log : () => {}
 
-    const token = JSON.parse(localStorage.getItem('nexacrm-auth') || '{}')?.state?.token
+    const token = useAuthStore.getState().token
+    const connectHeaders = isLikelyJwt(token) ? { Authorization: `Bearer ${token}` } : {}
 
     stompClient.connect(
-      { Authorization: `Bearer ${token}` },
+      connectHeaders,
       () => {
         console.info('WebSocket connected')
 

@@ -33,6 +33,21 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
+    @Value("${cors.allowed-methods:GET,POST,PUT,PATCH,DELETE,OPTIONS}")
+    private String allowedMethods;
+
+    @Value("${cors.allowed-headers:*}")
+    private String allowedHeaders;
+
+    @Value("${cors.allow-credentials:true}")
+    private boolean allowCredentials;
+
+    @Value("${cors.exposed-headers:}")
+    private String exposedHeaders;
+
+    @Value("${cors.max-age:3600}")
+    private long corsMaxAge;
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/login",
             "/api/auth/refresh",
@@ -44,6 +59,7 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/actuator/health",
+            "/actuator/health/**",
 
     };
 
@@ -73,15 +89,27 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(
-            Arrays.stream(allowedOrigins.split(",")).map(String::trim).collect(Collectors.toList())
+            splitCsv(allowedOrigins)
         );
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
+        config.setAllowedMethods(splitCsv(allowedMethods));
+        config.setAllowedHeaders(splitCsv(allowedHeaders));
+        config.setAllowCredentials(allowCredentials);
+        List<String> exposed = splitCsv(exposedHeaders);
+        if (!exposed.isEmpty()) {
+            config.setExposedHeaders(exposed);
+        }
+        config.setMaxAge(corsMaxAge);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    private List<String> splitCsv(String csv) {
+        if (csv == null || csv.isBlank()) return List.of();
+        return Arrays.stream(csv.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isBlank())
+            .collect(Collectors.toList());
     }
 }

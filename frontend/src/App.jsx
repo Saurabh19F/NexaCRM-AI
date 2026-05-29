@@ -19,6 +19,7 @@ import IntegrationsPage from './pages/IntegrationsPage'
 import ProfilePage from './pages/ProfilePage'
 import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
+import { authAPI } from './services/api'
 import { PERMISSIONS, hasPermission } from './utils/permissions'
 
 class ErrorBoundary extends Component {
@@ -44,17 +45,24 @@ class ErrorBoundary extends Component {
 }
 
 function PrivateRoute({ children }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, authBootstrapped } = useAuthStore()
+  if (!authBootstrapped) {
+    return <div className="min-h-screen grid place-items-center text-slate-500">Checking session...</div>
+  }
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
 function PermissionRoute({ permission, children }) {
-  const { user } = useAuthStore()
+  const { user, authBootstrapped } = useAuthStore()
+  if (!authBootstrapped) {
+    return <div className="min-h-screen grid place-items-center text-slate-500">Checking session...</div>
+  }
   return hasPermission(user, permission) ? children : <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
   const { theme } = useThemeStore()
+  const { authBootstrapped, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
   const isDark = theme === 'dark'
 
   useEffect(() => {
@@ -65,6 +73,33 @@ export default function App() {
     }
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme, isDark])
+
+  useEffect(() => {
+    if (authBootstrapped) return
+    let alive = true
+    ;(async () => {
+      try {
+        const me = await authAPI.me()
+        if (!alive) return
+        if (useAuthStore.getState().authBootstrapped) return
+        setSessionFromUser(me)
+      } catch (err) {
+        if (!alive) return
+        if (useAuthStore.getState().authBootstrapped) return
+        const state = useAuthStore.getState()
+        const isNetworkError =
+          err?.code === 'ERR_NETWORK' ||
+          err?.code === 'ECONNABORTED' ||
+          (typeof err?.message === 'string' && err.message.toLowerCase().includes('network'))
+        if (isNetworkError && state.isAuthenticated) {
+          markAuthBootstrapped()
+          return
+        }
+        setSessionFromUser(null)
+      }
+    })()
+    return () => { alive = false }
+  }, [authBootstrapped, markAuthBootstrapped, setSessionFromUser])
 
   return (
     <ErrorBoundary>

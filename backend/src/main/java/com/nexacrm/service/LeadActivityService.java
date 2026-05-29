@@ -65,8 +65,7 @@ public class LeadActivityService {
     }
 
     private Lead ensureLeadExists(String leadId) {
-        return leadRepository.findById(leadId)
-            .filter(l -> !Boolean.TRUE.equals(l.getDeleted()))
+        return leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
     }
 

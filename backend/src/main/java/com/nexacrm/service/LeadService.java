@@ -147,8 +147,7 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public LeadDTO findById(String id) {
-        return leadRepository.findById(id)
-            .filter(l -> !l.getDeleted())
+        return leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
     }
@@ -195,8 +194,7 @@ public class LeadService {
     }
 
     public LeadDTO update(String id, LeadDTO dto) {
-        Lead lead = leadRepository.findById(id)
-            .filter(l -> !l.getDeleted())
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         String normalizedEmail = normalizeEmail(dto.getEmail());
@@ -224,7 +222,8 @@ public class LeadService {
             if (dto.getAssignedToId().isBlank()) {
                 lead.setAssignedTo(null);
             } else {
-                userRepository.findById(dto.getAssignedToId()).ifPresent(lead::setAssignedTo);
+                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAssignedToId(), DEFAULT_TENANT)
+                    .ifPresent(lead::setAssignedTo);
             }
         }
         lead.setNotes(dto.getNotes());
@@ -236,7 +235,7 @@ public class LeadService {
     }
 
     public void delete(String id) {
-        Lead lead = leadRepository.findById(id)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
         lead.setDeleted(true);
         leadRepository.save(lead);
@@ -569,8 +568,7 @@ public class LeadService {
     }
 
     public Map<String, Object> scoreWithAI(String id) {
-        Lead lead = leadRepository.findById(id)
-            .filter(l -> !l.getDeleted())
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         int scoreValue = calculateLeadScoreValue(lead);
@@ -592,7 +590,7 @@ public class LeadService {
     }
 
     public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
-        Lead lead = leadRepository.findById(id)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         Customer customer = customerRepository
@@ -657,8 +655,7 @@ public class LeadService {
     }
 
     public Map<String, Object> callLeadNow(String id, String script) {
-        Lead lead = leadRepository.findById(id)
-            .filter(l -> !l.getDeleted())
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         String phone = lead.getPhone() == null ? "" : lead.getPhone().trim();
@@ -1504,7 +1501,8 @@ public class LeadService {
             .facebookAdId(dto.getFacebookAdId());
 
         if (dto.getAssignedToId() != null && !dto.getAssignedToId().isBlank()) {
-            userRepository.findById(dto.getAssignedToId()).ifPresent(builder::assignedTo);
+            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAssignedToId(), DEFAULT_TENANT)
+                .ifPresent(builder::assignedTo);
         }
 
         return builder.build();

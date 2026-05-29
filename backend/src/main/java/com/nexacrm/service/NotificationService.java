@@ -23,6 +23,8 @@ import java.util.stream.Collectors;
 @Transactional
 public class NotificationService {
 
+    private static final Long DEFAULT_TENANT = 1L;
+
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
@@ -45,7 +47,8 @@ public class NotificationService {
     }
 
     public NotificationDTO markRead(String id) {
-        Notification n = notificationRepository.findById(id)
+        String currentUserId = currentUser().getId();
+        Notification n = notificationRepository.findByIdAndUser_IdAndDeletedFalse(id, currentUserId)
             .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
         n.setIsRead(true);
         return toDTO(notificationRepository.save(n));
@@ -59,7 +62,8 @@ public class NotificationService {
     }
 
     public void delete(String id) {
-        Notification n = notificationRepository.findById(id)
+        String currentUserId = currentUser().getId();
+        Notification n = notificationRepository.findByIdAndUser_IdAndDeletedFalse(id, currentUserId)
             .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
         n.setDeleted(true);
         notificationRepository.save(n);
@@ -67,7 +71,7 @@ public class NotificationService {
 
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmailAndDeletedFalse(email)
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
     }
 

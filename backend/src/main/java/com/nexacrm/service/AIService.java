@@ -38,6 +38,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class AIService {
 
+    private static final Long DEFAULT_TENANT = 1L;
+
     @Value("${openai.api.key:placeholder}")
     private String openAiApiKey;
 
@@ -80,7 +82,7 @@ public class AIService {
     // ── Lead Scoring ──────────────────────────────────────────────
 
     public Map<String, Object> scoreLead(String leadId) {
-        Optional<Lead> leadOpt = leadRepository.findById(leadId);
+        Optional<Lead> leadOpt = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT);
         if (leadOpt.isEmpty()) {
             return Map.of("error", "Lead not found");
         }
@@ -138,9 +140,13 @@ public class AIService {
         // Persist back to DB
         lead.setAiScoreValue(scoreValue);
         lead.setAiNextAction(nextAction);
-        if (scoreLabel.equals("HOT") && lead.getScore() != Lead.LeadScore.HOT) {
-            lead.setScore(Lead.LeadScore.HOT);
-        }
+        lead.setScore(
+            switch (scoreLabel) {
+                case "HOT" -> Lead.LeadScore.HOT;
+                case "WARM" -> Lead.LeadScore.WARM;
+                default -> Lead.LeadScore.COLD;
+            }
+        );
         leadRepository.save(lead);
 
         return Map.of(

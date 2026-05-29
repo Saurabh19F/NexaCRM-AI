@@ -23,6 +23,8 @@ import java.util.Map;
 @Slf4j
 public class AuthService {
 
+    private static final Long DEFAULT_TENANT = 1L;
+
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -32,7 +34,7 @@ public class AuthService {
             new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        User user = userRepository.findByEmailAndDeletedFalse(request.getEmail())
+        User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(request.getEmail(), DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String accessToken  = jwtService.generateToken(user);
@@ -55,8 +57,11 @@ public class AuthService {
     }
 
     public AuthResponse refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalStateException("Refresh token is required");
+        }
         String username = jwtService.extractUsername(refreshToken);
-        User user = userRepository.findByEmailAndDeletedFalse(username)
+        User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(username, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (!jwtService.isTokenValid(refreshToken, user)) {
@@ -75,7 +80,7 @@ public class AuthService {
 
     public Map<String, Object> getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmailAndDeletedFalse(email)
+        User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(email, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return Map.of(
             "id",       user.getId(),
@@ -89,7 +94,7 @@ public class AuthService {
 
     public UserDTO updateCurrentUser(UserDTO dto) {
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmailAndDeletedFalse(currentEmail)
+        User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(currentEmail, DEFAULT_TENANT)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String nextEmail = normalizeEmail(dto.getEmail());

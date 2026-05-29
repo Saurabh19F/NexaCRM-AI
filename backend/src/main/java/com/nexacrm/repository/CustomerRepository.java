@@ -7,6 +7,8 @@ import java.util.Optional;
 
 public interface CustomerRepository extends MongoRepository<Customer, String> {
 
+    Optional<Customer> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
+
     Optional<Customer> findByEmailAndTenantIdAndDeletedFalse(String email, Long tenantId);
 
     long countByTenantIdAndDeletedFalse(Long tenantId);
