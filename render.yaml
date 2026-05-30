@@ -20,11 +20,11 @@ services:
       - key: JWT_SECRET
         generateValue: true
 
-      # ── CORS (open wildcard mode; disable credentials for safety) ─
+      # ── CORS (frontend origin + credentialed requests) ─
       - key: CORS_ORIGINS
-        value: "*"
+        value: "https://nexacrm-frontend.onrender.com"
       - key: CORS_ALLOW_CREDENTIALS
-        value: "false"
+        value: "true"
 
       # ── Facebook / Meta (set manually in Render dashboard) ──────
       - key: META_APP_ID
