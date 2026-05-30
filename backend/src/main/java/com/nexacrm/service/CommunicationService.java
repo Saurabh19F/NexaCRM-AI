@@ -624,11 +624,8 @@ public class CommunicationService {
         String pageId = trim(config.get("pageId"));
         String pageNode = pageId.isBlank() ? "me" : pageId;
 
-        String url = UriComponentsBuilder
-            .fromHttpUrl("https://graph.facebook.com/{version}/{pageNode}/messages")
-            .queryParam("access_token", accessToken)
-            .buildAndExpand(metaGraphApiVersion, pageNode)
-            .toUriString();
+        String url = buildFacebookMessagesUrl(accessToken, pageNode);
+        String meUrl = buildFacebookMessagesUrl(accessToken, "me");
 
         Map<String, Object> responsePayload = Map.of(
             "recipient", Map.of("id", psid),
@@ -644,6 +641,19 @@ public class CommunicationService {
         } catch (HttpStatusCodeException ex) {
             String apiBody = trim(ex.getResponseBodyAsString());
             log.error("Facebook send failed: status={}, body={}", ex.getStatusCode(), apiBody);
+
+            if (shouldRetryFacebookSendWithMeEndpoint(apiBody, pageNode)) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> meResponse = new RestTemplate().postForObject(meUrl, responsePayload, Map.class);
+                    persistFacebookSend(psid, body, meResponse);
+                    log.info("Facebook message sent to PSID {} using /me/messages fallback", psid);
+                    return;
+                } catch (HttpStatusCodeException meEx) {
+                    String meApiBody = trim(meEx.getResponseBodyAsString());
+                    log.error("Facebook /me/messages fallback failed: status={}, body={}", meEx.getStatusCode(), meApiBody);
+                }
+            }
 
             if (isOutsideFacebookMessagingWindow(apiBody)) {
                 if (retryFacebookOutOfWindowWithMessageTag) {
@@ -722,6 +732,23 @@ public class CommunicationService {
         String normalized = trim(apiBody).toLowerCase(Locale.ROOT);
         return normalized.contains("outside the allowed window")
             || (normalized.contains("\"code\":10") && normalized.contains("messenger-platform/policy-overview"));
+    }
+
+    private boolean shouldRetryFacebookSendWithMeEndpoint(String apiBody, String pageNode) {
+        if ("me".equalsIgnoreCase(trim(pageNode))) {
+            return false;
+        }
+        String normalized = trim(apiBody).toLowerCase(Locale.ROOT);
+        return normalized.contains("\"code\":1")
+            || (normalized.contains("unsupported post request") && normalized.contains("object with id"));
+    }
+
+    private String buildFacebookMessagesUrl(String accessToken, String pageNode) {
+        return UriComponentsBuilder
+            .fromHttpUrl("https://graph.facebook.com/{version}/{pageNode}/messages")
+            .queryParam("access_token", accessToken)
+            .buildAndExpand(metaGraphApiVersion, pageNode)
+            .toUriString();
     }
 
     private String normalizeFacebookMessageTag(String tag) {
