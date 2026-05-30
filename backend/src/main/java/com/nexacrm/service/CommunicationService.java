@@ -557,6 +557,7 @@ public class CommunicationService {
         Map<String, String> config = integrationService.getConfig("whatsapp");
         String instanceId = trim(config.get("instanceId"));
         String accessToken = trim(config.get("accessToken"));
+        String configuredApiUrl = trim(config.get("apiUrl"));
 
         if (instanceId.isBlank()) {
             instanceId = trim(defaultInstanceId);
@@ -569,7 +570,12 @@ public class CommunicationService {
             throw new IllegalStateException("WhatsApp instance ID or access token is missing in backend config.");
         }
 
-        String url = UriComponentsBuilder.fromHttpUrl(aiadrikaBaseUrl)
+        String providerApiUrl = configuredApiUrl.isBlank() ? trim(aiadrikaBaseUrl) : configuredApiUrl;
+        if (providerApiUrl.isBlank()) {
+            throw new IllegalStateException("WhatsApp API URL is missing. Set apiUrl in Integrations or AIADRIKA_BASE_URL in backend env.");
+        }
+
+        String url = UriComponentsBuilder.fromHttpUrl(providerApiUrl)
             .queryParam("number", number)
             .queryParam("type", "text")
             .queryParam("message", body)

@@ -45,6 +45,8 @@ services:
         sync: false
 
       # ── WhatsApp (set manually in Render dashboard) ──────────────
+      - key: AIADRIKA_BASE_URL
+        sync: false
       - key: AIADRIKA_INSTANCE_ID
         sync: false
       - key: AIADRIKA_ACCESS_TOKEN

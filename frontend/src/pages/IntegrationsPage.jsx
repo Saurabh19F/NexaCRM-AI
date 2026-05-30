@@ -76,14 +76,15 @@ const INTEGRATIONS = [
   {
     id: 'whatsapp', name: 'WhatsApp Business', category: 'Messaging',
     tagline: 'Send & receive WhatsApp messages from CRM',
-    description: 'Integrate Aiadrika WhatsApp API to send automated follow-ups and manage WhatsApp conversations inside your CRM inbox.',
+    description: 'Integrate OneClick/Aiadrika-compatible WhatsApp API to send automated follow-ups and manage WhatsApp conversations inside your CRM inbox.',
     features: ['Two-way messaging', 'Template messages', 'Automated follow-ups', 'Media support'],
     color: '#25D366', bg: '#F0FFF4',
     authType: 'apikey',
-    docsUrl: 'https://aiadrika.in',
+    docsUrl: 'https://oneclickapi.in',
     fields: [
       { key: 'instanceId',  label: 'Instance ID',              placeholder: '695A0632072F9' },
       { key: 'accessToken', label: 'Access Token',             placeholder: '6878f244d0e8a', secret: true },
+      { key: 'apiUrl',      label: 'API URL (optional)',       placeholder: 'https://your-provider.example.com/api/send', hint: 'If empty, backend uses AIADRIKA_BASE_URL' },
       { key: 'senderNumber',label: 'Default Sender Number (optional)', placeholder: '919971364324' },
       { key: 'webhookToken',label: 'Webhook Verify Token (optional)',  placeholder: 'my_secret_token' },
     ],
