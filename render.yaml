@@ -60,7 +60,7 @@ services:
 
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://nexacrm-backend.onrender.com/api
+        value: https://nexacrm-backend-477u.onrender.com/api
 
     routes:
       # Serve index.html for all paths so React Router works
