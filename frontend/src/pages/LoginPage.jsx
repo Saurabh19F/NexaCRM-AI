@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const data = await authAPI.login({ email, password })
-      login(data.user, null, null)
+      login(data.user, data?.accessToken ?? null, data?.refreshToken ?? null)
       toast.success(`Welcome back, ${data.user?.name ?? 'User'}!`)
       navigate('/dashboard')
     } catch (err) {

@@ -17,10 +17,29 @@ const subscriptions = new Map()
 let reconnectTimer = null
 let destroyed = false
 
+function resolveWebSocketUrl() {
+  const explicit = String(import.meta.env.VITE_WS_URL ?? '').trim()
+  const fromApiBase = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
+
+  let url = explicit
+  if (!url && fromApiBase) {
+    url = `${fromApiBase.replace(/\/api\/?$/, '')}/ws`
+  }
+  if (!url) {
+    url = 'http://localhost:8080/ws'
+  }
+
+  // Browsers block insecure SockJS from HTTPS pages.
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+    url = `https://${url.slice('http://'.length)}`
+  }
+  return url
+}
+
 export function connectWebSocket(onNotification) {
   destroyed = false
   try {
-    const socket = new SockJS(import.meta.env.VITE_WS_URL ?? 'http://localhost:8080/ws')
+    const socket = new SockJS(resolveWebSocketUrl())
     stompClient = Stomp.over(socket)
 
     // Silence STOMP debug logs in production
