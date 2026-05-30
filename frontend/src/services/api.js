@@ -12,10 +12,14 @@ const api = axios.create({
   withCredentials: true,
 })
 
-const isLikelyJwt = (token) =>
-  typeof token === 'string' &&
-  token.split('.').length === 3 &&
-  !token.includes(' ')
+const normalizeJwtToken = (token) => {
+  if (typeof token !== 'string') return null
+  const trimmed = token.trim()
+  if (!trimmed) return null
+  const raw = trimmed.toLowerCase().startsWith('bearer ') ? trimmed.slice(7).trim() : trimmed
+  if (raw.split('.').length === 3 && !raw.includes(' ')) return raw
+  return null
+}
 
 const parseApiError = (err) => {
   const isTimeout =
@@ -49,9 +53,10 @@ const parseApiError = (err) => {
 api.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().token
+    const jwt = normalizeJwtToken(token)
 
-    if (isLikelyJwt(token)) {
-      config.headers.Authorization = `Bearer ${token}`
+    if (jwt) {
+      config.headers.Authorization = `Bearer ${jwt}`
     } else {
       delete config.headers.Authorization
     }

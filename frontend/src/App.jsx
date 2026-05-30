@@ -62,7 +62,7 @@ function PermissionRoute({ permission, children }) {
 
 export default function App() {
   const { theme } = useThemeStore()
-  const { authBootstrapped, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
+  const { authBootstrapped, isAuthenticated, token, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
   const isDark = theme === 'dark'
 
   useEffect(() => {
@@ -75,7 +75,8 @@ export default function App() {
   }, [theme, isDark])
 
   useEffect(() => {
-    if (authBootstrapped) return
+    const needsValidation = !authBootstrapped || (isAuthenticated && !token)
+    if (!needsValidation) return
     let alive = true
     ;(async () => {
       try {
@@ -99,7 +100,7 @@ export default function App() {
       }
     })()
     return () => { alive = false }
-  }, [authBootstrapped, markAuthBootstrapped, setSessionFromUser])
+  }, [authBootstrapped, isAuthenticated, token, markAuthBootstrapped, setSessionFromUser])
 
   return (
     <ErrorBoundary>

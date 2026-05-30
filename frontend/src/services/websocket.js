@@ -7,10 +7,14 @@ import StompModule from 'stompjs/lib/stomp.js'
 import { useAuthStore } from '../store/authStore'
 
 const Stomp = StompModule?.Stomp ?? StompModule
-const isLikelyJwt = (token) =>
-  typeof token === 'string' &&
-  token.split('.').length === 3 &&
-  !token.includes(' ')
+const normalizeJwtToken = (token) => {
+  if (typeof token !== 'string') return null
+  const trimmed = token.trim()
+  if (!trimmed) return null
+  const raw = trimmed.toLowerCase().startsWith('bearer ') ? trimmed.slice(7).trim() : trimmed
+  if (raw.split('.').length === 3 && !raw.includes(' ')) return raw
+  return null
+}
 
 let stompClient = null
 const subscriptions = new Map()
@@ -46,7 +50,8 @@ export function connectWebSocket(onNotification) {
     stompClient.debug = import.meta.env.DEV ? console.log : () => {}
 
     const token = useAuthStore.getState().token
-    const connectHeaders = isLikelyJwt(token) ? { Authorization: `Bearer ${token}` } : {}
+    const jwt = normalizeJwtToken(token)
+    const connectHeaders = jwt ? { Authorization: `Bearer ${jwt}` } : {}
 
     stompClient.connect(
       connectHeaders,
