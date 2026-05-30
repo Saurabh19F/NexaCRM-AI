@@ -634,16 +634,35 @@ public class CommunicationService {
         );
 
         try {
+            log.info(
+                "Facebook send attempt: pageNode={}, psid={}, endpoint={}",
+                pageNode,
+                psid,
+                url
+            );
             @SuppressWarnings("unchecked")
             Map<String, Object> response = new RestTemplate().postForObject(url, responsePayload, Map.class);
             persistFacebookSend(psid, body, response);
             log.info("Facebook message sent to PSID {}", psid);
         } catch (HttpStatusCodeException ex) {
             String apiBody = trim(ex.getResponseBodyAsString());
-            log.error("Facebook send failed: status={}, body={}", ex.getStatusCode(), apiBody);
+            log.error(
+                "Facebook send failed: pageNode={}, psid={}, endpoint={}, status={}, body={}",
+                pageNode,
+                psid,
+                url,
+                ex.getStatusCode(),
+                apiBody
+            );
 
             if (shouldRetryFacebookSendWithMeEndpoint(apiBody, pageNode)) {
                 try {
+                    log.warn(
+                        "Facebook send fallback triggered: original_pageNode={}, psid={}, fallback_endpoint={}",
+                        pageNode,
+                        psid,
+                        meUrl
+                    );
                     @SuppressWarnings("unchecked")
                     Map<String, Object> meResponse = new RestTemplate().postForObject(meUrl, responsePayload, Map.class);
                     persistFacebookSend(psid, body, meResponse);
@@ -651,7 +670,14 @@ public class CommunicationService {
                     return;
                 } catch (HttpStatusCodeException meEx) {
                     String meApiBody = trim(meEx.getResponseBodyAsString());
-                    log.error("Facebook /me/messages fallback failed: status={}, body={}", meEx.getStatusCode(), meApiBody);
+                    log.error(
+                        "Facebook /me/messages fallback failed: original_pageNode={}, psid={}, fallback_endpoint={}, status={}, body={}",
+                        pageNode,
+                        psid,
+                        meUrl,
+                        meEx.getStatusCode(),
+                        meApiBody
+                    );
                 }
             }
 
@@ -703,7 +729,14 @@ public class CommunicationService {
                     : "Facebook send failed: " + apiBody
             );
         } catch (Exception ex) {
-            log.error("Facebook send failed: {}", ex.getMessage(), ex);
+            log.error(
+                "Facebook send failed with exception: pageNode={}, psid={}, endpoint={}, message={}",
+                pageNode,
+                psid,
+                url,
+                ex.getMessage(),
+                ex
+            );
             throw new IllegalStateException("Failed to send Facebook message.");
         }
     }
