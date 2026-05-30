@@ -621,10 +621,13 @@ public class CommunicationService {
             throw new IllegalStateException("Facebook Page access token is missing in Integrations or backend config.");
         }
 
+        String pageId = trim(config.get("pageId"));
+        String pageNode = pageId.isBlank() ? "me" : pageId;
+
         String url = UriComponentsBuilder
-            .fromHttpUrl("https://graph.facebook.com/{version}/me/messages")
+            .fromHttpUrl("https://graph.facebook.com/{version}/{pageNode}/messages")
             .queryParam("access_token", accessToken)
-            .buildAndExpand(metaGraphApiVersion)
+            .buildAndExpand(metaGraphApiVersion, pageNode)
             .toUriString();
 
         Map<String, Object> responsePayload = Map.of(
