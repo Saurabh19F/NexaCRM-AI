@@ -2,7 +2,8 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
-const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000)
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 45000)
+const LOGIN_TIMEOUT_MS = Number(import.meta.env.VITE_LOGIN_TIMEOUT_MS || 60000)
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -21,7 +22,8 @@ const parseApiError = (err) => {
     err?.code === 'ECONNABORTED' ||
     (typeof err?.message === 'string' && err.message.toLowerCase().includes('timeout'))
   if (isTimeout) {
-    return `Request timed out after ${API_TIMEOUT_MS}ms. Please retry.`
+    const configuredTimeout = Number(err?.config?.timeout || API_TIMEOUT_MS)
+    return `Request timed out after ${configuredTimeout}ms. Please retry.`
   }
 
   const status = err?.response?.status
@@ -80,7 +82,7 @@ api.interceptors.response.use(
 //  Auth
 // ──────────────────────────────────────────
 export const authAPI = {
-  login:  (data) => api.post('/auth/login', data),
+  login:  (data) => api.post('/auth/login', data, { timeout: LOGIN_TIMEOUT_MS }),
   logout: ()     => api.post('/auth/logout'),
   me:     ()     => api.get('/auth/me'),
   updateMe:(data)=> api.put('/auth/me', data),
