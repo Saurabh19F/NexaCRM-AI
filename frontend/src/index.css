@@ -40,7 +40,7 @@
            text-slate-600 dark:text-slate-400
            hover:text-slate-900 dark:hover:text-slate-100
            hover:bg-slate-100 dark:hover:bg-violet-900/20
-           transition-all duration-150 cursor-pointer;
+           cursor-pointer;
   }
 
   .nav-item.active {
