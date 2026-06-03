@@ -4,11 +4,14 @@ import com.nexacrm.automation.WorkflowEngine;
 import com.nexacrm.dto.DealDTO;
 import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
+import com.nexacrm.model.CommunicationRecord;
 import com.nexacrm.model.Deal;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.DealRepository;
+import com.nexacrm.repository.CommunicationRecordRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.websocket.NotificationPublisher;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,10 +36,12 @@ public class DealService {
 
     private final DealRepository dealRepository;
     private final LeadRepository leadRepository;
+    private final CommunicationRecordRepository communicationRecordRepository;
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
     private final NotificationPublisher notificationPublisher;
     private final WorkflowEngine workflowEngine;
+    private final ObjectMapper objectMapper;
 
     private static final Long DEFAULT_TENANT = 1L;
 
@@ -67,10 +73,11 @@ public class DealService {
 
         Map<String, String> ownerNameById = buildOwnerNameById(content);
         Map<String, String> companyByLeadId = buildCompanyByLeadId(content);
+        Map<String, CallSummary> latestCallByLeadId = buildLatestCallByLeadId(content);
 
         return PageResponse.<DealDTO>builder()
             .content(page.getContent().stream()
-                .map(deal -> toDTO(deal, ownerNameById, companyByLeadId))
+                .map(deal -> toDTO(deal, ownerNameById, companyByLeadId, latestCallByLeadId))
                 .collect(Collectors.toList()))
             .page(page.getNumber()).size(page.getSize())
             .total(page.getTotalElements()).totalPages(page.getTotalPages())
@@ -97,13 +104,30 @@ public class DealService {
         }
         List<Deal> deals = mongoTemplate.find(query, Deal.class);
 
-        Map<String, String> ownerNameById = buildOwnerNameById(deals);
-        Map<String, String> companyByLeadId = buildCompanyByLeadId(deals);
+        Map<String, String> ownerNameById = Map.of();
+        Map<String, String> companyByLeadId = Map.of();
+        Map<String, CallSummary> latestCallByLeadId = Map.of();
+
+        try {
+            ownerNameById = buildOwnerNameById(deals);
+        } catch (Exception ex) {
+            log.warn("Failed to enrich board owners: {}", ex.getMessage());
+        }
+        try {
+            companyByLeadId = buildCompanyByLeadId(deals);
+        } catch (Exception ex) {
+            log.warn("Failed to enrich board companies: {}", ex.getMessage());
+        }
+        try {
+            latestCallByLeadId = buildLatestCallByLeadId(deals);
+        } catch (Exception ex) {
+            log.warn("Failed to enrich board call intelligence: {}", ex.getMessage());
+        }
 
         for (Deal deal : deals) {
             String stageKey = (deal.getStage() != null ? deal.getStage() : Deal.DealStage.NEW).name().toLowerCase();
             List<DealDTO> bucket = board.computeIfAbsent(stageKey, key -> new ArrayList<>());
-            bucket.add(toDTO(deal, ownerNameById, companyByLeadId));
+            bucket.add(toDTO(deal, ownerNameById, companyByLeadId, latestCallByLeadId));
         }
 
         return board;
@@ -254,10 +278,20 @@ public class DealService {
     }
 
     private DealDTO toDTO(Deal d, Map<String, String> ownerNameById, Map<String, String> companyByLeadId) {
+        return toDTO(d, ownerNameById, companyByLeadId, Map.of());
+    }
+
+    private DealDTO toDTO(
+        Deal d,
+        Map<String, String> ownerNameById,
+        Map<String, String> companyByLeadId,
+        Map<String, CallSummary> latestCallByLeadId
+    ) {
         String ownerId = d.getOwner() != null ? d.getOwner().getId() : null;
         String leadId = d.getLead() != null ? d.getLead().getId() : null;
         String ownerName = ownerId != null ? ownerNameById.get(ownerId) : null;
         String company = leadId != null ? companyByLeadId.get(leadId) : null;
+        CallSummary latestCall = leadId != null ? latestCallByLeadId.get(leadId) : null;
 
         return DealDTO.builder()
             .id(d.getId())
@@ -277,34 +311,178 @@ public class DealService {
             .aiScore(d.getAiScore())
             .tags(d.getTags())
             .notes(d.getNotes())
+            .latestCallRecordingUrl(latestCall != null ? latestCall.recordingUrl() : null)
+            .latestCallSummary(latestCall != null ? latestCall.summary() : null)
+            .latestCallAt(latestCall != null ? latestCall.createdAt() : null)
             .createdAt(d.getCreatedAt())
             .updatedAt(d.getUpdatedAt())
             .build();
     }
 
     private DealDTO toDTO(Deal d) {
-        return DealDTO.builder()
-            .id(d.getId())
-            .title(d.getTitle())
-            .description(d.getDescription())
-            .stage(d.getStage())
-            .priority(d.getPriority())
-            .dealValue(d.getDealValue())
-            .expectedCloseDate(d.getExpectedCloseDate())
-            .actualCloseDate(d.getActualCloseDate())
-            .winProbability(d.getWinProbability())
-            .pipelineId(d.getPipelineId())
-            .leadId(d.getLead() != null ? d.getLead().getId() : null)
-            .company(d.getLead() != null ? d.getLead().getCompany() : null)
-            .ownerId(d.getOwner() != null ? d.getOwner().getId() : null)
-            .ownerName(d.getOwner() != null ? d.getOwner().getName() : null)
-            .aiScore(d.getAiScore())
-            .tags(d.getTags())
-            .notes(d.getNotes())
-            .createdAt(d.getCreatedAt())
-            .updatedAt(d.getUpdatedAt())
-            .build();
+        return toDTO(d, Map.of(), Map.of(), Map.of());
     }
+
+    private Map<String, CallSummary> buildLatestCallByLeadId(List<Deal> deals) {
+        Set<String> leadIds = deals.stream()
+            .map(deal -> deal.getLead() != null ? deal.getLead().getId() : null)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (leadIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("deleted").ne(true));
+        query.addCriteria(Criteria.where("lead_id").in(leadIds));
+        query.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
+        query.with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "created_at"));
+        query.fields()
+            .include("lead_id")
+            .include("created_at")
+            .include("raw_payload")
+            .include("body");
+
+        List<CommunicationRecord> calls = mongoTemplate.find(query, CommunicationRecord.class);
+        Map<String, CallSummary> latest = new LinkedHashMap<>();
+        for (CommunicationRecord call : calls) {
+            String leadId = trim(call.getLeadId());
+            if (leadId.isBlank() || latest.containsKey(leadId)) {
+                continue;
+            }
+            latest.put(leadId, new CallSummary(
+                trim(extractRecordingUrl(call.getRawPayload())),
+                trim(extractSummary(call.getRawPayload(), call.getBody(), extractTranscript(call.getRawPayload()))),
+                call.getCreatedAt() != null ? call.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime() : null
+            ));
+        }
+        return latest;
+    }
+
+    private String extractTranscript(String rawPayload) {
+        String raw = trim(rawPayload);
+        if (raw.isBlank()) {
+            return "";
+        }
+        try {
+            Object node = objectMapper.readValue(raw, Object.class);
+            String transcript = findFirstValue(node, List.of(
+                "transcript",
+                "finalTranscript",
+                "final_transcript",
+                "fullTranscript",
+                "full_transcript"
+            ));
+            if (!transcript.isBlank()) {
+                return transcript;
+            }
+            transcript = mergeTranscriptRows(node);
+            if (!transcript.isBlank()) {
+                return transcript;
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return "";
+    }
+
+    private String extractRecordingUrl(String rawPayload) {
+        String raw = trim(rawPayload);
+        if (raw.isBlank()) {
+            return "";
+        }
+        try {
+            Object node = objectMapper.readValue(raw, Object.class);
+            return findFirstValue(node, List.of("recordingUrl", "recording_url", "recording"));
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return "";
+    }
+
+    private String extractSummary(String rawPayload, String fallbackBody, String transcript) {
+        String raw = trim(rawPayload);
+        if (!raw.isBlank()) {
+            try {
+                Object node = objectMapper.readValue(raw, Object.class);
+                String summary = findFirstValue(node, List.of("summary", "note", "message", "description"));
+                if (!summary.isBlank()) {
+                    return summary;
+                }
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        if (!trim(transcript).isBlank()) {
+            String text = trim(transcript);
+            return text.length() > 240 ? text.substring(0, 240) + "..." : text;
+        }
+        return trim(fallbackBody);
+    }
+
+    private String trim(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String findFirstValue(Object node, List<String> keys) {
+        if (node instanceof Map<?, ?> map) {
+            for (String key : keys) {
+                Object value = map.get(key);
+                String text = trim(value == null ? "" : String.valueOf(value));
+                if (!text.isBlank()) {
+                    return text;
+                }
+            }
+            for (Object value : map.values()) {
+                if (value instanceof Map<?, ?> || value instanceof List<?>) {
+                    String nested = findFirstValue(value, keys);
+                    if (!nested.isBlank()) {
+                        return nested;
+                    }
+                }
+            }
+        } else if (node instanceof List<?> list) {
+            for (Object item : list) {
+                String nested = findFirstValue(item, keys);
+                if (!nested.isBlank()) {
+                    return nested;
+                }
+            }
+        }
+        return "";
+    }
+
+    private String mergeTranscriptRows(Object node) {
+        if (!(node instanceof Map<?, ?> map)) {
+            return "";
+        }
+        Object rows = map.get("transcripts");
+        if (!(rows instanceof List<?> list)) {
+            return "";
+        }
+        StringBuilder merged = new StringBuilder();
+        for (Object row : list) {
+            if (!(row instanceof Map<?, ?> rowMap)) {
+                continue;
+            }
+            String speaker = trim(rowMap.get("speaker") == null ? "" : String.valueOf(rowMap.get("speaker")));
+            String text = findFirstValue(rowMap, List.of("text", "transcript", "message", "content", "utterance", "reply"));
+            if (text.isBlank()) {
+                continue;
+            }
+            if (!merged.isEmpty()) {
+                merged.append('\n');
+            }
+            if (!speaker.isBlank()) {
+                merged.append('[').append(speaker).append("] ");
+            }
+            merged.append(text);
+        }
+        return merged.toString();
+    }
+
+    private record CallSummary(String recordingUrl, String summary, LocalDateTime createdAt) {}
 
     private Deal fromDTO(DealDTO dto) {
         Deal.DealBuilder builder = Deal.builder()

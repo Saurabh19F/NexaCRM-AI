@@ -12,11 +12,12 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Filter, Search, IndianRupee, Calendar,
-  User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X
+  User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, RefreshCw
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
+import { useNotificationStore } from '../../store/notificationStore'
 import { getLeadAgingMeta } from '../../utils/leadSla'
 import { dealsAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
@@ -64,12 +65,16 @@ const mapDealFromApi = (deal) => ({
   title: deal.title || 'Untitled Deal',
   company: deal.company || parsePrefixedValue(deal.description, 'Company'),
   value: Number(deal.dealValue || 0),
+  leadId: deal.leadId || null,
   owner: deal.ownerName || parsePrefixedValue(deal.notes, 'Owner') || 'Unassigned',
   dueDate: deal.expectedCloseDate || '',
   priority: String(deal.priority || 'MEDIUM').toLowerCase(),
   score: String(deal.aiScore || 'WARM').toLowerCase(),
   stage: String(deal.stage || 'NEW').toLowerCase(),
   activities: Number(deal.activitiesCount || 0),
+  latestCallRecordingUrl: deal.latestCallRecordingUrl || '',
+  latestCallSummary: deal.latestCallSummary || '',
+  latestCallAt: deal.latestCallAt || '',
 })
 
 function DealCard({
@@ -171,6 +176,35 @@ function DealCard({
       <div className={`mt-2 text-[10px] font-semibold ${PRIORITY_COLOR[deal.priority] ?? 'text-slate-400'}`}>
         ● {deal.priority?.toUpperCase()} PRIORITY
       </div>
+
+      {(deal.latestCallRecordingUrl || deal.latestCallSummary) && (
+        <div className="mt-2 rounded-xl border border-violet-200/80 dark:border-violet-800/50 bg-violet-50/80 dark:bg-violet-950/15 p-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+              Latest call
+            </p>
+            {deal.latestCallRecordingUrl && (
+              <a
+                href={deal.latestCallRecordingUrl}
+                target="_blank"
+                rel="noreferrer"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300 hover:underline"
+                title="Open recording"
+              >
+                <PlayCircle className="w-3 h-3" /> Recording
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          {deal.latestCallSummary && (
+            <p className="mt-1 text-[10px] text-violet-800/80 dark:text-violet-100/80 leading-relaxed line-clamp-2">
+              {deal.latestCallSummary}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -298,8 +332,10 @@ function KanbanColumn({
 export default function KanbanPage() {
   const { user } = useAuthStore()
   const { leads } = useLeadsStore()
+  const { notifications } = useNotificationStore()
   const [deals, setDeals] = useState(EMPTY_STAGE_MAP)
   const [loadingDeals, setLoadingDeals] = useState(true)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(null)
   const [activeId, setActiveId] = useState(null)
   const [search, setSearch] = useState('')
   const [openDealMenuId, setOpenDealMenuId] = useState(null)
@@ -324,6 +360,10 @@ export default function KanbanPage() {
   const canMoveDeal = hasPermission(user, PERMISSIONS.DEALS_MOVE_STAGE)
   const canDeleteDeal = hasPermission(user, PERMISSIONS.DEALS_DELETE)
   const filterRef = useRef(null)
+  const boardScrollRef = useRef(null)
+  const mountedRef = useRef(true)
+  const loadSeqRef = useRef(0)
+  const lastNotificationIdRef = useRef(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -350,6 +390,43 @@ export default function KanbanPage() {
     return lead ? getLeadAgingMeta(lead) : null
   }, [leadByCompany])
 
+  const loadBoard = useCallback(async ({ silent = false } = {}) => {
+    const requestId = loadSeqRef.current + 1
+    loadSeqRef.current = requestId
+
+    if (!silent && mountedRef.current) {
+      setLoadingDeals(true)
+    }
+
+    let lastError = null
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const board = await dealsAPI.getBoard()
+        if (!mountedRef.current || loadSeqRef.current !== requestId) return
+        const next = { ...EMPTY_STAGE_MAP }
+        for (const stage of STAGES) {
+          const rows = Array.isArray(board?.[stage.key]) ? board[stage.key] : []
+          next[stage.key] = rows.map(mapDealFromApi)
+        }
+        setDeals(next)
+        setLastRefreshedAt(new Date().toISOString())
+        return
+      } catch (err) {
+        lastError = err
+        if (err?.code !== 'ECONNABORTED' || attempt === 2) break
+        await wait(600)
+      }
+    }
+
+    if (mountedRef.current && !silent) {
+      const message = lastError?.code === 'ECONNABORTED'
+        ? 'Pipeline load timed out. Backend may be slow right now, please retry.'
+        : (lastError?.message || 'Failed to load pipeline')
+      toast.error(message)
+    }
+  }, [])
+
   useEffect(() => {
     const closeOnOutside = (e) => {
       if (filterRef.current && !filterRef.current.contains(e.target)) {
@@ -364,43 +441,31 @@ export default function KanbanPage() {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    const loadBoard = async () => {
-      setLoadingDeals(true)
-      let lastError = null
-
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
-        try {
-          const board = await dealsAPI.getBoard()
-          if (cancelled) return
-          const next = { ...EMPTY_STAGE_MAP }
-          for (const stage of STAGES) {
-            const rows = Array.isArray(board?.[stage.key]) ? board[stage.key] : []
-            next[stage.key] = rows.map(mapDealFromApi)
-          }
-          setDeals(next)
-          return
-        } catch (err) {
-          lastError = err
-          if (err?.code !== 'ECONNABORTED' || attempt === 2) break
-          await wait(600)
-        }
-      }
-
-      if (!cancelled) {
-        const message = lastError?.code === 'ECONNABORTED'
-          ? 'Pipeline load timed out. Backend may be slow right now, please retry.'
-          : (lastError?.message || 'Failed to load pipeline')
-        toast.error(message)
-      }
-    }
-
+    mountedRef.current = true
     loadBoard().finally(() => {
-      if (!cancelled) setLoadingDeals(false)
+      if (mountedRef.current) setLoadingDeals(false)
     })
 
-    return () => { cancelled = true }
-  }, [])
+    const intervalId = window.setInterval(() => {
+      loadBoard({ silent: true })
+    }, 60 * 1000)
+
+    return () => {
+      mountedRef.current = false
+      window.clearInterval(intervalId)
+    }
+  }, [loadBoard])
+
+  useEffect(() => {
+    const latest = notifications?.[0]
+    if (!latest?.id || latest.id === lastNotificationIdRef.current) return
+    lastNotificationIdRef.current = latest.id
+
+    const type = String(latest.type || '').toLowerCase()
+    if (type === 'deal' || type === 'lead') {
+      loadBoard({ silent: true })
+    }
+  }, [notifications, loadBoard])
 
   const findDealAndStage = useCallback((id) => {
     for (const stage of Object.keys(deals)) {
@@ -581,6 +646,13 @@ export default function KanbanPage() {
 
   const totalPipelineValue = Object.values(deals).flat().reduce((s, d) => s + d.value, 0)
 
+  const scrollBoard = (direction) => {
+    const node = boardScrollRef.current
+    if (!node) return
+    const delta = direction === 'left' ? -420 : 420
+    node.scrollBy({ left: delta, behavior: 'smooth' })
+  }
+
   return (
     <div className="space-y-4" onClick={() => setOpenDealMenuId(null)}>
       {/* Header */}
@@ -592,6 +664,21 @@ export default function KanbanPage() {
             : `${Object.values(deals).flat().length} deals · ₹${(totalPipelineValue / 100000).toFixed(1)}L pipeline`}
         />
         <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+          {lastRefreshedAt && (
+            <span className="hidden sm:inline-flex text-[11px] text-slate-500 dark:text-slate-400">
+              Updated {new Date(lastRefreshedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => loadBoard()}
+            disabled={loadingDeals}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
+            title="Refresh pipeline"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingDeals ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 w-full sm:w-auto">
             <Search className="w-4 h-4 text-slate-400" />
             <input
@@ -673,7 +760,33 @@ export default function KanbanPage() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+        <div className="mb-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => scrollBoard('left')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Scroll board left"
+            title="Scroll left"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Left
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollBoard('right')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Scroll board right"
+            title="Scroll right"
+          >
+            Right
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div
+          ref={boardScrollRef}
+          className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
+        >
           {STAGES.map((stage) => (
             <KanbanColumn
               key={stage.key}

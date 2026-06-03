@@ -16,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,7 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * AI Service — integrates with OpenAI GPT-4 for:
+ * AI Service — integrates with Mistral via the Mistral API for:
  * - Lead scoring (Hot/Warm/Cold)
  * - Deal win probability prediction
  * - Email generation
@@ -31,7 +32,7 @@ import java.util.regex.Pattern;
  * - Business insights
  * - Next-best-action suggestions
  *
- * Wire in a real OpenAI client (e.g. openai-java) once the API key is configured.
+ * The Mistral Chat Completions API is OpenAI-compatible, so we can keep the same request shape.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,13 +41,13 @@ public class AIService {
 
     private static final Long DEFAULT_TENANT = 1L;
 
-    @Value("${openai.api.key:placeholder}")
-    private String openAiApiKey;
+    @Value("${mistral.api.key:}")
+    private String mistralApiKey;
 
-    @Value("${openai.model:gpt-4o-mini}")
+    @Value("${mistral.model:mistral-small-latest}")
     private String model;
 
-    @Value("${openai.max-tokens:1500}")
+    @Value("${mistral.max-tokens:1500}")
     private int defaultMaxTokens;
 
     private final LeadRepository leadRepository;
@@ -66,17 +67,7 @@ public class AIService {
         ));
         payloadMessages.addAll(safeMessages);
 
-        try {
-            return callOpenAIText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
-        } catch (Exception e) {
-            log.warn("OpenAI chat failed, using fallback: {}", e.getMessage());
-            String lastUserMessage = safeMessages.stream()
-                .filter(m -> "user".equals(m.get("role")))
-                .reduce((first, second) -> second)
-                .map(m -> m.get("content"))
-                .orElse("");
-            return generateDemoResponse(lastUserMessage);
-        }
+        return callMistralText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
     }
 
     // ── Lead Scoring ──────────────────────────────────────────────
@@ -88,54 +79,30 @@ public class AIService {
         }
         Lead lead = leadOpt.get();
 
-        int scoreValue = calculateHeuristicScore(lead);
-        String scoreLabel = scoreValue >= 70 ? "HOT" : scoreValue >= 40 ? "WARM" : "COLD";
-        String reasoning = buildScoreReasoning(lead, scoreValue);
-        String nextAction = suggestAction(lead, scoreLabel);
-
-        try {
-            String prompt = """
-                Score this CRM lead and return strict JSON:
-                {
-                  "scoreLabel": "HOT|WARM|COLD",
-                  "scoreValue": <integer 0-99>,
-                  "reasoning": "<short reason>",
-                  "nextAction": "<single clear action>"
-                }
-
-                Lead:
-                %s
-                """.formatted(Map.of(
-                    "id", lead.getId(),
-                    "name", lead.getName(),
-                    "company", lead.getCompany(),
-                    "source", String.valueOf(lead.getSource()),
-                    "status", String.valueOf(lead.getStatus()),
-                    "dealValue", lead.getDealValue()
-                ));
-
-            Map<String, Object> ai = callOpenAIJson(
-                "You are a CRM lead scoring analyst. Output only valid JSON.",
-                prompt,
-                500,
-                0.2
-            );
-
-            scoreLabel = String.valueOf(ai.getOrDefault("scoreLabel", scoreLabel)).toUpperCase();
-            if (!List.of("HOT", "WARM", "COLD").contains(scoreLabel)) {
-                scoreLabel = scoreValue >= 70 ? "HOT" : scoreValue >= 40 ? "WARM" : "COLD";
+        String prompt = """
+            Score this CRM lead and return strict JSON:
+            {
+              "scoreLabel": "HOT|WARM|COLD",
+              "scoreValue": <integer 0-99>,
+              "reasoning": "<short reason>",
+              "nextAction": "<single clear action>"
             }
 
-            Object aiScoreValue = ai.get("scoreValue");
-            if (aiScoreValue instanceof Number n) {
-                scoreValue = Math.max(0, Math.min(99, n.intValue()));
-            }
+            Lead:
+            %s
+            """.formatted(buildLeadPromptData(lead));
 
-            reasoning = String.valueOf(ai.getOrDefault("reasoning", reasoning));
-            nextAction = String.valueOf(ai.getOrDefault("nextAction", nextAction));
-        } catch (Exception e) {
-            log.warn("OpenAI lead scoring failed, using heuristic fallback: {}", e.getMessage());
-        }
+        Map<String, Object> ai = callMistralJson(
+            "You are a CRM lead scoring analyst. Output only valid JSON.",
+            prompt,
+            500,
+            0.2
+        );
+
+        String scoreLabel = requireEnum(ai, "scoreLabel", List.of("HOT", "WARM", "COLD"));
+        int scoreValue = requireInt(ai, "scoreValue", 0, 99);
+        String reasoning = requireText(ai, "reasoning");
+        String nextAction = requireText(ai, "nextAction");
 
         // Persist back to DB
         lead.setAiScoreValue(scoreValue);
@@ -183,50 +150,21 @@ public class AIService {
             DealId: %s
             """.formatted(dealId);
 
-        try {
-            Map<String, Object> ai = callOpenAIJson(
-                "You are a B2B sales forecasting assistant. Output only valid JSON.",
-                prompt,
-                700,
-                0.3
-            );
+        Map<String, Object> ai = callMistralJson(
+            "You are a B2B sales forecasting assistant. Output only valid JSON.",
+            prompt,
+            700,
+            0.3
+        );
 
-            int winProbability = 70;
-            Object winProbabilityObj = ai.get("winProbability");
-            if (winProbabilityObj instanceof Number n) {
-                winProbability = Math.max(0, Math.min(100, n.intValue()));
-            }
-
-            String confidence = String.valueOf(ai.getOrDefault("confidence", "MEDIUM"));
-            List<String> keyFactors = asStringList(ai.get("keyFactors"), List.of("Strong stakeholder engagement"));
-            List<String> riskFactors = asStringList(ai.get("riskFactors"), List.of("Insufficient recent activity"));
-            String recommendation = String.valueOf(ai.getOrDefault("recommendation", "Schedule a next-step call this week"));
-
-            return Map.of(
-                "dealId", dealId,
-                "winProbability", winProbability,
-                "confidence", confidence,
-                "keyFactors", keyFactors,
-                "riskFactors", riskFactors,
-                "recommendation", recommendation
-            );
-        } catch (Exception e) {
-            log.warn("OpenAI deal prediction failed, using fallback: {}", e.getMessage());
-            int probability = 65 + (int)(Math.random() * 30);
-            return Map.of(
-                "dealId", dealId,
-                "winProbability", probability,
-                "confidence", "HIGH",
-                "keyFactors", List.of(
-                    "Decision maker engaged",
-                    "Budget confirmed",
-                    "Timeline agreed",
-                    "Competitor analysis completed"
-                ),
-                "riskFactors", List.of("Procurement approval pending"),
-                "recommendation", "Schedule closing call within 48 hours"
-            );
-        }
+        return Map.of(
+            "dealId", dealId,
+            "winProbability", requireInt(ai, "winProbability", 0, 100),
+            "confidence", requireEnum(ai, "confidence", List.of("LOW", "MEDIUM", "HIGH")),
+            "keyFactors", requireStringList(ai, "keyFactors"),
+            "riskFactors", requireStringList(ai, "riskFactors"),
+            "recommendation", requireText(ai, "recommendation")
+        );
     }
 
     // ── Email Generation ──────────────────────────────────────────
@@ -256,44 +194,14 @@ public class AIService {
                 keyPoints.isBlank() ? "No extra context" : keyPoints
             );
 
-        try {
-            return callOpenAIText(
-                List.of(
-                    Map.of("role", "system", "content", "You are an expert B2B sales copywriter."),
-                    Map.of("role", "user", "content", userPrompt)
-                ),
-                900,
-                0.8
-            );
-        } catch (Exception e) {
-            log.warn("OpenAI email generation failed, using fallback: {}", e.getMessage());
-            return String.format("""
-                Subject: %s — Continuing Our Conversation
-
-                Dear %s,
-
-                I hope this message finds you well. I'm following up on our recent discussion about implementing NexaCRM AI at %s.
-
-                %s
-
-                Based on your requirements, I believe we have an excellent solution that can help your team:
-                • Reduce sales cycle by 35%%
-                • Improve lead conversion by 2.5x with AI scoring
-                • Automate 80%% of routine follow-ups
-
-                I'd love to schedule a brief call to address any questions and discuss next steps.
-                Would Thursday or Friday work for a 30-minute demo?
-
-                Looking forward to your response.
-
-                Best regards,
-                Your NexaCRM AI Assistant
-                """,
-                emailType, leadName.isEmpty() ? "there" : leadName,
-                company.isEmpty() ? "your organization" : company,
-                keyPoints.isEmpty() ? "" : "\n" + keyPoints + "\n"
-            );
-        }
+        return callMistralText(
+            List.of(
+                Map.of("role", "system", "content", "You are an expert B2B sales copywriter."),
+                Map.of("role", "user", "content", userPrompt)
+            ),
+            900,
+            0.8
+        );
     }
 
     // ── Insights ─────────────────────────────────────────────────
@@ -311,33 +219,21 @@ public class AIService {
             }
             """;
 
+        String raw = callMistralText(
+            List.of(
+                Map.of("role", "system", "content", "You are a CRM analytics assistant. Output valid JSON only."),
+                Map.of("role", "user", "content", prompt)
+            ),
+            900,
+            0.5
+        );
         try {
-            String raw = callOpenAIText(
-                List.of(
-                    Map.of("role", "system", "content", "You are a CRM analytics assistant. Output valid JSON only."),
-                    Map.of("role", "user", "content", prompt)
-                ),
-                900,
-                0.5
-            );
             String jsonArray = extractJsonArray(raw);
-            return objectMapper.readValue(jsonArray, new TypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> insights = objectMapper.readValue(jsonArray, new TypeReference<List<Map<String, Object>>>() {});
+            validateInsights(insights);
+            return insights;
         } catch (Exception e) {
-            log.warn("OpenAI insights generation failed, using fallback: {}", e.getMessage());
-            return List.of(
-                Map.of("id", 1, "type", "prediction",  "title", "High Win Probability",
-                       "body", "HCL Tech Package has 89% win probability — schedule demo call this week.",
-                       "action", "Schedule Call"),
-                Map.of("id", 2, "type", "warning",     "title", "At-Risk Deal",
-                       "body", "Wipro Cloud Suite stalled for 8 days. Send follow-up now.",
-                       "action", "Send Follow-up"),
-                Map.of("id", 3, "type", "opportunity", "title", "Upsell Opportunity",
-                       "body", "Bajaj Finserv may be ready for add-ons based on usage patterns.",
-                       "action", "View Profile"),
-                Map.of("id", 4, "type", "insight",     "title", "Best Contact Time",
-                       "body", "LinkedIn leads respond 3x better between 10am–12pm on weekdays.",
-                       "action", "Plan Campaign")
-            );
+            throw new IllegalStateException("Failed to parse Mistral insights response", e);
         }
     }
 
@@ -349,25 +245,21 @@ public class AIService {
             Return strict JSON array of strings only.
             """.formatted(leadId);
 
+        String raw = callMistralText(
+            List.of(
+                Map.of("role", "system", "content", "You are a CRM sales coach. Output valid JSON only."),
+                Map.of("role", "user", "content", prompt)
+            ),
+            400,
+            0.4
+        );
         try {
-            String raw = callOpenAIText(
-                List.of(
-                    Map.of("role", "system", "content", "You are a CRM sales coach. Output valid JSON only."),
-                    Map.of("role", "user", "content", prompt)
-                ),
-                400,
-                0.4
-            );
             String jsonArray = extractJsonArray(raw);
-            return objectMapper.readValue(jsonArray, new TypeReference<List<String>>() {});
+            List<String> actions = objectMapper.readValue(jsonArray, new TypeReference<List<String>>() {});
+            validateActions(actions);
+            return actions;
         } catch (Exception e) {
-            log.warn("OpenAI next-actions generation failed, using fallback: {}", e.getMessage());
-            return List.of(
-                "Schedule a discovery call within 24 hours",
-                "Send personalized case study from similar industry",
-                "Connect on LinkedIn to build rapport",
-                "Share ROI calculator tailored to their company size"
-            );
+            throw new IllegalStateException("Failed to parse Mistral next-actions response", e);
         }
     }
 
@@ -380,107 +272,115 @@ public class AIService {
             Entity id: %s
             """.formatted(entityType, entityId);
 
-        try {
-            return callOpenAIText(
-                List.of(
-                    Map.of("role", "system", "content", "You are a CRM analyst. Be specific and concise."),
-                    Map.of("role", "user", "content", prompt)
-                ),
-                500,
-                0.4
-            );
-        } catch (Exception e) {
-            log.warn("OpenAI summary generation failed, using fallback: {}", e.getMessage());
-            return String.format(
-                "AI Summary for %s #%s: High-value prospect with strong engagement signals. " +
-                "Last interaction was 2 days ago. Recommend priority follow-up within 24 hours.",
-                entityType, entityId
-            );
+        return callMistralText(
+            List.of(
+                Map.of("role", "system", "content", "You are a CRM analyst. Be specific and concise."),
+                Map.of("role", "user", "content", prompt)
+            ),
+            500,
+            0.4
+        );
+    }
+
+    public Map<String, Object> analyzeCallIntelligence(Lead lead, List<Map<String, Object>> calls) {
+        Map<String, Object> leadSnapshot = new LinkedHashMap<>();
+        leadSnapshot.put("id", lead.getId());
+        leadSnapshot.put("name", lead.getName());
+        leadSnapshot.put("email", lead.getEmail());
+        leadSnapshot.put("phone", lead.getPhone());
+        leadSnapshot.put("company", lead.getCompany());
+        leadSnapshot.put("source", lead.getSource() != null ? lead.getSource().name() : "");
+        leadSnapshot.put("status", lead.getStatus() != null ? lead.getStatus().name() : "");
+        leadSnapshot.put("score", lead.getScore() != null ? lead.getScore().name() : "");
+        leadSnapshot.put("aiScoreValue", lead.getAiScoreValue());
+        leadSnapshot.put("aiNextAction", lead.getAiNextAction());
+        leadSnapshot.put("lastContactedAt", lead.getLastContactedAt());
+
+        List<Map<String, Object>> callSummaries = new ArrayList<>();
+        for (Map<String, Object> call : calls == null ? Collections.<Map<String, Object>>emptyList() : calls) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", call.getOrDefault("id", ""));
+            row.put("externalId", call.getOrDefault("externalId", ""));
+            row.put("status", call.getOrDefault("status", ""));
+            row.put("outcome", call.getOrDefault("outcome", ""));
+            row.put("summary", call.getOrDefault("summary", ""));
+            row.put("transcript", call.getOrDefault("transcript", ""));
+            row.put("recordingUrl", call.getOrDefault("recordingUrl", ""));
+            row.put("createdAt", call.getOrDefault("createdAt", ""));
+            row.put("provider", call.getOrDefault("provider", ""));
+            callSummaries.add(row);
         }
+
+        String prompt = """
+            Analyze these Bolna call records and decide whether this is a genuine sales lead.
+            Return strict JSON only with the following schema:
+            {
+              "leadVerdict": "GENUINE|NOT_GENUINE|UNCERTAIN",
+              "suggestedLeadStatus": "NEW|CONTACTED|QUALIFIED|PROPOSAL|NEGOTIATION|WON|LOST",
+              "confidence": <integer 0-100>,
+              "summary": "<3-5 sentence executive summary>",
+              "reasoning": "<brief explanation>",
+              "positiveSignals": ["..."],
+              "riskSignals": ["..."],
+              "nextBestAction": "<single clear action>"
+            }
+            Never omit any key. If you have no evidence for a list field, return [].
+            Base the review on the transcript, objections, buying intent, and the call outcome.
+            Use the full conversation history, not only the newest call.
+            Prioritize transcript-bearing or connected calls over later unanswered attempts.
+            A missing transcript or recording is an evidence gap, not proof that the lead is not genuine.
+            If an earlier call shows real interest, callbacks, or intent, do not force NOT_GENUINE from a later no-answer attempt alone.
+
+            Lead snapshot:
+            %s
+
+            Call history:
+            %s
+            """.formatted(toJson(leadSnapshot), toJson(callSummaries));
+
+        Map<String, Object> ai = callMistralJson(
+            "You are a CRM voice-call intelligence analyst. Evaluate call transcripts and determine lead quality from the conversation history.",
+            prompt,
+            1200,
+            0.2
+        );
+
+        String leadVerdict = requireEnumOrDefault(ai, "leadVerdict", List.of("GENUINE", "NOT_GENUINE", "UNCERTAIN"), "UNCERTAIN");
+        String suggestedLeadStatus = requireEnumOrDefault(
+            ai,
+            "suggestedLeadStatus",
+            List.of("NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"),
+            lead.getStatus() != null ? lead.getStatus().name() : "NEW"
+        );
+        int confidence = requireIntOrDefault(ai, "confidence", 0, 100, 0);
+        String summary = optionalText(ai, "summary", buildFallbackCallReview(callSummaries, lead));
+        String reasoning = optionalText(ai, "reasoning", "Model did not provide reasoning; review the transcript and call history.");
+        List<String> positiveSignals = optionalStringList(ai, "positiveSignals");
+        List<String> riskSignals = optionalStringList(ai, "riskSignals");
+        String nextBestAction = optionalText(ai, "nextBestAction", "Review the most recent call transcript and schedule a follow-up.");
+
+        return Map.of(
+            "leadVerdict", leadVerdict,
+            "suggestedLeadStatus", suggestedLeadStatus,
+            "confidence", confidence,
+            "summary", summary,
+            "reasoning", reasoning,
+            "positiveSignals", positiveSignals,
+            "riskSignals", riskSignals,
+            "nextBestAction", nextBestAction
+        );
     }
 
     // ── Private helpers ───────────────────────────────────────────
 
-    private int calculateHeuristicScore(Lead lead) {
-        int score = 30; // base
-
-        // Source quality
-        score += switch (lead.getSource()) {
-            case LINKEDIN -> 20;
-            case REFERRAL -> 25;
-            case WEBSITE  -> 15;
-            case FACEBOOK, INSTAGRAM -> 10;
-            default       -> 5;
-        };
-
-        // Deal value
-        if (lead.getDealValue() != null) {
-            if (lead.getDealValue().doubleValue() > 400000) score += 25;
-            else if (lead.getDealValue().doubleValue() > 100000) score += 15;
-            else score += 5;
-        }
-
-        // Status progression
-        score += switch (lead.getStatus()) {
-            case QUALIFIED, PROPOSAL, NEGOTIATION -> 20;
-            case CONTACTED -> 10;
-            case NEW       -> 0;
-            case WON       -> 30;
-            default        -> 0;
-        };
-
-        return Math.min(score, 99);
-    }
-
-    private String buildScoreReasoning(Lead lead, int score) {
-        List<String> reasons = new ArrayList<>();
-        if (lead.getSource() == Lead.LeadSource.REFERRAL) reasons.add("referral source (high trust)");
-        if (lead.getDealValue() != null && lead.getDealValue().doubleValue() > 200000) reasons.add("high deal value");
-        if (lead.getStatus() == Lead.LeadStatus.QUALIFIED) reasons.add("lead is qualified");
-        if (lead.getCompany() != null && !lead.getCompany().isEmpty()) reasons.add("company identified");
-        return reasons.isEmpty() ? "Standard scoring applied" : "Key factors: " + String.join(", ", reasons);
-    }
-
-    private String suggestAction(Lead lead, String scoreLabel) {
-        return switch (scoreLabel) {
-            case "HOT"  -> "Call immediately — high win probability";
-            case "WARM" -> "Send personalized follow-up within 24 hours";
-            default     -> "Nurture with educational content";
-        };
-    }
-
-    private String generateDemoResponse(String userMessage) {
-        String lower = userMessage.toLowerCase();
-        if (lower.contains("priorit")) {
-            return "Based on your pipeline, here are today's top 3 priority actions:\n\n" +
-                   "1. 🔥 Call Vijay Kumar (HCL Tech) — deal in Negotiation, ₹5.8L at stake\n" +
-                   "2. 🔥 Send proposal to Divya Nair (InfoSys) — qualified lead, high urgency\n" +
-                   "3. 🌡️ Follow up with Sunita Rao (Wipro) — proposal pending for 3 days";
-        }
-        if (lower.contains("email") || lower.contains("follow")) {
-            return "Here's a personalized follow-up email draft:\n\nSubject: Continuing Our Partnership Discussion\n\n" +
-                   "Dear [Name],\n\nThank you for your time. I wanted to follow up on our discussion about NexaCRM AI. " +
-                   "Based on your team's requirements, I believe our Enterprise plan would reduce your sales cycle by 35%.\n\n" +
-                   "Best regards,\nNexaCRM Team";
-        }
-        if (lower.contains("predict") || lower.contains("win") || lower.contains("probability")) {
-            return "📊 Deal Win Predictions:\n\n• HCL Tech Package: **89%** win probability ↑\n" +
-                   "• Wipro Cloud Suite: **67%** probability (follow-up needed)\n" +
-                   "• InfoSys Enterprise: **72%** probability\n\nI recommend prioritizing the HCL deal this week.";
-        }
-        return "I'm analyzing your CRM data... Based on current pipeline metrics, you have " +
-               "8 active deals worth ₹24.2L. Your top priority today should be the HCL Tech deal " +
-               "in Negotiation stage. Would you like me to draft a follow-up email or schedule a call?";
-    }
-
-    private String callOpenAIText(List<Map<String, String>> messages, int maxTokens, double temperature) {
+    private String callMistralText(List<Map<String, String>> messages, int maxTokens, double temperature) {
         if (!hasRealApiKey()) {
-            throw new IllegalStateException("OPENAI_API_KEY is not configured");
+            throw new IllegalStateException("MISTRAL_API_KEY is not configured");
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(openAiApiKey);
+        headers.setBearerAuth(mistralApiKey);
 
         Map<String, Object> payload = Map.of(
             "model", model,
@@ -492,40 +392,36 @@ public class AIService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
         @SuppressWarnings("unchecked")
         Map<String, Object> response = restTemplate.postForObject(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.mistral.ai/v1/chat/completions",
             entity,
             Map.class
         );
 
         if (response == null) {
-            throw new IllegalStateException("Empty OpenAI response");
+            throw new IllegalStateException("Empty Mistral response");
         }
 
         Object choicesObj = response.get("choices");
         if (!(choicesObj instanceof List<?> choices) || choices.isEmpty()) {
-            throw new IllegalStateException("OpenAI response missing choices");
+            throw new IllegalStateException("Mistral response missing choices");
         }
 
         Object firstObj = choices.get(0);
         if (!(firstObj instanceof Map<?, ?> firstChoice)) {
-            throw new IllegalStateException("OpenAI response choice format invalid");
+            throw new IllegalStateException("Mistral response choice format invalid");
         }
 
         Object messageObj = firstChoice.get("message");
         if (!(messageObj instanceof Map<?, ?> message)) {
-            throw new IllegalStateException("OpenAI response missing message");
+            throw new IllegalStateException("Mistral response missing message");
         }
 
         Object content = message.get("content");
-        if (!(content instanceof String text) || text.isBlank()) {
-            throw new IllegalStateException("OpenAI response content empty");
-        }
-
-        return text.trim();
+        return extractTextContent(content);
     }
 
-    private Map<String, Object> callOpenAIJson(String systemPrompt, String userPrompt, int maxTokens, double temperature) throws Exception {
-        String raw = callOpenAIText(
+    private Map<String, Object> callMistralJson(String systemPrompt, String userPrompt, int maxTokens, double temperature) {
+        String raw = callMistralText(
             List.of(
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user", "content", userPrompt)
@@ -533,19 +429,140 @@ public class AIService {
             maxTokens,
             temperature
         );
-        String json = extractJsonObject(raw);
-        return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        try {
+            String json = extractJsonObject(raw);
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to parse Mistral JSON response", e);
+        }
     }
 
-    private List<String> asStringList(Object value, List<String> fallback) {
+    private Map<String, Object> buildLeadPromptData(Lead lead) {
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("id", lead.getId());
+        data.put("name", lead.getName());
+        data.put("company", lead.getCompany());
+        data.put("source", String.valueOf(lead.getSource()));
+        data.put("status", String.valueOf(lead.getStatus()));
+        data.put("dealValue", lead.getDealValue());
+        return data;
+    }
+
+    private String requireText(Map<String, Object> ai, String key) {
+        Object value = ai.get(key);
+        if (value instanceof String text && !text.isBlank()) {
+            return text.trim();
+        }
+        throw new IllegalStateException("Mistral response missing text field: " + key);
+    }
+
+    private String optionalText(Map<String, Object> ai, String key, String fallback) {
+        Object value = ai.get(key);
+        if (value instanceof String text && !text.isBlank()) {
+            return text.trim();
+        }
+        return fallback;
+    }
+
+    private int requireInt(Map<String, Object> ai, String key, int min, int max) {
+        Object value = ai.get(key);
+        if (value instanceof Number number) {
+            int intValue = number.intValue();
+            if (intValue >= min && intValue <= max) {
+                return intValue;
+            }
+        }
+        throw new IllegalStateException("Mistral response missing numeric field: " + key);
+    }
+
+    private int requireIntOrDefault(Map<String, Object> ai, String key, int min, int max, int fallback) {
+        Object value = ai.get(key);
+        if (value instanceof Number number) {
+            int intValue = number.intValue();
+            if (intValue >= min && intValue <= max) {
+                return intValue;
+            }
+        }
+        return fallback;
+    }
+
+    private String requireEnum(Map<String, Object> ai, String key, List<String> allowedValues) {
+        String value = requireText(ai, key).toUpperCase();
+        if (allowedValues.contains(value)) {
+            return value;
+        }
+        throw new IllegalStateException("Mistral response has invalid value for " + key + ": " + value);
+    }
+
+    private String requireEnumOrDefault(Map<String, Object> ai, String key, List<String> allowedValues, String fallback) {
+        Object value = ai.get(key);
+        if (value instanceof String text && !text.isBlank()) {
+            String normalized = text.trim().toUpperCase();
+            if (allowedValues.contains(normalized)) {
+                return normalized;
+            }
+        }
+        return fallback;
+    }
+
+    private List<String> requireStringList(Map<String, Object> ai, String key) {
+        Object value = ai.get(key);
         if (value instanceof List<?> list) {
             List<String> converted = list.stream()
                 .map(String::valueOf)
                 .filter(s -> !s.isBlank())
                 .toList();
-            if (!converted.isEmpty()) return converted;
+            if (!converted.isEmpty()) {
+                return converted;
+            }
         }
-        return fallback;
+        throw new IllegalStateException("Mistral response missing list field: " + key);
+    }
+
+    private List<String> optionalStringList(Map<String, Object> ai, String key) {
+        Object value = ai.get(key);
+        if (value instanceof List<?> list) {
+            List<String> converted = list.stream()
+                .map(String::valueOf)
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+            if (!converted.isEmpty()) {
+                return converted;
+            }
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            List<String> converted = new ArrayList<>();
+            for (String part : text.split("[\\n,;]+")) {
+                String item = part.trim();
+                if (!item.isBlank()) {
+                    converted.add(item);
+                }
+            }
+            if (!converted.isEmpty()) {
+                return converted;
+            }
+        }
+        return List.of();
+    }
+
+    private void validateInsights(List<Map<String, Object>> insights) {
+        if (insights == null || insights.size() != 4) {
+            throw new IllegalStateException("Mistral insights response must contain exactly 4 items");
+        }
+        for (Map<String, Object> insight : insights) {
+            requireInt(insight, "id", Integer.MIN_VALUE, Integer.MAX_VALUE);
+            requireEnum(insight, "type", List.of("PREDICTION", "WARNING", "OPPORTUNITY", "INSIGHT"));
+            requireText(insight, "title");
+            requireText(insight, "body");
+            requireText(insight, "action");
+        }
+    }
+
+    private void validateActions(List<String> actions) {
+        if (actions == null || actions.size() != 4 || actions.stream().anyMatch(String::isBlank)) {
+            throw new IllegalStateException("Mistral next-actions response must contain exactly 4 non-empty actions");
+        }
     }
 
     private String extractJsonObject(String input) {
@@ -565,11 +582,72 @@ public class AIService {
     }
 
     private boolean hasRealApiKey() {
-        if (openAiApiKey == null) return false;
-        String key = openAiApiKey.trim();
-        return !key.isEmpty()
-            && !key.equalsIgnoreCase("placeholder")
-            && !key.equalsIgnoreCase("your-openai-key-here")
-            && !key.equalsIgnoreCase("replace-me");
+        if (mistralApiKey == null) return false;
+        String key = mistralApiKey.trim();
+        return !key.isEmpty();
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return String.valueOf(value);
+        }
+    }
+
+    private String buildFallbackCallReview(List<Map<String, Object>> calls, Lead lead) {
+        if (calls == null || calls.isEmpty()) {
+            return "No call transcript was available, so the AI could not perform a conversation-level review.";
+        }
+
+        Map<String, Object> latest = calls.get(0);
+        String status = String.valueOf(latest.getOrDefault("status", "")).trim();
+        String outcome = String.valueOf(latest.getOrDefault("outcome", "")).trim();
+        String summary = String.valueOf(latest.getOrDefault("summary", "")).trim();
+        String transcript = String.valueOf(latest.getOrDefault("transcript", "")).trim();
+
+        List<String> parts = new ArrayList<>();
+        if (!summary.isBlank()) {
+            parts.add("Latest call summary: " + summary);
+        }
+        if (!transcript.isBlank()) {
+            parts.add("Transcript was captured and should be reviewed for objections, intent, and follow-up cues.");
+        }
+        if (!status.isBlank() || !outcome.isBlank()) {
+            parts.add("Latest status/outcome: " + (status.isBlank() ? "unknown" : status) + (outcome.isBlank() ? "" : " · " + outcome));
+        }
+        if (lead != null && lead.getStatus() != null) {
+            parts.add("Current lead status: " + lead.getStatus().name());
+        }
+        return parts.isEmpty()
+            ? "Call history exists, but the AI could not extract a stable conversation summary."
+            : String.join(" ", parts);
+    }
+
+    private String extractTextContent(Object content) {
+        if (content instanceof String text && !text.isBlank()) {
+            return text.trim();
+        }
+
+        if (content instanceof List<?> chunks) {
+            StringBuilder builder = new StringBuilder();
+            for (Object chunk : chunks) {
+                if (chunk instanceof Map<?, ?> chunkMap) {
+                    Object type = chunkMap.get("type");
+                    if (!"text".equals(String.valueOf(type))) {
+                        continue;
+                    }
+                    Object text = chunkMap.get("text");
+                    if (text instanceof String chunkText && !chunkText.isBlank()) {
+                        builder.append(chunkText);
+                    }
+                }
+            }
+            if (builder.length() > 0) {
+                return builder.toString().trim();
+            }
+        }
+
+        throw new IllegalStateException("Mistral response content empty");
     }
 }

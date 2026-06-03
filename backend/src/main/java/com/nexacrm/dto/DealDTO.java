@@ -39,6 +39,9 @@ public class DealDTO {
     private String tags;
     private String notes;
     private Integer activitiesCount;
+    private String latestCallRecordingUrl;
+    private String latestCallSummary;
+    private LocalDateTime latestCallAt;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

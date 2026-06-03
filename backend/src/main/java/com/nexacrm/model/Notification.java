@@ -34,5 +34,9 @@ public class Notification extends BaseEntity {
     @Field("entity_id")
     private String entityId;
 
-    public enum NotificationType { LEAD, DEAL, TASK, INVOICE, AI, SYSTEM, AUTOMATION }
+    @Field("direction")
+    private NotificationDirection direction;
+
+    public enum NotificationType { LEAD, DEAL, TASK, INVOICE, AI, SYSTEM, AUTOMATION, COMMUNICATION }
+    public enum NotificationDirection { INBOUND, OUTBOUND }
 }

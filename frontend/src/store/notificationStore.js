@@ -2,12 +2,19 @@ import { create } from 'zustand'
 import { notificationsAPI } from '../services/api'
 
 const typeToLower = (type) => String(type || 'SYSTEM').toLowerCase()
+const directionToLower = (direction) => {
+  const value = String(direction || '').toLowerCase()
+  if (value === 'inbound' || value === 'incoming') return 'incoming'
+  if (value === 'outbound' || value === 'outgoing') return 'sent'
+  return null
+}
 
 const toUiNotification = (notification) => {
   const createdAt = notification?.createdAt ? new Date(notification.createdAt) : new Date()
   return {
     id: notification?.id,
     type: typeToLower(notification?.type),
+    direction: directionToLower(notification?.direction),
     title: notification?.title || 'Notification',
     message: notification?.message || '',
     read: Boolean(notification?.isRead),
@@ -41,6 +48,7 @@ export const useNotificationStore = create((set, get) => ({
       notifications: [{
         id: `local-${Date.now()}`,
         type: typeToLower(notification?.type),
+        direction: directionToLower(notification?.direction),
         title: notification?.title || 'Notification',
         message: notification?.message || '',
         read: false,

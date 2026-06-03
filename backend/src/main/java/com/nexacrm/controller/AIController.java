@@ -14,7 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
-@Tag(name = "AI Engine", description = "AI-powered CRM features via OpenAI GPT-4")
+@Tag(name = "AI Engine", description = "AI-powered CRM features via Mistral")
 public class AIController {
 
     private final AIService aiService;

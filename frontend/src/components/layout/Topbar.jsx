@@ -83,6 +83,7 @@ export default function Topbar({ onMenuClick }) {
         const type = String(incoming?.type ?? 'lead').toLowerCase()
         addNotification({
           type,
+          direction: incoming?.direction,
           title: incoming?.title ?? 'Notification',
           message: incoming?.message ?? 'You have a new update',
         })

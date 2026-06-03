@@ -120,6 +120,7 @@ export const leadsAPI = {
 export const callsAPI = {
   trigger: (leadId, d) => api.post(`/calls/trigger/${leadId}`, d ?? {}),
   getByLead: (leadId) => api.get(`/calls/${leadId}`),
+  getIntelligence: (leadId) => api.get(`/calls/${leadId}/intelligence`),
   retry: (callId) => api.post(`/calls/retry/${callId}`),
 }
 

@@ -60,6 +60,13 @@ public class CallController {
         return ResponseEntity.ok(callAgentService.getLeadCallHistory(leadId));
     }
 
+    @GetMapping("/{leadId}/intelligence")
+    @PreAuthorize("hasAuthority('leads.read')")
+    @Operation(summary = "Get AI call intelligence for one lead")
+    public ResponseEntity<Map<String, Object>> getLeadCallIntelligence(@PathVariable String leadId) {
+        return ResponseEntity.ok(callAgentService.getLeadCallIntelligence(leadId));
+    }
+
     @PostMapping("/retry/{callId}")
     @PreAuthorize("hasAuthority('communications.send')")
     @Operation(summary = "Retry one previous call by call log id")

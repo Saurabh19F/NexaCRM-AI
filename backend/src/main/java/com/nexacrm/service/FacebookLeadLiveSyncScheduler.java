@@ -70,6 +70,18 @@ public class FacebookLeadLiveSyncScheduler {
                 );
                 return;
             }
+            if (isPageAccessTokenRequiredError(ex)) {
+                long cooldown = Math.max(60_000L, Math.min(expiredTokenCooldownMs, 300_000L));
+                long until = System.currentTimeMillis() + cooldown;
+                expiredTokenCooldownUntilEpochMs.set(until);
+                cooldownNoticeLogged.set(false);
+                log.warn(
+                    "Facebook live sync paused for {} ms because configured token is not a Page Access Token. "
+                        + "Set Integrations > Facebook accessToken to the selected page token or META_PAGE_ACCESS_TOKEN.",
+                    cooldown
+                );
+                return;
+            }
             log.warn("Facebook live sync failed: {}", ex.getMessage());
         } finally {
             running.set(false);
@@ -111,5 +123,15 @@ public class FacebookLeadLiveSyncScheduler {
         String normalized = message.toLowerCase();
         return normalized.contains("code\":190")
             && normalized.contains("error_subcode\":463");
+    }
+
+    private boolean isPageAccessTokenRequiredError(Exception ex) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("code\":190")
+            && normalized.contains("must be called with a page access token");
     }
 }

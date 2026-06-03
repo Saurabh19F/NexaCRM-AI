@@ -12,7 +12,6 @@ import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
-import com.nexacrm.websocket.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Row;
@@ -35,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -69,7 +69,7 @@ public class LeadService {
     private final DealRepository dealRepository;
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
-    private final NotificationPublisher notificationPublisher;
+    private final NotificationService notificationService;
     private final WorkflowEngine workflowEngine;
     private final CommunicationService communicationService;
     private final IntegrationService integrationService;
@@ -171,8 +171,11 @@ public class LeadService {
         lead.setTenantId(DEFAULT_TENANT);
         Lead saved = leadRepository.save(lead);
 
-        // Trigger WebSocket notification
-        notificationPublisher.notifyNewLead(saved.getName(), saved.getSource().name());
+        notificationService.notifyLeadCreated(
+            saved.getName(),
+            saved.getSource() != null ? saved.getSource().name() : "OTHER",
+            saved.getId()
+        );
         workflowEngine.processEvent("LEAD_CREATED", Map.of(
             "leadId", saved.getId(),
             "leadEmail", saved.getEmail() != null ? saved.getEmail() : "",
@@ -439,10 +442,10 @@ public class LeadService {
             throw new IllegalStateException("Facebook pageId is missing. Set it in Integrations > Facebook.");
         }
 
-        String accessToken = trim(config.get("accessToken"));
-        if (accessToken == null || accessToken.isBlank()) {
-            accessToken = resolveFacebookLeadAccessToken();
-        }
+        String accessToken = resolveFacebookLeadAccessTokenForPage(
+            pageId,
+            trim(config.get("accessToken"))
+        );
         if (accessToken == null || accessToken.isBlank()) {
             throw new IllegalStateException("Facebook access token is missing. Set it in Integrations > Facebook or META_PAGE_ACCESS_TOKEN.");
         }
@@ -471,6 +474,16 @@ public class LeadService {
             Map<String, Object> formsResponse;
             try {
                 formsResponse = restTemplate.getForObject(formsUrl, Map.class);
+            } catch (RestClientResponseException ex) {
+                if (isFacebookPageAccessTokenRequiredError(ex)) {
+                    throw new IllegalStateException(
+                        "Facebook lead sync requires a Page Access Token for pageId=" + pageId
+                            + ". Update Integrations > Facebook with that page token (not a user/app token), "
+                            + "or provide META_PAGE_ACCESS_TOKEN.",
+                        ex
+                    );
+                }
+                throw new IllegalStateException("Failed to fetch Facebook lead forms: " + ex.getResponseBodyAsString(), ex);
             } catch (Exception ex) {
                 throw new IllegalStateException("Failed to fetch Facebook lead forms: " + ex.getMessage(), ex);
             }
@@ -646,6 +659,22 @@ public class LeadService {
         lead.setLastContactedAt(LocalDateTime.now());
         leadRepository.save(lead);
 
+        try {
+            notificationService.notifyActiveUsers(
+                DEFAULT_TENANT,
+                com.nexacrm.model.Notification.NotificationType.DEAL,
+                "Lead Converted",
+                "Lead " + (lead.getName() != null ? lead.getName() : "Unknown lead") +
+                    " converted into deal " + deal.getTitle(),
+                "/pipeline",
+                "deal",
+                deal.getId(),
+                null
+            );
+        } catch (Exception ex) {
+            log.warn("Failed to publish lead conversion notification for lead {}: {}", lead.getId(), ex.getMessage());
+        }
+
         return Map.of(
             "message", "Lead converted to customer",
             "leadId", lead.getId(),
@@ -799,6 +828,58 @@ public class LeadService {
             return integrationToken;
         }
         return trim(pageAccessToken);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String resolveFacebookLeadAccessTokenForPage(String pageId, String configuredToken) {
+        String token = trim(configuredToken);
+        if (token == null || token.isBlank()) {
+            token = resolveFacebookLeadAccessToken();
+        }
+        if (token == null || token.isBlank()) {
+            return token;
+        }
+
+        String discoveredPageToken = null;
+        try {
+            String meAccountsUrl = UriComponentsBuilder
+                .fromHttpUrl("https://graph.facebook.com/{version}/me/accounts")
+                .queryParam("fields", "id,access_token")
+                .queryParam("limit", 200)
+                .queryParam("access_token", token)
+                .buildAndExpand(graphApiVersion)
+                .toUriString();
+
+            Map<String, Object> meAccounts = restTemplate.getForObject(meAccountsUrl, Map.class);
+            List<Map<String, Object>> pages = meAccounts != null && meAccounts.get("data") instanceof List<?>
+                ? (List<Map<String, Object>>) meAccounts.get("data")
+                : List.of();
+
+            for (Map<String, Object> page : pages) {
+                String id = trim(String.valueOf(page.get("id")));
+                if (pageId != null && pageId.equals(id)) {
+                    discoveredPageToken = trim(String.valueOf(page.get("access_token")));
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("Facebook token discovery via /me/accounts skipped: {}", ex.getMessage());
+        }
+
+        if (discoveredPageToken != null && !discoveredPageToken.isBlank()) {
+            if (!discoveredPageToken.equals(token)) {
+                log.info("Resolved Facebook Page Access Token from /me/accounts for pageId={}", pageId);
+            }
+            return discoveredPageToken;
+        }
+        return token;
+    }
+
+    private boolean isFacebookPageAccessTokenRequiredError(RestClientResponseException ex) {
+        String body = ex.getResponseBodyAsString();
+        String normalized = body == null ? "" : body.toLowerCase(Locale.ROOT);
+        return normalized.contains("code\":190")
+            && normalized.contains("must be called with a page access token");
     }
 
     @SuppressWarnings("unchecked")

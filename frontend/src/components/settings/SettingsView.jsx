@@ -25,7 +25,7 @@ const INTEGRATIONS = [
   { name: 'WhatsApp Business',    status: 'connected', icon: '💬', color: 'bg-emerald-50 dark:bg-emerald-950/20' },
   { name: 'Gmail / Google',       status: 'connected', icon: '📧', color: 'bg-red-50 dark:bg-red-950/20' },
   { name: 'Google Calendar',      status: 'pending',   icon: '📅', color: 'bg-orange-50 dark:bg-orange-950/20' },
-  { name: 'OpenAI GPT-4',         status: 'connected', icon: '🤖', color: 'bg-slate-50 dark:bg-slate-800/50' },
+  { name: 'Mistral AI',            status: 'connected', icon: '🤖', color: 'bg-slate-50 dark:bg-slate-800/50' },
   { name: 'AWS S3',               status: 'connected', icon: '☁️', color: 'bg-amber-50 dark:bg-amber-950/20' },
   { name: 'Tally XML',            status: 'pending',   icon: '📊', color: 'bg-purple-50 dark:bg-purple-950/20' },
 ]
@@ -557,7 +557,7 @@ function IPWhitelistPanel() {
 const PLANS = [
   { name: 'Starter',    price: '₹799',  period: '/month', users: 1,  features: ['Up to 500 leads','Basic pipeline','Email support'] },
   { name: 'Growth',     price: '₹1,499',period: '/month', users: 3,  features: ['Up to 5,000 leads','AI Engine (basic)','WhatsApp integration','Priority support'] },
-  { name: 'Enterprise', price: '₹2,499',period: '/month', users: 5,  features: ['Unlimited leads & deals','AI Engine (GPT-4)','All integrations','Dedicated support','Custom reports','White-labeling'], current: true },
+  { name: 'Enterprise', price: '₹2,499',period: '/month', users: 5,  features: ['Unlimited leads & deals','AI Engine (Mistral AI)','All integrations','Dedicated support','Custom reports','White-labeling'], current: true },
   { name: 'Custom',     price: 'Contact',period: '',      users: 999, features: ['Unlimited everything','Custom SLA','On-premise option','API access','Custom training'] },
 ]
 
@@ -1132,7 +1132,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Plan Features</p>
-                {['Unlimited leads & deals','AI Engine (GPT-4)','All integrations','Priority support','Custom reports','White-labeling'].map(f => (
+                {['Unlimited leads & deals','AI Engine (Mistral AI)','All integrations','Priority support','Custom reports','White-labeling'].map(f => (
                   <div key={f} className="flex items-center gap-2 py-2 text-sm text-slate-600 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     <div className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />

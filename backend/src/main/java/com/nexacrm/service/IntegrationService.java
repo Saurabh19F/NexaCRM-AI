@@ -27,9 +27,14 @@ public class IntegrationService {
         "voice_call_agent", List.of(),
         "gmail", List.of("clientId", "clientSecret", "refreshToken"),
         "google_calendar", List.of("clientId", "clientSecret"),
-        "openai", List.of("apiKey"),
+        "mistral_ai", List.of("apiKey"),
         "linkedin", List.of("clientId", "clientSecret"),
         "google_sheets_leads", List.of("spreadsheetId", "sheetName")
+    );
+
+    private static final Map<String, String> INTEGRATION_ALIASES = Map.of(
+        "openai", "mistral_ai",
+        "grok_ai", "mistral_ai"
     );
 
     private static final Long DEFAULT_TENANT = 1L;
@@ -43,7 +48,7 @@ public class IntegrationService {
     public List<IntegrationConfigResponse> getAll() {
         Map<String, IntegrationConfig> byId = new LinkedHashMap<>();
         integrationConfigRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT)
-            .forEach(cfg -> byId.put(cfg.getIntegrationId(), cfg));
+            .forEach(cfg -> byId.put(normalizeId(cfg.getIntegrationId()), cfg));
 
         List<IntegrationConfigResponse> all = new ArrayList<>();
         REQUIRED_FIELDS.forEach((id, requiredFields) -> all.add(buildResponse(id, requiredFields, byId.get(id))));
@@ -53,9 +58,7 @@ public class IntegrationService {
     public IntegrationConfigResponse getById(String integrationId) {
         String normalizedId = normalizeId(integrationId);
         List<String> required = getRequiredFields(normalizedId);
-        IntegrationConfig cfg = integrationConfigRepository
-            .findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
-            .orElse(null);
+        IntegrationConfig cfg = findExistingConfig(normalizedId);
         return buildResponse(normalizedId, required, cfg);
     }
 
@@ -63,9 +66,7 @@ public class IntegrationService {
         String normalizedId = normalizeId(integrationId);
         List<String> required = getRequiredFields(normalizedId);
 
-        IntegrationConfig existing = integrationConfigRepository
-            .findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
-            .orElse(null);
+        IntegrationConfig existing = findExistingConfig(normalizedId);
         Map<String, String> existingValues = existing != null
             ? safeCopy(existing.getValues())
             : Map.of();
@@ -118,26 +119,24 @@ public class IntegrationService {
 
     public void disconnect(String integrationId) {
         String normalizedId = normalizeId(integrationId);
-        integrationConfigRepository.findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
-            .ifPresent(cfg -> {
-                cfg.setConnected(false);
-                cfg.setValues(new LinkedHashMap<>());
-                integrationConfigRepository.save(cfg);
-            });
+        IntegrationConfig cfg = findExistingConfig(normalizedId);
+        if (cfg != null) {
+            cfg.setConnected(false);
+            cfg.setValues(new LinkedHashMap<>());
+            integrationConfigRepository.save(cfg);
+        }
     }
 
     public boolean isConnected(String integrationId) {
         String normalizedId = normalizeId(integrationId);
-        return integrationConfigRepository.findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
-            .map(IntegrationConfig::getConnected)
-            .orElse(false);
+        IntegrationConfig cfg = findExistingConfig(normalizedId);
+        return cfg != null && Boolean.TRUE.equals(cfg.getConnected());
     }
 
     public Map<String, String> getConfig(String integrationId) {
         String normalizedId = normalizeId(integrationId);
-        return integrationConfigRepository.findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, normalizedId)
-            .map(cfg -> safeCopy(cfg.getValues()))
-            .orElseGet(LinkedHashMap::new);
+        IntegrationConfig cfg = findExistingConfig(normalizedId);
+        return cfg != null ? safeCopy(cfg.getValues()) : new LinkedHashMap<>();
     }
 
     private IntegrationConfigResponse buildResponse(String id, List<String> requiredFields, IntegrationConfig cfg) {
@@ -156,7 +155,28 @@ public class IntegrationService {
         if (integrationId == null || integrationId.isBlank()) {
             throw new IllegalStateException("Integration id is required.");
         }
-        return integrationId.trim().toLowerCase(Locale.ROOT);
+        String normalized = integrationId.trim().toLowerCase(Locale.ROOT);
+        return INTEGRATION_ALIASES.getOrDefault(normalized, normalized);
+    }
+
+    private IntegrationConfig findExistingConfig(String integrationId) {
+        String normalizedId = normalizeId(integrationId);
+        List<String> candidates = new ArrayList<>();
+        candidates.add(normalizedId);
+        INTEGRATION_ALIASES.forEach((legacyId, canonicalId) -> {
+            if (canonicalId.equals(normalizedId)) {
+                candidates.add(legacyId);
+            }
+        });
+        for (String candidate : candidates) {
+            IntegrationConfig cfg = integrationConfigRepository
+                .findByTenantIdAndIntegrationIdAndDeletedFalse(DEFAULT_TENANT, candidate)
+                .orElse(null);
+            if (cfg != null) {
+                return cfg;
+            }
+        }
+        return null;
     }
 
     private List<String> getRequiredFields(String integrationId) {

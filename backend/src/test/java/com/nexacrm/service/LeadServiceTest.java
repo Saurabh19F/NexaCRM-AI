@@ -9,7 +9,6 @@ import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
-import com.nexacrm.websocket.NotificationPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -43,7 +42,7 @@ class LeadServiceTest {
     @Mock private DealRepository dealRepository;
     @Mock private UserRepository userRepository;
     @Mock private MongoTemplate mongoTemplate;
-    @Mock private NotificationPublisher notificationPublisher;
+    @Mock private NotificationService notificationService;
     @Mock private WorkflowEngine workflowEngine;
     @Mock private CommunicationService communicationService;
     @Mock private RestTemplate restTemplate;
@@ -71,7 +70,7 @@ class LeadServiceTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> leadService.create(dto));
         assertTrue(ex.getMessage().contains("already exists"));
         verify(leadRepository, never()).save(any(Lead.class));
-        verify(notificationPublisher, never()).notifyNewLead(any(), any());
+        verify(notificationService, never()).notifyLeadCreated(any(), any(), any());
         verify(communicationService, never()).autoCallNewLeadAsync(any(), any(), any(), any(), any(), any());
     }
 

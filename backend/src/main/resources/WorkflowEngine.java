@@ -73,7 +73,7 @@ public class WorkflowEngine {
     @Scheduled(cron = "0 0 7 * * *")
     public void rescoreLeads() {
         log.info("Running daily AI lead rescoring...");
-        // Batch process lead scoring with OpenAI
+        // Batch process lead scoring with Mistral
     }
 
     private boolean evaluateConditions(Object conditions, Map<String, Object> context) {

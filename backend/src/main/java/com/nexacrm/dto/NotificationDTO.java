@@ -16,5 +16,6 @@ public class NotificationDTO {
     private String actionUrl;
     private String entityType;
     private String entityId;
+    private Notification.NotificationDirection direction;
     private LocalDateTime createdAt;
 }

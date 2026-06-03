@@ -52,6 +52,7 @@ public class CommunicationService {
     private final JavaMailSender mailSender;
     private final IntegrationService integrationService;
     private final CommunicationRecordRepository communicationRecordRepository;
+    private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final Map<String, String> facebookNameCache = new ConcurrentHashMap<>();
     private final Map<String, String> instagramNameCache = new ConcurrentHashMap<>();
@@ -141,6 +142,11 @@ public class CommunicationService {
             helper.setSubject(request.getSubject().trim());
             helper.setText(request.getBody().trim(), false);
             mailSender.send(message);
+            notifyOutboundCommunication(
+                "email",
+                request.getTo(),
+                combineEmailPreview(request.getSubject(), request.getBody())
+            );
             log.info("Email sent to {}", request.getTo());
         } catch (MailAuthenticationException ex) {
             log.error("SMTP authentication failed", ex);
@@ -337,6 +343,7 @@ public class CommunicationService {
                     );
                     if (persisted) {
                         saved++;
+                        notificationService.notifyInboundMessage("facebook", displayName, text);
                         sendAutoReplySafely("facebook", psid);
                     }
                 }
@@ -422,6 +429,7 @@ public class CommunicationService {
                     );
                     if (persisted) {
                         saved++;
+                        notificationService.notifyInboundMessage("instagram", displayName, text);
                         sendAutoReplySafely("instagram", igsid);
                     }
                 }
@@ -502,6 +510,7 @@ public class CommunicationService {
             );
             if (persisted) {
                 saved++;
+                notificationService.notifyInboundMessage("whatsapp", contact, text);
                 sendAutoReplySafely("whatsapp", contact);
             }
         }
@@ -546,6 +555,7 @@ public class CommunicationService {
             "",
             channel
         );
+        notifyOutboundCommunication(channel, recipient, body);
     }
 
     private void sendViaAiadrikaWhatsApp(String recipient, String body) {
@@ -597,6 +607,7 @@ public class CommunicationService {
                 externalId = extractExternalId(objectMapper.valueToTree(data));
             }
             tryPersistCommunication("WHATSAPP", "OUT", number, body, "SENT", externalId, response, "aiadrika");
+            notifyOutboundCommunication("whatsapp", number, body);
             log.info("WhatsApp sent via Aiadrika to {}", number);
         } catch (IllegalStateException ex) {
             throw ex;
@@ -759,6 +770,7 @@ public class CommunicationService {
             "facebook_messenger",
             displayName
         );
+        notifyOutboundCommunication("facebook", psid, body);
     }
 
     private boolean isOutsideFacebookMessagingWindow(String apiBody) {
@@ -841,6 +853,7 @@ public class CommunicationService {
                 "instagram_messaging",
                 displayName
             );
+            notifyOutboundCommunication("instagram", igsid, body);
             log.info("Instagram message sent to IGSID {}", igsid);
         } catch (HttpStatusCodeException ex) {
             String apiBody = trim(ex.getResponseBodyAsString());
@@ -1477,6 +1490,26 @@ public class CommunicationService {
             );
             return false;
         }
+    }
+
+    private void notifyOutboundCommunication(String channel, String recipient, String body) {
+        try {
+            notificationService.notifyOutboundMessage(channel, recipient, body);
+        } catch (Exception ex) {
+            log.warn("Outbound notification failed for {} {}: {}", channel, recipient, ex.getMessage());
+        }
+    }
+
+    private String combineEmailPreview(String subject, String body) {
+        String trimmedSubject = trim(subject);
+        String trimmedBody = trim(body);
+        if (trimmedSubject.isBlank()) {
+            return trimmedBody;
+        }
+        if (trimmedBody.isBlank()) {
+            return trimmedSubject;
+        }
+        return trimmedSubject + " — " + trimmedBody;
     }
 
     private WhatsAppMessageResponse toMessageResponse(CommunicationRecord row) {
