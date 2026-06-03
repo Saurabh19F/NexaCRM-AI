@@ -2,8 +2,10 @@ package com.nexacrm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacrm.model.CommunicationRecord;
+import com.nexacrm.model.Deal;
 import com.nexacrm.model.Lead;
 import com.nexacrm.repository.CommunicationRecordRepository;
+import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadActivityRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
@@ -38,6 +40,9 @@ class CallAgentServiceTest {
     private CommunicationRecordRepository communicationRecordRepository;
 
     @Mock
+    private DealRepository dealRepository;
+
+    @Mock
     private LeadRepository leadRepository;
 
     @Mock
@@ -65,6 +70,7 @@ class CallAgentServiceTest {
     void setUp() {
         callAgentService = new CallAgentService(
             communicationRecordRepository,
+            dealRepository,
             leadRepository,
             userRepository,
             leadActivityRepository,
@@ -136,6 +142,9 @@ class CallAgentServiceTest {
             .thenReturn(Optional.empty());
         when(communicationRecordRepository.findTop50ByLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc("lead-1", "CALL"))
             .thenReturn(List.of());
+        when(dealRepository.findByLead_IdAndTenantIdAndDeletedFalse("lead-1", 1L))
+            .thenReturn(Optional.empty());
+        when(dealRepository.save(any(Deal.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(leadActivityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(aiService.analyzeCallIntelligence(eq(lead), anyList()))
@@ -174,6 +183,7 @@ class CallAgentServiceTest {
         assertEquals(Lead.LeadStatus.QUALIFIED, lead.getStatus());
         assertEquals(95, lead.getAiScoreValue());
         assertEquals("Schedule the demo and send pricing.", lead.getAiNextAction());
+        verify(dealRepository).save(any(Deal.class));
 
         ArgumentCaptor<List<Map<String, Object>>> analysisCaptor = ArgumentCaptor.forClass(List.class);
         verify(aiService).analyzeCallIntelligence(eq(lead), analysisCaptor.capture());
