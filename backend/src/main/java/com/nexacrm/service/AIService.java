@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.time.LocalDateTime;
+import java.util.Locale;
 
 /**
  * AI Service — integrates with Mistral via the Mistral API for:
@@ -207,59 +209,61 @@ public class AIService {
     // ── Insights ─────────────────────────────────────────────────
 
     public List<Map<String, Object>> generateInsights() {
-        String prompt = """
-            Return strict JSON array with exactly 4 CRM insights.
-            Each item format:
-            {
-              "id": <integer>,
-              "type": "prediction|warning|opportunity|insight",
-              "title": "...",
-              "body": "...",
-              "action": "..."
-            }
-            """;
-
-        String raw = callMistralText(
-            List.of(
-                Map.of("role", "system", "content", "You are a CRM analytics assistant. Output valid JSON only."),
-                Map.of("role", "user", "content", prompt)
-            ),
-            900,
-            0.5
-        );
         try {
+            String prompt = """
+                Return strict JSON array with exactly 4 CRM insights.
+                Each item format:
+                {
+                  "id": <integer>,
+                  "type": "prediction|warning|opportunity|insight",
+                  "title": "...",
+                  "body": "...",
+                  "action": "..."
+                }
+                """;
+
+            String raw = callMistralText(
+                List.of(
+                    Map.of("role", "system", "content", "You are a CRM analytics assistant. Output valid JSON only."),
+                    Map.of("role", "user", "content", prompt)
+                ),
+                900,
+                0.5
+            );
             String jsonArray = extractJsonArray(raw);
             List<Map<String, Object>> insights = objectMapper.readValue(jsonArray, new TypeReference<List<Map<String, Object>>>() {});
             validateInsights(insights);
             return insights;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to parse Mistral insights response", e);
+            log.warn("Falling back to live CRM insights: {}", e.getMessage());
+            return buildFallbackInsights();
         }
     }
 
     // ── Next Actions ──────────────────────────────────────────────
 
     public List<String> suggestNextActions(String leadId) {
-        String prompt = """
-            Suggest 4 next best sales actions for lead id %s.
-            Return strict JSON array of strings only.
-            """.formatted(leadId);
-
-        String raw = callMistralText(
-            List.of(
-                Map.of("role", "system", "content", "You are a CRM sales coach. Output valid JSON only."),
-                Map.of("role", "user", "content", prompt)
-            ),
-            400,
-            0.4
-        );
         try {
+            String prompt = """
+                Suggest 4 next best sales actions for lead id %s.
+                Return strict JSON array of strings only.
+                """.formatted(leadId);
+
+            String raw = callMistralText(
+                List.of(
+                    Map.of("role", "system", "content", "You are a CRM sales coach. Output valid JSON only."),
+                    Map.of("role", "user", "content", prompt)
+                ),
+                400,
+                0.4
+            );
             String jsonArray = extractJsonArray(raw);
             List<String> actions = objectMapper.readValue(jsonArray, new TypeReference<List<String>>() {});
             validateActions(actions);
             return actions;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to parse Mistral next-actions response", e);
+            log.warn("Falling back to local next-actions suggestions for lead {}: {}", leadId, e.getMessage());
+            return buildFallbackActions(leadId);
         }
     }
 
@@ -283,6 +287,45 @@ public class AIService {
     }
 
     public Map<String, Object> analyzeCallIntelligence(Lead lead, List<Map<String, Object>> calls) {
+        try {
+            Map<String, Object> ai = callMistralJson(
+                "You are a CRM voice-call intelligence analyst. Evaluate call transcripts and determine lead quality from the conversation history.",
+                buildCallIntelligencePrompt(lead, calls),
+                1200,
+                0.2
+            );
+
+            String leadVerdict = requireEnumOrDefault(ai, "leadVerdict", List.of("GENUINE", "NOT_GENUINE", "UNCERTAIN"), "UNCERTAIN");
+            String suggestedLeadStatus = requireEnumOrDefault(
+                ai,
+                "suggestedLeadStatus",
+                List.of("NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"),
+                lead.getStatus() != null ? lead.getStatus().name() : "NEW"
+            );
+            int confidence = requireIntOrDefault(ai, "confidence", 0, 100, 0);
+            String summary = optionalText(ai, "summary", buildFallbackCallReview(calls, lead));
+            String reasoning = optionalText(ai, "reasoning", "Model did not provide reasoning; review the transcript and call history.");
+            List<String> positiveSignals = optionalStringList(ai, "positiveSignals");
+            List<String> riskSignals = optionalStringList(ai, "riskSignals");
+            String nextBestAction = optionalText(ai, "nextBestAction", "Review the most recent call transcript and schedule a follow-up.");
+
+            return Map.of(
+                "leadVerdict", leadVerdict,
+                "suggestedLeadStatus", suggestedLeadStatus,
+                "confidence", confidence,
+                "summary", summary,
+                "reasoning", reasoning,
+                "positiveSignals", positiveSignals,
+                "riskSignals", riskSignals,
+                "nextBestAction", nextBestAction
+            );
+        } catch (Exception e) {
+            log.warn("Falling back to local call intelligence for lead {}: {}", lead != null ? lead.getId() : "unknown", e.getMessage());
+            return buildFallbackCallIntelligence(lead, calls);
+        }
+    }
+
+    private String buildCallIntelligencePrompt(Lead lead, List<Map<String, Object>> calls) {
         Map<String, Object> leadSnapshot = new LinkedHashMap<>();
         leadSnapshot.put("id", lead.getId());
         leadSnapshot.put("name", lead.getName());
@@ -311,7 +354,7 @@ public class AIService {
             callSummaries.add(row);
         }
 
-        String prompt = """
+        return """
             Analyze these Bolna call records and decide whether this is a genuine sales lead.
             Return strict JSON only with the following schema:
             {
@@ -337,38 +380,186 @@ public class AIService {
             Call history:
             %s
             """.formatted(toJson(leadSnapshot), toJson(callSummaries));
+    }
 
-        Map<String, Object> ai = callMistralJson(
-            "You are a CRM voice-call intelligence analyst. Evaluate call transcripts and determine lead quality from the conversation history.",
-            prompt,
-            1200,
-            0.2
-        );
+    private List<Map<String, Object>> buildFallbackInsights() {
+        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
+        long total = leads.size();
+        long qualified = leads.stream().filter(lead -> lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION).count();
+        long won = leads.stream().filter(lead -> lead.getStatus() == Lead.LeadStatus.WON).count();
+        long stale = leads.stream().filter(this::isStaleLead).count();
 
-        String leadVerdict = requireEnumOrDefault(ai, "leadVerdict", List.of("GENUINE", "NOT_GENUINE", "UNCERTAIN"), "UNCERTAIN");
-        String suggestedLeadStatus = requireEnumOrDefault(
-            ai,
-            "suggestedLeadStatus",
-            List.of("NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"),
-            lead.getStatus() != null ? lead.getStatus().name() : "NEW"
+        Map<String, Long> sourceCounts = new LinkedHashMap<>();
+        for (Lead lead : leads) {
+            String source = lead.getSource() != null ? lead.getSource().name().toLowerCase(Locale.ROOT) : "unknown";
+            sourceCounts.put(source, sourceCounts.getOrDefault(source, 0L) + 1);
+        }
+        Map.Entry<String, Long> topSource = sourceCounts.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .orElse(Map.entry("unknown", 0L));
+
+        List<Map<String, Object>> insights = new ArrayList<>();
+        insights.add(Map.of(
+            "id", 1,
+            "type", "prediction",
+            "title", "Qualified pipeline momentum",
+            "body", qualified + " of " + total + " leads are already qualified or beyond, and " + won + " have closed won.",
+            "action", "View Profile"
+        ));
+        insights.add(Map.of(
+            "id", 2,
+            "type", "warning",
+            "title", "Stale follow-ups need attention",
+            "body", stale + " leads have not been touched recently and are at risk of cooling off.",
+            "action", "Schedule Call"
+        ));
+        insights.add(Map.of(
+            "id", 3,
+            "type", "opportunity",
+            "title", "Strongest lead source",
+            "body", "Your most active source is " + topSource.getKey() + " with " + topSource.getValue() + " live leads.",
+            "action", "Plan Campaign"
+        ));
+        insights.add(Map.of(
+            "id", 4,
+            "type", "insight",
+            "title", "Re-engagement opportunity",
+            "body", "Many active prospects still need a follow-up touch. A quick re-engagement sequence can recover momentum.",
+            "action", "Send Follow-up"
+        ));
+        return insights;
+    }
+
+    private List<String> buildFallbackActions(String leadId) {
+        Optional<Lead> leadOpt = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT);
+        Lead lead = leadOpt.orElse(null);
+        if (lead == null) {
+            return List.of(
+                "Review the lead record and confirm the next contact channel.",
+                "Check recent activity for any missed responses.",
+                "Assign a follow-up owner before reaching out again.",
+                "Log the lead status update after the next touch."
+            );
+        }
+
+        String leadName = lead.getName() != null && !lead.getName().isBlank() ? lead.getName().trim() : "this lead";
+        String status = lead.getStatus() != null ? lead.getStatus().name().toLowerCase(Locale.ROOT) : "new";
+        return List.of(
+            "Call " + leadName + " and confirm the current buying timeline.",
+            "Send a short follow-up referencing the current " + status + " stage.",
+            "Capture objections and update the lead status after the conversation.",
+            "Move the opportunity forward once intent is confirmed."
         );
-        int confidence = requireIntOrDefault(ai, "confidence", 0, 100, 0);
-        String summary = optionalText(ai, "summary", buildFallbackCallReview(callSummaries, lead));
-        String reasoning = optionalText(ai, "reasoning", "Model did not provide reasoning; review the transcript and call history.");
-        List<String> positiveSignals = optionalStringList(ai, "positiveSignals");
-        List<String> riskSignals = optionalStringList(ai, "riskSignals");
-        String nextBestAction = optionalText(ai, "nextBestAction", "Review the most recent call transcript and schedule a follow-up.");
+    }
+
+    private Map<String, Object> buildFallbackCallIntelligence(Lead lead, List<Map<String, Object>> calls) {
+        List<Map<String, Object>> safeCalls = calls == null ? List.of() : calls;
+        Map<String, Object> latest = safeCalls.isEmpty() ? Map.of() : safeCalls.get(0);
+        String transcript = trim(stringValue(latest.get("transcript")));
+        String summary = trim(stringValue(latest.get("summary")));
+        String outcome = trim(stringValue(latest.get("outcome")));
+        String status = trim(stringValue(latest.get("status")));
+
+        List<String> positiveSignals = new ArrayList<>();
+        List<String> riskSignals = new ArrayList<>();
+        String verdict = "UNCERTAIN";
+        int confidence = 25;
+        String nextBestAction = "Review the latest call and schedule a follow-up.";
+
+        boolean hasConversation = !transcript.isBlank() || containsAny(summary, List.of("demo", "pricing", "callback", "follow up", "follow-up", "budget", "interested"));
+        boolean connected = containsAny(outcome, List.of("connected", "answered", "completed", "success")) || containsAny(status, List.of("connected", "completed"));
+        boolean noAnswerOnly = !hasConversation && safeCalls.stream().allMatch(call -> containsAny(stringValue(call.get("outcome")), List.of("no_answer", "no answer", "failed", "voicemail", "busy")));
+
+        if (hasConversation || connected) {
+            verdict = "GENUINE";
+            confidence = transcript.isBlank() ? 72 : 88;
+            nextBestAction = "Follow up with a tailored proposal and confirm the next step.";
+            positiveSignals.add(transcript.isBlank() ? "Connected conversation captured" : "Transcript shows active conversation");
+            if (containsAny(transcript, List.of("pricing", "budget"))) {
+                positiveSignals.add("Discussed pricing or budget");
+                nextBestAction = "Send pricing details and propose the next meeting.";
+            }
+            if (containsAny(transcript, List.of("demo", "meeting", "callback", "follow up", "follow-up"))) {
+                positiveSignals.add("Requested a demo or callback");
+            }
+            if (lead != null && lead.getStatus() != null && (lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION)) {
+                nextBestAction = "Move the deal forward in the pipeline and follow up on the agreed next step.";
+            }
+        } else if (noAnswerOnly) {
+            verdict = "NOT_GENUINE";
+            confidence = 78;
+            riskSignals.add("Only no-answer or failed call attempts were captured");
+            riskSignals.add("No transcript or connected conversation is available");
+            nextBestAction = "Retry the call once more or switch to another contact channel.";
+        } else {
+            riskSignals.add("Call data is incomplete");
+            riskSignals.add("No strong buying intent captured yet");
+        }
+
+        String fallbackStatus = lead != null && lead.getStatus() != null ? lead.getStatus().name() : "NEW";
+        if ("GENUINE".equals(verdict)) {
+            fallbackStatus = switch (lead != null && lead.getStatus() != null ? lead.getStatus() : Lead.LeadStatus.NEW) {
+                case NEW, CONTACTED -> "QUALIFIED";
+                case QUALIFIED -> "PROPOSAL";
+                case PROPOSAL -> "NEGOTIATION";
+                case NEGOTIATION -> "NEGOTIATION";
+                case WON, LOST -> lead.getStatus().name();
+            };
+        } else if ("NOT_GENUINE".equals(verdict) && lead != null && lead.getStatus() != Lead.LeadStatus.WON) {
+            fallbackStatus = "LOST";
+        }
+
+        String callReviewSummary = buildFallbackCallReview(safeCalls, lead);
+        String summaryText = !summary.isBlank()
+            ? summary
+            : (hasConversation
+                ? "A connected conversation was captured, but the model output was unavailable. " + callReviewSummary
+                : callReviewSummary);
 
         return Map.of(
-            "leadVerdict", leadVerdict,
-            "suggestedLeadStatus", suggestedLeadStatus,
+            "leadVerdict", verdict,
+            "suggestedLeadStatus", fallbackStatus,
             "confidence", confidence,
-            "summary", summary,
-            "reasoning", reasoning,
+            "summary", summaryText,
+            "reasoning", hasConversation
+                ? "The fallback analyzer found conversation-level evidence in the available Bolna call data."
+                : "The fallback analyzer only found limited call evidence, so it kept the verdict conservative.",
             "positiveSignals", positiveSignals,
             "riskSignals", riskSignals,
             "nextBestAction", nextBestAction
         );
+    }
+
+    private boolean isStaleLead(Lead lead) {
+        LocalDateTime lastTouch = lead.getLastContactedAt() != null ? lead.getLastContactedAt() : lead.getCreatedAt();
+        return lastTouch != null && lastTouch.isBefore(LocalDateTime.now().minusDays(7));
+    }
+
+    private boolean containsAny(String value, List<String> terms) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String normalized = value.toLowerCase(Locale.ROOT);
+        for (String term : terms) {
+            if (term != null && !term.isBlank() && normalized.contains(term.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String stringValue(Object value) {
+        if (value == null) {
+            return "";
+        }
+        if (value instanceof String text) {
+            return text;
+        }
+        return String.valueOf(value);
+    }
+
+    private String trim(String value) {
+        return value == null ? "" : value.trim();
     }
 
     // ── Private helpers ───────────────────────────────────────────
