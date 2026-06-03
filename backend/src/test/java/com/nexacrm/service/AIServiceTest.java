@@ -92,4 +92,26 @@ class AIServiceTest {
         assertFalse(((List<?>) analysis.get("positiveSignals")).isEmpty());
         assertEquals(0, ((List<?>) analysis.get("riskSignals")).size());
     }
+
+    @Test
+    void chat_shouldFallbackToLiveCRMAdviceWhenModelIsUnavailable() {
+        Lead lead = Lead.builder()
+            .name("Priority Lead")
+            .status(Lead.LeadStatus.QUALIFIED)
+            .build();
+        lead.setId("lead-priority");
+        lead.setAiScoreValue(88);
+        lead.setTenantId(1L);
+
+        when(leadRepository.findByTenantIdAndDeletedFalse(1L))
+            .thenReturn(List.of(lead));
+
+        String response = aiService.chat(List.of(Map.of(
+            "role", "user",
+            "content", "Which leads should I prioritize today?"
+        )));
+
+        assertTrue(response.toLowerCase().contains("prioritize"));
+        assertTrue(response.contains("Priority Lead"));
+    }
 }

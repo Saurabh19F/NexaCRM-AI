@@ -69,7 +69,12 @@ public class AIService {
         ));
         payloadMessages.addAll(safeMessages);
 
-        return callMistralText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
+        try {
+            return callMistralText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
+        } catch (Exception ex) {
+            log.warn("Falling back to local AI chat response: {}", ex.getMessage());
+            return buildFallbackChatResponse(safeMessages);
+        }
     }
 
     // ── Lead Scoring ──────────────────────────────────────────────
@@ -94,17 +99,29 @@ public class AIService {
             %s
             """.formatted(buildLeadPromptData(lead));
 
-        Map<String, Object> ai = callMistralJson(
-            "You are a CRM lead scoring analyst. Output only valid JSON.",
-            prompt,
-            500,
-            0.2
-        );
-
-        String scoreLabel = requireEnum(ai, "scoreLabel", List.of("HOT", "WARM", "COLD"));
-        int scoreValue = requireInt(ai, "scoreValue", 0, 99);
-        String reasoning = requireText(ai, "reasoning");
-        String nextAction = requireText(ai, "nextAction");
+        String scoreLabel;
+        int scoreValue;
+        String reasoning;
+        String nextAction;
+        try {
+            Map<String, Object> ai = callMistralJson(
+                "You are a CRM lead scoring analyst. Output only valid JSON.",
+                prompt,
+                500,
+                0.2
+            );
+            scoreLabel = requireEnum(ai, "scoreLabel", List.of("HOT", "WARM", "COLD"));
+            scoreValue = requireInt(ai, "scoreValue", 0, 99);
+            reasoning = requireText(ai, "reasoning");
+            nextAction = requireText(ai, "nextAction");
+        } catch (Exception ex) {
+            log.warn("Falling back to local lead scoring for lead {}: {}", leadId, ex.getMessage());
+            Map<String, Object> fallback = buildFallbackLeadScore(lead);
+            scoreLabel = String.valueOf(fallback.get("score"));
+            scoreValue = ((Number) fallback.get("scoreValue")).intValue();
+            reasoning = String.valueOf(fallback.get("reasoning"));
+            nextAction = String.valueOf(fallback.get("nextAction"));
+        }
 
         // Persist back to DB
         lead.setAiScoreValue(scoreValue);
@@ -152,21 +169,33 @@ public class AIService {
             DealId: %s
             """.formatted(dealId);
 
-        Map<String, Object> ai = callMistralJson(
-            "You are a B2B sales forecasting assistant. Output only valid JSON.",
-            prompt,
-            700,
-            0.3
-        );
+        try {
+            Map<String, Object> ai = callMistralJson(
+                "You are a B2B sales forecasting assistant. Output only valid JSON.",
+                prompt,
+                700,
+                0.3
+            );
 
-        return Map.of(
-            "dealId", dealId,
-            "winProbability", requireInt(ai, "winProbability", 0, 100),
-            "confidence", requireEnum(ai, "confidence", List.of("LOW", "MEDIUM", "HIGH")),
-            "keyFactors", requireStringList(ai, "keyFactors"),
-            "riskFactors", requireStringList(ai, "riskFactors"),
-            "recommendation", requireText(ai, "recommendation")
-        );
+            return Map.of(
+                "dealId", dealId,
+                "winProbability", requireInt(ai, "winProbability", 0, 100),
+                "confidence", requireEnum(ai, "confidence", List.of("LOW", "MEDIUM", "HIGH")),
+                "keyFactors", requireStringList(ai, "keyFactors"),
+                "riskFactors", requireStringList(ai, "riskFactors"),
+                "recommendation", requireText(ai, "recommendation")
+            );
+        } catch (Exception ex) {
+            log.warn("Falling back to local deal prediction for deal {}: {}", dealId, ex.getMessage());
+            return Map.of(
+                "dealId", dealId,
+                "winProbability", 55,
+                "confidence", "MEDIUM",
+                "keyFactors", List.of("Live AI model unavailable", "Using conservative default forecast"),
+                "riskFactors", List.of("No model response available"),
+                "recommendation", "Review the opportunity manually and keep the next customer touch active."
+            );
+        }
     }
 
     // ── Email Generation ──────────────────────────────────────────
@@ -196,14 +225,19 @@ public class AIService {
                 keyPoints.isBlank() ? "No extra context" : keyPoints
             );
 
-        return callMistralText(
-            List.of(
-                Map.of("role", "system", "content", "You are an expert B2B sales copywriter."),
-                Map.of("role", "user", "content", userPrompt)
-            ),
-            900,
-            0.8
-        );
+        try {
+            return callMistralText(
+                List.of(
+                    Map.of("role", "system", "content", "You are an expert B2B sales copywriter."),
+                    Map.of("role", "user", "content", userPrompt)
+                ),
+                900,
+                0.8
+            );
+        } catch (Exception ex) {
+            log.warn("Falling back to local email generation: {}", ex.getMessage());
+            return buildFallbackEmail(leadName, company, emailType, tone, keyPoints);
+        }
     }
 
     // ── Insights ─────────────────────────────────────────────────
@@ -276,14 +310,19 @@ public class AIService {
             Entity id: %s
             """.formatted(entityType, entityId);
 
-        return callMistralText(
-            List.of(
-                Map.of("role", "system", "content", "You are a CRM analyst. Be specific and concise."),
-                Map.of("role", "user", "content", prompt)
-            ),
-            500,
-            0.4
-        );
+        try {
+            return callMistralText(
+                List.of(
+                    Map.of("role", "system", "content", "You are a CRM analyst. Be specific and concise."),
+                    Map.of("role", "user", "content", prompt)
+                ),
+                500,
+                0.4
+            );
+        } catch (Exception ex) {
+            log.warn("Falling back to local entity summary for {} {}: {}", entityType, entityId, ex.getMessage());
+            return "Summary unavailable from the AI model right now. Entity type: %s, entity id: %s. Please review the record directly in CRM.".formatted(entityType, entityId);
+        }
     }
 
     public Map<String, Object> analyzeCallIntelligence(Lead lead, List<Map<String, Object>> calls) {
@@ -528,6 +567,181 @@ public class AIService {
             "riskSignals", riskSignals,
             "nextBestAction", nextBestAction
         );
+    }
+
+    private Map<String, Object> buildFallbackLeadScore(Lead lead) {
+        Lead.LeadScore score = lead.getScore() != null ? lead.getScore() : Lead.LeadScore.COLD;
+        Lead.LeadStatus status = lead.getStatus() != null ? lead.getStatus() : Lead.LeadStatus.NEW;
+
+        String scoreLabel;
+        int scoreValue;
+        String reasoning;
+        String nextAction;
+
+        switch (status) {
+            case WON -> {
+                scoreLabel = "HOT";
+                scoreValue = 95;
+                reasoning = "The lead is already marked won, so it is the strongest possible opportunity.";
+                nextAction = "Keep the relationship warm and look for expansion or referral opportunities.";
+            }
+            case NEGOTIATION, PROPOSAL, QUALIFIED -> {
+                scoreLabel = "HOT";
+                scoreValue = 82;
+                reasoning = "The lead is already in the sales pipeline and is ready for active follow-up.";
+                nextAction = "Move the opportunity forward with the agreed next step.";
+            }
+            case CONTACTED -> {
+                scoreLabel = "WARM";
+                scoreValue = lead.getAiScoreValue() != null ? Math.max(55, Math.min(79, lead.getAiScoreValue())) : 68;
+                reasoning = "The lead has been contacted and is showing some engagement.";
+                nextAction = "Send a concise follow-up and confirm buying intent.";
+            }
+            case LOST -> {
+                scoreLabel = "COLD";
+                scoreValue = 10;
+                reasoning = "The lead is already marked lost.";
+                nextAction = "Do not prioritize unless the customer re-engages.";
+            }
+            default -> {
+                if (lead.getAiScoreValue() != null && lead.getAiScoreValue() >= 80) {
+                    scoreLabel = "HOT";
+                    scoreValue = lead.getAiScoreValue();
+                    reasoning = "Fallback heuristic used the lead's existing AI score.";
+                    nextAction = "Call the lead and confirm the next buying step.";
+                } else if (score == Lead.LeadScore.HOT) {
+                    scoreLabel = "HOT";
+                    scoreValue = 85;
+                    reasoning = "The lead was already marked hot in CRM.";
+                    nextAction = "Schedule a quick follow-up while the lead is still warm.";
+                } else if (score == Lead.LeadScore.WARM) {
+                    scoreLabel = "WARM";
+                    scoreValue = 65;
+                    reasoning = "The lead has moderate engagement and needs follow-up.";
+                    nextAction = "Send a short follow-up and qualify the opportunity.";
+                } else {
+                    scoreLabel = "COLD";
+                    scoreValue = 35;
+                    reasoning = "The lead has limited evidence of high intent in CRM.";
+                    nextAction = "Nurture the lead and watch for a stronger signal.";
+                }
+            }
+        }
+
+        return Map.of(
+            "score", scoreLabel,
+            "scoreValue", scoreValue,
+            "reasoning", reasoning,
+            "nextAction", nextAction
+        );
+    }
+
+    private String buildFallbackEmail(String leadName, String company, String emailType, String tone, String keyPoints) {
+        String subject = switch (emailType.toLowerCase(Locale.ROOT)) {
+            case "proposal" -> "Subject: Proposal for " + (company.isBlank() ? "your team" : company);
+            case "meeting request" -> "Subject: Quick meeting request";
+            case "introduction" -> "Subject: Nice to connect";
+            case "re-engagement" -> "Subject: Let’s reconnect";
+            default -> "Subject: Following up on your CRM enquiry";
+        };
+
+        String body = """
+            Hi %s,
+
+            Thanks for reaching out. I wanted to follow up and keep things moving in the right direction for %s.
+
+            %s
+
+            %s
+
+            Best regards,
+            NexaCRM Team
+            """.formatted(
+                leadName.isBlank() ? "there" : leadName,
+                company.isBlank() ? "your business" : company,
+                keyPoints.isBlank() ? "I’d be happy to share the next steps, pricing, or a demo based on what matters most to you." : keyPoints,
+                tone.isBlank() ? "" : "Tone: " + tone
+            ).trim();
+
+        return subject + "\n\n" + body;
+    }
+
+    private String buildFallbackChatResponse(List<Map<String, String>> messages) {
+        String latestUserMessage = "";
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Map<String, String> message = messages.get(i);
+            if (!"user".equalsIgnoreCase(String.valueOf(message.get("role")))) {
+                continue;
+            }
+            latestUserMessage = trim(String.valueOf(message.getOrDefault("content", "")));
+            if (!latestUserMessage.isBlank()) {
+                break;
+            }
+        }
+
+        String normalized = latestUserMessage.toLowerCase(Locale.ROOT);
+        if (normalized.contains("prioritize") || normalized.contains("today")) {
+            List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
+            List<Lead> priority = leads.stream()
+                .filter(lead -> lead.getStatus() != Lead.LeadStatus.WON && lead.getStatus() != Lead.LeadStatus.LOST)
+                .sorted((left, right) -> {
+                    int leftRank = leadPriorityRank(left);
+                    int rightRank = leadPriorityRank(right);
+                    if (leftRank != rightRank) {
+                        return Integer.compare(leftRank, rightRank);
+                    }
+                    int leftScore = left.getAiScoreValue() != null ? left.getAiScoreValue() : 0;
+                    int rightScore = right.getAiScoreValue() != null ? right.getAiScoreValue() : 0;
+                    return Integer.compare(rightScore, leftScore);
+                })
+                .limit(3)
+                .toList();
+
+            if (priority.isEmpty()) {
+                return "I couldn’t find any active leads to prioritize right now.";
+            }
+
+            StringBuilder response = new StringBuilder("Based on your live CRM data, prioritize these leads today:\n");
+            for (int i = 0; i < priority.size(); i++) {
+                Lead lead = priority.get(i);
+                response.append(i + 1)
+                    .append(". ")
+                    .append(lead.getName() != null ? lead.getName() : "Unnamed lead")
+                    .append(" — ")
+                    .append(lead.getStatus() != null ? lead.getStatus().name() : "NEW")
+                    .append(lead.getCompany() != null && !lead.getCompany().isBlank() ? " at " + lead.getCompany() : "")
+                    .append(lead.getAiScoreValue() != null ? " (AI score " + lead.getAiScoreValue() + ")" : "")
+                    .append("\n");
+            }
+            response.append("If you want, I can also break this into hot, warm, and follow-up lists.");
+            return response.toString().trim();
+        }
+
+        if (normalized.contains("pipeline")) {
+            long qualifiedCount = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
+                .filter(lead -> lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION)
+                .count();
+            return "Your live CRM currently has " + qualifiedCount + " pipeline-ready leads. If the Mistral model is unavailable, I can still help you triage the next best actions.";
+        }
+
+        if (normalized.contains("lead")) {
+            return "I’m running in fallback mode right now, but I can still help with live CRM data: ask me for lead priorities, pipeline status, or a follow-up plan.";
+        }
+
+        return "The AI model is temporarily unavailable, so I’m using live CRM data instead. Ask me about lead priorities, pipeline health, or next best actions.";
+    }
+
+    private int leadPriorityRank(Lead lead) {
+        Lead.LeadStatus status = lead.getStatus() != null ? lead.getStatus() : Lead.LeadStatus.NEW;
+        return switch (status) {
+            case NEGOTIATION -> 0;
+            case PROPOSAL -> 1;
+            case QUALIFIED -> 2;
+            case CONTACTED -> 3;
+            case NEW -> 4;
+            case WON -> 5;
+            case LOST -> 6;
+        };
     }
 
     private boolean isStaleLead(Lead lead) {
