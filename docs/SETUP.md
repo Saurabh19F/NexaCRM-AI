@@ -98,7 +98,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs at **http://localhost:3000**
+Frontend runs at **http://localhost:5173**
 
 ### Build for Production
 
@@ -111,7 +111,7 @@ npm run build
 
 ## 5. First Login
 
-Open **http://localhost:3000** and sign in with:
+Open **http://localhost:5173** and sign in with:
 
 | Field | Value |
 |-------|-------|

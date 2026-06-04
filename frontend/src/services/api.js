@@ -12,6 +12,13 @@ const api = axios.create({
   withCredentials: true,
 })
 
+const authClient = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: LOGIN_TIMEOUT_MS,
+  withCredentials: true,
+})
+
 const normalizeJwtToken = (token) => {
   if (typeof token !== 'string') return null
   const trimmed = token.trim()
@@ -19,6 +26,42 @@ const normalizeJwtToken = (token) => {
   const raw = trimmed.toLowerCase().startsWith('bearer ') ? trimmed.slice(7).trim() : trimmed
   if (raw.split('.').length === 3 && !raw.includes(' ')) return raw
   return null
+}
+
+const readTokenFromAuthResponse = (payload) => {
+  if (!payload || typeof payload !== 'object') return null
+  return normalizeJwtToken(
+    payload.accessToken ??
+    payload.token ??
+    payload.access_token ??
+    payload.jwt ??
+    null
+  )
+}
+
+let refreshPromise = null
+
+const refreshSession = async () => {
+  const { refreshToken } = useAuthStore.getState()
+  const jwt = normalizeJwtToken(refreshToken)
+  if (!jwt) return null
+
+  if (!refreshPromise) {
+    refreshPromise = authClient
+      .post('/auth/refresh', { refreshToken: jwt })
+      .then((res) => res.data)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+
+  const refreshed = await refreshPromise
+  const nextAccessToken = readTokenFromAuthResponse(refreshed)
+  const nextRefreshToken = normalizeJwtToken(refreshed?.refreshToken) ?? jwt
+  if (!nextAccessToken) return null
+
+  useAuthStore.getState().setTokens(nextAccessToken, nextRefreshToken)
+  return nextAccessToken
 }
 
 const parseApiError = (err) => {
@@ -68,11 +111,26 @@ api.interceptors.request.use(
 // Response interceptor — handle 401
 api.interceptors.response.use(
   (res) => res.data,
-  (err) => {
+  async (err) => {
+    const originalRequest = err.config || {}
     const isAuthEndpoint = err.config?.url?.includes('/auth/')
-    if (err.response?.status === 401 && !isAuthEndpoint) {
+    if (err.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
+      originalRequest._retry = true
+      try {
+        const nextToken = await refreshSession()
+        if (nextToken) {
+          originalRequest.headers = {
+            ...(originalRequest.headers || {}),
+            Authorization: `Bearer ${nextToken}`,
+          }
+          return api(originalRequest)
+        }
+      } catch {
+        // fall through to logout below
+      }
+
       useAuthStore.getState().logout()
-      window.location.assign('/login')
+      if (typeof window !== 'undefined') window.location.assign('/login')
     }
     return Promise.reject({
       message: parseApiError(err),
@@ -87,11 +145,11 @@ api.interceptors.response.use(
 //  Auth
 // ──────────────────────────────────────────
 export const authAPI = {
-  login:  (data) => api.post('/auth/login', data, { timeout: LOGIN_TIMEOUT_MS }),
+  login:  (data) => authClient.post('/auth/login', data),
   logout: ()     => api.post('/auth/logout'),
   me:     ()     => api.get('/auth/me'),
   updateMe:(data)=> api.put('/auth/me', data),
-  refresh:(refreshToken) => api.post('/auth/refresh', refreshToken ? { refreshToken } : {}),
+  refresh:(refreshToken) => authClient.post('/auth/refresh', refreshToken ? { refreshToken } : {}),
 }
 
 // ──────────────────────────────────────────
@@ -219,11 +277,24 @@ export const invoicesAPI = {
 // ──────────────────────────────────────────
 export const analyticsAPI = {
   getDashboard:   (params) => api.get('/analytics/dashboard', { params }),
+  getDashboardWidgets: (params) => api.get('/analytics/dashboard/widgets', { params }),
   getRevenue:     (params) => api.get('/analytics/revenue', { params }),
   getConversion:  (params) => api.get('/analytics/conversion', { params }),
   getTeam:        (params) => api.get('/analytics/team', { params }),
   getCampaigns:   (params) => api.get('/analytics/campaigns', { params }),
   exportReport:   (params) => api.get('/analytics/export', { params, responseType: 'blob' }),
+}
+
+// ──────────────────────────────────────────
+//  Dashboard / Lead Conversion
+// ──────────────────────────────────────────
+export const dashboardAPI = {
+  getLeadConversionSummary:   (params) => api.get('/dashboard/lead-conversion/summary', { params }),
+  getLeadConversionFunnel:    (params) => api.get('/dashboard/lead-conversion/funnel', { params }),
+  getLeadConversionEmployees: (params) => api.get('/dashboard/lead-conversion/employees', { params }),
+  getLeadConversionSources:   (params) => api.get('/dashboard/lead-conversion/sources', { params }),
+  getLeadConversionActivities:(params) => api.get('/dashboard/lead-conversion/activities', { params }),
+  getLeadConversionTrend:     (params) => api.get('/dashboard/lead-conversion/trend', { params }),
 }
 
 // ──────────────────────────────────────────

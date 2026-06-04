@@ -45,7 +45,7 @@ cd frontend && npm install && npm run dev
 # http://localhost:8080/api/calls/webhook
 ```
 
-Open **http://localhost:3000** → login with `saurabhke4@gmail.com` / `demo1234`
+Open **http://localhost:5173** → login with `saurabhke4@gmail.com` / `demo1234`
 
 ---
 

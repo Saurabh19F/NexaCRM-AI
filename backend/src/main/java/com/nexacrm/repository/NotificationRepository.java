@@ -17,4 +17,6 @@ public interface NotificationRepository extends MongoRepository<Notification, St
     List<Notification> findByUser_IdAndIsReadFalseAndDeletedFalse(String userId);
 
     Optional<Notification> findByIdAndUser_IdAndDeletedFalse(String id, String userId);
+
+    boolean existsByUser_IdAndEntityTypeAndEntityIdAndTitleAndDeletedFalse(String userId, String entityType, String entityId, String title);
 }

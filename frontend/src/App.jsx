@@ -1,26 +1,32 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { useEffect, Component } from 'react'
+import { useEffect, Component, Suspense, lazy } from 'react'
 import MainLayout from './components/layout/MainLayout'
 import AuthLayout from './components/layout/AuthLayout'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import LeadsPage from './pages/LeadsPage'
-import KanbanPage from './pages/KanbanPage'
-import CustomersPage from './pages/CustomersPage'
-import CommunicationPage from './pages/CommunicationPage'
-import AIEnginePage from './pages/AIEnginePage'
-import AutomationPage from './pages/AutomationPage'
-import InvoicesPage from './pages/InvoicesPage'
-import AnalyticsPage from './pages/AnalyticsPage'
-import TeamPage from './pages/TeamPage'
-import SettingsPage from './pages/SettingsPage'
-import IntegrationsPage from './pages/IntegrationsPage'
-import ProfilePage from './pages/ProfilePage'
 import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
 import { authAPI } from './services/api'
 import { PERMISSIONS, hasPermission } from './utils/permissions'
+
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const LeadsPage = lazy(() => import('./pages/LeadsPage'))
+const KanbanPage = lazy(() => import('./pages/KanbanPage'))
+const CustomersPage = lazy(() => import('./pages/CustomersPage'))
+const CommunicationPage = lazy(() => import('./pages/CommunicationPage'))
+const AIEnginePage = lazy(() => import('./pages/AIEnginePage'))
+const AutomationPage = lazy(() => import('./pages/AutomationPage'))
+const InvoicesPage = lazy(() => import('./pages/InvoicesPage'))
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
+const TeamPage = lazy(() => import('./pages/TeamPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+
+function RouteFallback() {
+  return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
+}
 
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null } }
@@ -57,13 +63,39 @@ function PermissionRoute({ permission, children }) {
   if (!authBootstrapped) {
     return <div className="min-h-screen grid place-items-center text-slate-500">Checking session...</div>
   }
-  return hasPermission(user, permission) ? children : <Navigate to="/dashboard" replace />
+  if (hasPermission(user, permission)) return children
+
+  return (
+    <div className="min-h-screen grid place-items-center bg-slate-50 dark:bg-slate-950 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center shadow-lg">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Access denied</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">You do not have access to this section</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Your account is signed in, but this workspace role cannot open the requested module.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.assign('/dashboard')}
+          className="btn-primary mt-5 w-full justify-center"
+        >
+          Go to dashboard
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export default function App() {
   const { theme } = useThemeStore()
   const { authBootstrapped, isAuthenticated, token, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
   const isDark = theme === 'dark'
+
+  useEffect(() => {
+    const supportedThemes = new Set(['light', 'dark', 'corporate'])
+    if (!supportedThemes.has(theme)) {
+      useThemeStore.getState().setTheme('corporate')
+    }
+  }, [theme])
 
   useEffect(() => {
     if (isDark) {
@@ -105,53 +137,56 @@ export default function App() {
   return (
     <ErrorBoundary>
     <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: isDark ? '#1e293b' : '#fff',
-            color: isDark ? '#f1f5f9' : '#0f172a',
-            border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-            borderRadius: '12px',
-            fontSize: '14px',
-            fontWeight: 500,
-          },
-        }}
-      />
-      <Routes>
-        {/* Auth routes */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<LoginPage />} />
-        </Route>
+      <Suspense fallback={<RouteFallback />}>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3500,
+            style: {
+              background: isDark ? '#1e293b' : '#fff',
+              color: isDark ? '#f1f5f9' : '#0f172a',
+              border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: 500,
+            },
+          }}
+        />
+        <Routes>
+          {/* Auth routes */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Route>
 
-        {/* App routes */}
-        <Route
-          element={
-            <PrivateRoute>
-              <MainLayout />
-            </PrivateRoute>
-          }
-        >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><DashboardPage /></PermissionRoute>} />
-          <Route path="/leads" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><LeadsPage /></PermissionRoute>} />
-          <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.DEALS_READ}><KanbanPage /></PermissionRoute>} />
-          <Route path="/customers" element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_READ}><CustomersPage /></PermissionRoute>} />
-          <Route path="/communication" element={<PermissionRoute permission={PERMISSIONS.COMMUNICATIONS_READ}><CommunicationPage /></PermissionRoute>} />
-          <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />
-          <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.WORKFLOWS_VIEW}><AutomationPage /></PermissionRoute>} />
-          <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
-          <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.ANALYTICS_VIEW}><AnalyticsPage /></PermissionRoute>} />
-          <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_VIEW}><TeamPage /></PermissionRoute>} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_VIEW}><IntegrationsPage /></PermissionRoute>} />
-          <Route path="/settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><SettingsPage /></PermissionRoute>} />
-        </Route>
+          {/* App routes */}
+          <Route
+            element={
+              <PrivateRoute>
+                <MainLayout />
+              </PrivateRoute>
+            }
+          >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><DashboardPage /></PermissionRoute>} />
+            <Route path="/leads" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><LeadsPage /></PermissionRoute>} />
+            <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.DEALS_READ}><KanbanPage /></PermissionRoute>} />
+            <Route path="/customers" element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_READ}><CustomersPage /></PermissionRoute>} />
+            <Route path="/communication" element={<PermissionRoute permission={PERMISSIONS.COMMUNICATIONS_READ}><CommunicationPage /></PermissionRoute>} />
+            <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />
+            <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.WORKFLOWS_VIEW}><AutomationPage /></PermissionRoute>} />
+            <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
+            <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.ANALYTICS_VIEW}><AnalyticsPage /></PermissionRoute>} />
+            <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_VIEW}><TeamPage /></PermissionRoute>} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_VIEW}><IntegrationsPage /></PermissionRoute>} />
+            <Route path="/settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><SettingsPage /></PermissionRoute>} />
+          </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
     </ErrorBoundary>
   )

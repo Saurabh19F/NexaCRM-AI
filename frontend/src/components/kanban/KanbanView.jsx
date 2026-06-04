@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSearchParams } from 'react-router-dom'
 import {
   DndContext, DragOverlay, closestCorners,
   useDroppable,
@@ -26,7 +27,7 @@ import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 const STAGES = [
   { key: 'new',         label: 'New',         color: 'bg-slate-400' },
   { key: 'contacted',   label: 'Contacted',   color: 'bg-brand-400' },
-  { key: 'qualified',   label: 'Qualified',   color: 'bg-purple-400' },
+  { key: 'qualified',   label: 'Qualified',   color: 'bg-brand-400' },
   { key: 'proposal',    label: 'Proposal',    color: 'bg-amber-400' },
   { key: 'negotiation', label: 'Negotiation', color: 'bg-orange-400' },
   { key: 'won',         label: 'Won',         color: 'bg-emerald-400' },
@@ -178,9 +179,9 @@ function DealCard({
       </div>
 
       {(deal.latestCallRecordingUrl || deal.latestCallSummary) && (
-        <div className="mt-2 rounded-xl border border-violet-200/80 dark:border-violet-800/50 bg-violet-50/80 dark:bg-violet-950/15 p-2">
+        <div className="mt-2 rounded-xl border border-brand-200/80 dark:border-brand-800/50 bg-brand-50/80 dark:bg-brand-950/15 p-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+            <p className="text-[10px] font-semibold text-brand-700 dark:text-brand-300 uppercase tracking-wide">
               Latest call
             </p>
             {deal.latestCallRecordingUrl && (
@@ -190,7 +191,7 @@ function DealCard({
                 rel="noreferrer"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 dark:text-violet-300 hover:underline"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 dark:text-brand-300 hover:underline"
                 title="Open recording"
               >
                 <PlayCircle className="w-3 h-3" /> Recording
@@ -199,7 +200,7 @@ function DealCard({
             )}
           </div>
           {deal.latestCallSummary && (
-            <p className="mt-1 text-[10px] text-violet-800/80 dark:text-violet-100/80 leading-relaxed line-clamp-2">
+            <p className="mt-1 text-[10px] text-brand-800/80 dark:text-brand-100/80 leading-relaxed line-clamp-2">
               {deal.latestCallSummary}
             </p>
           )}
@@ -333,6 +334,7 @@ export default function KanbanPage() {
   const { user } = useAuthStore()
   const { leads } = useLeadsStore()
   const { notifications } = useNotificationStore()
+  const [searchParams] = useSearchParams()
   const [deals, setDeals] = useState(EMPTY_STAGE_MAP)
   const [loadingDeals, setLoadingDeals] = useState(true)
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null)
@@ -364,6 +366,7 @@ export default function KanbanPage() {
   const mountedRef = useRef(true)
   const loadSeqRef = useRef(0)
   const lastNotificationIdRef = useRef(null)
+  const routeSearch = searchParams.get('search') ?? ''
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -374,6 +377,10 @@ export default function KanbanPage() {
     const allOwners = Object.values(deals).flat().map((d) => d.owner)
     return [...new Set(allOwners)]
   }, [deals])
+
+  useEffect(() => {
+    setSearch(routeSearch)
+  }, [routeSearch])
 
   const leadByCompany = useMemo(() => {
     const map = new Map()
@@ -830,6 +837,9 @@ export default function KanbanPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add deal"
             onClick={() => setShowAddModal(false)}
           >
             <motion.form

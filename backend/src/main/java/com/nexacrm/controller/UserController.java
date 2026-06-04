@@ -62,10 +62,6 @@ public class UserController {
     }
 
     private String formatRoleLabel(User.Role role) {
-        return switch (role) {
-            case ADMIN -> "Admin";
-            case MANAGER -> "Manager";
-            case SALES_EXEC -> "Sales Executive";
-        };
+        return User.getDisplayLabel(role);
     }
 }

@@ -15,7 +15,9 @@ import java.time.LocalDate;
 @CompoundIndexes({
     @CompoundIndex(name = "deal_tenant_deleted_idx", def = "{'tenant_id': 1, 'deleted': 1}"),
     @CompoundIndex(name = "deal_tenant_deleted_pipeline_stage_idx", def = "{'tenant_id': 1, 'deleted': 1, 'pipeline_id': 1, 'stage': 1}"),
-    @CompoundIndex(name = "deal_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}")
+    @CompoundIndex(name = "deal_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}"),
+    @CompoundIndex(name = "deal_tenant_deleted_owner_stage_idx", def = "{'tenant_id': 1, 'deleted': 1, 'owner': 1, 'stage': 1, 'createdAt': -1}"),
+    @CompoundIndex(name = "deal_tenant_lead_idx", def = "{'tenant_id': 1, 'lead': 1}", unique = true, sparse = true)
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Deal extends BaseEntity {

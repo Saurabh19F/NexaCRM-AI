@@ -13,6 +13,7 @@ import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.repository.WorkflowRepository;
 import com.nexacrm.repository.WorkflowRunLogRepository;
+import com.nexacrm.security.TenantContext;
 import com.nexacrm.service.CommunicationService;
 import com.nexacrm.websocket.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
@@ -21,14 +22,19 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -50,7 +56,6 @@ import java.util.regex.Pattern;
 @Slf4j
 public class WorkflowEngine {
 
-    private static final Long DEFAULT_TENANT = 1L;
     private static final List<String> STAGES = List.of("NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST");
 
     private final WorkflowRepository workflowRepository;
@@ -61,6 +66,7 @@ public class WorkflowEngine {
     private final UserRepository userRepository;
     private final CommunicationService communicationService;
     private final NotificationPublisher notificationPublisher;
+    private final MongoTemplate mongoTemplate;
 
     @Async
     public void processEvent(String trigger, Map<String, Object> context) {
@@ -68,7 +74,7 @@ public class WorkflowEngine {
         log.info("Processing automation trigger: {} with context keys: {}", trigger, safeContext.keySet());
 
         var activeWorkflows = workflowRepository.findByTenantIdAndDeletedFalseAndStatus(
-            DEFAULT_TENANT,
+            tenantId(),
             Workflow.WorkflowStatus.ACTIVE
         );
         if (activeWorkflows.isEmpty()) return;
@@ -249,7 +255,7 @@ public class WorkflowEngine {
 
     private ActionResult setDealStage(String dealId, String targetStage) {
         if (!StringUtils.hasText(dealId)) return new ActionResult(false, "set_deal_stage skipped: dealId missing in context");
-        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(dealId, DEFAULT_TENANT).orElse(null);
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(dealId, tenantId()).orElse(null);
         if (deal == null) return new ActionResult(false, "set_deal_stage skipped: deal not found");
         try {
             Deal.DealStage stage = Deal.DealStage.valueOf(targetStage);
@@ -263,7 +269,7 @@ public class WorkflowEngine {
 
     private ActionResult setLeadStatus(String leadId, String statusText) {
         if (!StringUtils.hasText(leadId)) return new ActionResult(false, "set_lead_status skipped: leadId missing in context");
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT).orElse(null);
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId()).orElse(null);
         if (lead == null) return new ActionResult(false, "set_lead_status skipped: lead not found");
         try {
             Lead.LeadStatus status = Lead.LeadStatus.valueOf(statusText);
@@ -277,7 +283,7 @@ public class WorkflowEngine {
 
     private ActionResult setLeadScore(String leadId, String scoreText) {
         if (!StringUtils.hasText(leadId)) return new ActionResult(false, "set_lead_score skipped: leadId missing in context");
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT).orElse(null);
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId()).orElse(null);
         if (lead == null) return new ActionResult(false, "set_lead_score skipped: lead not found");
         try {
             Lead.LeadScore score = Lead.LeadScore.valueOf(scoreText);
@@ -291,19 +297,19 @@ public class WorkflowEngine {
 
     private ActionResult assignLead(String leadId, String assigneeToken) {
         if (!StringUtils.hasText(leadId)) return new ActionResult(false, "assign_lead skipped: leadId missing in context");
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT).orElse(null);
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId()).orElse(null);
         if (lead == null) return new ActionResult(false, "assign_lead skipped: lead not found");
 
         User assignee = null;
         if (StringUtils.hasText(assigneeToken)) {
             assignee = assigneeToken.contains("@")
-                ? userRepository.findByEmailAndTenantIdAndDeletedFalse(assigneeToken, DEFAULT_TENANT).orElse(null)
-                : userRepository.findByIdAndTenantIdAndDeletedFalse(assigneeToken, DEFAULT_TENANT).orElse(null);
+                ? userRepository.findByEmailAndTenantIdAndDeletedFalse(assigneeToken, tenantId()).orElse(null)
+                : userRepository.findByIdAndTenantIdAndDeletedFalse(assigneeToken, tenantId()).orElse(null);
         }
         if (assignee == null) {
-            assignee = userRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
+            assignee = userRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
                 .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
-                .filter(u -> u.getRole() == User.Role.SALES_EXEC || u.getRole() == User.Role.MANAGER)
+                .filter(u -> User.isSalesLike(u.getRole()) || u.getRole() == User.Role.MANAGER)
                 .findFirst()
                 .orElse(null);
         }
@@ -359,6 +365,10 @@ public class WorkflowEngine {
             "timestamp", System.currentTimeMillis()
         ));
         return new ActionResult(true, "Notification broadcasted");
+    }
+
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
     }
 
     private String waitStep(String waitText) {
@@ -418,8 +428,31 @@ public class WorkflowEngine {
             .message(message)
             .runAt(LocalDateTime.now())
             .build();
-        runLog.setTenantId(DEFAULT_TENANT);
+        runLog.setTenantId(tenantId());
         workflowRunLogRepository.save(runLog);
+    }
+
+    private List<Long> resolveTenantIds() {
+        LinkedHashSet<Long> tenantIds = new LinkedHashSet<>();
+        tenantIds.addAll(distinctTenantIds("workflows"));
+        tenantIds.addAll(distinctTenantIds("leads"));
+        tenantIds.addAll(distinctTenantIds("invoices"));
+        tenantIds.addAll(distinctTenantIds("deals"));
+        return tenantIds.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    private List<Long> distinctTenantIds(String collectionName) {
+        try {
+            return mongoTemplate.findDistinct(
+                new Query(Criteria.where("deleted").is(false)),
+                "tenant_id",
+                collectionName,
+                Long.class
+            );
+        } catch (Exception ex) {
+            log.warn("Unable to enumerate tenant ids from {}: {}", collectionName, ex.getMessage());
+            return List.of();
+        }
     }
 
     private String normalize(String value) {
@@ -436,56 +469,77 @@ public class WorkflowEngine {
     @Scheduled(cron = "0 0 * * * *")
     public void checkFollowUps() {
         LocalDateTime threshold = LocalDateTime.now().minus(24, ChronoUnit.HOURS);
-        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
-            .filter(lead -> lead.getStatus() != Lead.LeadStatus.WON && lead.getStatus() != Lead.LeadStatus.LOST)
-            .filter(lead -> lead.getLastContactedAt() == null || lead.getLastContactedAt().isBefore(threshold))
-            .toList();
+        for (Long tenant : resolveTenantIds()) {
+            TenantContext.setCurrentTenantId(tenant);
+            try {
+                List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tenant).stream()
+                    .filter(lead -> lead.getStatus() != Lead.LeadStatus.WON && lead.getStatus() != Lead.LeadStatus.LOST)
+                    .filter(lead -> lead.getLastContactedAt() == null || lead.getLastContactedAt().isBefore(threshold))
+                    .toList();
 
-        for (Lead lead : leads) {
-            if (!StringUtils.hasText(lead.getId())) continue;
-            processEvent("FOLLOW_UP_DUE", Map.of(
-                "leadId", lead.getId(),
-                "leadEmail", normalize(lead.getEmail()),
-                "status", lead.getStatus() != null ? lead.getStatus().name() : "",
-                "lastContactedAt", lead.getLastContactedAt() != null ? lead.getLastContactedAt().toString() : ""
-            ));
+                for (Lead lead : leads) {
+                    if (!StringUtils.hasText(lead.getId())) continue;
+                    processEvent("FOLLOW_UP_DUE", Map.of(
+                        "leadId", lead.getId(),
+                        "leadEmail", normalize(lead.getEmail()),
+                        "status", lead.getStatus() != null ? lead.getStatus().name() : "",
+                        "lastContactedAt", lead.getLastContactedAt() != null ? lead.getLastContactedAt().toString() : ""
+                    ));
+                }
+                log.info("Follow-up sweep complete for tenant {}. Triggered {} FOLLOW_UP_DUE events", tenant, leads.size());
+            } finally {
+                TenantContext.clear();
+            }
         }
-        log.info("Follow-up sweep complete. Triggered {} FOLLOW_UP_DUE events", leads.size());
     }
 
     @Scheduled(cron = "0 0 9 * * *")
     public void checkOverdueInvoices() {
         var overdueStatuses = List.of(Invoice.InvoiceStatus.SENT, Invoice.InvoiceStatus.PENDING);
-        var overdueInvoices = invoiceRepository.findByTenantIdAndDeletedFalseAndStatusInAndDueDateBefore(
-            DEFAULT_TENANT,
-            overdueStatuses,
-            java.time.LocalDate.now()
-        );
+        for (Long tenant : resolveTenantIds()) {
+            TenantContext.setCurrentTenantId(tenant);
+            try {
+                var overdueInvoices = invoiceRepository.findByTenantIdAndDeletedFalseAndStatusInAndDueDateBefore(
+                    tenant,
+                    overdueStatuses,
+                    java.time.LocalDate.now()
+                );
 
-        for (Invoice invoice : overdueInvoices) {
-            if (!StringUtils.hasText(invoice.getId())) continue;
-            processEvent("INVOICE_OVERDUE", Map.of(
-                "invoiceId", invoice.getId(),
-                "invoiceNumber", normalize(invoice.getInvoiceNumber()),
-                "status", invoice.getStatus() != null ? invoice.getStatus().name() : "",
-                "dueDate", invoice.getDueDate() != null ? invoice.getDueDate().toString() : ""
-            ));
+                for (Invoice invoice : overdueInvoices) {
+                    if (!StringUtils.hasText(invoice.getId())) continue;
+                    processEvent("INVOICE_OVERDUE", Map.of(
+                        "invoiceId", invoice.getId(),
+                        "invoiceNumber", normalize(invoice.getInvoiceNumber()),
+                        "status", invoice.getStatus() != null ? invoice.getStatus().name() : "",
+                        "dueDate", invoice.getDueDate() != null ? invoice.getDueDate().toString() : ""
+                    ));
+                }
+                log.info("Invoice sweep complete for tenant {}. Triggered {} INVOICE_OVERDUE events", tenant, overdueInvoices.size());
+            } finally {
+                TenantContext.clear();
+            }
         }
-        log.info("Invoice sweep complete. Triggered {} INVOICE_OVERDUE events", overdueInvoices.size());
     }
 
     @Scheduled(cron = "0 0 7 * * *")
     public void rescoreLeads() {
-        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
-        for (Lead lead : leads) {
-            if (!StringUtils.hasText(lead.getId())) continue;
-            processEvent("LEAD_SCORE_CHANGED", Map.of(
-                "leadId", lead.getId(),
-                "score", lead.getScore() != null ? lead.getScore().name() : "",
-                "source", lead.getSource() != null ? lead.getSource().name() : ""
-            ));
+        for (Long tenant : resolveTenantIds()) {
+            TenantContext.setCurrentTenantId(tenant);
+            try {
+                List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tenant);
+                for (Lead lead : leads) {
+                    if (!StringUtils.hasText(lead.getId())) continue;
+                    processEvent("LEAD_SCORE_CHANGED", Map.of(
+                        "leadId", lead.getId(),
+                        "score", lead.getScore() != null ? lead.getScore().name() : "",
+                        "source", lead.getSource() != null ? lead.getSource().name() : ""
+                    ));
+                }
+                log.info("Lead rescore sweep complete for tenant {}. Triggered {} LEAD_SCORE_CHANGED events", tenant, leads.size());
+            } finally {
+                TenantContext.clear();
+            }
         }
-        log.info("Lead rescore sweep complete. Triggered {} LEAD_SCORE_CHANGED events", leads.size());
     }
 
     private record ActionResult(boolean executed, String note) { }

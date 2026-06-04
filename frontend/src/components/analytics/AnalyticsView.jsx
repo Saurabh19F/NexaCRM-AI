@@ -1,58 +1,146 @@
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 import { BarChart3, TrendingUp, Trophy, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { MONTHLY_REVENUE, FUNNEL_DATA, LEAD_SOURCES, TEAM_PERFORMANCE } from '../../utils/mockData'
+import { leadsAPI, dealsAPI, invoicesAPI, teamAPI, customersAPI } from '../../services/api'
+import {
+  buildLeadTrend,
+  buildRevenueTrend,
+  buildLeadSourceBreakdown,
+  buildFunnelBreakdown,
+  buildTeamLeaderboard,
+  buildCustomerMetrics,
+} from '../../utils/liveMetrics'
+import { fetchAllPages } from '../../utils/pagination'
 
-function exportReportCSV(campaignData, monthlyRevenue, teamPerformance) {
-  const rows = []
+const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6']
 
-  rows.push(['=== CAMPAIGN PERFORMANCE ==='])
-  rows.push(['Campaign', 'Leads', 'Cost (₹)', 'Revenue (₹)', 'ROI (%)'])
-  campaignData.forEach((c) => rows.push([c.name, c.leads, c.cost, c.revenue, c.roi]))
-
-  rows.push([])
-  rows.push(['=== MONTHLY REVENUE ==='])
-  rows.push(['Month', 'Revenue (₹)', 'Deals', 'Leads'])
-  monthlyRevenue.forEach((m) => rows.push([m.month, m.revenue, m.deals, m.leads]))
-
-  rows.push([])
-  rows.push(['=== TEAM LEADERBOARD ==='])
-  rows.push(['Name', 'Leads', 'Deals', 'Revenue (₹)', 'Conv Rate (%)'])
-  teamPerformance.forEach((t) => rows.push([t.name, t.leads, t.deals, t.revenue, t.convRate]))
-
-  const csv = rows.map((r) => r.map((v) => `"${v}"`).join(',')).join('\n')
+function downloadCSV(rows, filename) {
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `nexacrm-analytics-${new Date().toISOString().slice(0,10)}.csv`
-  a.click()
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
   URL.revokeObjectURL(url)
-  toast.success('Analytics report exported as CSV')
 }
 
-const CAMPAIGN_DATA = [
-  { name: 'Facebook Ads',   leads: 312, cost: 45000, revenue: 820000, roi: 1722 },
-  { name: 'Google Ads',     leads: 218, cost: 62000, revenue: 960000, roi: 1448 },
-  { name: 'LinkedIn',       leads: 148, cost: 38000, revenue: 540000, roi: 1321 },
-  { name: 'WhatsApp',       leads: 89,  cost: 12000, revenue: 310000, roi: 2483 },
-  { name: 'Organic/SEO',    leads: 274, cost: 18000, revenue: 750000, roi: 4067 },
-]
-
-const RADAR_DATA = [
-  { subject: 'Lead Volume',     A: 90, B: 70, C: 55 },
-  { subject: 'Close Rate',      A: 85, B: 75, C: 60 },
-  { subject: 'Deal Size',       A: 80, B: 65, C: 70 },
-  { subject: 'Response Time',   A: 75, B: 85, C: 65 },
-  { subject: 'Activity',        A: 92, B: 78, C: 68 },
-]
-
 export default function AnalyticsPage() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [leads, setLeads] = useState([])
+  const [deals, setDeals] = useState([])
+  const [invoices, setInvoices] = useState([])
+  const [users, setUsers] = useState([])
+  const [customers, setCustomers] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const [leadRows, dealRows, invoiceRows, userRows, customerRows] = await Promise.all([
+          fetchAllPages((params) => leadsAPI.getAll(params), 250).then((result) => result.rows),
+          fetchAllPages((params) => dealsAPI.getAll(params), 200).then((result) => result.rows),
+          fetchAllPages((params) => invoicesAPI.getAll(params), 200).then((result) => result.rows),
+          teamAPI.getAll(),
+          fetchAllPages((params) => customersAPI.getAll(params), 200).then((result) => result.rows),
+        ])
+
+        if (cancelled) return
+        setLeads(Array.isArray(leadRows) ? leadRows : [])
+        setDeals(Array.isArray(dealRows) ? dealRows : [])
+        setInvoices(Array.isArray(invoiceRows) ? invoiceRows : [])
+        setUsers(Array.isArray(userRows) ? userRows : [])
+        setCustomers(Array.isArray(customerRows) ? customerRows : [])
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || 'Failed to load analytics data')
+          toast.error(err?.message || 'Failed to load analytics data')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const leadTrend = useMemo(() => buildLeadTrend(leads), [leads])
+  const revenueTrend = useMemo(() => buildRevenueTrend(invoices), [invoices])
+  const sourceBreakdown = useMemo(() => buildLeadSourceBreakdown(leads), [leads])
+  const funnelBreakdown = useMemo(() => buildFunnelBreakdown(leads), [leads])
+  const teamLeaderboard = useMemo(() => buildTeamLeaderboard({ users, leads, deals }), [users, leads, deals])
+  const customerMetrics = useMemo(() => buildCustomerMetrics({ customers, deals, invoices }), [customers, deals, invoices])
+
+  const summary = useMemo(() => {
+    const paidInvoices = invoices.filter((invoice) => String(invoice.status || '').toLowerCase() === 'paid')
+    const totalRevenue = paidInvoices.reduce((sum, invoice) => sum + Number(invoice.total ?? invoice.subtotal ?? 0), 0)
+    const wonDeals = deals.filter((deal) => String(deal.stage || deal.status || '').toLowerCase() === 'won')
+    const openDeals = deals.filter((deal) => !['won', 'lost'].includes(String(deal.stage || deal.status || '').toLowerCase())).length
+    const activeCustomers = customers.filter((customer) => String(customer.status || '').toLowerCase() === 'active').length
+    const avgHealth = customers.length
+      ? Math.round(customers.reduce((sum, customer) => sum + Number(customer.healthScore ?? customer.health ?? 0), 0) / customers.length)
+      : 0
+
+    return [
+      { label: 'Leads', value: leads.length.toLocaleString(), tone: 'brand' },
+      { label: 'Open Deals', value: openDeals.toLocaleString(), tone: 'amber' },
+      { label: 'Won Deals', value: wonDeals.length.toLocaleString(), tone: 'emerald' },
+      { label: 'Paid Revenue', value: `₹${(totalRevenue / 100000).toFixed(1)}L`, tone: 'brand' },
+      { label: 'Active Customers', value: activeCustomers.toLocaleString(), tone: 'sky' },
+      { label: 'Avg Health', value: `${avgHealth}%`, tone: 'slate' },
+    ]
+  }, [leads.length, deals, invoices, customers])
+
+  const exportReport = () => {
+    const rows = [
+      ['=== LEAD TREND ==='],
+      ['Month', 'Leads'],
+      ...leadTrend.map((row) => [row.month, row.leads]),
+      [],
+      ['=== REVENUE TREND ==='],
+      ['Month', 'Revenue'],
+      ...revenueTrend.map((row) => [row.month, row.revenue]),
+      [],
+      ['=== LEAD SOURCES ==='],
+      ['Source', 'Leads'],
+      ...sourceBreakdown.map((row) => [row.name, row.value]),
+      [],
+      ['=== TEAM LEADERBOARD ==='],
+      ['Name', 'Leads', 'Deals', 'Revenue'],
+      ...teamLeaderboard.map((member) => [member.name, member.leads, member.deals, member.revenue]),
+    ]
+    downloadCSV(rows, `nexacrm-analytics-${new Date().toISOString().slice(0, 10)}.csv`)
+    toast.success('Live analytics report exported as CSV')
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="glass-card p-6 animate-pulse">
+          <div className="h-6 w-56 bg-slate-200 dark:bg-slate-700 rounded mb-3" />
+          <div className="h-4 w-80 bg-slate-200 dark:bg-slate-700 rounded" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="glass-card p-4 h-24 animate-pulse bg-slate-100 dark:bg-slate-800/40" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -60,105 +148,122 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-brand-500" /> Analytics & Reports
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">Performance insights for the last 6 months</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Live operational reporting from leads, deals, invoices, customers, and team data
+          </p>
         </div>
-        <button onClick={() => exportReportCSV(CAMPAIGN_DATA, MONTHLY_REVENUE, TEAM_PERFORMANCE)}
-          className="btn-secondary gap-1.5 text-sm">
+        <button onClick={exportReport} className="btn-secondary gap-1.5 text-sm">
           <Download className="w-4 h-4" /> Export Report
         </button>
       </div>
 
-      {/* Revenue & Leads */}
+      {error ? (
+        <div className="glass-card p-4 border border-red-200 dark:border-red-900/40 bg-red-50/70 dark:bg-red-950/20 text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {summary.map((item) => (
+          <div key={item.label} className="glass-card p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-400">{item.label}</p>
+            <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="glass-card p-5">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Monthly Revenue</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={MONTHLY_REVENUE}>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Monthly Lead Volume</h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={leadTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={(v) => `₹${v/100000}L`} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => [`₹${(v/100000).toFixed(1)}L`, 'Revenue']} />
-              <Bar dataKey="revenue" fill="#6366f1" radius={[6,6,0,0]} />
+              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="leads" fill="#6366f1" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="glass-card p-5">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Lead Trend</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={MONTHLY_REVENUE}>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Monthly Paid Revenue</h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={revenueTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip />
-              <Line type="monotone" dataKey="leads" stroke="#10b981" strokeWidth={2.5} dot={{ fill: '#10b981', r: 4 }} name="Leads" />
-              <Line type="monotone" dataKey="deals" stroke="#f59e0b" strokeWidth={2.5} dot={{ fill: '#f59e0b', r: 4 }} name="Deals" />
-              <Legend />
+              <Tooltip formatter={(value) => [`₹${Number(value).toLocaleString()}`, 'Revenue']} />
+              <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot={{ fill: '#10b981', r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Campaign Performance */}
-      <div className="glass-card p-5">
-        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Campaign Performance</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-200/60 dark:border-slate-700/40">
-                {['Campaign','Leads','Cost','Revenue','ROI'].map((h) => (
-                  <th key={h} className="text-left py-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="glass-card p-5">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Lead Sources</h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie data={sourceBreakdown} dataKey="value" nameKey="name" innerRadius={56} outerRadius={90} paddingAngle={3}>
+                {sourceBreakdown.map((entry, index) => (
+                  <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100/60 dark:divide-slate-700/30">
-              {CAMPAIGN_DATA.map((c) => (
-                <tr key={c.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">{c.name}</td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{c.leads}</td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-400">₹{(c.cost/1000).toFixed(0)}k</td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-400">₹{(c.revenue/100000).toFixed(1)}L</td>
-                  <td className="py-3 px-4">
-                    <span className="badge bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                      {c.roi}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="glass-card p-5">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Funnel Snapshot</h2>
+          <div className="space-y-3">
+            {funnelBreakdown.map((stage, index) => (
+              <div key={stage.stage} className="flex items-center gap-3">
+                <span className="w-28 text-sm text-slate-600 dark:text-slate-400">{stage.stage}</span>
+                <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, stage.count * 8)}%` }}
+                    transition={{ duration: 0.6, delay: index * 0.05 }}
+                    className="h-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500"
+                  />
+                </div>
+                <span className="w-12 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">{stage.count}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Team & Radar */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Team Leaderboard */}
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <Trophy className="w-5 h-5 text-amber-500" />
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Team Leaderboard</h2>
           </div>
           <div className="space-y-4">
-            {TEAM_PERFORMANCE.map((member) => (
-              <div key={member.name} className="flex items-center gap-4">
+            {teamLeaderboard.map((member) => (
+              <div key={member.id} className="flex items-center gap-4">
                 <span className="text-2xl w-8">{member.badge}</span>
                 <div className="flex-1">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-semibold text-slate-800 dark:text-slate-200">{member.name}</span>
-                    <span className="text-slate-500">₹{(member.revenue/100000).toFixed(1)}L</span>
+                    <span className="text-slate-500">₹{(member.revenue / 100000).toFixed(1)}L</span>
                   </div>
                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${member.convRate}%` }}
-                      transition={{ duration: 0.8, delay: member.rank * 0.1 }}
+                      animate={{ width: `${Math.min(100, member.convRate)}%` }}
+                      transition={{ duration: 0.7, delay: member.rank * 0.06 }}
                       className="h-2 rounded-full bg-gradient-to-r from-brand-500 to-accent-500"
                     />
                   </div>
                   <div className="flex gap-4 mt-1 text-[10px] text-slate-400">
                     <span>{member.leads} leads</span>
                     <span>{member.deals} deals</span>
-                    <span>{member.convRate}% conv.</span>
+                    <span>{member.convRate}% conversion</span>
                   </div>
                 </div>
               </div>
@@ -166,20 +271,29 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Radar Chart */}
         <div className="glass-card p-5">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Team Performance Radar</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <RadarChart data={RADAR_DATA}>
-              <PolarGrid stroke="rgba(148,163,184,0.2)" />
-              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-              <Radar name="Priya S." dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.15} />
-              <Radar name="Rahul M." dataKey="B" stroke="#10b981" fill="#10b981" fillOpacity={0.15} />
-              <Radar name="Amit K." dataKey="C" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.15} />
-              <Legend />
-              <Tooltip />
-            </RadarChart>
-          </ResponsiveContainer>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Customer Health</h2>
+          <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+            {customers.slice(0, 8).map((customer, index) => {
+              const metric = customerMetrics[index] || { revenue: 0, deals: 0 }
+              const health = Number(customer.healthScore ?? customer.health ?? 0)
+              return (
+                <div key={customer.id} className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{customer.name || customer.company}</p>
+                      <p className="text-xs text-slate-400">{customer.primaryContact || customer.contact || '—'}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500">{health}% health</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-slate-500">
+                    <span>Deals: {metric.deals}</span>
+                    <span>Revenue: ₹{Number(metric.revenue || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

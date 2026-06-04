@@ -1,8 +1,7 @@
 import { create } from 'zustand'
-import { MOCK_DEALS } from '../utils/mockData'
 
 export const useDealsStore = create((set, get) => ({
-  deals: MOCK_DEALS,   // keyed by stage
+  deals: {},
   loading: false,
   error: null,
 

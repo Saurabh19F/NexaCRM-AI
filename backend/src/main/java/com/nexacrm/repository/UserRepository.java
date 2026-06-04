@@ -8,9 +8,12 @@ import java.util.Optional;
 
 public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByEmailAndDeletedFalse(String email);
+    List<User> findAllByEmailAndDeletedFalse(String email);
     Optional<User> findByEmailAndTenantIdAndDeletedFalse(String email, Long tenantId);
+    Optional<User> findByPhoneAndTenantIdAndDeletedFalse(String phone, Long tenantId);
     Optional<User> findByEmail(String email);
     Optional<User> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
     List<User> findByTenantIdAndDeletedFalse(Long tenantId);
     boolean existsByEmailAndTenantId(String email, Long tenantId);
+    boolean existsByPhoneAndTenantIdAndDeletedFalse(String phone, Long tenantId);
 }

@@ -1,6 +1,7 @@
 package com.nexacrm.config;
 
 import com.nexacrm.repository.UserRepository;
+import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Optional;
@@ -28,8 +30,15 @@ public class AppConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepository.findByEmailAndDeletedFalse(username)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        return username -> {
+            try {
+                Long tenantId = TenantContext.currentTenantId();
+                return userRepository.findByEmailAndTenantIdAndDeletedFalse(username, tenantId)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+            } catch (IllegalStateException ex) {
+                throw new UsernameNotFoundException("Tenant context is required for authentication", ex);
+            }
+        };
     }
 
     @Bean
@@ -52,7 +61,10 @@ public class AppConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(15000);
+        return new RestTemplate(factory);
     }
 
     @Bean

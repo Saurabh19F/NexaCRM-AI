@@ -3,6 +3,7 @@ package com.nexacrm.controller;
 import com.nexacrm.dto.AuthRequest;
 import com.nexacrm.dto.AuthResponse;
 import com.nexacrm.dto.UserDTO;
+import com.nexacrm.security.TenantContext;
 import com.nexacrm.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,19 +53,34 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "Login with email & password, returns JWT tokens")
     public ResponseEntity<AuthResponse> login(
+            @RequestHeader(value = "X-Tenant-ID", required = false) Long tenantId,
             @Valid @RequestBody AuthRequest request,
             HttpServletResponse response) {
-        AuthResponse auth = authService.login(request);
-        writeAuthCookies(response, auth.getAccessToken(), auth.getRefreshToken());
-        return ResponseEntity.ok(auth);
+        if (tenantId != null) {
+            request.setTenantId(tenantId);
+        }
+        TenantContext.setCurrentTenantId(request.getTenantId());
+        try {
+            AuthResponse auth = authService.login(request);
+            writeAuthCookies(response, auth.getAccessToken(), auth.getRefreshToken());
+            return ResponseEntity.ok(auth);
+        } finally {
+            TenantContext.clear();
+        }
     }
 
     @PostMapping("/logout")
     @Operation(summary = "Invalidate refresh token")
     public ResponseEntity<Void> logout(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request,
             HttpServletResponse response) {
-        authService.logout(authHeader);
+        String refreshToken = body != null ? body.get("refreshToken") : null;
+        if (refreshToken == null || refreshToken.isBlank()) {
+            refreshToken = readCookie(request, refreshCookieName);
+        }
+        authService.logout(authHeader, refreshToken);
         clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }

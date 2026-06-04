@@ -1,58 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users, TrendingUp, IndianRupee, AlertTriangle,
-  TrendingDown, ArrowUpRight, ArrowDownRight, Sparkles,
-  Activity, PlayCircle, ExternalLink, Mic, RefreshCw
+  Sparkles, PlayCircle, ExternalLink, Mic, RefreshCw
 } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
 } from 'recharts'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
-import { aiAPI, callsAPI, dealsAPI, leadsAPI } from '../../services/api'
-import { computeEmployeeSlaPerformance, computeLeadSlaSummary, getLeadAgingLevel } from '../../utils/leadSla'
-
-const fmt = (n, { currency = '', percent = false } = {}) => {
-  const value = Number(n || 0)
-  if (percent) return `${value.toFixed(1)}%`
-  if (currency) return `${currency}${(value / 100000).toFixed(1)}L`
-  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`
-  return Number.isInteger(value) ? `${value}` : value.toFixed(1)
-}
-
-function KPICard({ title, value, change, period, icon: Icon, color, currency, percent = false }) {
-  const isPositive = change >= 0
-  const changeValue = Number.isFinite(Number(change)) ? Number(change).toFixed(1) : '0.0'
-  const directionLabel = isPositive ? 'Up' : 'Down'
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="kpi-card"
-    >
-      <div className="flex items-start justify-between mb-2.5 sm:mb-4">
-        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center ${color}`}>
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-        </div>
-        <span className={`flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full
-          ${isPositive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'}`}>
-          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : <ArrowDownRight className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-          {directionLabel} {Math.abs(Number(changeValue))}%
-        </span>
-      </div>
-      <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
-        {fmt(value, { currency, percent })}
-      </p>
-      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 leading-tight">{title}</p>
-      <p className="text-[10px] text-slate-400 mt-0.5">{period}</p>
-    </motion.div>
-  )
-}
+import { analyticsAPI } from '../../services/api'
+import LeadConversionDashboard from './lead-conversion/LeadConversionDashboard'
 
 const CUSTOM_TOOLTIP = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -77,87 +37,21 @@ const INSIGHT_ROUTES = {
   'Plan Campaign':  '/ai-engine',
 }
 
-const DASHBOARD_MONTHS = 6
-const LEAD_SOURCE_COLORS = {
-  facebook: '#1877f2',
-  instagram: '#e1306c',
-  linkedin: '#0077b5',
-  website: '#8b5cf6',
-  whatsapp: '#25d366',
-  referral: '#f59e0b',
-  email: '#0ea5e9',
-  'google ads': '#f97316',
-  'meta ads': '#ec4899',
-}
-const FUNNEL_COLORS = ['#7c3aed', '#9333ea', '#c026d3', '#db2777', '#f59e0b', '#10b981']
-
-const parseDateOrNull = (value) => {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1)
-const addMonths = (date, offset) => new Date(date.getFullYear(), date.getMonth() + offset, 1)
-const sameOrAfter = (date, start) => date && date.getTime() >= start.getTime()
-const sameBefore = (date, end) => date && date.getTime() < end.getTime()
-
-const formatRelativeTime = (value) => {
-  const date = parseDateOrNull(value)
-  if (!date) return 'Just now'
-  const diffMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / (60 * 1000)))
-  if (diffMinutes < 1) return 'Just now'
-  if (diffMinutes < 60) return `${diffMinutes} min ago`
-  const hours = Math.floor(diffMinutes / 60)
-  if (hours < 24) return `${hours} hr ago`
-  const days = Math.floor(hours / 24)
-  return `${days} day${days === 1 ? '' : 's'} ago`
-}
-
-const formatMonthLabel = (date) =>
-  date.toLocaleDateString('en-US', { month: 'short' })
-
-const formatSourceLabel = (source) => {
-  const text = String(source || 'Other').trim()
-  if (!text) return 'Other'
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
-}
-
-const safePercentChange = (current, previous) => {
-  if (!Number.isFinite(current)) return 0
-  if (!Number.isFinite(previous) || previous <= 0) return current > 0 ? 100 : 0
-  return ((current - previous) / previous) * 100
-}
-
-const getPagedResults = async (fetchPage, size = 200) => {
-  const firstPage = await fetchPage({ page: 0, size })
-  const rows = Array.isArray(firstPage?.content) ? [...firstPage.content] : []
-  const totalPages = Math.max(1, Number(firstPage?.totalPages ?? 1))
-  const total = Number(firstPage?.total ?? rows.length)
-
-  if (totalPages > 1) {
-    const pageRequests = []
-    for (let page = 1; page < totalPages; page += 1) {
-      pageRequests.push(fetchPage({ page, size }))
-    }
-    const remainingPages = await Promise.all(pageRequests)
-    for (const pageData of remainingPages) {
-      rows.push(...(Array.isArray(pageData?.content) ? pageData.content : []))
-    }
-  }
-
-  return { rows, total }
-}
-
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { leads, fetchLeads } = useLeadsStore()
+  const { replaceLeads } = useLeadsStore()
   const { user } = useAuthStore()
-  const [timeTick, setTimeTick] = useState(Date.now())
-  const [liveDeals, setLiveDeals] = useState([])
   const [liveInsights, setLiveInsights] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
   const [recentCallSnapshots, setRecentCallSnapshots] = useState([])
+  const [dashboardWidgets, setDashboardWidgets] = useState({
+    agingCounts: { fresh: 0, warning: 0, critical: 0 },
+    slaSummary: { total: 0, unattendedCritical: 0, pending: 0, met: 0, breached: 0, avgResponseMinutes: null },
+    employeePerformance: [],
+    monthlyRevenue: [],
+    funnelData: [],
+    leadSources: [],
+  })
   const [callSnapshotsLoading, setCallSnapshotsLoading] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
@@ -169,10 +63,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     mountedRef.current = true
-    const id = window.setInterval(() => setTimeTick(Date.now()), 60 * 1000)
     return () => {
       mountedRef.current = false
-      window.clearInterval(id)
     }
   }, [])
 
@@ -184,146 +76,56 @@ export default function DashboardPage() {
     if (!silent && mountedRef.current) {
       setDashboardLoading(true)
       setDashboardError('')
+      setCallSnapshotsLoading(true)
     }
 
     try {
-      const [freshLeads, dealRowsResponse, insightsResponse] = await Promise.all([
-        fetchLeads({
-          size: 250,
-          search: '',
-          score: 'all',
-          status: 'all',
-          source: 'all',
-          assignedTo: 'all',
-        }),
-        getPagedResults((params) => dealsAPI.getAll(params), 200),
-        aiAPI.getInsights().catch(() => []),
+      const [overview, widgets] = await Promise.all([
+        analyticsAPI.getDashboard(),
+        analyticsAPI.getDashboardWidgets(),
       ])
 
       if (!mountedRef.current || loadSeqRef.current !== requestId) return
 
-      const normalizedDeals = dealRowsResponse.rows
-        .map((deal) => ({
-          id: String(deal.id || ''),
-          title: deal.title || 'Untitled Deal',
-          company: deal.company || '',
-          value: Number(deal.dealValue || 0),
-          stage: String(deal.stage || 'NEW').toLowerCase(),
-          priority: String(deal.priority || 'MEDIUM').toLowerCase(),
-          score: String(deal.aiScore || 'WARM').toLowerCase(),
-          owner: deal.ownerName || '',
-          dueDate: deal.expectedCloseDate || '',
-          activities: Number(deal.activitiesCount || 0),
-          createdAt: deal.createdAt || '',
-          updatedAt: deal.updatedAt || '',
-          actualCloseDate: deal.actualCloseDate || '',
-        }))
-        .filter((deal) => deal.id)
+      replaceLeads(Array.isArray(overview?.leads) ? overview.leads : [])
+      setLiveInsights(Array.isArray(overview?.insights) ? overview.insights : [])
+      setRecentActivity(Array.isArray(overview?.recentActivity) ? overview.recentActivity : [])
+      setRecentCallSnapshots(Array.isArray(overview?.recentCallSnapshots) ? overview.recentCallSnapshots : [])
+      setDashboardWidgets({
+        agingCounts: widgets?.agingCounts || { fresh: 0, warning: 0, critical: 0 },
+        slaSummary: widgets?.slaSummary || { total: 0, unattendedCritical: 0, pending: 0, met: 0, breached: 0, avgResponseMinutes: null },
+        employeePerformance: Array.isArray(widgets?.employeePerformance) ? widgets.employeePerformance : [],
+        monthlyRevenue: Array.isArray(widgets?.monthlyRevenue) ? widgets.monthlyRevenue : [],
+        funnelData: Array.isArray(widgets?.funnelData) ? widgets.funnelData : [],
+        leadSources: Array.isArray(widgets?.leadSources) ? widgets.leadSources : [],
+      })
+      setCallSnapshotsLoading(false)
 
-      setLiveDeals(normalizedDeals)
-      setLiveInsights(Array.isArray(insightsResponse) ? insightsResponse : [])
-
-      const recentLeads = [...(freshLeads || [])]
-        .filter((lead) => lead?.id)
-        .sort((a, b) => {
-          const left = new Date(b.lastContactedAtTs || b.lastActivityAtTs || b.createdAtTs || b.createdAt || 0).getTime()
-          const right = new Date(a.lastContactedAtTs || a.lastActivityAtTs || a.createdAtTs || a.createdAt || 0).getTime()
-          return left - right
-        })
-        .slice(0, 4)
-
-      const [callResults, activityResults] = await Promise.all([
-        Promise.allSettled(
-          recentLeads.slice(0, 3).map(async (lead) => {
-            const res = await callsAPI.getIntelligence(lead.id)
-            const analysis = res?.analysis || {}
-            const firstCall = Array.isArray(res?.calls) ? res.calls[0] : null
-            return {
-              leadId: lead.id,
-              leadName: lead.name || 'Unknown lead',
-              company: lead.company || '',
-              currentStatus: lead.status || 'NEW',
-              verdict: analysis.leadVerdict || 'UNCERTAIN',
-              confidence: Number(analysis.confidence || 0),
-              summary: analysis.summary || firstCall?.summary || '',
-              recordingUrl: firstCall?.recordingUrl || '',
-              calledAt: firstCall?.createdAt || lead.lastContactedAtTs || lead.lastActivityAtTs || lead.createdAtTs || '',
-            }
-          })
-        ),
-        Promise.allSettled(
-          recentLeads.map(async (lead) => {
-            const activities = await leadsAPI.getActivities(lead.id)
-            return {
-              lead,
-              activities: Array.isArray(activities) ? activities : [],
-            }
-          })
-        ),
-      ])
-
-      if (!mountedRef.current || loadSeqRef.current !== requestId) return
-
-      setRecentCallSnapshots(
-        callResults
-          .filter((result) => result.status === 'fulfilled' && result.value)
-          .map((result) => result.value)
-      )
-
-      const activityFeed = []
-
-      for (const result of activityResults) {
-        if (result.status !== 'fulfilled' || !result.value) continue
-        const { lead, activities } = result.value
-        for (const activity of activities.slice(0, 2)) {
-          const timestamp = parseDateOrNull(activity.savedAt || activity.createdAt || activity.updatedAt || lead.lastActivityAtTs || lead.createdAtTs)?.toISOString() || ''
-          activityFeed.push({
-            id: activity.id || `${lead.id}-${activity.activityId || activity.activityIndex || activity.activityTitle || 'activity'}`,
-            type: String(activity.activityTitle || activity.activityLabel || 'note').toLowerCase(),
-            text: activity.summary || activity.activityTitle || `${lead.name || 'Lead'} activity updated`,
-            time: formatRelativeTime(activity.savedAt || activity.createdAt || activity.updatedAt || lead.lastActivityAtTs || lead.createdAtTs),
-            user: activity.assignedTo || lead.assignedTo || 'System',
-            avatar: String((activity.assignedTo || lead.assignedTo || 'S').trim().charAt(0) || 'S').toUpperCase(),
-            timestamp,
-          })
-        }
-      }
-
-      for (const lead of recentLeads.slice(0, 3)) {
-        const timestamp = parseDateOrNull(lead.createdAtTs || lead.createdAt)?.toISOString() || ''
-        activityFeed.push({
-          id: `lead-${lead.id}`,
-          type: 'lead',
-          text: `Lead ${lead.name || 'Unnamed lead'} from ${formatSourceLabel(lead.source)} is ${String(lead.status || 'new').toLowerCase()}`,
-          time: formatRelativeTime(lead.createdAtTs || lead.createdAt),
-          user: lead.assignedTo || 'System',
-          avatar: String((lead.assignedTo || 'S').trim().charAt(0) || 'S').toUpperCase(),
-          timestamp,
-        })
-      }
-
-      setRecentActivity(
-        activityFeed
-          .sort((a, b) => {
-            const left = parseDateOrNull(a.timestamp)?.getTime() || 0
-            const right = parseDateOrNull(b.timestamp)?.getTime() || 0
-            return right - left
-          })
-          .slice(0, 7)
-      )
-      setLastRefreshedAt(new Date().toISOString())
+      setLastRefreshedAt(overview?.generatedAt || new Date().toISOString())
     } catch (err) {
       if (!mountedRef.current || loadSeqRef.current !== requestId) return
       setDashboardError(err?.message || 'Failed to load live dashboard data')
-      setLiveDeals([])
       setLiveInsights([])
       setRecentActivity([])
+      setRecentCallSnapshots([])
+      setDashboardWidgets({
+        agingCounts: { fresh: 0, warning: 0, critical: 0 },
+        slaSummary: { total: 0, unattendedCritical: 0, pending: 0, met: 0, breached: 0, avgResponseMinutes: null },
+        employeePerformance: [],
+        monthlyRevenue: [],
+        funnelData: [],
+        leadSources: [],
+      })
+      setCallSnapshotsLoading(false)
     } finally {
       if (mountedRef.current && loadSeqRef.current === requestId && !silent) {
         setDashboardLoading(false)
       }
+      if (mountedRef.current && loadSeqRef.current === requestId) {
+        setCallSnapshotsLoading(false)
+      }
     }
-  }, [fetchLeads])
+  }, [replaceLeads])
 
   const refreshSection = useCallback(async (section = 'dashboard') => {
     setRefreshingSection(section)
@@ -344,159 +146,6 @@ export default function DashboardPage() {
     }, 5 * 60 * 1000)
     return () => window.clearInterval(id)
   }, [loadDashboard])
-
-  const agingCounts = useMemo(() => {
-    const counts = { fresh: 0, warning: 0, critical: 0 }
-    for (const lead of leads ?? []) {
-      const level = getLeadAgingLevel(lead, timeTick)
-      if (level === 'fresh' || level === 'warning' || level === 'critical') counts[level] += 1
-    }
-    return counts
-  }, [leads, timeTick])
-
-  const slaSummary = useMemo(() => computeLeadSlaSummary(leads ?? []), [leads])
-  const employeePerf = useMemo(() => computeEmployeeSlaPerformance(leads ?? []).slice(0, 5), [leads])
-
-  const liveLeads = leads ?? []
-  const now = new Date()
-  const currentMonthStart = startOfMonth(now)
-  const previousMonthStart = addMonths(currentMonthStart, -1)
-  const leadWindow = useMemo(() => {
-    const total = liveLeads.length
-    const currentMonthLeads = liveLeads.filter((lead) => sameOrAfter(parseDateOrNull(lead.createdAtTs || lead.createdAt), currentMonthStart))
-    const previousMonthLeads = liveLeads.filter((lead) => {
-      const date = parseDateOrNull(lead.createdAtTs || lead.createdAt)
-      return date && sameOrAfter(date, previousMonthStart) && sameBefore(date, currentMonthStart)
-    })
-    const wonLeads = liveLeads.filter((lead) => String(lead.status || '').toUpperCase() === 'WON')
-    const currentWonLeads = currentMonthLeads.filter((lead) => String(lead.status || '').toUpperCase() === 'WON')
-    const previousWonLeads = liveLeads.filter((lead) => {
-      const date = parseDateOrNull(lead.createdAtTs || lead.createdAt)
-      return date && sameOrAfter(date, previousMonthStart) && sameBefore(date, currentMonthStart) && String(lead.status || '').toUpperCase() === 'WON'
-    })
-    const activeNow = liveDeals.filter((deal) => !['won', 'lost'].includes(String(deal.stage || '').toLowerCase())).length
-    const activePrev = liveDeals.filter((deal) => {
-      const date = parseDateOrNull(deal.createdAt || deal.updatedAt || deal.actualCloseDate)
-      return date && sameOrAfter(date, previousMonthStart) && sameBefore(date, currentMonthStart) && !['won', 'lost'].includes(String(deal.stage || '').toLowerCase())
-    }).length
-    const wonRevenueCurrent = liveDeals.filter((deal) => {
-      const date = parseDateOrNull(deal.actualCloseDate || deal.updatedAt || deal.createdAt)
-      return date && sameOrAfter(date, currentMonthStart) && String(deal.stage || '').toLowerCase() === 'won'
-    }).reduce((sum, deal) => sum + Number(deal.value || 0), 0)
-    const wonRevenuePrevious = liveDeals.filter((deal) => {
-      const date = parseDateOrNull(deal.actualCloseDate || deal.updatedAt || deal.createdAt)
-      return date && sameOrAfter(date, previousMonthStart) && sameBefore(date, currentMonthStart) && String(deal.stage || '').toLowerCase() === 'won'
-    }).reduce((sum, deal) => sum + Number(deal.value || 0), 0)
-    const currentWonValues = liveDeals.filter((deal) => String(deal.stage || '').toLowerCase() === 'won').map((deal) => Number(deal.value || 0))
-    const previousWonValues = liveDeals.filter((deal) => {
-      const date = parseDateOrNull(deal.actualCloseDate || deal.updatedAt || deal.createdAt)
-      return date && sameOrAfter(date, previousMonthStart) && sameBefore(date, currentMonthStart) && String(deal.stage || '').toLowerCase() === 'won'
-    }).map((deal) => Number(deal.value || 0))
-    const avgCurrentDeal = currentWonValues.length ? currentWonValues.reduce((sum, value) => sum + value, 0) / currentWonValues.length : 0
-    const avgPreviousDeal = previousWonValues.length ? previousWonValues.reduce((sum, value) => sum + value, 0) / previousWonValues.length : 0
-
-    return {
-      total,
-      currentMonthLeads: currentMonthLeads.length,
-      previousMonthLeads: previousMonthLeads.length,
-      activeNow,
-      activePrev,
-      wonRevenueCurrent,
-      wonRevenuePrevious,
-      currentWonCount: currentWonLeads.length,
-      previousWonCount: previousWonLeads.length,
-      avgCurrentDeal,
-      avgPreviousDeal,
-      wonLeads: wonLeads.length,
-    }
-  }, [liveDeals, liveLeads, currentMonthStart, previousMonthStart])
-
-  const monthlyRevenue = useMemo(() => {
-    const buckets = []
-    for (let i = DASHBOARD_MONTHS - 1; i >= 0; i -= 1) {
-      const start = addMonths(currentMonthStart, -i)
-      const end = addMonths(start, 1)
-      const wonDeals = liveDeals.filter((deal) => {
-        const date = parseDateOrNull(deal.actualCloseDate || deal.updatedAt || deal.createdAt)
-        return date && sameOrAfter(date, start) && sameBefore(date, end) && String(deal.stage || '').toLowerCase() === 'won'
-      })
-      buckets.push({
-        month: formatMonthLabel(start),
-        revenue: wonDeals.reduce((sum, deal) => sum + Number(deal.value || 0), 0),
-        deals: wonDeals.length,
-      })
-    }
-    return buckets
-  }, [liveDeals, currentMonthStart])
-
-  const funnelData = useMemo(() => {
-    const stages = [
-      { key: 'new', label: 'New Leads' },
-      { key: 'contacted', label: 'Contacted' },
-      { key: 'qualified', label: 'Qualified' },
-      { key: 'proposal', label: 'Proposal' },
-      { key: 'negotiation', label: 'Negotiation' },
-      { key: 'won', label: 'Won' },
-    ]
-    return stages.map((stage, index) => ({
-      stage: stage.label,
-      count: liveLeads.filter((lead) => String(lead.status || '').toLowerCase() === stage.key).length,
-      color: FUNNEL_COLORS[index % FUNNEL_COLORS.length],
-    }))
-  }, [liveLeads])
-
-  const leadSources = useMemo(() => {
-    const totals = new Map()
-    for (const lead of liveLeads) {
-      const source = formatSourceLabel(lead.source)
-      totals.set(source, (totals.get(source) || 0) + 1)
-    }
-    const totalLeads = liveLeads.length || 1
-    return [...totals.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([name, count]) => ({
-        name,
-        value: Math.round((count / totalLeads) * 100),
-        color: LEAD_SOURCE_COLORS[String(name).toLowerCase()] || '#8b5cf6',
-      }))
-  }, [liveLeads])
-
-  const dashboardKpis = useMemo(() => ({
-    totalLeads: {
-      value: leadWindow.total,
-      change: safePercentChange(leadWindow.currentMonthLeads, leadWindow.previousMonthLeads),
-      period: 'this month vs last month',
-    },
-    totalDeals: {
-      value: leadWindow.activeNow,
-      change: safePercentChange(leadWindow.activeNow, leadWindow.activePrev),
-      period: 'open deals vs last month',
-    },
-    revenue: {
-      value: leadWindow.wonRevenueCurrent,
-      change: safePercentChange(leadWindow.wonRevenueCurrent, leadWindow.wonRevenuePrevious),
-      period: 'won revenue this month vs last month',
-    },
-    overdueTasks: {
-      value: slaSummary.unattendedCritical,
-      change: safePercentChange(slaSummary.unattendedCritical, Math.max(1, Math.floor(slaSummary.total / 4))),
-      period: 'critical leads now vs baseline',
-    },
-    conversionRate: {
-      value: leadWindow.total > 0 ? (leadWindow.wonLeads / leadWindow.total) * 100 : 0,
-      change: safePercentChange(
-        leadWindow.currentMonthLeads > 0 ? (leadWindow.currentWonCount / leadWindow.currentMonthLeads) * 100 : 0,
-        leadWindow.previousMonthLeads > 0 ? (leadWindow.previousWonCount / leadWindow.previousMonthLeads) * 100 : 0
-      ),
-      period: 'won leads rate vs last month',
-    },
-    avgDealSize: {
-      value: leadWindow.avgCurrentDeal || 0,
-      change: safePercentChange(leadWindow.avgCurrentDeal, leadWindow.avgPreviousDeal),
-      period: 'won deal average this month vs last month',
-    },
-  }), [leadWindow, slaSummary])
 
   return (
     <div className="space-y-6">
@@ -531,15 +180,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        <KPICard title="Total Leads"        value={dashboardKpis.totalLeads.value}     change={dashboardKpis.totalLeads.change}     period={dashboardKpis.totalLeads.period}     icon={Users}          color="bg-gradient-to-br from-violet-500 to-fuchsia-600" />
-        <KPICard title="Active Deals"       value={dashboardKpis.totalDeals.value}     change={dashboardKpis.totalDeals.change}     period={dashboardKpis.totalDeals.period}     icon={TrendingUp}     color="bg-gradient-to-br from-emerald-500 to-teal-600" />
-        <KPICard title="Revenue (MTD)"      value={dashboardKpis.revenue.value}        change={dashboardKpis.revenue.change}        period={dashboardKpis.revenue.period}        icon={IndianRupee}    color="bg-gradient-to-br from-cyan-500 to-blue-600" currency="₹" />
-        <KPICard title="Overdue Tasks"      value={dashboardKpis.overdueTasks.value}   change={dashboardKpis.overdueTasks.change}   period={dashboardKpis.overdueTasks.period}   icon={AlertTriangle}  color="bg-gradient-to-br from-orange-500 to-rose-600" />
-        <KPICard title="Conversion Rate"    value={dashboardKpis.conversionRate.value} change={dashboardKpis.conversionRate.change} period={dashboardKpis.conversionRate.period} icon={Activity}       color="bg-gradient-to-br from-fuchsia-500 to-pink-600" percent />
-        <KPICard title="Avg Deal Size"      value={dashboardKpis.avgDealSize.value}    change={dashboardKpis.avgDealSize.change}    period={dashboardKpis.avgDealSize.period}    icon={TrendingUp}     color="bg-gradient-to-br from-amber-500 to-orange-600" currency="₹" />
-      </div>
+      {/* Lead Conversion Dashboard Module */}
+      <LeadConversionDashboard />
 
       {/* Lead Aging + SLA Monitoring */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -562,35 +204,35 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/20 p-3">
               <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Fresh (0-15 min)</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{agingCounts.fresh}</p>
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{dashboardWidgets.agingCounts.fresh}</p>
             </div>
             <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 p-3">
               <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Warning (15-60 min)</p>
-              <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{agingCounts.warning}</p>
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{dashboardWidgets.agingCounts.warning}</p>
             </div>
             <div className="rounded-xl border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/20 p-3">
               <p className="text-xs font-semibold text-red-700 dark:text-red-400">Critical (60+ min)</p>
-              <p className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">{agingCounts.critical}</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">{dashboardWidgets.agingCounts.critical}</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
               <p className="text-[11px] text-slate-500">Unattended 1+ hr</p>
-              <p className="text-lg font-bold text-red-600 dark:text-red-400">{slaSummary.unattendedCritical}</p>
+              <p className="text-lg font-bold text-red-600 dark:text-red-400">{dashboardWidgets.slaSummary.unattendedCritical}</p>
             </div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
               <p className="text-[11px] text-slate-500">Avg response</p>
               <p className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                {slaSummary.avgResponseMinutes === null ? '--' : `${(slaSummary.avgResponseMinutes / 60).toFixed(1)}h`}
+                {dashboardWidgets.slaSummary.avgResponseMinutes === null ? '--' : `${(dashboardWidgets.slaSummary.avgResponseMinutes / 60).toFixed(1)}h`}
               </p>
             </div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
               <p className="text-[11px] text-slate-500">SLA met</p>
-              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{slaSummary.met}</p>
+              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{dashboardWidgets.slaSummary.met}</p>
             </div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
               <p className="text-[11px] text-slate-500">SLA breached</p>
-              <p className="text-lg font-bold text-red-600 dark:text-red-400">{slaSummary.breached}</p>
+              <p className="text-lg font-bold text-red-600 dark:text-red-400">{dashboardWidgets.slaSummary.breached}</p>
             </div>
           </div>
         </div>
@@ -609,10 +251,10 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="space-y-2">
-            {employeePerf.length === 0 && (
+            {dashboardWidgets.employeePerformance.length === 0 && (
               <p className="text-xs text-slate-400">No employee data yet.</p>
             )}
-            {employeePerf.map((row) => (
+            {dashboardWidgets.employeePerformance.map((row) => (
               <div key={row.owner} className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{row.owner}</p>
@@ -649,11 +291,11 @@ export default function DashboardPage() {
             <span className="badge bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">Last 6 months</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={monthlyRevenue} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <AreaChart data={dashboardWidgets.monthlyRevenue} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gradDeals" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
@@ -665,7 +307,7 @@ export default function DashboardPage() {
               <YAxis yAxisId="revenue" orientation="left" tickFormatter={(v) => `₹${v / 100000}L`} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="deals" orientation="right" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CUSTOM_TOOLTIP />} />
-              <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#gradRevenue)" />
+              <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gradRevenue)" />
               <Area yAxisId="deals"   type="monotone" dataKey="deals"   name="Deals"   stroke="#10b981" strokeWidth={2.5} fill="url(#gradDeals)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -687,8 +329,8 @@ export default function DashboardPage() {
           </div>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={leadSources} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                {leadSources.map((entry, i) => (
+              <Pie data={dashboardWidgets.leadSources} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
+                {dashboardWidgets.leadSources.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
@@ -696,7 +338,7 @@ export default function DashboardPage() {
             </PieChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-3">
-            {leadSources.map((s) => (
+            {dashboardWidgets.leadSources.map((s) => (
               <div key={s.name} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
                 {s.name} <span className="text-slate-400">({s.value}%)</span>
@@ -722,7 +364,7 @@ export default function DashboardPage() {
                 <RefreshCw className={`w-3.5 h-3.5 ${refreshingSection === 'calls' ? 'animate-spin text-slate-600' : ''}`} />
               </button>
             </div>
-            <p className="text-xs text-slate-500">Pulled from Bolna-backed call intelligence</p>
+            <p className="text-xs text-slate-500">Pulled from live call intelligence</p>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Mic className="w-3.5 h-3.5" />
@@ -745,7 +387,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.leadName}</p>
                   <p className="text-[11px] text-slate-500">{item.company || 'No company'} · {item.currentStatus}</p>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
                   {item.verdict}
                 </span>
               </div>
@@ -798,8 +440,8 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="space-y-2">
-            {funnelData.map((stage, i) => {
-              const pct = Math.round((stage.count / Math.max(1, funnelData[0]?.count || 1)) * 100)
+            {dashboardWidgets.funnelData.map((stage, i) => {
+              const pct = Math.round((stage.count / Math.max(1, dashboardWidgets.funnelData[0]?.count || 1)) * 100)
               return (
                 <div key={stage.stage}>
                   <div className="flex justify-between text-xs mb-1">
@@ -827,7 +469,7 @@ export default function DashboardPage() {
         {/* AI Insights */}
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-4 h-4 text-fuchsia-500" />
+            <Sparkles className="w-4 h-4 text-brand-500" />
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">AI Insights</h2>
             <button
               type="button"
@@ -844,13 +486,13 @@ export default function DashboardPage() {
               <div key={insight.id} className={`rounded-xl p-3 border text-xs space-y-1.5
                 ${insight.type === 'prediction' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40' :
                   insight.type === 'warning'    ? 'bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/40' :
-                  insight.type === 'opportunity'? 'bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800/40' :
-                  'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:border-fuchsia-800/40'}`}>
+                  insight.type === 'opportunity'? 'bg-brand-50 border-brand-200 dark:bg-brand-950/20 dark:border-brand-800/40' :
+                  'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/20 dark:border-cyan-800/40'}`}>
                 <p className="font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{insight.body}</p>
                 <button
                   onClick={() => navigate(INSIGHT_ROUTES[insight.action] ?? '/dashboard')}
-                  className="text-violet-600 dark:text-violet-400 font-semibold hover:underline">
+                  className="text-brand-600 dark:text-brand-400 font-semibold hover:underline">
                   {insight.action} →
                 </button>
               </div>
@@ -887,6 +529,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
     </div>
   )
 }

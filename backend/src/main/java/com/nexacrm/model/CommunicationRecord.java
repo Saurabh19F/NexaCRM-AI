@@ -2,6 +2,8 @@ package com.nexacrm.model;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -9,6 +11,11 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 
 @Document(collection = "communications")
+@CompoundIndexes({
+    @CompoundIndex(name = "comm_tenant_channel_contact_created_idx", def = "{'tenant_id': 1, 'channel': 1, 'contact_identifier': 1, 'created_at': -1}"),
+    @CompoundIndex(name = "comm_tenant_channel_external_idx", def = "{'tenant_id': 1, 'channel': 1, 'external_id': 1}", unique = true, partialFilter = "{ 'external_id': { '$type': 'string', '$gt': '' } }"),
+    @CompoundIndex(name = "comm_tenant_lead_channel_created_idx", def = "{'tenant_id': 1, 'lead_id': 1, 'channel': 1, 'created_at': -1}")
+})
 @Getter
 @Setter
 public class CommunicationRecord {

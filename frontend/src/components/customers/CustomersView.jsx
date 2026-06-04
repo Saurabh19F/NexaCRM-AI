@@ -1,21 +1,74 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { UserCircle, Phone, Mail, Activity, Plus, X, Building2 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { UserCircle, Phone, Mail, Activity, Plus, X } from 'lucide-react'
+import { formatDistanceToNowStrict } from 'date-fns'
 import toast from 'react-hot-toast'
-import { customersAPI } from '../../services/api'
+import { customersAPI, dealsAPI, invoicesAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import LoadingState from '../ui/LoadingState'
-
-const MOCK_CUSTOMERS = [
-  { id: 1, name: 'Bajaj Finserv',  contact: 'Rajesh Singh',  email: 'rajesh@bajajfinserv.in', phone: '+91-22-4321-0987', industry: 'Finance', revenue: 480000, deals: 3, status: 'active',  since: '2025-09-14', health: 92 },
-  { id: 2, name: 'Mindtree Ltd.',  contact: 'Priya Verma',   email: 'priya@mindtree.com',    phone: '+91-80-4321-1234', industry: 'IT',      revenue: 320000, deals: 2, status: 'active',  since: '2025-11-02', health: 78 },
-  { id: 3, name: 'TechVision',     contact: 'Arun Joshi',    email: 'arun@techvision.co',    phone: '+91-98-7654-3210', industry: 'SaaS',    revenue: 195000, deals: 1, status: 'at-risk', since: '2026-01-15', health: 44 },
-  { id: 4, name: 'FinEdge Corp',   contact: 'Seema Kapoor',  email: 'seema@finedge.com',     phone: '+91-11-2345-6789', industry: 'Finance', revenue: 275000, deals: 2, status: 'active',  since: '2025-12-20', health: 85 },
-  { id: 5, name: 'GlobalTech',     contact: 'Vikram Desai',  email: 'vikram@globaltech.com', phone: '+91-99-8765-4321', industry: 'IT',      revenue: 390000, deals: 3, status: 'active',  since: '2025-10-05', health: 97 },
-]
+import { buildCustomerMetrics } from '../../utils/liveMetrics'
+import { fetchAllPages } from '../../utils/pagination'
 
 const INDUSTRIES = ['Finance', 'IT', 'SaaS', 'Manufacturing', 'Healthcare', 'E-commerce', 'Retail', 'Education', 'Other']
 const HEALTH_COLOR = (h) => h >= 80 ? 'bg-emerald-500' : h >= 60 ? 'bg-amber-500' : 'bg-red-500'
+const normalize = (value) => String(value ?? '').trim().toLowerCase()
+
+function formatActivityTime(value) {
+  const date = value ? new Date(value) : null
+  if (!date || Number.isNaN(date.getTime())) return 'Recently'
+  try {
+    return `${formatDistanceToNowStrict(date, { addSuffix: true })}`
+  } catch {
+    return date.toLocaleDateString('en-IN')
+  }
+}
+
+function buildCustomerActivity(customer, deals = [], invoices = []) {
+  if (!customer) return []
+  const customerKey = normalize(customer.id || customer.name)
+  const customerName = normalize(customer.name)
+
+  const rows = []
+
+  for (const invoice of invoices) {
+    const matches = [invoice.customerId, invoice.customerName, invoice.company, invoice.customer]
+      .map(normalize)
+      .some((value) => value === customerKey || value === customerName)
+    if (!matches) continue
+
+    const issueDate = invoice.paidDate || invoice.issueDate || invoice.createdAt || invoice.updatedAt
+    rows.push({
+      id: `invoice-${invoice.id || invoice.invoiceNumber || issueDate}`,
+      label: `Invoice ${String(invoice.invoiceNumber || invoice.id || 'record')} ${normalize(invoice.status) === 'paid' ? 'paid' : 'updated'}`,
+      detail: `Total ${Number(invoice.total ?? invoice.subtotal ?? 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`,
+      time: formatActivityTime(issueDate),
+      stamp: issueDate,
+    })
+  }
+
+  for (const deal of deals) {
+    const matches = [deal.customerId, deal.customerName, deal.company, deal.customer, deal.accountName]
+      .map(normalize)
+      .some((value) => value === customerKey || value === customerName)
+    if (!matches) continue
+
+    const updatedAt = deal.updatedAt || deal.createdAt || deal.actualCloseDate
+    const stage = String(deal.stage || deal.status || 'updated').toLowerCase()
+    rows.push({
+      id: `deal-${deal.id || updatedAt}`,
+      label: `Deal ${stage}`,
+      detail: `${deal.name || 'Deal'} · ${Number(deal.dealValue ?? deal.value ?? 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`,
+      time: formatActivityTime(updatedAt),
+      stamp: updatedAt,
+    })
+  }
+
+  return rows
+    .filter((item) => item.stamp)
+    .sort((left, right) => new Date(right.stamp).getTime() - new Date(left.stamp).getTime())
+    .slice(0, 4)
+}
 
 const EMPTY_FORM = { name: '', contact: '', email: '', phone: '', industry: 'IT', status: 'active', revenue: '' }
 
@@ -61,6 +114,7 @@ function AddCustomerModal({ onClose, onSave }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      role="dialog" aria-modal="true" aria-label="Add customer"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }}
         className="glass-card w-full max-w-md p-6 space-y-5">
@@ -141,10 +195,15 @@ function AddCustomerModal({ onClose, onSave }) {
 
 /* ── Main Page ──────────────────────────────────────────────────── */
 export default function CustomersPage() {
+  const [searchParams] = useSearchParams()
   const [customers, setCustomers] = useState([])
+  const [dealRows, setDealRows] = useState([])
+  const [invoiceRows, setInvoiceRows] = useState([])
   const [selected, setSelected] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(0)
   const [pageSize] = useState(4)
   const [pageMeta, setPageMeta] = useState({
@@ -154,30 +213,58 @@ export default function CustomersPage() {
     first: true,
     last: true,
   })
+  const routeSearch = searchParams.get('search') ?? ''
 
-  const mapCustomerFromApi = (customer) => ({
+  const mapCustomerFromApi = (customer, metrics = {}) => ({
     id: customer.id,
     name: customer.name || customer.company || 'Customer',
     contact: customer.primaryContact || 'N/A',
     email: customer.email || '',
     phone: customer.phone || '',
     industry: customer.industry || 'Other',
-    revenue: 0,
-    deals: 0,
+    revenue: Number(metrics.revenue ?? 0),
+    deals: Number(metrics.deals ?? 0),
     status: String(customer.status || 'ACTIVE').toLowerCase().replace('_', '-'),
     since: customer.createdAt ? new Date(customer.createdAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
     health: Number(customer.healthScore ?? 75),
   })
 
   useEffect(() => {
+    setSearch(routeSearch)
+  }, [routeSearch])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [debouncedSearch])
+
+  useEffect(() => {
     let cancelled = false
     const loadCustomers = async () => {
       setLoading(true)
       try {
-        const page = await customersAPI.getAll({ page: currentPage, size: pageSize })
+        const [page, dealsPage, invoicesPage] = await Promise.all([
+          customersAPI.getAll({ page: currentPage, size: pageSize, search: debouncedSearch || undefined }),
+          fetchAllPages((params) => dealsAPI.getAll(params), 200),
+          fetchAllPages((params) => invoicesAPI.getAll(params), 200),
+        ])
         if (cancelled) return
-        const rows = Array.isArray(page?.content) ? page.content.map(mapCustomerFromApi) : []
+        const rawCustomers = Array.isArray(page?.content) ? page.content : []
+        const metrics = buildCustomerMetrics({
+          customers: rawCustomers,
+          deals: dealsPage.rows,
+          invoices: invoicesPage.rows,
+        })
+        const rows = rawCustomers.map((customer, index) => mapCustomerFromApi(customer, metrics[index]))
         setCustomers(rows)
+        setDealRows(dealsPage.rows)
+        setInvoiceRows(invoicesPage.rows)
         setPageMeta({
           page: Number(page?.page ?? currentPage),
           totalPages: Number(page?.totalPages ?? 0),
@@ -198,7 +285,7 @@ export default function CustomersPage() {
     }
     loadCustomers()
     return () => { cancelled = true }
-  }, [currentPage, pageSize])
+  }, [currentPage, pageSize, debouncedSearch])
 
   const createCustomer = async (customer) => {
     try {
@@ -224,16 +311,30 @@ export default function CustomersPage() {
     }
   }
 
+  const recentActivity = selected ? buildCustomerActivity(selected, dealRows, invoiceRows) : []
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageHeading
           title="Customers"
-          subtitle={`${pageMeta.total || customers.length} customers · ${customers.filter((c) => c.status === 'active').length} active`}
+          subtitle={`${pageMeta.total || customers.length} customers · ${customers.filter((c) => c.status === 'active').length} active${debouncedSearch ? ` · filtered by “${debouncedSearch}”` : ''}`}
         />
         <button onClick={() => setShowAdd(true)} className="btn-primary gap-1.5 text-sm">
           <Plus className="w-4 h-4" /> Add Customer
         </button>
+      </div>
+
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl px-3 py-2">
+          <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search customers by name, company, or email…"
+            className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none flex-1"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -327,21 +428,24 @@ export default function CustomersPage() {
 
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Recent Activity</p>
-                <div className="space-y-2">
-                  {[
-                    { text: `Invoice paid — ₹${(selected.revenue/100000).toFixed(2)}L`, time: '2 weeks ago' },
-                    { text: `Deal closed — ${selected.name} CRM Suite`, time: '1 month ago' },
-                    { text: 'Support ticket resolved', time: '1 month ago' },
-                  ].map((act, i) => (
-                    <div key={i} className="flex items-start gap-3 text-xs">
-                      <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-slate-700 dark:text-slate-300">{act.text}</p>
-                        <p className="text-slate-400">{act.time}</p>
+                {recentActivity.length > 0 ? (
+                  <div className="space-y-2">
+                    {recentActivity.map((act) => (
+                      <div key={act.id} className="flex items-start gap-3 text-xs">
+                        <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-slate-700 dark:text-slate-300">{act.label}</p>
+                          <p className="text-slate-500 dark:text-slate-400">{act.detail}</p>
+                          <p className="text-slate-400">{act.time}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
+                    No recent activity yet for this customer.
+                  </div>
+                )}
               </div>
             </div>
           ) : (

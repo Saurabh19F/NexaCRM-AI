@@ -48,7 +48,7 @@ public class DemoUserSeeder implements CommandLineRunner {
 
     private void upsertUser(String name, String email, User.Role role, String phone, boolean active, String encodedPassword) {
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-        Optional<User> existing = userRepository.findByEmail(normalizedEmail);
+        Optional<User> existing = userRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, 1L);
 
         User user = existing.orElseGet(() -> User.builder()
             .email(normalizedEmail)

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.nexacrm.security.TenantContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -41,7 +42,9 @@ import java.util.Locale;
 @Slf4j
 public class AIService {
 
-    private static final Long DEFAULT_TENANT = 1L;
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
+    }
 
     @Value("${mistral.api.key:}")
     private String mistralApiKey;
@@ -80,7 +83,7 @@ public class AIService {
     // ── Lead Scoring ──────────────────────────────────────────────
 
     public Map<String, Object> scoreLead(String leadId) {
-        Optional<Lead> leadOpt = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT);
+        Optional<Lead> leadOpt = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId());
         if (leadOpt.isEmpty()) {
             return Map.of("error", "Lead not found");
         }
@@ -422,7 +425,7 @@ public class AIService {
     }
 
     private List<Map<String, Object>> buildFallbackInsights() {
-        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
+        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tenantId());
         long total = leads.size();
         long qualified = leads.stream().filter(lead -> lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION).count();
         long won = leads.stream().filter(lead -> lead.getStatus() == Lead.LeadStatus.WON).count();
@@ -470,7 +473,7 @@ public class AIService {
     }
 
     private List<String> buildFallbackActions(String leadId) {
-        Optional<Lead> leadOpt = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT);
+        Optional<Lead> leadOpt = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId());
         Lead lead = leadOpt.orElse(null);
         if (lead == null) {
             return List.of(
@@ -681,7 +684,7 @@ public class AIService {
 
         String normalized = latestUserMessage.toLowerCase(Locale.ROOT);
         if (normalized.contains("prioritize") || normalized.contains("today")) {
-            List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
+            List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tenantId());
             List<Lead> priority = leads.stream()
                 .filter(lead -> lead.getStatus() != Lead.LeadStatus.WON && lead.getStatus() != Lead.LeadStatus.LOST)
                 .sorted((left, right) -> {
@@ -718,7 +721,7 @@ public class AIService {
         }
 
         if (normalized.contains("pipeline")) {
-            long qualifiedCount = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
+            long qualifiedCount = leadRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
                 .filter(lead -> lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION)
                 .count();
             return "Your live CRM currently has " + qualifiedCount + " pipeline-ready leads. If the Mistral model is unavailable, I can still help you triage the next best actions.";

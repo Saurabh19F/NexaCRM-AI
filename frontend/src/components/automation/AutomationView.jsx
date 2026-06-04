@@ -11,7 +11,7 @@ const CATEGORY_COLORS = {
   Sales: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
   Invoices: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
   Finance: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',
-  AI: 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400',
+  AI: 'bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-400',
   Communication: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400',
   Operations: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
 }
@@ -21,7 +21,7 @@ const STEP_TYPES = ['IF', 'THEN', 'WAIT', 'CONDITION']
 const STEP_COLORS = {
   IF: 'bg-brand-50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-400',
   THEN: 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400',
-  WAIT: 'bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400',
+  WAIT: 'bg-brand-50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-400',
   CONDITION: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400',
 }
 
@@ -440,7 +440,7 @@ export default function AutomationPage() {
 
       <AnimatePresence>
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create new workflow">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

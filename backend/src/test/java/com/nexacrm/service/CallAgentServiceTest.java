@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -63,6 +64,9 @@ class CallAgentServiceTest {
     @Mock
     private NotificationPublisher notificationPublisher;
 
+    @Mock
+    private RestTemplate restTemplate;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private CallAgentService callAgentService;
 
@@ -78,7 +82,8 @@ class CallAgentServiceTest {
             integrationService,
             aiService,
             notificationPublisher,
-            objectMapper
+            objectMapper,
+            restTemplate
         );
     }
 

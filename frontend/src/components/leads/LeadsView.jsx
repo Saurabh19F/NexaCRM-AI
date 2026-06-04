@@ -1,5 +1,6 @@
 import { Fragment, useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Download, Upload, Trash2,
   Edit, ChevronUp, ChevronDown, Flame, Thermometer,
@@ -26,7 +27,7 @@ const SCORE_BADGE = {
 const STATUS_BADGE = {
   new:          { label: 'New',          cls: 'badge-new' },
   contacted:    { label: 'Contacted',    cls: 'badge bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
-  qualified:    { label: 'Qualified',    cls: 'badge bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  qualified:    { label: 'Qualified',    cls: 'badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-300' },
   proposal:     { label: 'Proposal',     cls: 'badge bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   negotiation:  { label: 'Negotiation',  cls: 'badge bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
   won:          { label: 'Won',          cls: 'badge-won' },
@@ -61,7 +62,7 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add lead">
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
@@ -170,7 +171,7 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Edit lead">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -259,7 +260,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete }
   const ScoreIcon = scoreCfg?.icon
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Lead details">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -344,7 +345,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete }
 const HISTORY_STYLE = {
   activity: { icon: ClipboardList, color: 'text-brand-500 bg-brand-100 dark:bg-brand-950/40' },
   call: { icon: PhoneCall, color: 'text-blue-500 bg-blue-100 dark:bg-blue-950/40' },
-  email: { icon: Mail, color: 'text-violet-500 bg-violet-100 dark:bg-violet-950/40' },
+  email: { icon: Mail, color: 'text-brand-500 bg-brand-100 dark:bg-brand-950/40' },
   message: { icon: MessageSquare, color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-950/40' },
   status: { icon: UserCheck, color: 'text-amber-500 bg-amber-100 dark:bg-amber-950/40' },
   note: { icon: FileText, color: 'text-slate-500 bg-slate-100 dark:bg-slate-800' },
@@ -354,13 +355,14 @@ const HISTORY_STYLE = {
 
 const ACTIVITY_STYLE_BY_INDEX = {
   0: { type: 'call', icon: PhoneCall, color: 'text-blue-500 bg-blue-100 dark:bg-blue-950/40' },
-  1: { type: 'email', icon: Mail, color: 'text-violet-500 bg-violet-100 dark:bg-violet-950/40' },
-  2: { type: 'meeting', icon: UserCheck, color: 'text-purple-500 bg-purple-100 dark:bg-purple-950/40' },
+  1: { type: 'email', icon: Mail, color: 'text-brand-500 bg-brand-100 dark:bg-brand-950/40' },
+  2: { type: 'meeting', icon: UserCheck, color: 'text-cyan-600 bg-cyan-100 dark:bg-cyan-950/40' },
   3: { type: 'outcome', icon: TrendingUp, color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-950/40' },
 }
 
 const CALL_OUTCOME_BADGE = {
   connected: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  'non connected': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   'no answer': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   busy: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
   'callback requested': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
@@ -428,7 +430,7 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
   const totalCalls = remoteCalls.length || calls
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end" role="dialog" aria-modal="true" aria-label="Lead history and call intelligence">
       {/* Backdrop */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -462,8 +464,8 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
           <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/60">
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center">
-                  <Brain className="w-4 h-4 text-violet-600 dark:text-violet-300" />
+                <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-950/40 flex items-center justify-center">
+                  <Brain className="w-4 h-4 text-brand-600 dark:text-brand-300" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Call Intelligence</p>
@@ -497,10 +499,10 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
                 <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Confidence</p>
-                    <span className="text-xs font-bold text-violet-600 dark:text-violet-300">{confidence}%</span>
+                    <span className="text-xs font-bold text-brand-600 dark:text-brand-300">{confidence}%</span>
                   </div>
                   <div className="mt-2 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500" style={{ width: `${Math.min(100, confidence)}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500" style={{ width: `${Math.min(100, confidence)}%` }} />
                   </div>
                 </div>
 
@@ -512,9 +514,9 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
                 )}
 
                 {analysis.nextBestAction && (
-                  <div className="rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 p-3">
-                    <p className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide mb-1">Next Best Action</p>
-                    <p className="text-xs text-violet-800 dark:text-violet-200 leading-relaxed">{analysis.nextBestAction}</p>
+                  <div className="rounded-xl bg-brand-50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-800 p-3">
+                    <p className="text-[10px] font-semibold text-brand-700 dark:text-brand-300 uppercase tracking-wide mb-1">Next Best Action</p>
+                    <p className="text-xs text-brand-800 dark:text-brand-200 leading-relaxed">{analysis.nextBestAction}</p>
                   </div>
                 )}
 
@@ -624,7 +626,7 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
                         </span>
                       )}
                       {call.recordingUrl && (
-                        <span className="text-[10px] text-violet-600 dark:text-violet-300">Recording attached</span>
+                        <span className="text-[10px] text-brand-600 dark:text-brand-300">Recording attached</span>
                       )}
                     </div>
                   </summary>
@@ -717,7 +719,7 @@ function WhatsAppModal({ lead, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Send WhatsApp message">
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -843,7 +845,7 @@ function CallOutcomeModal({ lead, user, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Call outcome">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -926,6 +928,7 @@ function CallOutcomeModal({ lead, user, onClose, onSave }) {
 
 export default function LeadsPage() {
   const PAGE_SIZE = 50
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   const {
     leads,
@@ -956,6 +959,7 @@ export default function LeadsPage() {
   const [teamMembers, setTeamMembers]       = useState([])
   const [leadActivitiesByLeadId, setLeadActivitiesByLeadId] = useState({})
   const [callOutcomeByLeadId, setCallOutcomeByLeadId] = useState({})
+  const [activityTabByLeadId, setActivityTabByLeadId] = useState({})
   const [expandedLeadId, setExpandedLeadId] = useState(null)
   const [openActionsLeadId, setOpenActionsLeadId] = useState(null)
   const [callingLeadId, setCallingLeadId] = useState(null)
@@ -970,11 +974,16 @@ export default function LeadsPage() {
   const canConvert = hasPermission(user, PERMISSIONS.CUSTOMERS_CREATE) && hasPermission(user, PERMISSIONS.DEALS_CREATE)
   const canViewTeam = hasPermission(user, PERMISSIONS.TEAM_VIEW)
   const canCall = hasPermission(user, PERMISSIONS.COMMUNICATIONS_SEND)
+  const routeSearch = searchParams.get('search') ?? ''
 
   useEffect(() => {
     const id = window.setInterval(() => setTimeTick(Date.now()), 60 * 1000)
     return () => window.clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    setSearch(routeSearch)
+  }, [routeSearch])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1287,7 +1296,7 @@ export default function LeadsPage() {
 
   const extractCallOutcome = (row) => {
     const values = row?.values || {}
-    const raw = values?.callOutcome || values?.status || ''
+    const raw = values?.callOutcome || values?.connectionStatus || values?.status || ''
     const outcome = String(raw || '').trim()
     if (!outcome) return null
     const idx = Number(row?.activityIndex ?? -1)
@@ -1322,6 +1331,14 @@ export default function LeadsPage() {
     setActivitiesLead(lead)
   }
 
+  const handleActivityTabChange = (leadId, tabIndex) => {
+    if (!leadId && leadId !== 0) return
+    setActivityTabByLeadId((prev) => {
+      if (prev[leadId] === tabIndex) return prev
+      return { ...prev, [leadId]: tabIndex }
+    })
+  }
+
   const getActivityModalState = (leadId) => {
     const events = leadActivitiesByLeadId[leadId] || []
     const data = [{}, {}, {}, {}]
@@ -1347,16 +1364,27 @@ export default function LeadsPage() {
     if (!canUpdate) {
       throw new Error('You do not have permission to edit leads.')
     }
-    const summaryParts = Object.entries(values || {})
-      .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
-      .map(([key, value]) => `${key}: ${value}`)
-    const summary = summaryParts.length ? summaryParts.join(' | ') : 'No extra details'
+    const normalizedOutcome = normalizeCallOutcome(values?.callOutcome || values?.connectionStatus || values?.status)
+    const summary = activityIndex === 0
+      ? [
+          normalizedOutcome ? `Status: ${normalizedOutcome}` : null,
+          lead?.source ? `Source: ${lead.source}` : null,
+          lead?.service ? `Service: ${lead.service}` : lead?.specialization ? `Service: ${lead.specialization}` : null,
+          lead?.createdAt ? `Planned: ${lead.createdAt}` : null,
+          `Actual: ${new Date().toISOString()}`,
+          values?.nextFollowUpDate || values?.followUpDate ? `Next follow-up: ${values.nextFollowUpDate || values.followUpDate}` : null,
+          values?.remark || values?.remarks || values?.note ? `Remarks: ${values.remark || values.remarks || values.note}` : null,
+        ].filter(Boolean).join(' | ') || 'Lead activity recorded'
+      : Object.entries(values || {})
+          .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(' | ') || 'No extra details'
     const payload = {
       activityIndex,
       activityId: activity?.id || null,
       activityLabel: activity?.label || `Activity ${Number(activityIndex) + 1}`,
       activityTitle: activity?.title || '',
-      assignedTo: values?.assignedTo || null,
+      assignedTo: values?.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || null,
       values: values || {},
       summary,
     }
@@ -1366,7 +1394,7 @@ export default function LeadsPage() {
       const existing = prev[lead.id] || []
       return { ...prev, [lead.id]: [event, ...existing] }
     })
-    const persistedOutcome = normalizeCallOutcome(values?.callOutcome)
+    const persistedOutcome = normalizeCallOutcome(values?.callOutcome || values?.connectionStatus || values?.status)
     if (persistedOutcome) {
       setCallOutcomeByLeadId((prev) => ({ ...prev, [lead.id]: persistedOutcome }))
     }
@@ -1449,6 +1477,7 @@ export default function LeadsPage() {
         >
           <option value="all">Last Call: Any</option>
           <option value="connected">Last Call: Connected</option>
+          <option value="non connected">Last Call: Non Connected</option>
           <option value="no answer">Last Call: No Answer</option>
           <option value="busy">Last Call: Busy</option>
           <option value="callback requested">Last Call: Callback Requested</option>
@@ -1516,63 +1545,79 @@ export default function LeadsPage() {
                   {ageMin === null ? 'No activity timer' : `${ageMin} min since last activity`}
                 </p>
 
-                <div className="flex flex-wrap items-center gap-1">
+                <div className="grid grid-cols-2 gap-2">
                   {canUpdate && (
-                    <button onClick={() => setEditLead(lead)}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-brand-600 transition-colors"
-                      title="Edit lead">
-                      <Edit className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => setEditLead(lead)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      title="Edit lead"
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Edit
                     </button>
                   )}
                   {canCall && (
                     <button
                       onClick={() => handleCallLead(lead)}
                       disabled={callingLeadId === lead.id || !lead.phone}
-                      className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title={!lead.phone ? 'No phone number' : (callingLeadId === lead.id ? 'Calling…' : 'Call now')}
                     >
-                      <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
+                      <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} /> Call
                     </button>
                   )}
-                  <button onClick={() => openHistoryLead(lead)}
-                    className="p-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/20 text-slate-400 hover:text-violet-500 transition-colors"
-                    title="Call Intelligence">
-                    <Sparkles className="w-3.5 h-3.5" />
+                  <button
+                    onClick={() => setWaLead(lead)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    title="Send WhatsApp"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                   </button>
-                  <button onClick={() => openActivitiesLead(lead)}
-                    className="p-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/20 text-slate-400 hover:text-brand-600 transition-colors"
-                    title="Lead Activities">
-                    <ClipboardList className="w-3.5 h-3.5" />
+                  <button
+                    onClick={() => openHistoryLead(lead)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    title="Call Intelligence"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Intelligence
                   </button>
-                  <button onClick={() => setWaLead(lead)}
-                    className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/20 text-slate-400 hover:text-green-600 transition-colors"
-                    title="Send WhatsApp">
-                    <MessageCircle className="w-3.5 h-3.5" />
+                  <button
+                    onClick={() => openActivitiesLead(lead)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    title="Lead Activities"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" /> Activity
                   </button>
                   {canAiScore && (
-                    <button onClick={() => handleScoreLead(lead)}
-                      className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-400 hover:text-indigo-600 transition-colors"
-                      title="AI Score Lead">
-                      <TrendingUp className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => handleScoreLead(lead)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      title="AI Score Lead"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" /> Score
                     </button>
                   )}
                   {canConvert && (
-                    <button onClick={() => handleConvertLead(lead)}
-                      className="p-1.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 text-slate-400 hover:text-teal-600 transition-colors"
-                      title="Convert to Customer">
-                      <UserCheck className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => handleConvertLead(lead)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      title="Convert to Customer"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" /> Convert
                     </button>
                   )}
-                  <button onClick={() => setDetailLead(lead)}
-                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
-                    title="View details">
-                    <ExternalLink className="w-3.5 h-3.5" />
+                  <button
+                    onClick={() => setDetailLead(lead)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    title="View details"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Details
                   </button>
                   {canDelete && (
-                    <button onClick={() => handleDelete([lead.id])}
-                      className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-500"
-                      title="Delete lead">
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => handleDelete([lead.id])}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/70 dark:bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                      title="Delete lead"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
                     </button>
                   )}
                 </div>
@@ -1899,6 +1944,8 @@ export default function LeadsPage() {
             onPersist={handlePersistActivity}
             initialData={getActivityModalState(activitiesLead.id).data}
             initialSaved={getActivityModalState(activitiesLead.id).saved}
+            initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? 0}
+            onActiveTabChange={handleActivityTabChange}
           />
         )}
       </AnimatePresence>

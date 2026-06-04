@@ -73,10 +73,10 @@ public class SecurityConfig {
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                 // Role-based access
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**").hasAnyRole("SUPER_ADMIN", "COMPANY_ADMIN", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()
-                .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "MANAGER")
-                .requestMatchers(HttpMethod.DELETE, "/api/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers("/api/users/**").hasAnyRole("SUPER_ADMIN", "COMPANY_ADMIN", "ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/api/**").hasAnyRole("SUPER_ADMIN", "COMPANY_ADMIN", "ADMIN", "MANAGER")
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider)

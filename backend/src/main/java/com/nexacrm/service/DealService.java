@@ -10,6 +10,7 @@ import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.CommunicationRecordRepository;
 import com.nexacrm.repository.UserRepository;
+import com.nexacrm.security.TenantContext;
 import com.nexacrm.websocket.NotificationPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -43,12 +44,14 @@ public class DealService {
     private final WorkflowEngine workflowEngine;
     private final ObjectMapper objectMapper;
 
-    private static final Long DEFAULT_TENANT = 1L;
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<DealDTO> findAll(String stage, String ownerId, Long pipelineId, Pageable pageable) {
         Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
 
         Deal.DealStage stageEnum = parseStage(stage);
@@ -93,7 +96,7 @@ public class DealService {
         }
 
         Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
         if (pipelineId != null) {
             query.addCriteria(new Criteria().orOperator(
@@ -135,14 +138,14 @@ public class DealService {
 
     @Transactional(readOnly = true)
     public DealDTO findById(String id) {
-        return dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        return dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
     }
 
     public DealDTO create(DealDTO dto) {
         Deal deal = fromDTO(dto);
-        deal.setTenantId(DEFAULT_TENANT);
+        deal.setTenantId(tenantId());
         Deal saved = dealRepository.save(deal);
         workflowEngine.processEvent("DEAL_CREATED", Map.of(
             "dealId", saved.getId(),
@@ -152,7 +155,7 @@ public class DealService {
     }
 
     public DealDTO update(String id, DealDTO dto) {
-        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
 
         deal.setTitle(dto.getTitle());
@@ -165,7 +168,7 @@ public class DealService {
             if (dto.getLeadId().isBlank()) {
                 deal.setLead(null);
             } else {
-                leadRepository.findByIdAndTenantIdAndDeletedFalse(dto.getLeadId(), DEFAULT_TENANT)
+                leadRepository.findByIdAndTenantIdAndDeletedFalse(dto.getLeadId(), tenantId())
                     .ifPresent(deal::setLead);
             }
         }
@@ -173,7 +176,7 @@ public class DealService {
             if (dto.getOwnerId().isBlank()) {
                 deal.setOwner(null);
             } else {
-                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getOwnerId(), DEFAULT_TENANT)
+                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getOwnerId(), tenantId())
                     .ifPresent(deal::setOwner);
             }
         }
@@ -183,7 +186,7 @@ public class DealService {
     }
 
     public DealDTO moveStage(String id, String stageName) {
-        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
 
         Deal.DealStage newStage;
@@ -219,7 +222,7 @@ public class DealService {
     }
 
     public void delete(String id) {
-        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
         deal.setDeleted(true);
         dealRepository.save(deal);
@@ -333,7 +336,7 @@ public class DealService {
         }
 
         Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
         query.addCriteria(Criteria.where("lead_id").in(leadIds));
         query.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
@@ -496,11 +499,11 @@ public class DealService {
             .notes(dto.getNotes());
 
         if (dto.getLeadId() != null && !dto.getLeadId().isBlank()) {
-            leadRepository.findByIdAndTenantIdAndDeletedFalse(dto.getLeadId(), DEFAULT_TENANT)
+            leadRepository.findByIdAndTenantIdAndDeletedFalse(dto.getLeadId(), tenantId())
                 .ifPresent(builder::lead);
         }
         if (dto.getOwnerId() != null && !dto.getOwnerId().isBlank()) {
-            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getOwnerId(), DEFAULT_TENANT)
+            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getOwnerId(), tenantId())
                 .ifPresent(builder::owner);
         }
 

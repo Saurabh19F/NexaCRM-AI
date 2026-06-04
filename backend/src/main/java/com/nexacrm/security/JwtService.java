@@ -35,15 +35,30 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        Map<String, Object> extra = new HashMap<>();
+        Long tenantId = resolveTenantId(userDetails);
+        if (tenantId != null) {
+            extra.put("tenantId", tenantId);
+        }
+        return generateToken(extra, userDetails);
     }
 
     public String generateToken(Map<String, Object> extra, UserDetails userDetails) {
-        return buildToken(extra, userDetails, jwtExpiration);
+        Map<String, Object> claims = new HashMap<>(extra);
+        Long tenantId = resolveTenantId(userDetails);
+        if (tenantId != null && !claims.containsKey("tenantId")) {
+            claims.put("tenantId", tenantId);
+        }
+        return buildToken(claims, userDetails, jwtExpiration);
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, refreshExpiration);
+        Map<String, Object> extra = new HashMap<>();
+        Long tenantId = resolveTenantId(userDetails);
+        if (tenantId != null) {
+            extra.put("tenantId", tenantId);
+        }
+        return buildToken(extra, userDetails, refreshExpiration);
     }
 
     private String buildToken(Map<String, Object> extra, UserDetails user, long expiration) {
@@ -59,6 +74,31 @@ public class JwtService {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    public long getJwtExpiration() {
+        return jwtExpiration;
+    }
+
+    public long getRefreshExpiration() {
+        return refreshExpiration;
+    }
+
+    public Long extractTenantId(String token) {
+        return extractClaim(token, claims -> {
+            Object tenantClaim = claims.get("tenantId");
+            if (tenantClaim instanceof Number number) {
+                return number.longValue();
+            }
+            if (tenantClaim instanceof String value && !value.isBlank()) {
+                try {
+                    return Long.parseLong(value.trim());
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+            return null;
+        });
     }
 
     private boolean isTokenExpired(String token) {
@@ -80,5 +120,12 @@ public class JwtService {
     private SecretKey getSignKey() {
         byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private Long resolveTenantId(UserDetails userDetails) {
+        if (userDetails instanceof com.nexacrm.model.User user && user.getTenantId() != null) {
+            return user.getTenantId();
+        }
+        return null;
     }
 }

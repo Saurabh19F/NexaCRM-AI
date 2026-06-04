@@ -1,6 +1,8 @@
 package com.nexacrm.model;
 
 import lombok.*;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -8,6 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(collection = "workflows")
+@CompoundIndexes({
+    @CompoundIndex(name = "workflow_tenant_status_idx", def = "{'tenant_id': 1, 'deleted': 1, 'status': 1, 'createdAt': -1}"),
+    @CompoundIndex(name = "workflow_tenant_category_idx", def = "{'tenant_id': 1, 'deleted': 1, 'category': 1}")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Workflow extends BaseEntity {
 

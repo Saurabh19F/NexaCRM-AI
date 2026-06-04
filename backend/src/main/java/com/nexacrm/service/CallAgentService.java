@@ -13,6 +13,7 @@ import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadActivityRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
+import com.nexacrm.security.TenantContext;
 import com.nexacrm.websocket.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,8 +44,11 @@ import java.util.Optional;
 @Transactional
 public class CallAgentService {
 
-    private static final Long DEFAULT_TENANT = 1L;
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
+    }
 
     private final CommunicationRecordRepository communicationRecordRepository;
     private final DealRepository dealRepository;
@@ -56,6 +60,7 @@ public class CallAgentService {
     private final AIService aiService;
     private final NotificationPublisher notificationPublisher;
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
 
     @Value("${nexacrm.call-agent.webhook-secret:}")
     private String defaultWebhookSecret;
@@ -173,7 +178,7 @@ public class CallAgentService {
 
         Lead lead = null;
         if (!leadId.isBlank()) {
-            lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT)
+            lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId())
                 .orElse(null);
         }
 
@@ -282,7 +287,7 @@ public class CallAgentService {
         Lead lead = null;
         String leadId = trim(record.getLeadId());
         if (!leadId.isBlank()) {
-            lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT).orElse(null);
+            lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId()).orElse(null);
         }
 
         String leadName = lead != null ? trim(lead.getName()) : "";
@@ -321,7 +326,7 @@ public class CallAgentService {
     }
 
     private Lead ensureLeadExists(String leadId) {
-        return leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, DEFAULT_TENANT)
+        return leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
     }
 
@@ -631,7 +636,7 @@ public class CallAgentService {
             return false;
         }
 
-        Optional<User> assignee = userRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT).stream()
+        Optional<User> assignee = userRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
             .filter(user -> Boolean.TRUE.equals(user.getIsActive()))
             .min(Comparator
                 .comparingInt((User user) -> roleRank(user.getRole()))
@@ -649,11 +654,10 @@ public class CallAgentService {
 
     private int roleRank(User.Role role) {
         if (role == null) return 4;
-        return switch (role) {
-            case SALES_EXEC -> 1;
-            case MANAGER -> 2;
-            case ADMIN -> 3;
-        };
+        if (User.isSalesLike(role)) return 1;
+        if (role == User.Role.MANAGER) return 2;
+        if (User.isAdminLike(role)) return 3;
+        return 4;
     }
 
     private void saveLeadCallActivity(
@@ -695,7 +699,7 @@ public class CallAgentService {
             .values(values)
             .savedAt(LocalDateTime.now())
             .build();
-        activity.setTenantId(DEFAULT_TENANT);
+        activity.setTenantId(tenantId());
         leadActivityRepository.save(activity);
     }
 
@@ -782,7 +786,7 @@ public class CallAgentService {
             .values(values)
             .savedAt(LocalDateTime.now())
             .build();
-        activity.setTenantId(DEFAULT_TENANT);
+        activity.setTenantId(tenantId());
         leadActivityRepository.save(activity);
     }
 
@@ -827,7 +831,7 @@ public class CallAgentService {
             return;
         }
 
-        Deal deal = dealRepository.findByLead_IdAndTenantIdAndDeletedFalse(lead.getId(), DEFAULT_TENANT)
+        Deal deal = dealRepository.findByLead_IdAndTenantIdAndDeletedFalse(lead.getId(), tenantId())
             .orElse(null);
         boolean created = false;
         if (deal == null) {
@@ -899,7 +903,7 @@ public class CallAgentService {
         }
 
         Deal deal = builder.build();
-        deal.setTenantId(DEFAULT_TENANT);
+        deal.setTenantId(tenantId());
         return dealRepository.save(deal);
     }
 
@@ -1325,7 +1329,7 @@ public class CallAgentService {
             headers.setBearerAuth(apiKey);
             headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-            ResponseEntity<String> response = new RestTemplate().exchange(
+            ResponseEntity<String> response = restTemplate.exchange(
                 apiUrl + "/executions/" + normalizedExecutionId,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),

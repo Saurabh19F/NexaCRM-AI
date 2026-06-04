@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,11 +19,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
@@ -47,14 +53,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-
-        String jwt = resolveToken(request);
-        if (jwt == null || jwt.isBlank()) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         try {
+            String jwt = resolveToken(request);
+            if (jwt == null || jwt.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            Long tenantId = jwtService.extractTenantId(jwt);
+            if (tenantId != null) {
+                TenantContext.setCurrentTenantId(tenantId);
+            }
+
             final String username = jwtService.extractUsername(jwt);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -67,16 +77,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+            filterChain.doFilter(request, response);
         } catch (Exception e) {
             log.warn("JWT validation failed: {}", e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
-            response.getWriter().write("{\"error\":\"Token invalid or expired. Please login again.\"}");
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("timestamp", Instant.now());
+            body.put("status", HttpServletResponse.SC_UNAUTHORIZED);
+            body.put("error", "Unauthorized");
+            body.put("message", "Token invalid or expired. Please login again.");
+            body.put("path", request.getRequestURI());
+            response.getWriter().write(OBJECT_MAPPER.writeValueAsString(body));
             return;
+        } finally {
+            TenantContext.clear();
         }
-
-        filterChain.doFilter(request, response);
     }
 
     private String resolveToken(HttpServletRequest request) {

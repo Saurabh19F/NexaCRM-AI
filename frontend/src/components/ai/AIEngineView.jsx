@@ -33,7 +33,7 @@ function ChatBubble({ message }) {
   }
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-brand-600' : 'bg-gradient-to-br from-violet-500 to-brand-600'}`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-brand-600' : 'bg-gradient-to-br from-brand-500 to-accent-500'}`}>
         {isUser ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
       </div>
       <div className={`group relative max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? 'bg-brand-600 text-white rounded-tr-sm' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-sm rounded-tl-sm border border-slate-100 dark:border-slate-700'}`}>
@@ -562,8 +562,8 @@ function AIInsights() {
         <div><h3 className="font-bold text-slate-800 dark:text-slate-200">AI Business Insights</h3><p className="text-xs text-slate-500 mt-0.5">Pattern highlights from CRM data</p></div>
         <button onClick={generate} disabled={loading} className="btn-primary text-xs gap-2 disabled:opacity-60"><Sparkles className={`w-3.5 h-3.5 ${loading ? 'animate-pulse' : ''}`} />{loading ? 'Analyzing...' : insights.length ? 'Refresh' : 'Generate Insights'}</button>
       </div>
-      {!insights.length && !loading && <div className="flex flex-col items-center justify-center py-16 text-center"><div className="w-16 h-16 rounded-2xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center mb-4"><BarChart3 className="w-8 h-8 text-violet-500" /></div><p className="text-slate-500 text-sm">Click "Generate Insights" to analyze your CRM</p></div>}
-      {loading && <div className="flex flex-col items-center justify-center py-16"><Brain className="w-8 h-8 text-violet-500 animate-pulse mb-3" /><p className="text-sm text-slate-500">Analyzing...</p></div>}
+      {!insights.length && !loading && <div className="flex flex-col items-center justify-center py-16 text-center"><div className="w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center mb-4"><BarChart3 className="w-8 h-8 text-brand-500" /></div><p className="text-slate-500 text-sm">Click "Generate Insights" to analyze your CRM</p></div>}
+      {loading && <div className="flex flex-col items-center justify-center py-16"><Brain className="w-8 h-8 text-brand-500 animate-pulse mb-3" /><p className="text-sm text-slate-500">Analyzing...</p></div>}
       {insights.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
           {insights.map((a) => (
@@ -585,7 +585,7 @@ export default function AIEnginePage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2"><Sparkles className="w-6 h-6 text-violet-500" /> AI Engine</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2"><Sparkles className="w-6 h-6 text-brand-500" /> AI Engine</h1>
           <p className="text-sm text-slate-500 mt-0.5">Backend AI features for CRM intelligence</p>
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-xl border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">

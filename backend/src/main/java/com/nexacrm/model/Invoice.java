@@ -1,6 +1,8 @@
 package com.nexacrm.model;
 
 import lombok.*;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -10,10 +12,14 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Document(collection = "invoices")
+@CompoundIndexes({
+    @CompoundIndex(name = "invoice_tenant_number_idx", def = "{'tenant_id': 1, 'invoice_number': 1}", unique = true),
+    @CompoundIndex(name = "invoice_tenant_status_due_idx", def = "{'tenant_id': 1, 'deleted': 1, 'status': 1, 'due_date': 1}"),
+    @CompoundIndex(name = "invoice_tenant_customer_status_idx", def = "{'tenant_id': 1, 'deleted': 1, 'customer': 1, 'status': 1}")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Invoice extends BaseEntity {
 
-    @Indexed(unique = true)
     @Field("invoice_number")
     private String invoiceNumber;
 

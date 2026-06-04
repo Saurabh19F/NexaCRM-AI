@@ -19,7 +19,7 @@ const iconMap = {
   deal:    { icon: Kanban,       color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40' },
   task:    { icon: AlertCircle,  color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40' },
   invoice: { icon: Receipt,      color: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-950/40' },
-  ai:      { icon: Sparkles,     color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-950/40' },
+  ai:      { icon: Sparkles,     color: 'text-brand-500', bg: 'bg-brand-50 dark:bg-brand-950/40' },
   communication: { icon: MessageSquare, color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-950/40' },
 }
 
@@ -47,7 +47,7 @@ export default function NotificationPanel({ onClose }) {
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: -8 }}
       transition={{ duration: 0.12 }}
-      className="fixed left-2 right-2 top-[4.75rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 overflow-hidden z-50 rounded-2xl border border-slate-200/70 dark:border-violet-800/30 bg-white/98 dark:bg-[#120f1f]/98 shadow-2xl backdrop-blur-2xl"
+      className="fixed left-2 right-2 top-[4.75rem] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 overflow-hidden z-50 rounded-2xl border border-slate-200/70 dark:border-slate-800/40 bg-white/98 dark:bg-slate-950/98 shadow-2xl backdrop-blur-2xl"
     >
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">

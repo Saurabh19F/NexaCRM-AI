@@ -12,13 +12,13 @@ export async function sendWhatsApp(number, message) {
 }
 
 /**
- * Fetch incoming messages — NOTE: aiadrika.in does not expose a browser-accessible
- * inbox endpoint (CORS / 500). Incoming messages are delivered via webhook to a backend.
- * This function is a no-op stub so the UI degrades gracefully.
+ * Fetch incoming messages — the inbox is delivered via a backend webhook.
+ * This function is a no-op stub so the UI degrades gracefully when inbox sync
+ * is not available in the browser.
  */
 export async function fetchWhatsAppMessages(_number) {
-  // Return empty — browser cannot poll aiadrika.in inbox due to CORS + missing endpoint.
-  // Wire up a backend webhook receiver to push incoming messages into this app.
+  // Return empty — browsers cannot poll the inbox directly, so this stays webhook-backed.
+  // Wire up a backend receiver to push incoming messages into this app.
   return []
 }
 

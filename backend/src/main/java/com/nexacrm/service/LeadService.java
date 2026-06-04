@@ -12,6 +12,7 @@ import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
+import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Row;
@@ -24,6 +25,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.TextCriteria;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -41,6 +44,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -82,24 +86,21 @@ public class LeadService {
     @Value("${meta.graph-api-version:v19.0}")
     private String graphApiVersion;
 
-    private static final Long DEFAULT_TENANT = 1L;
-
     // ── Queries ──────────────────────────────────────────────────
+
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
                                          String source, String assignedTo, Pageable pageable) {
         Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
 
         if (search != null && !search.isBlank()) {
-            String regex = ".*" + java.util.regex.Pattern.quote(search.trim()) + ".*";
-            query.addCriteria(new Criteria().orOperator(
-                Criteria.where("name").regex(regex, "i"),
-                Criteria.where("email").regex(regex, "i"),
-                Criteria.where("company").regex(regex, "i")
-            ));
+            query.addCriteria(TextCriteria.forDefaultLanguage().matchingAny(search.trim()));
         }
         if (status != null && !status.isBlank()) {
             query.addCriteria(Criteria.where("status").is(Lead.LeadStatus.valueOf(status.toUpperCase())));
@@ -147,7 +148,7 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public LeadDTO findById(String id) {
-        return leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        return leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
     }
@@ -159,17 +160,43 @@ public class LeadService {
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
             throw new IllegalStateException("Email is required");
         }
+        String normalizedPhone = normalizePhone(dto.getPhone());
 
-        leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT)
+        Long tenantId = tenantId();
+        if (dto.getFacebookLeadId() != null && !dto.getFacebookLeadId().isBlank()) {
+            Optional<Lead> existingFacebookLead = leadRepository.findByFacebookLeadIdAndTenantIdAndDeletedFalse(
+                dto.getFacebookLeadId().trim(),
+                tenantId
+            );
+            if (existingFacebookLead.isPresent()) {
+                Lead existing = existingFacebookLead.get();
+                log.info("Lead create skipped because Facebook lead already exists: id={}", existing.getId());
+                return toDTO(existing);
+            }
+        }
+
+        leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, tenantId)
             .ifPresent(existing -> {
                 throw new IllegalStateException("Lead with email already exists: " + normalizedEmail);
             });
+        if (normalizedPhone != null && !normalizedPhone.isBlank()) {
+            leadRepository.findByPhoneAndTenantIdAndDeletedFalse(normalizedPhone, tenantId)
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("Lead with phone already exists: " + normalizedPhone);
+                });
+        }
 
         dto.setEmail(normalizedEmail);
+        dto.setPhone(normalizedPhone);
 
         Lead lead = fromDTO(dto);
-        lead.setTenantId(DEFAULT_TENANT);
-        Lead saved = leadRepository.save(lead);
+        lead.setTenantId(tenantId);
+        Lead saved;
+        try {
+            saved = leadRepository.save(lead);
+        } catch (DuplicateKeyException ex) {
+            throw new IllegalStateException("Lead already exists with that email, phone, or external ID", ex);
+        }
 
         notificationService.notifyLeadCreated(
             saved.getName(),
@@ -197,23 +224,30 @@ public class LeadService {
     }
 
     public LeadDTO update(String id, LeadDTO dto) {
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         String normalizedEmail = normalizeEmail(dto.getEmail());
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
             throw new IllegalStateException("Email is required");
         }
+        String normalizedPhone = normalizePhone(dto.getPhone());
         if (!normalizedEmail.equalsIgnoreCase(lead.getEmail())) {
-            leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT)
+            leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, tenantId())
                 .ifPresent(existing -> {
                     throw new IllegalStateException("Lead with email already exists: " + normalizedEmail);
+                });
+        }
+        if (normalizedPhone != null && !normalizedPhone.isBlank() && !normalizedPhone.equals(lead.getPhone())) {
+            leadRepository.findByPhoneAndTenantIdAndDeletedFalse(normalizedPhone, tenantId())
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("Lead with phone already exists: " + normalizedPhone);
                 });
         }
 
         lead.setName(dto.getName());
         lead.setEmail(normalizedEmail);
-        lead.setPhone(dto.getPhone());
+        lead.setPhone(normalizedPhone);
         lead.setCompany(dto.getCompany());
         lead.setService(dto.getService());
         lead.setSpecialization(dto.getSpecialization());
@@ -225,7 +259,7 @@ public class LeadService {
             if (dto.getAssignedToId().isBlank()) {
                 lead.setAssignedTo(null);
             } else {
-                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAssignedToId(), DEFAULT_TENANT)
+                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAssignedToId(), tenantId())
                     .ifPresent(lead::setAssignedTo);
             }
         }
@@ -233,12 +267,28 @@ public class LeadService {
         if (dto.getLastContactedAt() != null) {
             lead.setLastContactedAt(dto.getLastContactedAt());
         }
+        if (dto.getConvertedAt() != null) {
+            lead.setConvertedAt(dto.getConvertedAt());
+        }
+        if (dto.getLostReason() != null) {
+            lead.setLostReason(dto.getLostReason());
+        }
+        if (dto.getFollowUpDate() != null) {
+            lead.setFollowUpDate(dto.getFollowUpDate());
+        }
+        if (dto.getRevenueValue() != null) {
+            lead.setRevenueValue(dto.getRevenueValue());
+        }
 
-        return toDTO(leadRepository.save(lead));
+        try {
+            return toDTO(leadRepository.save(lead));
+        } catch (DuplicateKeyException ex) {
+            throw new IllegalStateException("Lead already exists with that email, phone, or external ID", ex);
+        }
     }
 
     public void delete(String id) {
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
         lead.setDeleted(true);
         leadRepository.save(lead);
@@ -246,7 +296,12 @@ public class LeadService {
 
     public int bulkDelete(List<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
-        List<Lead> leads = leadRepository.findAllById(ids);
+        Long tenantId = tenantId();
+        List<Lead> leads = ids.stream()
+            .filter(id -> id != null && !id.isBlank())
+            .map(id -> leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId))
+            .flatMap(Optional::stream)
+            .toList();
         leads.forEach(l -> l.setDeleted(true));
         leadRepository.saveAll(leads);
         return leads.size();
@@ -258,13 +313,16 @@ public class LeadService {
         }
 
         String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase(Locale.ROOT) : "";
+        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase(Locale.ROOT) : "";
         List<List<String>> rows;
         try {
-            if (fileName.endsWith(".xlsx")) {
+            if (fileName.endsWith(".xlsx") || contentType.contains("spreadsheetml.sheet")) {
                 rows = parseExcel(file);
-            } else {
+            } else if (fileName.endsWith(".csv") || contentType.contains("csv") || contentType.contains("plain")) {
                 String csv = new String(file.getBytes(), StandardCharsets.UTF_8);
                 rows = parseCsv(csv);
+            } else {
+                throw new IllegalStateException("Unsupported import file type. Only CSV and XLSX are allowed.");
             }
         } catch (IOException e) {
             throw new IllegalStateException("Unable to read import file.", e);
@@ -301,7 +359,7 @@ public class LeadService {
             }
 
             String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-            if (leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT).isPresent()) {
+            if (leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, tenantId()).isPresent()) {
                 skipped++;
                 continue;
             }
@@ -384,7 +442,7 @@ public class LeadService {
             }
 
             String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-            if (leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT).isPresent()) {
+            if (leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, tenantId()).isPresent()) {
                 skipped++;
                 continue;
             }
@@ -568,11 +626,11 @@ public class LeadService {
         List<Lead> leads;
         if (status != null && !status.isBlank()) {
             leads = leadRepository.findByTenantIdAndDeletedFalseAndStatus(
-                DEFAULT_TENANT,
+                tenantId(),
                 Lead.LeadStatus.valueOf(status.toUpperCase(Locale.ROOT))
             );
         } else {
-            leads = leadRepository.findByTenantIdAndDeletedFalse(DEFAULT_TENANT);
+            leads = leadRepository.findByTenantIdAndDeletedFalse(tenantId());
         }
 
         String normalized = format == null ? "csv" : format.trim().toLowerCase(Locale.ROOT);
@@ -581,7 +639,7 @@ public class LeadService {
     }
 
     public Map<String, Object> scoreWithAI(String id) {
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         int scoreValue = calculateLeadScoreValue(lead);
@@ -603,11 +661,11 @@ public class LeadService {
     }
 
     public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         Customer customer = customerRepository
-            .findByEmailAndTenantIdAndDeletedFalse(lead.getEmail(), DEFAULT_TENANT)
+            .findByEmailAndTenantIdAndDeletedFalse(lead.getEmail(), tenantId())
             .orElseGet(() -> {
                 Customer.CustomerBuilder builder = Customer.builder()
                     .name(lead.getName())
@@ -625,12 +683,12 @@ public class LeadService {
                 }
 
                 Customer created = builder.build();
-                created.setTenantId(DEFAULT_TENANT);
+                created.setTenantId(tenantId());
                 return customerRepository.save(created);
             });
 
         Deal deal = dealRepository
-            .findByLead_IdAndTenantIdAndDeletedFalse(lead.getId(), DEFAULT_TENANT)
+            .findByLead_IdAndTenantIdAndDeletedFalse(lead.getId(), tenantId())
             .orElseGet(() -> {
                 String title = (lead.getCompany() != null && !lead.getCompany().isBlank())
                     ? lead.getCompany() + " Opportunity"
@@ -651,17 +709,22 @@ public class LeadService {
                 }
 
                 Deal created = builder.build();
-                created.setTenantId(DEFAULT_TENANT);
+                created.setTenantId(tenantId());
                 return dealRepository.save(created);
             });
 
+        LocalDateTime convertedAt = LocalDateTime.now();
         lead.setStatus(Lead.LeadStatus.WON);
+        lead.setConvertedAt(convertedAt);
         lead.setLastContactedAt(LocalDateTime.now());
+        if (lead.getRevenueValue() == null) {
+            lead.setRevenueValue(lead.getDealValue());
+        }
         leadRepository.save(lead);
 
         try {
             notificationService.notifyActiveUsers(
-                DEFAULT_TENANT,
+                tenantId(),
                 com.nexacrm.model.Notification.NotificationType.DEAL,
                 "Lead Converted",
                 "Lead " + (lead.getName() != null ? lead.getName() : "Unknown lead") +
@@ -679,12 +742,13 @@ public class LeadService {
             "message", "Lead converted to customer",
             "leadId", lead.getId(),
             "customerId", customer.getId(),
-            "dealId", deal.getId()
+            "dealId", deal.getId(),
+            "convertedAt", convertedAt
         );
     }
 
     public Map<String, Object> callLeadNow(String id, String script) {
-        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
 
         String phone = lead.getPhone() == null ? "" : lead.getPhone().trim();
@@ -756,7 +820,7 @@ public class LeadService {
     private void fetchAndSaveLead(String leadgenId, String adId, String formId) {
         try {
             // Idempotency: skip if we already processed this Facebook lead
-            if (leadRepository.findByFacebookLeadIdAndDeletedFalse(leadgenId).isPresent()) {
+            if (leadRepository.findByFacebookLeadIdAndTenantIdAndDeletedFalse(leadgenId, tenantId()).isPresent()) {
                 log.info("Facebook lead already exists, skipping: leadgen_id={}", leadgenId);
                 return;
             }
@@ -918,7 +982,7 @@ public class LeadService {
                     skipped++;
                     continue;
                 }
-                if (leadRepository.findByFacebookLeadIdAndDeletedFalse(leadgenId).isPresent()) {
+                if (leadRepository.findByFacebookLeadIdAndTenantIdAndDeletedFalse(leadgenId, tenantId()).isPresent()) {
                     skipped++;
                     continue;
                 }
@@ -1026,7 +1090,7 @@ public class LeadService {
             if (email == null || email.isBlank()) return false;
 
             String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-            Optional<Lead> existingOpt = leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, DEFAULT_TENANT);
+            Optional<Lead> existingOpt = leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, tenantId());
             if (existingOpt.isEmpty()) return false;
 
             Lead existing = existingOpt.get();
@@ -1211,6 +1275,12 @@ public class LeadService {
     private String normalizeEmail(String email) {
         if (email == null) return null;
         String normalized = email.trim().toLowerCase(Locale.ROOT);
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null) return null;
+        String normalized = phone.trim();
         return normalized.isBlank() ? null : normalized;
     }
 
@@ -1438,7 +1508,7 @@ public class LeadService {
     }
 
     private String csvEscape(String value) {
-        String v = value == null ? "" : value;
+        String v = sanitizeCsvValue(value);
         return "\"" + v.replace("\"", "\"\"") + "\"";
     }
 
@@ -1457,6 +1527,9 @@ public class LeadService {
 
         List<String> urlsToTry = new ArrayList<>();
         if (publishedCsvUrl != null && !publishedCsvUrl.isBlank()) {
+            if (!isAllowedGoogleSheetsUrl(publishedCsvUrl, spreadsheetId)) {
+                throw new IllegalStateException("publishedCsvUrl must point to the same Google Sheets document.");
+            }
             urlsToTry.add(publishedCsvUrl);
         }
         if (gid != null && !gid.isBlank()) {
@@ -1497,6 +1570,32 @@ public class LeadService {
         throw new IllegalStateException(
             "Failed to fetch Google Sheet CSV. Make sure sharing is 'Anyone with link - Viewer', sheet tab is exact, and gid is correct. Details: " + errors
         );
+    }
+
+    private String sanitizeCsvValue(String value) {
+        String v = value == null ? "" : value;
+        if (v.isEmpty()) {
+            return v;
+        }
+        char first = v.charAt(0);
+        if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t') {
+            return "'" + v;
+        }
+        return v;
+    }
+
+    private boolean isAllowedGoogleSheetsUrl(String csvUrl, String spreadsheetId) {
+        try {
+            URI uri = URI.create(csvUrl);
+            String host = uri.getHost() != null ? uri.getHost().toLowerCase(Locale.ROOT) : "";
+            if (!host.equals("docs.google.com") && !host.endsWith(".google.com")) {
+                return false;
+            }
+            String path = uri.getPath() != null ? uri.getPath() : "";
+            return path.contains("/spreadsheets/d/" + spreadsheetId);
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private HttpEntity<Void> buildCsvFetchRequestEntity() {
@@ -1549,6 +1648,11 @@ public class LeadService {
             .tags(l.getTags() != null && !l.getTags().isBlank()
                 ? Arrays.asList(l.getTags().split(",")) : null)
             .notes(l.getNotes())
+            .convertedAt(l.getConvertedAt())
+            .lostReason(l.getLostReason())
+            .followUpDate(l.getFollowUpDate())
+            .revenueValue(l.getRevenueValue())
+            .activityLogs(l.getActivityLogs())
             .facebookLeadId(l.getFacebookLeadId())
             .facebookFormId(l.getFacebookFormId())
             .facebookAdId(l.getFacebookAdId())
@@ -1562,7 +1666,7 @@ public class LeadService {
         Lead.LeadBuilder builder = Lead.builder()
             .name(dto.getName())
             .email(dto.getEmail())
-            .phone(dto.getPhone())
+            .phone(normalizePhone(dto.getPhone()))
             .company(dto.getCompany())
             .designation(dto.getDesignation())
             .service(dto.getService())
@@ -1579,10 +1683,15 @@ public class LeadService {
             .notes(dto.getNotes())
             .facebookLeadId(dto.getFacebookLeadId())
             .facebookFormId(dto.getFacebookFormId())
-            .facebookAdId(dto.getFacebookAdId());
+            .facebookAdId(dto.getFacebookAdId())
+            .convertedAt(dto.getConvertedAt())
+            .lostReason(dto.getLostReason())
+            .followUpDate(dto.getFollowUpDate())
+            .revenueValue(dto.getRevenueValue())
+            .activityLogs(dto.getActivityLogs());
 
         if (dto.getAssignedToId() != null && !dto.getAssignedToId().isBlank()) {
-            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAssignedToId(), DEFAULT_TENANT)
+            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAssignedToId(), tenantId())
                 .ifPresent(builder::assignedTo);
         }
 

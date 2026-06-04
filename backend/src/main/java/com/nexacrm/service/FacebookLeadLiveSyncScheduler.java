@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.nexacrm.security.TenantContext;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -35,6 +37,10 @@ public class FacebookLeadLiveSyncScheduler {
     @Scheduled(fixedDelayString = "${nexacrm.facebook.live-sync.fixed-delay-ms:60000}")
     public void runLiveSync() {
         if (!enabled) return;
+        if (TenantContext.currentTenantIdOrNull() == null) {
+            log.debug("Facebook live sync skipped: tenant context unavailable");
+            return;
+        }
         if (isInExpiredTokenCooldown()) return;
         if (!running.compareAndSet(false, true)) {
             log.debug("Facebook live sync skipped: previous run still in progress");

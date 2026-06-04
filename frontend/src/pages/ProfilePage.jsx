@@ -8,9 +8,12 @@ import { authAPI } from '../services/api'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ROLE_PERMISSIONS = {
+  SUPER_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
+  COMPANY_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   MANAGER: ['View all data', 'Manage assigned team', 'View reports', 'Create campaigns', 'Export data'],
   SALES_EXEC: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
+  NORMAL_USER: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
 }
 
 export default function ProfilePage() {
@@ -21,7 +24,6 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [changingPassword, setChangingPassword] = useState(false)
   const avatarInputRef = useRef(null)
   const [form, setForm] = useState({
     name: '',
@@ -30,11 +32,6 @@ export default function ProfilePage() {
     department: '',
     designation: '',
     avatarUrl: '',
-  })
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
   })
 
   useEffect(() => {
@@ -66,7 +63,7 @@ export default function ProfilePage() {
   const role = user?.role || 'SALES_EXEC'
   const status = user?.isActive === false ? 'Inactive' : 'Active'
   const permissions = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.SALES_EXEC
-  const assignedTeam = user?.assignedTeam || (role === 'ADMIN' ? 'All Teams' : role === 'MANAGER' ? 'Sales Team' : 'Assigned Leads Queue')
+  const assignedTeam = user?.assignedTeam || (['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(role) ? 'All Teams' : role === 'MANAGER' ? 'Sales Team' : 'Assigned Leads Queue')
 
   const leadsCreated = user?.activitySummary?.leadsCreated ?? (leads?.length ?? 0)
   const dealsClosed = user?.activitySummary?.dealsClosed ?? 0
@@ -148,37 +145,9 @@ export default function ProfilePage() {
 
   const openNotifications = () => navigate('/settings?tab=notifications')
 
-  const onPasswordChange = async () => {
-    const currentPassword = passwordForm.currentPassword.trim()
-    const newPassword = passwordForm.newPassword.trim()
-    const confirmPassword = passwordForm.confirmPassword.trim()
-
-    if (!currentPassword) {
-      toast.error('Current password is required.')
-      return
-    }
-    if (newPassword.length < 8) {
-      toast.error('New password must be at least 8 characters.')
-      return
-    }
-    if (newPassword === currentPassword) {
-      toast.error('New password must be different from current password.')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('Confirm password does not match.')
-      return
-    }
-
-    setChangingPassword(true)
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setShowPasswordModal(false)
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      toast.success('Password updated successfully.')
-    } finally {
-      setChangingPassword(false)
-    }
+  const onPasswordChange = () => {
+    setShowPasswordModal(false)
+    toast.info('Password changes are managed by your identity provider or admin console.')
   }
 
   return (
@@ -369,7 +338,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button onClick={() => setShowPasswordModal(true)} className="btn-secondary justify-start gap-2">
               <KeyRound className="w-4 h-4" />
-              Change Password
+              Password Management
             </button>
 
             <button onClick={openNotifications} className="btn-secondary justify-start gap-2">
@@ -395,35 +364,8 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1.5">Current Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
-                  className="input"
-                  placeholder="Enter current password"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1.5">New Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
-                  className="input"
-                  placeholder="At least 8 characters"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1.5">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                  className="input"
-                  placeholder="Re-enter new password"
-                />
+              <div className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30 p-4 text-sm text-slate-600 dark:text-slate-400">
+                Password management is handled outside this frontend build. Use your identity provider or ask an admin to reset your password.
               </div>
             </div>
 
@@ -434,10 +376,9 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={onPasswordChange}
-                disabled={changingPassword}
                 className="btn-primary flex-1"
               >
-                {changingPassword ? 'Updating...' : 'Update Password'}
+                Got it
               </button>
             </div>
           </div>

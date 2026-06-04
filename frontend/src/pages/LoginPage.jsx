@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Sparkles, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
@@ -8,19 +8,29 @@ import toast from 'react-hot-toast'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { login } = useAuthStore()
+  const { login, setPersistenceMode } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const data = await authAPI.login({ email, password })
-      login(data.user, data?.accessToken ?? null, data?.refreshToken ?? null)
-      toast.success(`Welcome back, ${data.user?.name ?? 'User'}!`)
+      const { data } = await authAPI.login({ email, password })
+      const user = data?.user ?? null
+      const accessToken = data?.accessToken ?? data?.token ?? null
+      const refreshToken = data?.refreshToken ?? null
+
+      if (!user || !accessToken) {
+        throw new Error('Login succeeded but the session payload was incomplete.')
+      }
+
+      setPersistenceMode(rememberMe ? 'local' : 'session')
+      login(user, accessToken, refreshToken)
+      toast.success(`Welcome back, ${user?.name ?? 'User'}!`)
       navigate('/dashboard')
     } catch (err) {
       toast.error(err?.message || 'Login failed. Check backend connection and credentials.')
@@ -80,10 +90,21 @@ export default function LoginPage() {
 
         <div className="flex items-center justify-between text-xs">
           <label className="flex items-center gap-2 text-slate-400 cursor-pointer">
-            <input type="checkbox" className="rounded border-slate-600" />
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="rounded border-slate-600"
+            />
             Remember me
           </label>
-          <button type="button" className="text-brand-400 hover:text-brand-300">Forgot password?</button>
+          <button
+            type="button"
+            onClick={() => toast('Password resets are handled by your admin or identity provider.')}
+            className="text-brand-400 hover:text-brand-300"
+          >
+            Forgot password?
+          </button>
         </div>
 
         <button type="submit" disabled={loading}
@@ -99,6 +120,9 @@ export default function LoginPage() {
 
       <div className="text-center text-xs text-slate-500">
         <p>Use your assigned workspace credentials to sign in.</p>
+        <p className="mt-2">
+          Need access? <Link to="/register" className="text-brand-400 hover:text-brand-300 font-semibold">Request an invite</Link>
+        </p>
       </div>
     </motion.div>
   )

@@ -7,6 +7,27 @@ import StompModule from 'stompjs/lib/stomp.js'
 import { useAuthStore } from '../store/authStore'
 
 const Stomp = StompModule?.Stomp ?? StompModule
+let reconnectAttempts = 0
+
+function normalizeSockJsUrl(input) {
+  const raw = String(input ?? '').trim()
+  if (!raw) return ''
+
+  const normalizedPrefix = raw
+    .replace(/^wss:/i, 'https:')
+    .replace(/^ws:/i, 'http:')
+
+  try {
+    const base = typeof window !== 'undefined' ? window.location.href : 'http://localhost'
+    const url = new URL(normalizedPrefix, base)
+    if (url.protocol === 'ws:') url.protocol = 'http:'
+    if (url.protocol === 'wss:') url.protocol = 'https:'
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    return normalizedPrefix
+  }
+}
+
 const normalizeJwtToken = (token) => {
   if (typeof token !== 'string') return null
   const trimmed = token.trim()
@@ -33,6 +54,8 @@ function resolveWebSocketUrl() {
     url = 'http://localhost:8080/ws'
   }
 
+  url = normalizeSockJsUrl(url)
+
   // Browsers block insecure SockJS from HTTPS pages.
   if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
     url = `https://${url.slice('http://'.length)}`
@@ -56,6 +79,7 @@ export function connectWebSocket(onNotification) {
     stompClient.connect(
       connectHeaders,
       () => {
+        reconnectAttempts = 0
         console.info('WebSocket connected')
 
         const sub1 = stompClient.subscribe('/user/queue/notifications', (msg) => {
@@ -74,7 +98,9 @@ export function connectWebSocket(onNotification) {
       (error) => {
         console.error('WebSocket error:', error)
         if (!destroyed) {
-          reconnectTimer = setTimeout(() => connectWebSocket(onNotification), 5000)
+          const delay = Math.min(30000, 5000 * (2 ** reconnectAttempts))
+          reconnectAttempts = Math.min(reconnectAttempts + 1, 3)
+          reconnectTimer = setTimeout(() => connectWebSocket(onNotification), delay)
         }
       }
     )
@@ -86,6 +112,7 @@ export function connectWebSocket(onNotification) {
 export function disconnectWebSocket() {
   destroyed = true
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+  reconnectAttempts = 0
   subscriptions.forEach((sub) => sub.unsubscribe())
   subscriptions.clear()
   if (stompClient?.connected) {

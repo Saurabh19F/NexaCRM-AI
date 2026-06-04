@@ -2,10 +2,12 @@ package com.nexacrm.service;
 
 import com.nexacrm.dto.CustomerDTO;
 import com.nexacrm.dto.PageResponse;
+import com.nexacrm.exception.ConflictException;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Customer;
 import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.UserRepository;
+import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -14,9 +16,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.TextCriteria;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,24 +34,21 @@ public class CustomerService {
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
 
-    private static final Long DEFAULT_TENANT = 1L;
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerDTO> findAll(String search, String status, Pageable pageable) {
         Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(DEFAULT_TENANT));
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
 
         if (search != null && !search.isBlank()) {
-            String regex = ".*" + java.util.regex.Pattern.quote(search.trim()) + ".*";
-            query.addCriteria(new Criteria().orOperator(
-                Criteria.where("name").regex(regex, "i"),
-                Criteria.where("email").regex(regex, "i"),
-                Criteria.where("company").regex(regex, "i")
-            ));
+            query.addCriteria(TextCriteria.forDefaultLanguage().matchingAny(search.trim()));
         }
         if (status != null && !status.isBlank()) {
-            query.addCriteria(Criteria.where("status").is(Customer.CustomerStatus.valueOf(status.toUpperCase())));
+            query.addCriteria(Criteria.where("status").is(Customer.CustomerStatus.valueOf(status.toUpperCase(Locale.ROOT))));
         }
 
         long total = mongoTemplate.count(query, Customer.class);
@@ -63,26 +65,36 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerDTO findById(String id) {
-        return customerRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        return customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .map(this::toDTO)
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
     }
 
     public CustomerDTO create(CustomerDTO dto) {
         Customer customer = fromDTO(dto);
-        customer.setTenantId(DEFAULT_TENANT);
-        Customer saved = customerRepository.save(customer);
+        customer.setTenantId(tenantId());
+        validateUnique(customer, null);
+        Customer saved;
+        try {
+            saved = customerRepository.save(customer);
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictException("Customer already exists with that email or phone");
+        }
         log.info("Customer created: id={}, name={}", saved.getId(), saved.getName());
         return toDTO(saved);
     }
 
     public CustomerDTO update(String id, CustomerDTO dto) {
-        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
 
+        String nextEmail = normalizeEmail(dto.getEmail());
+        String nextPhone = normalizePhone(dto.getPhone());
+        validateUnique(dto, customer.getId());
+
+        if (!nextEmail.isBlank()) customer.setEmail(nextEmail);
+        customer.setPhone(nextPhone);
         customer.setName(dto.getName());
-        customer.setEmail(dto.getEmail());
-        customer.setPhone(dto.getPhone());
         customer.setCompany(dto.getCompany());
         customer.setIndustry(dto.getIndustry());
         customer.setWebsite(dto.getWebsite());
@@ -91,24 +103,59 @@ public class CustomerService {
             if (dto.getAccountManagerId().isBlank()) {
                 customer.setAccountManager(null);
             } else {
-                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAccountManagerId(), DEFAULT_TENANT)
+                userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAccountManagerId(), tenantId())
                     .ifPresent(customer::setAccountManager);
             }
         }
         if (dto.getHealthScore() != null) customer.setHealthScore(dto.getHealthScore());
-        if (dto.getStatus() != null)      customer.setStatus(dto.getStatus());
+        if (dto.getStatus() != null) customer.setStatus(dto.getStatus());
         customer.setGstin(dto.getGstin());
         customer.setNotes(dto.getNotes());
         customer.setAvatarUrl(dto.getAvatarUrl());
 
-        return toDTO(customerRepository.save(customer));
+        try {
+            return toDTO(customerRepository.save(customer));
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictException("Customer already exists with that email or phone");
+        }
     }
 
     public void delete(String id) {
-        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, DEFAULT_TENANT)
+        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
         customer.setDeleted(true);
         customerRepository.save(customer);
+    }
+
+    private void validateUnique(CustomerDTO dto, String currentId) {
+        validateUnique(Customer.builder()
+            .email(normalizeEmail(dto.getEmail()))
+            .phone(normalizePhone(dto.getPhone()))
+            .build(), currentId);
+    }
+
+    private void validateUnique(Customer customer, String currentId) {
+        String email = normalizeEmail(customer.getEmail());
+        if (!email.isBlank()) {
+            if (customerRepository.existsByEmailAndTenantIdAndDeletedFalse(email, tenantId())) {
+                customerRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+                    .filter(existing -> currentId == null || !existing.getId().equals(currentId))
+                    .ifPresent(existing -> {
+                        throw new ConflictException("Customer already exists with email: " + email);
+                    });
+            }
+        }
+
+        String phone = normalizePhone(customer.getPhone());
+        if (phone != null && !phone.isBlank()) {
+            if (customerRepository.existsByPhoneAndTenantIdAndDeletedFalse(phone, tenantId())) {
+                customerRepository.findByPhoneAndTenantIdAndDeletedFalse(phone, tenantId())
+                    .filter(existing -> currentId == null || !existing.getId().equals(currentId))
+                    .ifPresent(existing -> {
+                        throw new ConflictException("Customer already exists with phone: " + phone);
+                    });
+            }
+        }
     }
 
     private CustomerDTO toDTO(Customer c) {
@@ -136,8 +183,8 @@ public class CustomerService {
     private Customer fromDTO(CustomerDTO dto) {
         Customer.CustomerBuilder builder = Customer.builder()
             .name(dto.getName())
-            .email(dto.getEmail())
-            .phone(dto.getPhone())
+            .email(normalizeEmail(dto.getEmail()))
+            .phone(normalizePhone(dto.getPhone()))
             .company(dto.getCompany())
             .industry(dto.getIndustry())
             .website(dto.getWebsite())
@@ -149,10 +196,21 @@ public class CustomerService {
             .avatarUrl(dto.getAvatarUrl());
 
         if (dto.getAccountManagerId() != null && !dto.getAccountManagerId().isBlank()) {
-            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAccountManagerId(), DEFAULT_TENANT)
+            userRepository.findByIdAndTenantIdAndDeletedFalse(dto.getAccountManagerId(), tenantId())
                 .ifPresent(builder::accountManager);
         }
 
         return builder.build();
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) return "";
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null) return null;
+        String normalized = phone.trim();
+        return normalized.isBlank() ? null : normalized;
     }
 }

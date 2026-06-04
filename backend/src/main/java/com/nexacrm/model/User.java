@@ -4,6 +4,8 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -15,6 +17,11 @@ import java.util.List;
 import java.util.Map;
 
 @Document(collection = "users")
+@CompoundIndexes({
+    @CompoundIndex(name = "uk_user_tenant_email", def = "{'tenant_id': 1, 'email': 1}", unique = true),
+    @CompoundIndex(name = "uk_user_tenant_phone", def = "{'tenant_id': 1, 'phone': 1}", unique = true, partialFilter = "{ 'phone': { '$type': 'string', '$gt': '' } }"),
+    @CompoundIndex(name = "user_tenant_active_role_idx", def = "{'tenant_id': 1, 'deleted': 1, 'is_active': 1, 'role': 1}")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User extends BaseEntity implements UserDetails {
     private static final List<String> ALL_PERMISSIONS = List.of(
@@ -37,6 +44,8 @@ public class User extends BaseEntity implements UserDetails {
     private static final Map<Role, List<String>> ROLE_PERMISSIONS = new EnumMap<>(Role.class);
 
     static {
+        ROLE_PERMISSIONS.put(Role.SUPER_ADMIN, ALL_PERMISSIONS);
+        ROLE_PERMISSIONS.put(Role.COMPANY_ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.MANAGER, List.of(
             "dashboard.view",
@@ -65,6 +74,7 @@ public class User extends BaseEntity implements UserDetails {
             "profile.update",
             "notifications.read"
         ));
+        ROLE_PERMISSIONS.put(Role.NORMAL_USER, ROLE_PERMISSIONS.get(Role.SALES_EXEC));
     }
 
     @Field("name")
@@ -136,5 +146,27 @@ public class User extends BaseEntity implements UserDetails {
         return ROLE_PERMISSIONS.getOrDefault(effectiveRole, ROLE_PERMISSIONS.get(Role.SALES_EXEC));
     }
 
-    public enum Role { ADMIN, MANAGER, SALES_EXEC }
+    public static boolean isAdminLike(Role role) {
+        return role == Role.SUPER_ADMIN || role == Role.COMPANY_ADMIN || role == Role.ADMIN;
+    }
+
+    public static boolean isSalesLike(Role role) {
+        return role == Role.SALES_EXEC || role == Role.NORMAL_USER;
+    }
+
+    public static String getDisplayLabel(Role role) {
+        if (role == null) {
+            return "Sales Executive";
+        }
+        return switch (role) {
+            case SUPER_ADMIN -> "Super Admin";
+            case COMPANY_ADMIN -> "Company Admin";
+            case ADMIN -> "Admin";
+            case MANAGER -> "Manager";
+            case SALES_EXEC -> "Sales Executive";
+            case NORMAL_USER -> "Normal User";
+        };
+    }
+
+    public enum Role { SUPER_ADMIN, COMPANY_ADMIN, ADMIN, MANAGER, SALES_EXEC, NORMAL_USER }
 }

@@ -2,27 +2,37 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Shield, Plus, Trophy, Edit, Trash2, Crown, UserCheck, User, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { TEAM_PERFORMANCE } from '../../utils/mockData'
-import { teamAPI } from '../../services/api'
+import { teamAPI, leadsAPI, dealsAPI } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS as APP_PERMISSIONS, hasPermission } from '../../utils/permissions'
+import { buildTeamLeaderboard } from '../../utils/liveMetrics'
+import { fetchAllPages } from '../../utils/pagination'
 
 const ROLE_CONFIG = {
+  SUPER_ADMIN: { label: 'Super Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
+  COMPANY_ADMIN: { label: 'Company Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
   ADMIN: { label: 'Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
   MANAGER: { label: 'Manager', icon: UserCheck, cls: 'badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400' },
   SALES_EXEC: { label: 'Sales Exec', icon: User, cls: 'badge bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400' },
+  NORMAL_USER: { label: 'Normal User', icon: User, cls: 'badge bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400' },
 }
 
 const ROLE_PERFORMANCE_LABEL = {
+  SUPER_ADMIN: 'Super admin account',
+  COMPANY_ADMIN: 'Company admin account',
   ADMIN: 'Admin account',
   MANAGER: 'Manager account',
   SALES_EXEC: 'Sales account',
+  NORMAL_USER: 'Normal user account',
 }
 
 const ROLE_PERMISSION_LABELS = {
+  SUPER_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
+  COMPANY_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   MANAGER: ['View all data', 'Manage assigned team', 'View reports', 'Create campaigns', 'Export data'],
   SALES_EXEC: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
+  NORMAL_USER: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
 }
 
 const buildPermissionState = () =>
@@ -49,6 +59,7 @@ export default function TeamPage() {
   const { user } = useAuthStore()
   const [team, setTeam] = useState([])
   const [loadingTeam, setLoadingTeam] = useState(true)
+  const [liveLeaderboard, setLiveLeaderboard] = useState([])
   const [selectedRole, setSelectedRole] = useState('SALES_EXEC')
   const [permissionsByRole, setPermissionsByRole] = useState(buildPermissionState)
   const [memberModal, setMemberModal] = useState(null)
@@ -59,15 +70,19 @@ export default function TeamPage() {
   const canDeactivate = hasPermission(user, APP_PERMISSIONS.TEAM_DEACTIVATE)
   const canConfigure = hasPermission(user, APP_PERMISSIONS.SETTINGS_UPDATE)
   const isManager = user?.role === 'MANAGER'
-  const isAdmin = user?.role === 'ADMIN'
-  const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || roleKey !== 'ADMIN')
+  const isAdminLike = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(user?.role)
+  const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || !['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(roleKey))
 
   useEffect(() => {
     let mounted = true
     const loadTeam = async () => {
       setLoadingTeam(true)
       try {
-        const users = await teamAPI.getAll()
+        const [users, leadRows, dealRows] = await Promise.all([
+          teamAPI.getAll(),
+          fetchAllPages((params) => leadsAPI.getAll(params), 250).then((result) => result.rows),
+          fetchAllPages((params) => dealsAPI.getAll(params), 200).then((result) => result.rows),
+        ])
         if (!mounted) return
         const normalized = (users ?? []).map((u) => ({
           id: u.id,
@@ -83,8 +98,9 @@ export default function TeamPage() {
           joinedAt: '',
         }))
         setTeam(normalized)
+        setLiveLeaderboard(buildTeamLeaderboard({ users, leads: leadRows, deals: dealRows }))
       } catch (err) {
-        toast.error(err?.message || 'Failed to load team from MongoDB')
+        toast.error(err?.message || 'Failed to load team members')
       } finally {
         if (mounted) setLoadingTeam(false)
       }
@@ -113,8 +129,8 @@ export default function TeamPage() {
       toast.error('You do not have permission to edit members.')
       return
     }
-    if (isManager && member.role === 'ADMIN') {
-      toast.error('Managers cannot edit admin users.')
+    if (isManager && ['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(member.role)) {
+      toast.error('Managers cannot edit elevated admin users.')
       return
     }
     setMemberForm({
@@ -128,7 +144,7 @@ export default function TeamPage() {
     setMemberModal({ mode: 'edit', memberId: member.id })
   }
 
-  const getAdminCount = () => team.filter((member) => member.role === 'ADMIN').length
+  const getAdminCount = () => team.filter((member) => ['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(member.role)).length
 
   const validateMemberForm = () => {
     const name = memberForm.name.trim()
@@ -168,7 +184,7 @@ export default function TeamPage() {
       toast.error('Select a valid role.')
       return null
     }
-    if (isManager && memberForm.role === 'ADMIN') {
+    if (isManager && ['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(memberForm.role)) {
       toast.error('Managers can invite only Manager or Sales Executive.')
       return null
     }
@@ -238,8 +254,8 @@ export default function TeamPage() {
       return
     }
 
-    if (currentMember.role === 'ADMIN' && memberForm.role !== 'ADMIN' && getAdminCount() <= 1) {
-      toast.error('At least one admin account is required.')
+    if (['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(currentMember.role) && !['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(memberForm.role) && getAdminCount() <= 1) {
+      toast.error('At least one admin-like account is required.')
       return
     }
 
@@ -250,7 +266,7 @@ export default function TeamPage() {
         phone,
         password: password || undefined,
       }
-      if (isAdmin) {
+      if (isAdminLike) {
         updatePayload.role = memberForm.role
         updatePayload.isActive = memberForm.status === 'active'
       }
@@ -282,8 +298,8 @@ export default function TeamPage() {
       toast.error('You do not have permission to deactivate members.')
       return
     }
-    if (member.role === 'ADMIN' && getAdminCount() <= 1) {
-      toast.error('Cannot delete the last admin account.')
+    if (['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(member.role) && getAdminCount() <= 1) {
+      toast.error('Cannot delete the last admin-like account.')
       return
     }
     setDeleteTarget(member)
@@ -339,8 +355,76 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Team list */}
         <div className="lg:col-span-2 glass-card overflow-hidden">
+          <div className="sm:hidden divide-y divide-slate-200/60 dark:divide-slate-700/40">
+            {loadingTeam && (
+              <div className="py-8 px-4 text-center text-slate-500">
+                Loading team members...
+              </div>
+            )}
+            {!loadingTeam && team.length === 0 && (
+              <div className="py-8 px-4 text-center text-slate-500">
+                No team members found.
+              </div>
+            )}
+            {!loadingTeam && team.map((member) => {
+              const roleCfg = ROLE_CONFIG[member.role]
+              return (
+                <div key={member.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        {member.avatar}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{member.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                        <p className="text-xs text-slate-400 truncate">{member.phone}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={roleCfg?.cls}>{roleCfg?.label}</span>
+                      <span className={`badge ${member.status === 'active' ? 'badge-won' : 'badge bg-slate-100 text-slate-500'}`}>
+                        {member.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400">Performance</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                      {member.leads > 0 ? `${member.leads} leads · ${member.deals} deals` : (ROLE_PERFORMANCE_LABEL[member.role] || 'Sales account')}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {canUpdate && (
+                      <button
+                        onClick={() => openEditModal(member)}
+                        className="btn-secondary flex-1 text-xs gap-1.5"
+                        aria-label={`Edit ${member.name}`}
+                        title={`Edit ${member.name}`}
+                      >
+                        <Edit className="w-3.5 h-3.5" /> Edit
+                      </button>
+                    )}
+                    {canDeactivate && (
+                      <button
+                        onClick={() => handleDeleteMember(member)}
+                        className="btn-secondary flex-1 text-xs gap-1.5 text-red-600 dark:text-red-400"
+                        aria-label={`Delete ${member.name}`}
+                        title={`Delete ${member.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
+            <table className="hidden sm:table w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/30">
                 {['Member', 'Role', 'Status', 'Performance', 'Actions'].map((h) => (
@@ -352,7 +436,7 @@ export default function TeamPage() {
               {loadingTeam && (
                 <tr>
                   <td colSpan={5} className="py-8 px-4 text-center text-slate-500">
-                    Loading team from MongoDB...
+                    Loading team members...
                   </td>
                 </tr>
               )}
@@ -474,8 +558,8 @@ export default function TeamPage() {
           <Trophy className="w-5 h-5 text-amber-500" />
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Monthly Leaderboard</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {TEAM_PERFORMANCE.map((member) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {liveLeaderboard.map((member) => (
             <div key={member.name} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 text-center">
               <div className="text-4xl mb-2">{member.badge}</div>
               <p className="font-bold text-slate-800 dark:text-slate-200">{member.name}</p>
@@ -494,7 +578,7 @@ export default function TeamPage() {
 
       <AnimatePresence>
         {memberModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={memberModal.mode === 'add' ? 'Invite team member' : 'Edit team member'}>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -559,7 +643,7 @@ export default function TeamPage() {
                       placeholder={memberModal.mode === 'add' ? 'Enter password' : 'Leave blank to keep current password'}
                     />
                   </div>
-                  {(memberModal.mode === 'add' || isAdmin) && (
+                  {(memberModal.mode === 'add' || isAdminLike) && (
                     <div>
                       <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Role</label>
                       <select
@@ -573,7 +657,7 @@ export default function TeamPage() {
                       </select>
                     </div>
                   )}
-                  {(memberModal.mode === 'add' || isAdmin) && (
+                  {(memberModal.mode === 'add' || isAdminLike) && (
                     <div>
                       <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Status</label>
                       <select
@@ -602,7 +686,7 @@ export default function TeamPage() {
 
       <AnimatePresence>
         {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Delete team member">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

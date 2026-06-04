@@ -31,7 +31,7 @@ public abstract class BaseEntity {
     private String updatedBy;
 
     @Field("tenant_id")
-    private Long tenantId = 1L;
+    private Long tenantId;
 
     private Boolean deleted = false;
 }

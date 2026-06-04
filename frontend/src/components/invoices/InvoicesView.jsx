@@ -6,15 +6,6 @@ import { customersAPI, invoicesAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import LoadingState from '../ui/LoadingState'
 
-const MOCK_INVOICES = [
-  { id: 'INV-1042', customer: 'Bajaj Finserv', amount: 480000, gst: 86400, total: 566400, status: 'paid',    date: '2026-04-18', due: '2026-05-02', items: [{ desc: 'CRM License (Annual)', qty: 1, rate: 200000, amount: 200000 }, { desc: 'Implementation & Setup', qty: 1, rate: 150000, amount: 150000 }, { desc: 'Training & Support', qty: 1, rate: 130000, amount: 130000 }] },
-  { id: 'INV-1041', customer: 'HCL Tech',      amount: 580000, gst: 104400, total: 684400, status: 'pending', date: '2026-04-22', due: '2026-05-06', items: [{ desc: 'Enterprise CRM Suite', qty: 1, rate: 300000, amount: 300000 }, { desc: 'AI Engine Add-on', qty: 1, rate: 120000, amount: 120000 }, { desc: 'API Integration', qty: 2, rate: 60000, amount: 120000 }, { desc: 'Dedicated Support', qty: 1, rate: 40000, amount: 40000 }] },
-  { id: 'INV-1040', customer: 'Wipro',          amount: 420000, gst: 75600,  total: 495600, status: 'pending', date: '2026-04-20', due: '2026-05-04', items: [{ desc: 'CRM License (6 months)', qty: 1, rate: 250000, amount: 250000 }, { desc: 'Custom Dashboard', qty: 1, rate: 80000, amount: 80000 }, { desc: 'Data Migration', qty: 1, rate: 50000, amount: 50000 }, { desc: 'Onboarding', qty: 1, rate: 40000, amount: 40000 }] },
-  { id: 'INV-1039', customer: 'InfoSys Ltd.',   amount: 250000, gst: 45000,  total: 295000, status: 'overdue', date: '2026-04-05', due: '2026-04-19', items: [{ desc: 'CRM License (Quarterly)', qty: 1, rate: 180000, amount: 180000 }, { desc: 'Support Package', qty: 1, rate: 70000, amount: 70000 }] },
-  { id: 'INV-1038', customer: 'Mindtree',       amount: 320000, gst: 57600,  total: 377600, status: 'paid',    date: '2026-04-10', due: '2026-04-24', items: [{ desc: 'NexaCRM Starter', qty: 1, rate: 150000, amount: 150000 }, { desc: 'WhatsApp Integration', qty: 1, rate: 90000, amount: 90000 }, { desc: 'Analytics Module', qty: 1, rate: 80000, amount: 80000 }] },
-  { id: 'INV-1037', customer: 'GlobalSoft',     amount: 85000,  gst: 15300,  total: 100300, status: 'draft',   date: '2026-04-28', due: '2026-05-12', items: [{ desc: 'Basic CRM License', qty: 1, rate: 85000, amount: 85000 }] },
-]
-
 const STATUS_CONFIG = {
   paid:    { label: 'Paid',    cls: 'badge-won',  icon: CheckCircle, iconColor: 'text-emerald-500' },
   pending: { label: 'Pending', cls: 'badge-warm', icon: Clock,       iconColor: 'text-amber-500' },
@@ -30,35 +21,89 @@ function calcTotals(items) {
   return { amount, gst, total: amount + gst }
 }
 
-function downloadInvoice(inv) {
+function formatPdfCurrency(value) {
+  return `INR ${Number(value || 0).toLocaleString('en-IN')}`
+}
+
+function escapePdfText(text) {
+  return String(text ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/[^\x20-\x7E]/g, '?')
+}
+
+function buildInvoicePdfBlob(inv) {
   const lines = [
-    '===================================================',
-    `               NexaCRM AI — INVOICE`,
-    '===================================================',
+    'NexaCRM AI - Invoice',
     `Invoice #: ${inv.id}`,
-    `Customer:  ${inv.customer}`,
-    `Date:      ${inv.date}`,
-    `Due Date:  ${inv.due}`,
-    `Status:    ${STATUS_CONFIG[inv.status]?.label ?? inv.status}`,
-    '---------------------------------------------------',
-    'ITEMS:',
-    ...(inv.items ?? []).map((it, i) => `  ${i + 1}. ${it.desc}  (${it.qty} × ₹${Number(it.rate).toLocaleString()}) = ₹${Number(it.amount).toLocaleString()}`),
-    '---------------------------------------------------',
-    `Subtotal:  ₹${inv.amount.toLocaleString()}`,
-    `GST (18%): ₹${inv.gst.toLocaleString()}`,
-    `TOTAL:     ₹${inv.total.toLocaleString()}`,
-    '===================================================',
-    'Thank you for your business!',
-    'NexaCRM AI · support@nexacrm.ai · +91-22-4000-0000',
+    `Customer: ${inv.customer}`,
+    `Invoice Date: ${inv.date}`,
+    `Due Date: ${inv.due}`,
+    `Status: ${STATUS_CONFIG[inv.status]?.label ?? inv.status}`,
+    '',
+    'Items:',
+    ...((inv.items ?? []).length > 0
+      ? (inv.items ?? []).map((it, i) => `${i + 1}. ${it.desc} (${it.qty} x ${formatPdfCurrency(it.rate)}) = ${formatPdfCurrency(it.amount)}`)
+      : ['No line-item details were saved with this invoice.']),
+    '',
+    `Subtotal: ${formatPdfCurrency(inv.amount)}`,
+    `GST (18%): ${formatPdfCurrency(inv.gst)}`,
+    `Total: ${formatPdfCurrency(inv.total)}`,
+    '',
+    'Thank you for your business.',
+    'NexaCRM AI',
   ]
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+
+  const contentLines = [
+    'BT',
+    '/F1 11 Tf',
+    '14 TL',
+    '1 0 0 1 72 760 Tm',
+  ]
+  lines.forEach((line, index) => {
+    if (index > 0) contentLines.push('T*')
+    contentLines.push(`(${escapePdfText(line)}) Tj`)
+  })
+  contentLines.push('ET')
+  const contentStream = contentLines.join('\n')
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`,
+  ]
+
+  const parts = ['%PDF-1.4\n']
+  const offsets = [0]
+  for (let i = 0; i < objects.length; i += 1) {
+    offsets.push(parts.join('').length)
+    parts.push(`${i + 1} 0 obj\n${objects[i]}\nendobj\n`)
+  }
+
+  const body = parts.join('')
+  const xrefOffset = body.length
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  for (let i = 1; i < offsets.length; i += 1) {
+    xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`
+  }
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+  return new Blob([body, xref, trailer], { type: 'application/pdf' })
+}
+
+function downloadInvoice(inv) {
+  const blob = buildInvoicePdfBlob(inv)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${inv.id}.txt`
+  a.download = `${inv.id}.pdf`
+  document.body.appendChild(a)
   a.click()
+  a.remove()
   URL.revokeObjectURL(url)
-  toast.success(`${inv.id} downloaded`)
+  toast.success(`${inv.id} PDF downloaded`)
 }
 
 /* ── New Invoice Modal ──────────────────────────────────────────── */
@@ -91,6 +136,9 @@ function NewInvoiceModal({ onClose, onSave, customers }) {
   const handleSave = async () => {
     if (!validate()) return
     const { amount, gst, total } = calcTotals(form.items)
+    const notes = form.items
+      .map((item) => `${item.desc.trim()} × ${item.qty} @ ₹${Number(item.rate).toLocaleString()}`)
+      .join(' | ')
     const newInv = {
       id: `INV-${1043 + Math.floor(Math.random() * 100)}`,
       customerId: form.customerId,
@@ -99,6 +147,7 @@ function NewInvoiceModal({ onClose, onSave, customers }) {
       status: form.status,
       date: form.date,
       due: form.due,
+      notes,
       items: form.items.map((it) => ({ ...it, rate: Number(it.rate), amount: Number(it.qty) * Number(it.rate) })),
     }
     const saved = await onSave(newInv)
@@ -113,6 +162,7 @@ function NewInvoiceModal({ onClose, onSave, customers }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      role="dialog" aria-modal="true" aria-label="New invoice"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }}
         className="glass-card w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 space-y-5">
@@ -219,6 +269,7 @@ function ViewInvoiceModal({ inv, onClose }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      role="dialog" aria-modal="true" aria-label="View invoice"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }}
         className="glass-card w-full max-w-lg p-6 space-y-5">
@@ -264,6 +315,11 @@ function ViewInvoiceModal({ inv, onClose }) {
                   <span className="col-span-2 text-right">₹{Number(it.amount).toLocaleString()}</span>
                 </div>
               ))}
+              {(inv.items ?? []).length === 0 && inv.notes && (
+                <div className="py-3 text-xs text-slate-500 dark:text-slate-400">
+                  Saved notes: {inv.notes}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -300,6 +356,7 @@ function ReminderModal({ inv, onClose, onSend }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      role="dialog" aria-modal="true" aria-label="Send payment reminder"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }}
         className="glass-card w-full max-w-sm p-6 space-y-4">
@@ -349,6 +406,7 @@ export default function InvoicesPage() {
     status: String(invoice.status || 'DRAFT').toLowerCase(),
     date: invoice.issueDate || new Date().toISOString().slice(0, 10),
     due: invoice.dueDate || new Date().toISOString().slice(0, 10),
+    notes: invoice.notes || '',
     items: [],
   })
 
@@ -383,9 +441,14 @@ export default function InvoicesPage() {
         issueDate: invoice.date,
         dueDate: invoice.due,
         subtotal: Number(invoice.amount || 0),
+        notes: invoice.notes || '',
       }
       const created = await invoicesAPI.create(payload)
-      const mapped = mapInvoiceFromApi(created)
+      const mapped = {
+        ...mapInvoiceFromApi(created),
+        items: Array.isArray(invoice.items) ? invoice.items : [],
+        notes: invoice.notes || created?.notes || '',
+      }
       setInvoices((prev) => [mapped, ...prev])
       return mapped
     } catch (err) {
@@ -443,8 +506,63 @@ export default function InvoicesPage() {
         ))}
       </div>
 
+      {/* Mobile invoice cards */}
+      <div className="grid gap-3 sm:hidden">
+        {invoices.map((inv) => {
+          const config = STATUS_CONFIG[inv.status]
+          const Icon = config?.icon
+          return (
+            <motion.div key={inv.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-sm font-semibold text-brand-600 dark:text-brand-400">{inv.id}</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{inv.customer}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{inv.date} · Due {inv.due}</p>
+                </div>
+                <span className={`${config?.cls} flex items-center gap-1 shrink-0`}>
+                  {Icon && <Icon className="w-3 h-3" />} {config?.label}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-2.5">
+                  <p className="text-slate-400">Amount</p>
+                  <p className="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">₹{(inv.amount / 1000).toFixed(0)}k</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-2.5">
+                  <p className="text-slate-400">GST</p>
+                  <p className="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">₹{(inv.gst / 1000).toFixed(1)}k</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-2.5">
+                  <p className="text-slate-400">Total</p>
+                  <p className="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">₹{(inv.total / 1000).toFixed(0)}k</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setViewInv(inv)} className="btn-secondary flex-1 text-xs gap-1.5">
+                  <Eye className="w-3.5 h-3.5" /> View
+                </button>
+                <button onClick={() => downloadInvoice(inv)} className="btn-secondary flex-1 text-xs gap-1.5">
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+                {inv.status !== 'paid' && (
+                  <button onClick={() => setReminderInv(inv)} className="btn-primary col-span-2 text-xs gap-1.5">
+                    <Send className="w-3.5 h-3.5" /> Remind
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )
+        })}
+      </div>
+
+      {loading && (
+        <LoadingState text="Loading invoices..." />
+      )}
+
       {/* Invoice Table */}
-      <div className="glass-card overflow-hidden">
+      <div className="hidden sm:block glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>
@@ -500,9 +618,6 @@ export default function InvoicesPage() {
             </tbody>
           </table>
         </div>
-        {loading && (
-          <LoadingState text="Loading invoices..." />
-        )}
       </div>
 
       <AnimatePresence>

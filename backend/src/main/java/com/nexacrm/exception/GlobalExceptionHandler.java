@@ -1,9 +1,15 @@
 package com.nexacrm.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.AccountExpiredException;
+import org.springframework.security.authentication.AuthenticationServiceException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -29,9 +35,45 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, "Invalid email or password", req);
     }
 
+    @ExceptionHandler({
+        DisabledException.class,
+        LockedException.class,
+        AccountExpiredException.class,
+        CredentialsExpiredException.class,
+        AuthenticationServiceException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleAuthStateExceptions(Exception ex, WebRequest req) {
+        String message = "Your account cannot sign in right now.";
+        if (ex instanceof DisabledException) {
+            message = "This account is inactive. Please contact your administrator.";
+        } else if (ex instanceof LockedException) {
+            message = "This account is locked.";
+        } else if (ex instanceof AccountExpiredException) {
+            message = "This account has expired.";
+        } else if (ex instanceof CredentialsExpiredException) {
+            message = "Your credentials have expired.";
+        }
+        return error(HttpStatus.UNAUTHORIZED, message, req);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex, WebRequest req) {
         return error(HttpStatus.FORBIDDEN, "You don't have permission to access this resource", req);
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex, WebRequest req) {
+        return error(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicate(DuplicateKeyException ex, WebRequest req) {
+        return error(HttpStatus.CONFLICT, "A record with the same unique value already exists", req);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex, WebRequest req) {
+        return error(HttpStatus.CONFLICT, ex.getMessage(), req);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -51,7 +93,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex, WebRequest req) {
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), req);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

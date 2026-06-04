@@ -4,6 +4,7 @@ import lombok.*;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -18,20 +19,27 @@ import java.util.List;
     @CompoundIndex(name = "lead_tenant_deleted_status_idx", def = "{'tenant_id': 1, 'deleted': 1, 'status': 1}"),
     @CompoundIndex(name = "lead_tenant_deleted_score_idx", def = "{'tenant_id': 1, 'deleted': 1, 'score': 1}"),
     @CompoundIndex(name = "lead_tenant_deleted_source_idx", def = "{'tenant_id': 1, 'deleted': 1, 'source': 1}"),
-    @CompoundIndex(name = "lead_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}")
+    @CompoundIndex(name = "lead_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_assigned_idx", def = "{'tenant_id': 1, 'deleted': 1, 'assigned_to': 1, 'createdAt': -1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_followup_idx", def = "{'tenant_id': 1, 'deleted': 1, 'follow_up_date': 1}"),
+    @CompoundIndex(name = "lead_tenant_email_idx", def = "{'tenant_id': 1, 'email': 1}"),
+    @CompoundIndex(name = "lead_tenant_phone_idx", def = "{'tenant_id': 1, 'phone': 1}", partialFilter = "{ 'phone': { '$type': 'string', '$gt': '' } }")
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Lead extends BaseEntity {
 
+    @TextIndexed
     @Field("name")
     private String name;
 
-    @Indexed
+    @TextIndexed
     @Field("email")
     private String email;
 
+    @TextIndexed
     @Field("phone")
     private String phone;
+    @TextIndexed
     @Field("company")
     private String company;
     @Field("website")
@@ -92,8 +100,23 @@ public class Lead extends BaseEntity {
     @Field("last_contacted_at")
     private LocalDateTime lastContactedAt;
 
+    @Field("converted_at")
+    private LocalDateTime convertedAt;
+
+    @Field("lost_reason")
+    private String lostReason;
+
+    @Field("follow_up_date")
+    private LocalDateTime followUpDate;
+
+    @Field("revenue_value")
+    private BigDecimal revenueValue;
+
+    @Field("activity_logs")
+    private List<String> activityLogs;
+
     // Facebook Lead Ads tracking
-    @Indexed(unique = true, sparse = true)
+    @Indexed(unique = true, partialFilter = "{ 'facebook_lead_id': { '$type': 'string', '$gt': '' } }")
     @Field("facebook_lead_id")
     private String facebookLeadId;
 

@@ -1,6 +1,39 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
+const AUTH_STORAGE_KEY = 'nexacrm-auth'
+let authPersistenceMode = 'session'
+
+const selectStorage = (mode) => (mode === 'local' ? localStorage : sessionStorage)
+
+const authStorage = {
+  getItem: (key) => {
+    const sessionValue = sessionStorage.getItem(key)
+    if (sessionValue) {
+      authPersistenceMode = 'session'
+      return sessionValue
+    }
+
+    const localValue = localStorage.getItem(key)
+    if (localValue) {
+      authPersistenceMode = 'local'
+      return localValue
+    }
+
+    return null
+  },
+  setItem: (key, value) => {
+    const primaryStorage = selectStorage(authPersistenceMode)
+    const fallbackStorage = selectStorage(authPersistenceMode === 'local' ? 'session' : 'local')
+    primaryStorage.setItem(key, value)
+    fallbackStorage.removeItem(key)
+  },
+  removeItem: (key) => {
+    sessionStorage.removeItem(key)
+    localStorage.removeItem(key)
+  },
+}
+
 export const useAuthStore = create(
   persist(
     (set) => ({
@@ -9,6 +42,9 @@ export const useAuthStore = create(
       refreshToken: null,
       isAuthenticated: false,
       authBootstrapped: false,
+      setPersistenceMode: (mode) => {
+        authPersistenceMode = mode === 'local' ? 'local' : 'session'
+      },
 
       login: (user, token, refreshToken = null) =>
         set({ user, token, refreshToken, isAuthenticated: true, authBootstrapped: true }),
@@ -28,8 +64,8 @@ export const useAuthStore = create(
       markAuthBootstrapped: () => set({ authBootstrapped: true }),
     }),
     {
-      name: 'nexacrm-auth',
-      storage: createJSONStorage(() => localStorage),
+      name: AUTH_STORAGE_KEY,
+      storage: createJSONStorage(() => authStorage),
       version: 2,
       migrate: (persistedState, version) => {
         if (!persistedState || typeof persistedState !== 'object') return persistedState

@@ -18,9 +18,7 @@ const CHANNEL_CONFIG = {
   reddit:    { icon: MessageSquare, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/20', label: 'Reddit', badge: 'bg-orange-500' },
 }
 
-const ENABLE_DEMO_COMMUNICATION_DATA = import.meta.env.VITE_ENABLE_DEMO_COMM_DATA === 'true'
-
-// ── Local storage keys ───────────────────────────────────────
+// ── Session storage keys ─────────────────────────────────────
 const HISTORY_KEY = 'nexacrm_wa_history'
 const CONVERSATIONS_KEY = 'nexacrm_conversations'
 const LEGACY_DUMMY_IDS = new Set(['email-1', 'insta-1', 'linkedin-1', 'facebook-1'])
@@ -46,59 +44,34 @@ const LEGACY_DUMMY_PHONES = new Set([
   '+91-21098-76543',
 ])
 
-const DEMO_CONVERSATIONS = [
-  { id: 'demo-wa-1',    name: 'Vikram Desai',    phone: '+91-99112-34567', recipient: '9911234567', company: 'GlobalTech',   channel: 'whatsapp',  unread: 2 },
-  { id: 'demo-wa-2',    name: 'Seema Kapoor',    phone: '+91-88223-45678', recipient: '8822345678', company: 'FinEdge Corp', channel: 'whatsapp',  unread: 0 },
-  { id: 'demo-email-1', name: 'Arun Joshi',      phone: '',               recipient: 'arun@techvision.co',       company: 'TechVision',  channel: 'email',     unread: 1 },
-  { id: 'demo-email-2', name: 'Priya Verma',     phone: '',               recipient: 'priya@mindtree.com',       company: 'Mindtree',    channel: 'email',     unread: 0 },
-  { id: 'demo-insta-1', name: 'neha_startups',   phone: '',               recipient: 'neha_startups',            company: 'StartUp.io',  channel: 'instagram', unread: 3 },
-  { id: 'demo-li-1',    name: 'Rohit Bansal',    phone: '',               recipient: 'rohit-bansal-b2b',         company: 'B2B Corp',    channel: 'linkedin',  unread: 0 },
-]
-
-const DEMO_HISTORY = {
-  'demo-wa-1':    [
-    { id: 'm1', from: 'lead', text: 'Hi, I wanted to know more about your enterprise plan pricing.', time: '10:15 AM', status: 'read' },
-    { id: 'm2', from: 'me',   text: 'Hi Vikram! Great to hear from you. Our Enterprise plan starts at ₹2.5L/year and includes unlimited seats, dedicated support, and custom integrations. Shall I send you a detailed proposal?', time: '10:18 AM', status: 'delivered' },
-    { id: 'm3', from: 'lead', text: 'Yes please! Also, do you support Tally integration?', time: '10:20 AM', status: 'read' },
-  ],
-  'demo-wa-2':    [
-    { id: 'm1', from: 'me',   text: 'Hello Seema, following up on our call yesterday. Please find the proposal attached via email. Let me know if you have questions!', time: '09:30 AM', status: 'delivered' },
-    { id: 'm2', from: 'lead', text: 'Got it, thanks! Will review and get back to you by Friday.', time: '09:45 AM', status: 'read' },
-  ],
-  'demo-email-1': [
-    { id: 'm1', from: 'lead', text: 'Hello, we are evaluating CRM tools for our 25-person sales team. Could you schedule a demo?', time: '11:00 AM', status: 'read' },
-    { id: 'm2', from: 'me',   text: 'Hi Arun! Absolutely! I\'d love to show you NexaCRM in action. Are you free this Thursday at 3 PM IST for a 30-minute walkthrough?', time: '11:15 AM', status: 'delivered' },
-  ],
-  'demo-email-2': [
-    { id: 'm1', from: 'me',   text: 'Hi Priya, sharing the updated proposal for Mindtree\'s CRM rollout. Key highlights: multi-tenant architecture, AI lead scoring, and WhatsApp integration. Looking forward to your feedback!', time: 'Yesterday, 04:30 PM', status: 'delivered' },
-  ],
-  'demo-insta-1': [
-    { id: 'm1', from: 'lead', text: 'Hey! Saw your post about AI-powered CRM. Super interested! 🔥', time: '02:10 PM', status: 'read' },
-    { id: 'm2', from: 'me',   text: 'Hi! Thanks for reaching out 😊 We\'d love to show you what NexaCRM can do for your startup. Drop your email and I\'ll set up a quick demo!', time: '02:20 PM', status: 'delivered' },
-    { id: 'm3', from: 'lead', text: 'Sure! It\'s neha@startup.io', time: '02:22 PM', status: 'read' },
-  ],
-  'demo-li-1':    [
-    { id: 'm1', from: 'lead', text: 'Hi, I noticed you specialize in AI-driven CRM solutions. We are expanding our B2B sales team and are looking for a platform. Could we connect?', time: 'Yesterday, 09:00 AM', status: 'read' },
-    { id: 'm2', from: 'me',   text: 'Hi Rohit! Absolutely, happy to connect. NexaCRM is purpose-built for B2B sales teams — AI lead scoring, pipeline automation, and unified inbox for WhatsApp, email & LinkedIn. Shall I share a quick overview deck?', time: 'Yesterday, 09:30 AM', status: 'delivered' },
-  ],
-}
-
 function loadHistory() {
   try {
-    const stored = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '{}')
-    if (!ENABLE_DEMO_COMMUNICATION_DATA) return stored
-    const merged = { ...DEMO_HISTORY, ...stored }
-    return merged
-  } catch { return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_HISTORY : {} }
+    const localValue = localStorage.getItem(HISTORY_KEY)
+    const sessionValue = sessionStorage.getItem(HISTORY_KEY)
+    const raw = localValue ?? sessionValue ?? '{}'
+    const parsed = JSON.parse(raw)
+    if (localValue == null && sessionValue) {
+      localStorage.setItem(HISTORY_KEY, sessionValue)
+    }
+    return parsed
+  } catch {
+    return {}
+  }
 }
 function saveHistory(h) {
-  try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(h)) } catch {}
+  try {
+    const serialized = JSON.stringify(h)
+    localStorage.setItem(HISTORY_KEY, serialized)
+    sessionStorage.setItem(HISTORY_KEY, serialized)
+  } catch {}
 }
 
 function loadConversations() {
   try {
-    const raw = JSON.parse(sessionStorage.getItem(CONVERSATIONS_KEY) || '[]')
-    if (!Array.isArray(raw)) return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
+    const localValue = localStorage.getItem(CONVERSATIONS_KEY)
+    const sessionValue = sessionStorage.getItem(CONVERSATIONS_KEY)
+    const raw = JSON.parse(localValue ?? sessionValue ?? '[]')
+    if (!Array.isArray(raw)) return []
     const persisted = raw.filter((conv) => {
       if (!conv || typeof conv !== 'object') return false
       const id = String(conv.id || '')
@@ -110,23 +83,24 @@ function loadConversations() {
       if (LEGACY_DUMMY_PHONES.has(phone)) return false
       return true
     })
-    // Seed demo conversations on first load (if nothing has been saved yet)
-    if (persisted.length === 0) return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
-    if (!ENABLE_DEMO_COMMUNICATION_DATA) return persisted
-    // Merge: keep persisted user conversations; add demo ones not already present
-    const existingIds = new Set(persisted.map((c) => c.id))
-    const demoToAdd = DEMO_CONVERSATIONS.filter((c) => !existingIds.has(c.id))
-    return [...persisted, ...demoToAdd]
+    if (localValue == null && sessionValue) {
+      localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(persisted))
+    }
+    return persisted
   } catch {
-    return ENABLE_DEMO_COMMUNICATION_DATA ? DEMO_CONVERSATIONS : []
+    return []
   }
 }
 function saveConversations(conversations) {
-  try { sessionStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations)) } catch {}
+  try {
+    const serialized = JSON.stringify(conversations)
+    localStorage.setItem(CONVERSATIONS_KEY, serialized)
+    sessionStorage.setItem(CONVERSATIONS_KEY, serialized)
+  } catch {}
 }
 
 const AI_SUGGESTIONS = [
-  'Thank you for sharing that! Based on your team size, I\'d recommend our Enterprise plan which includes dedicated support. Can we schedule a demo call?',
+  'Thank you for sharing that! Based on your team size, I\'d recommend our Enterprise plan which includes dedicated support. Can we schedule a quick call?',
   'I understand your requirements perfectly. Our multi-tenant architecture handles exactly this use case. Would you like me to prepare a customised proposal?',
   'That\'s great to hear! I can arrange a technical walkthrough with our solutions team this week. What time works best for you?',
   'Perfect timing! We have a special offer running this month for teams over 20 users. Let me share the details.',
@@ -236,32 +210,36 @@ function Bubble({ msg, isWA, onReply, onForward, onDelete, onReact, emojiPickerO
             </span>
           </div>
         )}
-        <div className={`mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isMe ? 'justify-end' : 'justify-start'}`}>
+        <div className={`mt-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ${isMe ? 'justify-end' : 'justify-start'}`}>
           <button
             onClick={() => setEmojiPickerOpen(emojiPickerOpen ? null : msg.id)}
-            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-brand-500"
             title="React with emoji"
+            aria-label="React with emoji"
           >
             <Smile className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onReply(msg)}
-            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-brand-500"
             title="Reply"
+            aria-label="Reply"
           >
             <Reply className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onForward(msg)}
-            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+            className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-brand-500"
             title="Forward"
+            aria-label="Forward message"
           >
             <Forward className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onDelete(msg)}
-            className="p-1 rounded-md hover:bg-red-500/20 text-red-500"
+            className="p-1 rounded-md hover:bg-red-500/20 text-red-500 focus-visible:ring-2 focus-visible:ring-red-400"
             title="Delete message"
+            aria-label="Delete message"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -1084,7 +1062,7 @@ export default function CommunicationPage() {
                         </p>
                         <div className="mt-1 flex items-start gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-xl px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400 max-w-xs text-left">
                           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                          <span>Outgoing messages are sent via WhatsApp. Incoming replies appear here once a webhook is configured on your aiadrika.in account.</span>
+                          <span>Outgoing messages are sent via WhatsApp. Incoming replies appear here once your messaging webhook is connected.</span>
                         </div>
                       </>
                     ) : (
@@ -1222,7 +1200,7 @@ export default function CommunicationPage() {
       {/* ── New Contact Modal ── */}
       <AnimatePresence>
         {composeOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create message">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setComposeOpen(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -1321,7 +1299,7 @@ export default function CommunicationPage() {
           </div>
         )}
         {newContact && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="New WhatsApp chat">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setNewContact(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}

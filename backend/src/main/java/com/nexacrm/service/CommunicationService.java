@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacrm.model.CommunicationRecord;
 import com.nexacrm.repository.CommunicationRecordRepository;
+import com.nexacrm.security.TenantContext;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.NonNull;
@@ -54,6 +55,7 @@ public class CommunicationService {
     private final CommunicationRecordRepository communicationRecordRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
     private final Map<String, String> facebookNameCache = new ConcurrentHashMap<>();
     private final Map<String, String> instagramNameCache = new ConcurrentHashMap<>();
 
@@ -116,6 +118,10 @@ public class CommunicationService {
 
     @Value("${nexacrm.call-agent.provider:bolna}")
     private String defaultCallAgentProvider;
+
+    private Long tenantId() {
+        return TenantContext.currentTenantId();
+    }
 
     @Value("${nexacrm.call-agent.bolna.api-url:https://api.bolna.ai}")
     private String defaultBolnaApiUrl;
@@ -275,14 +281,15 @@ public class CommunicationService {
     public List<WhatsAppMessageResponse> getWhatsAppMessages(@NonNull String contact) {
         String normalizedContact = normalizeContact(contact);
         return communicationRecordRepository
-            .findTop500ByChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc("WHATSAPP", normalizedContact)
+            .findTop500ByTenantIdAndChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc(tenantId(), "WHATSAPP", normalizedContact)
             .stream()
             .map(this::toMessageResponse)
             .toList();
     }
 
     public List<WhatsAppConversationResponse> getWhatsAppConversations() {
-        List<CommunicationRecord> rows = communicationRecordRepository.findByChannelIgnoreCaseOrderByCreatedAtDesc(
+        List<CommunicationRecord> rows = communicationRecordRepository.findByTenantIdAndChannelIgnoreCaseOrderByCreatedAtDesc(
+            tenantId(),
             "WHATSAPP",
             PageRequest.of(0, 1000)
         );
@@ -357,14 +364,15 @@ public class CommunicationService {
     public List<WhatsAppMessageResponse> getFacebookMessages(String psid) {
         String normalizedPsid = psid == null ? "" : psid.trim().replaceAll("\\D", "");
         return communicationRecordRepository
-            .findTop500ByChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc("FACEBOOK", normalizedPsid)
+            .findTop500ByTenantIdAndChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc(tenantId(), "FACEBOOK", normalizedPsid)
             .stream()
             .map(this::toMessageResponse)
             .toList();
     }
 
     public List<WhatsAppConversationResponse> getFacebookConversations() {
-        List<CommunicationRecord> rows = communicationRecordRepository.findByChannelIgnoreCaseOrderByCreatedAtDesc(
+        List<CommunicationRecord> rows = communicationRecordRepository.findByTenantIdAndChannelIgnoreCaseOrderByCreatedAtDesc(
+            tenantId(),
             "FACEBOOK", PageRequest.of(0, 1000)
         );
 
@@ -443,14 +451,15 @@ public class CommunicationService {
     public List<WhatsAppMessageResponse> getInstagramMessages(String igsid) {
         String normalizedIgsid = trim(igsid);
         return communicationRecordRepository
-            .findTop500ByChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc("INSTAGRAM", normalizedIgsid)
+            .findTop500ByTenantIdAndChannelIgnoreCaseAndContactIdentifierOrderByCreatedAtAsc(tenantId(), "INSTAGRAM", normalizedIgsid)
             .stream()
             .map(this::toMessageResponse)
             .toList();
     }
 
     public List<WhatsAppConversationResponse> getInstagramConversations() {
-        List<CommunicationRecord> rows = communicationRecordRepository.findByChannelIgnoreCaseOrderByCreatedAtDesc(
+        List<CommunicationRecord> rows = communicationRecordRepository.findByTenantIdAndChannelIgnoreCaseOrderByCreatedAtDesc(
+            tenantId(),
             "INSTAGRAM",
             PageRequest.of(0, 1000)
         );
@@ -595,7 +604,7 @@ public class CommunicationService {
             .toUriString();
 
         try {
-            String response = new RestTemplate().getForObject(url, String.class);
+            String response = restTemplate.getForObject(url, String.class);
             String externalId = null;
             if (response != null && !response.isBlank()) {
                 Map<String, Object> data = objectMapper.readValue(response, MAP_TYPE);
@@ -652,7 +661,7 @@ public class CommunicationService {
                 url
             );
             @SuppressWarnings("unchecked")
-            Map<String, Object> response = new RestTemplate().postForObject(url, responsePayload, Map.class);
+            Map<String, Object> response = restTemplate.postForObject(url, responsePayload, Map.class);
             persistFacebookSend(psid, body, response);
             log.info("Facebook message sent to PSID {}", psid);
         } catch (HttpStatusCodeException ex) {
@@ -675,7 +684,7 @@ public class CommunicationService {
                         meUrl
                     );
                     @SuppressWarnings("unchecked")
-                    Map<String, Object> meResponse = new RestTemplate().postForObject(meUrl, responsePayload, Map.class);
+                    Map<String, Object> meResponse = restTemplate.postForObject(meUrl, responsePayload, Map.class);
                     persistFacebookSend(psid, body, meResponse);
                     log.info("Facebook message sent to PSID {} using /me/messages fallback", psid);
                     return;
@@ -703,7 +712,7 @@ public class CommunicationService {
                     );
                     try {
                         @SuppressWarnings("unchecked")
-                        Map<String, Object> taggedResponse = new RestTemplate().postForObject(url, taggedPayload, Map.class);
+                        Map<String, Object> taggedResponse = restTemplate.postForObject(url, taggedPayload, Map.class);
                         persistFacebookSend(psid, body, taggedResponse);
                         log.info("Facebook message sent to PSID {} with MESSAGE_TAG {}", psid, tag);
                         return;
@@ -835,7 +844,7 @@ public class CommunicationService {
 
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> response = new RestTemplate().postForObject(url, payload, Map.class);
+            Map<String, Object> response = restTemplate.postForObject(url, payload, Map.class);
             String externalId = "";
             if (response != null && response.get("message_id") != null) {
                 externalId = String.valueOf(response.get("message_id"));
@@ -936,7 +945,7 @@ public class CommunicationService {
         }
 
         try {
-            ResponseEntity<String> response = new RestTemplate().exchange(
+            ResponseEntity<String> response = restTemplate.exchange(
                 config.webhookUrl(),
                 HttpMethod.POST,
                 new HttpEntity<>(payload, headers),
@@ -1048,7 +1057,7 @@ public class CommunicationService {
         headers.setBearerAuth(bolnaApiKey);
 
         try {
-            ResponseEntity<String> response = new RestTemplate().exchange(
+            ResponseEntity<String> response = restTemplate.exchange(
                 bolnaCallApiUrl,
                 HttpMethod.POST,
                 new HttpEntity<>(payload, headers),
@@ -1327,7 +1336,8 @@ public class CommunicationService {
             return false;
         }
         try {
-            boolean duplicate = communicationRecordRepository.existsByChannelIgnoreCaseAndExternalId(
+            boolean duplicate = communicationRecordRepository.existsByTenantIdAndChannelIgnoreCaseAndExternalId(
+                tenantId(),
                 channel,
                 normalizedExternalId
             );
@@ -1564,7 +1574,7 @@ public class CommunicationService {
                 .buildAndExpand(metaGraphApiVersion, psid)
                 .toUriString();
             @SuppressWarnings("unchecked")
-            Map<String, Object> profile = new RestTemplate().getForObject(url, Map.class);
+            Map<String, Object> profile = restTemplate.getForObject(url, Map.class);
             if (profile == null) return "";
 
             String name = trim(asText(profile.get("name")));
