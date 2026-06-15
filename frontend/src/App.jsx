@@ -13,6 +13,8 @@ const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const LeadsPage = lazy(() => import('./pages/LeadsPage'))
 const KanbanPage = lazy(() => import('./pages/KanbanPage'))
+const TasksPage = lazy(() => import('./pages/TasksPage'))
+const FollowUpsPage = lazy(() => import('./pages/FollowUpsPage'))
 const CustomersPage = lazy(() => import('./pages/CustomersPage'))
 const CommunicationPage = lazy(() => import('./pages/CommunicationPage'))
 const AIEnginePage = lazy(() => import('./pages/AIEnginePage'))
@@ -23,6 +25,8 @@ const TeamPage = lazy(() => import('./pages/TeamPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const NotificationCenterPage = lazy(() => import('./pages/NotificationCenterPage'))
+const SaaSAdminPage = lazy(() => import('./pages/SaaSAdminPage'))
 
 function RouteFallback() {
   return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
@@ -72,6 +76,33 @@ function PermissionRoute({ permission, children }) {
         <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">You do not have access to this section</h2>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           Your account is signed in, but this workspace role cannot open the requested module.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.assign('/dashboard')}
+          className="btn-primary mt-5 w-full justify-center"
+        >
+          Go to dashboard
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RoleRoute({ role, children }) {
+  const { user, authBootstrapped } = useAuthStore()
+  if (!authBootstrapped) {
+    return <div className="min-h-screen grid place-items-center text-slate-500">Checking session...</div>
+  }
+  if (user?.role === role) return children
+
+  return (
+    <div className="min-h-screen grid place-items-center bg-slate-50 dark:bg-slate-950 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center shadow-lg">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Access denied</p>
+        <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">Super admin access required</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          This section is reserved for platform operators.
         </p>
         <button
           type="button"
@@ -174,13 +205,17 @@ export default function App() {
             <Route path="/customers" element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_READ}><CustomersPage /></PermissionRoute>} />
             <Route path="/communication" element={<PermissionRoute permission={PERMISSIONS.COMMUNICATIONS_READ}><CommunicationPage /></PermissionRoute>} />
             <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />
-            <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.WORKFLOWS_VIEW}><AutomationPage /></PermissionRoute>} />
+            <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.AUTOMATION_READ}><AutomationPage /></PermissionRoute>} />
             <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
-            <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.ANALYTICS_VIEW}><AnalyticsPage /></PermissionRoute>} />
-            <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_VIEW}><TeamPage /></PermissionRoute>} />
+            <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><AnalyticsPage /></PermissionRoute>} />
+            <Route path="/tasks" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TasksPage /></PermissionRoute>} />
+            <Route path="/follow-ups" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><FollowUpsPage /></PermissionRoute>} />
+            <Route path="/notifications" element={<PermissionRoute permission={PERMISSIONS.NOTIFICATIONS_READ}><NotificationCenterPage /></PermissionRoute>} />
+            <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_READ}><TeamPage /></PermissionRoute>} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_VIEW}><IntegrationsPage /></PermissionRoute>} />
+            <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_READ}><IntegrationsPage /></PermissionRoute>} />
             <Route path="/settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><SettingsPage /></PermissionRoute>} />
+            <Route path="/admin/saas" element={<RoleRoute role="SUPER_ADMIN"><SaaSAdminPage /></RoleRoute>} />
           </Route>
 
           {/* Fallback */}

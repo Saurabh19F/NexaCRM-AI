@@ -187,6 +187,48 @@ public class LeadController {
         return ResponseEntity.ok(leadService.scoreWithAI(id));
     }
 
+    @GetMapping("/duplicates")
+    @PreAuthorize("hasAuthority('leads.read')")
+    @Operation(summary = "Find duplicate leads by email or phone")
+    public ResponseEntity<List<LeadDTO>> findDuplicates(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String excludeId) {
+        return ResponseEntity.ok(leadService.findDuplicates(email, phone, excludeId));
+    }
+
+    @PostMapping("/{id}/merge")
+    @PreAuthorize("hasAuthority('leads.merge')")
+    @Operation(summary = "Merge a duplicate lead into the primary lead")
+    public ResponseEntity<LeadDTO> mergeLead(
+            @PathVariable String id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(leadService.merge(id, body != null ? body.get("duplicateId") : null));
+    }
+
+    @PostMapping("/{id}/reopen")
+    @PreAuthorize("hasAuthority('leads.reopen')")
+    @Operation(summary = "Reopen a lost lead")
+    public ResponseEntity<LeadDTO> reopenLead(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.ok(leadService.reopen(id, body));
+    }
+
+    @GetMapping("/{id}/aging")
+    @PreAuthorize("hasAuthority('leads.read')")
+    @Operation(summary = "Get lead aging and SLA metrics")
+    public ResponseEntity<Map<String, Object>> leadAging(@PathVariable String id) {
+        return ResponseEntity.ok(leadService.leadAging(id));
+    }
+
+    @GetMapping("/{id}/assignment-history")
+    @PreAuthorize("hasAuthority('leads.read')")
+    @Operation(summary = "Get lead assignment history")
+    public ResponseEntity<List<String>> assignmentHistory(@PathVariable String id) {
+        return ResponseEntity.ok(leadService.assignmentHistory(id));
+    }
+
     @GetMapping("/{id}/activities")
     @PreAuthorize("hasAuthority('leads.read')")
     @Operation(summary = "Get lead activities")

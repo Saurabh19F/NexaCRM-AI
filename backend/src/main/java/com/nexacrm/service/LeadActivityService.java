@@ -38,7 +38,7 @@ public class LeadActivityService {
 
     @Transactional(readOnly = true)
     public List<LeadActivityDTO> listByLeadId(String leadId) {
-        ensureLeadExists(leadId);
+        ensureLeadVisible(ensureLeadExists(leadId));
         return leadActivityRepository
             .findByLeadIdAndTenantIdAndDeletedFalseOrderBySavedAtDesc(leadId, tenantId())
             .stream()
@@ -48,6 +48,7 @@ public class LeadActivityService {
 
     public LeadActivityDTO create(String leadId, LeadActivityDTO dto) {
         Lead lead = ensureLeadExists(leadId);
+        ensureLeadVisible(lead);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime savedAt = dto.getSavedAt() != null ? dto.getSavedAt() : now;
         Map<String, Object> values = dto.getValues() != null ? new LinkedHashMap<>(dto.getValues()) : new LinkedHashMap<>();
@@ -86,6 +87,23 @@ public class LeadActivityService {
     private Lead ensureLeadExists(String leadId) {
         return leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));
+    }
+
+    private void ensureLeadVisible(Lead lead) {
+        if (!canCurrentUserAccess(lead)) {
+            throw new ResourceNotFoundException("Lead not found: " + lead.getId());
+        }
+    }
+
+    private boolean canCurrentUserAccess(Lead lead) {
+        var current = currentUser();
+        if (current == null || com.nexacrm.model.User.isAdminLike(current.getRole()) || current.getRole() == com.nexacrm.model.User.Role.MANAGER) {
+            return true;
+        }
+        if (current.getId() == null || current.getId().isBlank() || lead == null) {
+            return false;
+        }
+        return lead.getAssignedTo() != null && current.getId().equals(lead.getAssignedTo().getId());
     }
 
     private String buildSummary(Map<String, Object> values) {
@@ -317,9 +335,13 @@ public class LeadActivityService {
     }
 
     private String currentUserName() {
+        com.nexacrm.model.User current = currentUser();
+        return current != null ? firstNonBlank(current.getName(), current.getEmail()) : null;
+    }
+
+    private com.nexacrm.model.User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
-            .map(user -> firstNonBlank(user.getName(), user.getEmail()))
             .orElse(null);
     }
 

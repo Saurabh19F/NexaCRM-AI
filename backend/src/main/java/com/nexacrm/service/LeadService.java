@@ -8,6 +8,7 @@ import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Customer;
 import com.nexacrm.model.Deal;
 import com.nexacrm.model.Lead;
+import com.nexacrm.model.User;
 import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
@@ -92,12 +93,22 @@ public class LeadService {
         return TenantContext.currentTenantId();
     }
 
+    private User currentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
                                          String source, String assignedTo, Pageable pageable) {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
+        User current = currentUser();
+        if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            query.addCriteria(Criteria.where("assigned_to.$id").is(current.getId()));
+        }
 
         if (search != null && !search.isBlank()) {
             query.addCriteria(TextCriteria.forDefaultLanguage().matchingAny(search.trim()));
@@ -148,9 +159,10 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public LeadDTO findById(String id) {
-        return leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
-            .map(this::toDTO)
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
+        return toDTO(lead);
     }
 
     // ── Commands ─────────────────────────────────────────────────
@@ -191,6 +203,7 @@ public class LeadService {
 
         Lead lead = fromDTO(dto);
         lead.setTenantId(tenantId);
+        validateLostReason(lead);
         Lead saved;
         try {
             saved = leadRepository.save(lead);
@@ -226,6 +239,7 @@ public class LeadService {
     public LeadDTO update(String id, LeadDTO dto) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
 
         String normalizedEmail = normalizeEmail(dto.getEmail());
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
@@ -279,6 +293,7 @@ public class LeadService {
         if (dto.getRevenueValue() != null) {
             lead.setRevenueValue(dto.getRevenueValue());
         }
+        validateLostReason(lead);
 
         try {
             return toDTO(leadRepository.save(lead));
@@ -290,6 +305,7 @@ public class LeadService {
     public void delete(String id) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
         lead.setDeleted(true);
         leadRepository.save(lead);
     }
@@ -301,10 +317,116 @@ public class LeadService {
             .filter(id -> id != null && !id.isBlank())
             .map(id -> leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId))
             .flatMap(Optional::stream)
+            .filter(this::canCurrentUserAccess)
             .toList();
         leads.forEach(l -> l.setDeleted(true));
         leadRepository.saveAll(leads);
         return leads.size();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeadDTO> findDuplicates(String email, String phone, String excludeId) {
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedPhone = normalizePhone(phone);
+        if ((normalizedEmail == null || normalizedEmail.isBlank()) && (normalizedPhone == null || normalizedPhone.isBlank())) {
+            return List.of();
+        }
+
+        return leadRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
+            .filter(lead -> excludeId == null || excludeId.isBlank() || !excludeId.equals(lead.getId()))
+            .filter(lead -> matchesDuplicateCandidate(lead, normalizedEmail, normalizedPhone))
+            .map(this::toDTO)
+            .toList();
+    }
+
+    public LeadDTO merge(String primaryId, String duplicateId) {
+        if (primaryId == null || duplicateId == null || primaryId.isBlank() || duplicateId.isBlank()) {
+            throw new IllegalStateException("Both lead ids are required");
+        }
+        if (primaryId.equals(duplicateId)) {
+            throw new IllegalStateException("Cannot merge a lead into itself");
+        }
+
+        Lead primary = leadRepository.findByIdAndTenantIdAndDeletedFalse(primaryId, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + primaryId));
+        Lead duplicate = leadRepository.findByIdAndTenantIdAndDeletedFalse(duplicateId, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + duplicateId));
+        ensureLeadVisible(primary);
+        ensureLeadVisible(duplicate);
+
+        mergeLeadFields(primary, duplicate);
+        primary.setNotes(appendNote(primary.getNotes(), "\n\n[Merged Lead]\nMerged duplicate lead: " + duplicate.getName() + " (" + duplicate.getId() + ")"));
+        primary.setActivityLogs(mergeActivityLogs(primary.getActivityLogs(), duplicate.getActivityLogs()));
+
+        duplicate.setDeleted(true);
+        leadRepository.save(duplicate);
+        Lead saved = leadRepository.save(primary);
+        return toDTO(saved);
+    }
+
+    public LeadDTO reopen(String id, Map<String, Object> options) {
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
+
+        lead.setStatus(Lead.LeadStatus.NEW);
+        lead.setLostReason(null);
+        lead.setConvertedAt(null);
+        if (options != null) {
+            String note = options.get("note") != null ? String.valueOf(options.get("note")).trim() : "";
+            if (!note.isBlank()) {
+                lead.setNotes(appendNote(lead.getNotes(), "\n\n[Reopened Lead]\n" + note));
+            }
+            String followUp = options.get("followUpDate") != null ? String.valueOf(options.get("followUpDate")).trim() : "";
+            if (!followUp.isBlank()) {
+                try {
+                    lead.setFollowUpDate(LocalDateTime.parse(followUp));
+                } catch (Exception ignored) {
+                    // Keep current follow-up date if parsing fails.
+                }
+            }
+        }
+
+        return toDTO(leadRepository.save(lead));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> leadAging(String id) {
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
+
+        LocalDateTime reference = lead.getLastContactedAt() != null ? lead.getLastContactedAt() : lead.getCreatedAt();
+        long ageMinutes = reference != null ? Duration.between(reference, LocalDateTime.now()).toMinutes() : 0;
+        long untouchedMinutes = lead.getLastContactedAt() != null && lead.getCreatedAt() != null
+            ? Duration.between(lead.getLastContactedAt(), LocalDateTime.now()).toMinutes()
+            : ageMinutes;
+        boolean stale = untouchedMinutes >= 60;
+        boolean overdue = lead.getFollowUpDate() != null && lead.getFollowUpDate().isBefore(LocalDateTime.now());
+        String slaState = overdue ? "BREACHED" : stale ? "AT_RISK" : "ON_TRACK";
+
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("leadId", lead.getId());
+        row.put("ageMinutes", ageMinutes);
+        row.put("ageHours", Math.round((ageMinutes / 60.0) * 10.0) / 10.0);
+        row.put("untouchedMinutes", untouchedMinutes);
+        row.put("stale", stale);
+        row.put("overdueFollowUp", overdue);
+        row.put("slaState", slaState);
+        row.put("createdAt", lead.getCreatedAt());
+        row.put("lastContactedAt", lead.getLastContactedAt());
+        row.put("followUpDate", lead.getFollowUpDate());
+        row.put("assignedToId", lead.getAssignedTo() != null ? lead.getAssignedTo().getId() : null);
+        row.put("assignedToName", lead.getAssignedTo() != null ? lead.getAssignedTo().getName() : null);
+        return row;
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> assignmentHistory(String id) {
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
+        return lead.getActivityLogs() != null ? lead.getActivityLogs() : List.of();
     }
 
     public Map<String, Object> importFromFile(MultipartFile file) {
@@ -641,6 +763,7 @@ public class LeadService {
     public Map<String, Object> scoreWithAI(String id) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
 
         int scoreValue = calculateLeadScoreValue(lead);
         Lead.LeadScore score = mapScore(scoreValue);
@@ -663,6 +786,7 @@ public class LeadService {
     public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
 
         Customer customer = customerRepository
             .findByEmailAndTenantIdAndDeletedFalse(lead.getEmail(), tenantId())
@@ -750,6 +874,7 @@ public class LeadService {
     public Map<String, Object> callLeadNow(String id, String script) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
+        ensureLeadVisible(lead);
 
         String phone = lead.getPhone() == null ? "" : lead.getPhone().trim();
         if (phone.isBlank()) {
@@ -1137,6 +1262,64 @@ public class LeadService {
         return base + "\n" + extra;
     }
 
+    private void validateLostReason(Lead lead) {
+        if (lead == null || lead.getStatus() != Lead.LeadStatus.LOST) {
+            return;
+        }
+        if (lead.getLostReason() == null || lead.getLostReason().isBlank()) {
+            throw new IllegalStateException("Lost reason is required when lead status is LOST");
+        }
+    }
+
+    private boolean matchesDuplicateCandidate(Lead lead, String normalizedEmail, String normalizedPhone) {
+        if (lead == null) return false;
+        String leadEmail = normalizeEmail(lead.getEmail());
+        String leadPhone = normalizePhone(lead.getPhone());
+        boolean emailMatch = normalizedEmail != null && !normalizedEmail.isBlank() && normalizedEmail.equals(leadEmail);
+        boolean phoneMatch = normalizedPhone != null && !normalizedPhone.isBlank() && normalizedPhone.equals(leadPhone);
+        return emailMatch || phoneMatch;
+    }
+
+    private void mergeLeadFields(Lead primary, Lead duplicate) {
+        if (primary == null || duplicate == null) return;
+        if (isBlank(primary.getCompany())) primary.setCompany(duplicate.getCompany());
+        if (isBlank(primary.getWebsite())) primary.setWebsite(duplicate.getWebsite());
+        if (isBlank(primary.getDesignation())) primary.setDesignation(duplicate.getDesignation());
+        if (isBlank(primary.getService())) primary.setService(duplicate.getService());
+        if (isBlank(primary.getSpecialization())) primary.setSpecialization(duplicate.getSpecialization());
+        if ((primary.getSource() == null || primary.getSource() == Lead.LeadSource.OTHER) && duplicate.getSource() != null) primary.setSource(duplicate.getSource());
+        if ((primary.getStatus() == null || primary.getStatus() == Lead.LeadStatus.NEW) && duplicate.getStatus() != null) primary.setStatus(duplicate.getStatus());
+        if ((primary.getScore() == null || primary.getScore() == Lead.LeadScore.COLD) && duplicate.getScore() != null) primary.setScore(duplicate.getScore());
+        if (primary.getPriority() == null && duplicate.getPriority() != null) primary.setPriority(duplicate.getPriority());
+        if (primary.getDealValue() == null && duplicate.getDealValue() != null) primary.setDealValue(duplicate.getDealValue());
+        if (primary.getUtmSource() == null) primary.setUtmSource(duplicate.getUtmSource());
+        if (primary.getUtmMedium() == null) primary.setUtmMedium(duplicate.getUtmMedium());
+        if (primary.getUtmCampaign() == null) primary.setUtmCampaign(duplicate.getUtmCampaign());
+        if (primary.getAiScoreValue() == null) primary.setAiScoreValue(duplicate.getAiScoreValue());
+        if (isBlank(primary.getAiNextAction())) primary.setAiNextAction(duplicate.getAiNextAction());
+        if (isBlank(primary.getNotes())) primary.setNotes(duplicate.getNotes());
+        if (primary.getLastContactedAt() == null) primary.setLastContactedAt(duplicate.getLastContactedAt());
+        if (primary.getConvertedAt() == null) primary.setConvertedAt(duplicate.getConvertedAt());
+        if (isBlank(primary.getLostReason())) primary.setLostReason(duplicate.getLostReason());
+        if (primary.getFollowUpDate() == null) primary.setFollowUpDate(duplicate.getFollowUpDate());
+        if (primary.getRevenueValue() == null) primary.setRevenueValue(duplicate.getRevenueValue());
+        if (isBlank(primary.getFacebookLeadId())) primary.setFacebookLeadId(duplicate.getFacebookLeadId());
+        if (isBlank(primary.getFacebookFormId())) primary.setFacebookFormId(duplicate.getFacebookFormId());
+        if (isBlank(primary.getFacebookAdId())) primary.setFacebookAdId(duplicate.getFacebookAdId());
+        if (primary.getAssignedTo() == null) primary.setAssignedTo(duplicate.getAssignedTo());
+    }
+
+    private List<String> mergeActivityLogs(List<String> primaryLogs, List<String> duplicateLogs) {
+        List<String> merged = new ArrayList<>();
+        if (duplicateLogs != null) merged.addAll(duplicateLogs);
+        if (primaryLogs != null) merged.addAll(primaryLogs);
+        return merged.stream().distinct().limit(25).collect(Collectors.toList());
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     @SuppressWarnings("unchecked")
     private String extractPagingNext(Map<String, Object> response) {
         if (response == null) return null;
@@ -1282,6 +1465,23 @@ public class LeadService {
         if (phone == null) return null;
         String normalized = phone.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private void ensureLeadVisible(Lead lead) {
+        if (!canCurrentUserAccess(lead)) {
+            throw new ResourceNotFoundException("Lead not found: " + lead.getId());
+        }
+    }
+
+    private boolean canCurrentUserAccess(Lead lead) {
+        User current = currentUser();
+        if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
+            return true;
+        }
+        if (current.getId() == null || current.getId().isBlank() || lead == null) {
+            return false;
+        }
+        return lead.getAssignedTo() != null && current.getId().equals(lead.getAssignedTo().getId());
     }
 
     private int calculateLeadScoreValue(Lead lead) {

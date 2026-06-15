@@ -158,10 +158,15 @@ export const authAPI = {
 export const leadsAPI = {
   getAll:    (params) => api.get('/leads', { params }),
   getById:   (id)     => api.get(`/leads/${id}`),
+  findDuplicates: (params) => api.get('/leads/duplicates', { params }),
   create:    (data)   => api.post('/leads', data),
   update:    (id, d)  => api.put(`/leads/${id}`, d),
   delete:    (id)     => api.delete(`/leads/${id}`),
   bulkDelete:(ids)    => api.post('/leads/bulk-delete', { ids }),
+  merge:     (id, duplicateId) => api.post(`/leads/${id}/merge`, { duplicateId }),
+  reopen:    (id, data) => api.post(`/leads/${id}/reopen`, data ?? {}),
+  getAging:  (id) => api.get(`/leads/${id}/aging`),
+  getAssignmentHistory: (id) => api.get(`/leads/${id}/assignment-history`),
   import:    (file)   => {
     const form = new FormData()
     form.append('file', file)
@@ -173,6 +178,22 @@ export const leadsAPI = {
   callNow:   (id, d)  => api.post(`/leads/${id}/call`, d ?? {}),
   getActivities:(id)   => api.get(`/leads/${id}/activities`),
   addActivity: (id, d) => api.post(`/leads/${id}/activities`, d),
+}
+
+// ──────────────────────────────────────────
+//  Tasks / Follow-ups
+// ──────────────────────────────────────────
+export const tasksAPI = {
+  getAll:      (params) => api.get('/tasks', { params }),
+  getById:     (id)     => api.get(`/tasks/${id}`),
+  getByLead:   (leadId) => api.get(`/tasks/lead/${leadId}`),
+  dueToday:    ()       => api.get('/tasks/due-today'),
+  dueTomorrow: ()       => api.get('/tasks/due-tomorrow'),
+  overdue:     ()       => api.get('/tasks/overdue'),
+  create:      (data)   => api.post('/tasks', data),
+  update:      (id, d)  => api.put(`/tasks/${id}`, d),
+  complete:    (id)     => api.patch(`/tasks/${id}/complete`),
+  delete:      (id)     => api.delete(`/tasks/${id}`),
 }
 
 export const callsAPI = {
@@ -283,6 +304,29 @@ export const analyticsAPI = {
   getTeam:        (params) => api.get('/analytics/team', { params }),
   getCampaigns:   (params) => api.get('/analytics/campaigns', { params }),
   exportReport:   (params) => api.get('/analytics/export', { params, responseType: 'blob' }),
+}
+
+// ──────────────────────────────────────────
+//  Workspace Settings
+// ──────────────────────────────────────────
+export const settingsAPI = {
+  getAll: () => api.get('/settings'),
+  update: (data) => api.put('/settings', data),
+}
+
+// ──────────────────────────────────────────
+//  Super Admin / SaaS
+// ──────────────────────────────────────────
+export const superAdminAPI = {
+  getTenants:       () => api.get('/admin/saas/tenants'),
+  createTenant:     (data) => api.post('/admin/saas/tenants', data),
+  updateTenant:     (id, data) => api.put(`/admin/saas/tenants/${id}`, data),
+  activateTenant:   (id) => api.post(`/admin/saas/tenants/${id}/activate`),
+  deactivateTenant: (id) => api.post(`/admin/saas/tenants/${id}/deactivate`),
+  getPlans:         () => api.get('/admin/saas/plans'),
+  getFeatureFlags:  () => api.get('/admin/saas/feature-flags'),
+  getBilling:       () => api.get('/admin/saas/billing'),
+  getAuditLogs:     () => api.get('/admin/saas/audit-logs'),
 }
 
 // ──────────────────────────────────────────

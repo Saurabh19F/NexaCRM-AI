@@ -18,6 +18,7 @@ const toUiNotification = (notification) => {
     title: notification?.title || 'Notification',
     message: notification?.message || '',
     read: Boolean(notification?.isRead),
+    actionUrl: notification?.actionUrl || notification?.action_url || null,
     time: createdAt.toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),
     createdAt: createdAt.toISOString(),
   }
@@ -52,6 +53,7 @@ export const useNotificationStore = create((set, get) => ({
         title: notification?.title || 'Notification',
         message: notification?.message || '',
         read: false,
+        actionUrl: notification?.actionUrl || notification?.action_url || null,
         time: 'Just now',
         createdAt: new Date().toISOString(),
       }, ...s.notifications],

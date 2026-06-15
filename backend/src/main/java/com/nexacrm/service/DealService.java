@@ -6,6 +6,7 @@ import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.CommunicationRecord;
 import com.nexacrm.model.Deal;
+import com.nexacrm.model.User;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.CommunicationRecordRepository;
@@ -53,6 +54,10 @@ public class DealService {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
+        User current = currentUser();
+        if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            query.addCriteria(Criteria.where("owner.$id").is(current.getId()));
+        }
 
         Deal.DealStage stageEnum = parseStage(stage);
         if (stageEnum != null) {
@@ -98,6 +103,10 @@ public class DealService {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
+        User current = currentUser();
+        if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            query.addCriteria(Criteria.where("owner.$id").is(current.getId()));
+        }
         if (pipelineId != null) {
             query.addCriteria(new Criteria().orOperator(
                 Criteria.where("pipeline_id").is(pipelineId),
@@ -138,9 +147,10 @@ public class DealService {
 
     @Transactional(readOnly = true)
     public DealDTO findById(String id) {
-        return dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
-            .map(this::toDTO)
+        Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
+        ensureDealVisible(deal);
+        return toDTO(deal);
     }
 
     public DealDTO create(DealDTO dto) {
@@ -157,6 +167,7 @@ public class DealService {
     public DealDTO update(String id, DealDTO dto) {
         Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
+        ensureDealVisible(deal);
 
         deal.setTitle(dto.getTitle());
         deal.setDescription(dto.getDescription());
@@ -188,6 +199,7 @@ public class DealService {
     public DealDTO moveStage(String id, String stageName) {
         Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
+        ensureDealVisible(deal);
 
         Deal.DealStage newStage;
         try {
@@ -224,6 +236,7 @@ public class DealService {
     public void delete(String id) {
         Deal deal = dealRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Deal not found: " + id));
+        ensureDealVisible(deal);
         deal.setDeleted(true);
         dealRepository.save(deal);
     }
@@ -508,5 +521,28 @@ public class DealService {
         }
 
         return builder.build();
+    }
+
+    private void ensureDealVisible(Deal deal) {
+        if (!canCurrentUserAccess(deal)) {
+            throw new ResourceNotFoundException("Deal not found: " + deal.getId());
+        }
+    }
+
+    private boolean canCurrentUserAccess(Deal deal) {
+        User current = currentUser();
+        if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
+            return true;
+        }
+        if (current.getId() == null || current.getId().isBlank() || deal == null) {
+            return false;
+        }
+        return deal.getOwner() != null && current.getId().equals(deal.getOwner().getId());
+    }
+
+    private User currentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 }

@@ -244,4 +244,59 @@ class LeadControllerWebMvcTest {
 
         verify(leadService).callLeadNow("lead-1", "Please call now");
     }
+
+    @Test
+    void findDuplicates_shouldDelegateToService() throws Exception {
+        when(leadService.findDuplicates(eq("dup@example.com"), eq("9999999999"), eq("lead-1")))
+            .thenReturn(List.of(LeadDTO.builder().id("lead-2").build()));
+
+        mockMvc.perform(get("/api/leads/duplicates")
+                .param("email", "dup@example.com")
+                .param("phone", "9999999999")
+                .param("excludeId", "lead-1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value("lead-2"));
+
+        verify(leadService).findDuplicates("dup@example.com", "9999999999", "lead-1");
+    }
+
+    @Test
+    void mergeLead_shouldDelegateToService() throws Exception {
+        when(leadService.merge(eq("lead-primary"), eq("lead-dup")))
+            .thenReturn(LeadDTO.builder().id("lead-primary").build());
+
+        mockMvc.perform(post("/api/leads/lead-primary/merge")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(testObjectMapper.writeValueAsString(Map.of("duplicateId", "lead-dup"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value("lead-primary"));
+
+        verify(leadService).merge("lead-primary", "lead-dup");
+    }
+
+    @Test
+    void reopenLead_shouldDelegateToService() throws Exception {
+        when(leadService.reopen(eq("lead-lost"), any()))
+            .thenReturn(LeadDTO.builder().id("lead-lost").status(Lead.LeadStatus.NEW).build());
+
+        mockMvc.perform(post("/api/leads/lead-lost/reopen")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(testObjectMapper.writeValueAsString(Map.of("note", "Re-opened for follow-up"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("NEW"));
+
+        verify(leadService).reopen(eq("lead-lost"), any());
+    }
+
+    @Test
+    void leadAging_shouldDelegateToService() throws Exception {
+        when(leadService.leadAging("lead-aging"))
+            .thenReturn(Map.of("slaState", "BREACHED", "stale", true));
+
+        mockMvc.perform(get("/api/leads/lead-aging/aging"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.slaState").value("BREACHED"));
+
+        verify(leadService).leadAging("lead-aging");
+    }
 }

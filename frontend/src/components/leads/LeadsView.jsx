@@ -43,7 +43,7 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '', service: '', specialization: '',
     source: 'Website', score: 'warm', status: 'new',
-    assignedToId: '', value: '', tags: ''
+    assignedToId: '', value: '', tags: '', lostReason: ''
   })
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -135,6 +135,20 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
                 ))}
               </select>
             </div>
+            {form.status === 'lost' && (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Lost Reason *</label>
+                <textarea
+                  name="lostReason"
+                  value={form.lostReason}
+                  onChange={handleChange}
+                  required
+                  rows={3}
+                  className="input resize-none"
+                  placeholder="Budget, timing, competitor, or other reason"
+                />
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>
@@ -233,6 +247,20 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
                 {['new','contacted','qualified','proposal','negotiation','won','lost'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
+            {form.status === 'lost' && (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Lost Reason *</label>
+                <textarea
+                  name="lostReason"
+                  value={form.lostReason || ''}
+                  onChange={handleChange}
+                  required
+                  rows={3}
+                  className="input resize-none"
+                  placeholder="Budget, timing, competitor, or other reason"
+                />
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>

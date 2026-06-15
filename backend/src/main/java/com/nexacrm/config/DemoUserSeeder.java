@@ -37,11 +37,14 @@ public class DemoUserSeeder implements CommandLineRunner {
 
         String encodedPassword = passwordEncoder.encode(demoPassword);
 
+        upsertUser("Aarav Joshi", "superadmin@nexacrm.com", User.Role.SUPER_ADMIN, "+91-98765-00000", true, encodedPassword);
+        upsertUser("Nisha Kapoor", "companyadmin@nexacrm.com", User.Role.COMPANY_ADMIN, "+91-98765-00006", true, encodedPassword);
         upsertUser("Saurabh Kumar", "saurabhke4@gmail.com", User.Role.ADMIN, "+91-98765-00001", true, encodedPassword);
         upsertUser("Priya Sharma", "priya@nexacrm.com", User.Role.MANAGER, "+91-98765-00002", true, encodedPassword);
         upsertUser("Rahul Mehta", "rahul@nexacrm.com", User.Role.SALES_EXEC, "+91-98765-00003", true, encodedPassword);
         upsertUser("Amit Kumar", "amit@nexacrm.com", User.Role.SALES_EXEC, "+91-98765-00004", true, encodedPassword);
         upsertUser("Neha Singh", "neha@nexacrm.com", User.Role.SALES_EXEC, "+91-98765-00005", false, encodedPassword);
+        upsertUser("Rohan Verma", "normaluser@nexacrm.com", User.Role.NORMAL_USER, "+91-98765-00007", true, encodedPassword);
 
         log.warn("Demo users bootstrapped with default password. Change passwords after first login.");
     }

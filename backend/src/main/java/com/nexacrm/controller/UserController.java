@@ -22,19 +22,19 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('team.view')")
+    @PreAuthorize("hasAuthority('team.read')")
     public ResponseEntity<List<UserDTO>> getAll() {
         return ResponseEntity.ok(userService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('team.view')")
+    @PreAuthorize("hasAuthority('team.read')")
     public ResponseEntity<UserDTO> getById(@PathVariable String id) {
         return ResponseEntity.ok(userService.findById(id));
     }
 
     @PostMapping("/invite")
-    @PreAuthorize("hasAuthority('team.invite')")
+    @PreAuthorize("hasAuthority('team.create')")
     public ResponseEntity<UserDTO> invite(@RequestBody UserDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.invite(dto));
     }
@@ -46,14 +46,14 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('team.deactivate')")
+    @PreAuthorize("hasAuthority('team.delete')")
     public ResponseEntity<Map<String, String>> deactivate(@PathVariable String id) {
         userService.deactivate(id);
         return ResponseEntity.ok(Map.of("message", "User deactivated", "id", id));
     }
 
     @GetMapping("/roles")
-    @PreAuthorize("hasAuthority('team.view')")
+    @PreAuthorize("hasAuthority('team.read')")
     public ResponseEntity<List<Map<String, String>>> getRoles() {
         List<Map<String, String>> roles = Arrays.stream(User.Role.values())
             .map(r -> Map.of("value", r.name(), "label", formatRoleLabel(r)))

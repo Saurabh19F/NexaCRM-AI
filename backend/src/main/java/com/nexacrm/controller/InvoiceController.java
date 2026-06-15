@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -73,15 +74,20 @@ public class InvoiceController {
 
     @GetMapping("/{id}/pdf")
     @PreAuthorize("hasAuthority('invoices.read')")
-    @Operation(summary = "Download invoice as PDF (placeholder)")
-    public ResponseEntity<Map<String, String>> downloadPdf(@PathVariable String id) {
-        return ResponseEntity.ok(Map.of("message", "PDF generation not yet implemented", "invoiceId", String.valueOf(id)));
+    @Operation(summary = "Download invoice as PDF")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable String id) {
+        byte[] pdf = invoiceService.generatePdf(id);
+        String filename = "invoice-" + id + ".pdf";
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+            .body(pdf);
     }
 
     @PostMapping("/{id}/reminder")
     @PreAuthorize("hasAuthority('invoices.reminder')")
-    @Operation(summary = "Send payment reminder (placeholder)")
-    public ResponseEntity<Map<String, String>> sendReminder(@PathVariable String id) {
-        return ResponseEntity.ok(Map.of("message", "Reminder sent", "invoiceId", String.valueOf(id)));
+    @Operation(summary = "Send payment reminder")
+    public ResponseEntity<Map<String, Object>> sendReminder(@PathVariable String id) {
+        return ResponseEntity.ok(invoiceService.sendReminder(id));
     }
 }

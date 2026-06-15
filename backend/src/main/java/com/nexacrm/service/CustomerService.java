@@ -5,6 +5,7 @@ import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ConflictException;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Customer;
+import com.nexacrm.model.User;
 import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
@@ -43,6 +44,10 @@ public class CustomerService {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
+        User current = currentUser();
+        if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            query.addCriteria(Criteria.where("account_manager.$id").is(current.getId()));
+        }
 
         if (search != null && !search.isBlank()) {
             query.addCriteria(TextCriteria.forDefaultLanguage().matchingAny(search.trim()));
@@ -65,9 +70,10 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerDTO findById(String id) {
-        return customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
-            .map(this::toDTO)
+        Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
+        ensureVisible(customer);
+        return toDTO(customer);
     }
 
     public CustomerDTO create(CustomerDTO dto) {
@@ -87,6 +93,7 @@ public class CustomerService {
     public CustomerDTO update(String id, CustomerDTO dto) {
         Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
+        ensureVisible(customer);
 
         String nextEmail = normalizeEmail(dto.getEmail());
         String nextPhone = normalizePhone(dto.getPhone());
@@ -123,6 +130,7 @@ public class CustomerService {
     public void delete(String id) {
         Customer customer = customerRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
+        ensureVisible(customer);
         customer.setDeleted(true);
         customerRepository.save(customer);
     }
@@ -212,5 +220,28 @@ public class CustomerService {
         if (phone == null) return null;
         String normalized = phone.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private void ensureVisible(Customer customer) {
+        if (!canCurrentUserAccess(customer)) {
+            throw new ResourceNotFoundException("Customer not found: " + customer.getId());
+        }
+    }
+
+    private boolean canCurrentUserAccess(Customer customer) {
+        User current = currentUser();
+        if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
+            return true;
+        }
+        if (current.getId() == null || current.getId().isBlank() || customer == null) {
+            return false;
+        }
+        return customer.getAccountManager() != null && current.getId().equals(customer.getAccountManager().getId());
+    }
+
+    private User currentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 }

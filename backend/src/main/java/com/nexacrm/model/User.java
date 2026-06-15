@@ -27,18 +27,22 @@ public class User extends BaseEntity implements UserDetails {
     private static final List<String> ALL_PERMISSIONS = List.of(
         "dashboard.view",
         "leads.read", "leads.create", "leads.update", "leads.delete", "leads.import", "leads.export",
-        "deals.read", "deals.create", "deals.update", "deals.move_stage", "deals.delete",
+        "leads.assign", "leads.merge", "leads.reopen", "leads.escalate",
+        "deals.read", "deals.create", "deals.update", "deals.move_stage", "deals.delete", "deals.assign",
         "customers.read", "customers.create", "customers.update", "customers.delete",
         "communications.read", "communications.send",
         "ai.use",
+        "automation.read", "automation.create", "automation.update", "automation.delete", "automation.manage",
         "workflows.view", "workflows.manage",
-        "invoices.read", "invoices.create", "invoices.update", "invoices.delete", "invoices.mark_paid", "invoices.reminder",
+        "invoices.read", "invoices.create", "invoices.update", "invoices.delete", "invoices.mark_paid", "invoices.reminder", "invoices.export",
+        "reports.read", "reports.export",
         "analytics.view", "analytics.export",
-        "team.view", "team.invite", "team.update", "team.deactivate",
+        "team.read", "team.create", "team.update", "team.delete", "team.invite", "team.deactivate", "team.assign",
         "settings.view", "settings.update",
-        "integrations.view", "integrations.manage",
+        "integrations.read", "integrations.create", "integrations.update", "integrations.delete", "integrations.manage",
         "profile.update",
-        "notifications.read"
+        "notifications.read",
+        "tasks.read", "tasks.create", "tasks.update", "tasks.delete", "tasks.assign", "tasks.complete"
     );
 
     private static final Map<Role, List<String>> ROLE_PERMISSIONS = new EnumMap<>(Role.class);
@@ -50,18 +54,22 @@ public class User extends BaseEntity implements UserDetails {
         ROLE_PERMISSIONS.put(Role.MANAGER, List.of(
             "dashboard.view",
             "leads.read", "leads.create", "leads.update", "leads.import", "leads.export",
-            "deals.read", "deals.create", "deals.update", "deals.move_stage",
+            "leads.assign", "leads.merge", "leads.reopen", "leads.escalate",
+            "deals.read", "deals.create", "deals.update", "deals.move_stage", "deals.assign",
             "customers.read", "customers.create", "customers.update",
             "communications.read", "communications.send",
             "ai.use",
+            "automation.read", "automation.create", "automation.update", "automation.manage",
             "workflows.view", "workflows.manage",
-            "invoices.read", "invoices.create", "invoices.update", "invoices.mark_paid", "invoices.reminder",
+            "invoices.read", "invoices.create", "invoices.update", "invoices.mark_paid", "invoices.reminder", "invoices.export",
+            "reports.read", "reports.export",
             "analytics.view", "analytics.export",
-            "team.view", "team.invite", "team.update",
+            "team.read", "team.create", "team.update", "team.invite",
             "settings.view",
-            "integrations.view", "integrations.manage",
+            "integrations.read", "integrations.update", "integrations.manage",
             "profile.update",
-            "notifications.read"
+            "notifications.read",
+            "tasks.read", "tasks.create", "tasks.update", "tasks.assign", "tasks.complete"
         ));
         ROLE_PERMISSIONS.put(Role.SALES_EXEC, List.of(
             "dashboard.view",
@@ -70,9 +78,12 @@ public class User extends BaseEntity implements UserDetails {
             "customers.read",
             "communications.read", "communications.send",
             "ai.use",
+            "automation.read",
             "invoices.read",
+            "reports.read",
             "profile.update",
-            "notifications.read"
+            "notifications.read",
+            "tasks.read", "tasks.create", "tasks.update", "tasks.complete"
         ));
         ROLE_PERMISSIONS.put(Role.NORMAL_USER, ROLE_PERMISSIONS.get(Role.SALES_EXEC));
     }

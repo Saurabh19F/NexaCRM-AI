@@ -9,6 +9,8 @@ import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -30,12 +34,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class LeadServiceTest {
+
+    private static final String TEST_USER_EMAIL = "test.user@example.com";
 
     @Mock private LeadRepository leadRepository;
     @Mock private CustomerRepository customerRepository;
@@ -45,11 +52,32 @@ class LeadServiceTest {
     @Mock private NotificationService notificationService;
     @Mock private WorkflowEngine workflowEngine;
     @Mock private CommunicationService communicationService;
+    @Mock private IntegrationService integrationService;
     @Mock private RestTemplate restTemplate;
     @Mock private ObjectMapper objectMapper;
 
     @InjectMocks
     private LeadService leadService;
+
+    @BeforeEach
+    void setDefaultSecurityContext() {
+        User currentUser = User.builder()
+            .name("Test User")
+            .email(TEST_USER_EMAIL)
+            .role(User.Role.MANAGER)
+            .build();
+        currentUser.setId("u-test");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(TEST_USER_EMAIL, "n/a")
+        );
+        lenient().when(userRepository.findByEmailAndTenantIdAndDeletedFalse(TEST_USER_EMAIL, 1L))
+            .thenReturn(Optional.of(currentUser));
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void create_shouldBlockDuplicateEmail() {
@@ -293,5 +321,112 @@ class LeadServiceTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> leadService.callLeadNow("lead-call-2", null));
         assertTrue(ex.getMessage().toLowerCase().contains("phone"));
         verify(communicationService, never()).sendLeadVoiceCall(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void create_shouldRequireLostReasonWhenMarkedLost() {
+        when(leadRepository.findByEmailAndTenantIdAndDeletedFalse("lost@example.com", 1L))
+            .thenReturn(Optional.empty());
+
+        LeadDTO dto = LeadDTO.builder()
+            .name("Lost Lead")
+            .email("lost@example.com")
+            .source(Lead.LeadSource.WEBSITE)
+            .status(Lead.LeadStatus.LOST)
+            .build();
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> leadService.create(dto));
+        assertTrue(ex.getMessage().toLowerCase().contains("lost reason"));
+        verify(leadRepository, never()).save(any(Lead.class));
+    }
+
+    @Test
+    void findDuplicates_shouldReturnMatchingEmailAndPhoneLeads() {
+        Lead emailMatch = Lead.builder()
+            .name("Email Match")
+            .email("dup@example.com")
+            .source(Lead.LeadSource.WEBSITE)
+            .build();
+        emailMatch.setId("lead-email");
+        Lead phoneMatch = Lead.builder()
+            .name("Phone Match")
+            .phone("9999999999")
+            .source(Lead.LeadSource.WEBSITE)
+            .build();
+        phoneMatch.setId("lead-phone");
+
+        when(leadRepository.findByTenantIdAndDeletedFalse(1L)).thenReturn(java.util.List.of(emailMatch, phoneMatch));
+
+        var duplicates = leadService.findDuplicates("dup@example.com", "9999999999", null);
+
+        assertEquals(2, duplicates.size());
+    }
+
+    @Test
+    void reopen_shouldResetLostLeadAndClearLostReason() {
+        User manager = User.builder()
+            .name("Manager")
+            .email("manager@example.com")
+            .role(User.Role.MANAGER)
+            .build();
+        manager.setId("u-1");
+
+        Lead lead = Lead.builder()
+            .name("Closed Lead")
+            .email("closed@example.com")
+            .source(Lead.LeadSource.WEBSITE)
+            .status(Lead.LeadStatus.LOST)
+            .lostReason("Budget")
+            .build();
+        lead.setId("lead-lost");
+
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("manager@example.com", "n/a")
+        );
+        when(userRepository.findByEmailAndTenantIdAndDeletedFalse("manager@example.com", 1L))
+            .thenReturn(Optional.of(manager));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-lost", 1L))
+            .thenReturn(Optional.of(lead));
+        when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LeadDTO reopened = leadService.reopen("lead-lost", Map.of("note", "Follow up immediately"));
+
+        assertEquals(Lead.LeadStatus.NEW, reopened.getStatus());
+        assertEquals(null, reopened.getLostReason());
+        assertTrue(reopened.getNotes().contains("Reopened Lead"));
+    }
+
+    @Test
+    void leadAging_shouldReturnSlaState() {
+        User manager = User.builder()
+            .name("Manager")
+            .email("manager@example.com")
+            .role(User.Role.MANAGER)
+            .build();
+        manager.setId("u-1");
+
+        Lead lead = Lead.builder()
+            .name("Stale Lead")
+            .email("stale@example.com")
+            .source(Lead.LeadSource.WEBSITE)
+            .followUpDate(LocalDateTime.now().minusMinutes(10))
+            .build();
+        lead.setId("lead-stale");
+        lead.setCreatedAt(LocalDateTime.now().minusHours(5));
+        lead.setLastContactedAt(LocalDateTime.now().minusHours(3));
+
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("manager@example.com", "n/a")
+        );
+        when(userRepository.findByEmailAndTenantIdAndDeletedFalse("manager@example.com", 1L))
+            .thenReturn(Optional.of(manager));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-stale", 1L))
+            .thenReturn(Optional.of(lead));
+
+        Map<String, Object> aging = leadService.leadAging("lead-stale");
+
+        assertEquals("BREACHED", aging.get("slaState"));
+        assertEquals(true, aging.get("stale"));
+        assertEquals(true, aging.get("overdueFollowUp"));
     }
 }
