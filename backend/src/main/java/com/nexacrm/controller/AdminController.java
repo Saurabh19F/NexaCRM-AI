@@ -1,6 +1,7 @@
 package com.nexacrm.controller;
 
 import com.nexacrm.repository.*;
+import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,12 +23,16 @@ public class AdminController {
 
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats() {
-        long totalUsers     = userRepository.count();
-        long activeUsers    = userRepository.findAll().stream().filter(u -> Boolean.TRUE.equals(u.getIsActive())).count();
-        long totalLeads     = leadRepository.count();
-        long totalDeals     = dealRepository.count();
-        long totalCustomers = customerRepository.count();
-        long totalInvoices  = invoiceRepository.count();
+        Long tenantId = TenantContext.currentTenantIdOrNull();
+        if (tenantId == null) {
+            tenantId = 0L;
+        }
+        long totalUsers     = userRepository.findByTenantIdAndDeletedFalse(tenantId).size();
+        long activeUsers    = userRepository.findByTenantIdAndDeletedFalse(tenantId).stream().filter(u -> Boolean.TRUE.equals(u.getIsActive())).count();
+        long totalLeads     = leadRepository.findByTenantIdAndDeletedFalse(tenantId).size();
+        long totalDeals     = dealRepository.findByTenantIdAndDeletedFalse(tenantId).size();
+        long totalCustomers = customerRepository.countByTenantIdAndDeletedFalse(tenantId);
+        long totalInvoices  = invoiceRepository.countByTenantIdAndDeletedFalse(tenantId);
 
         return ResponseEntity.ok(Map.of(
             "totalUsers",     totalUsers,
@@ -35,7 +40,8 @@ public class AdminController {
             "totalLeads",     totalLeads,
             "totalDeals",     totalDeals,
             "totalCustomers", totalCustomers,
-            "totalInvoices",  totalInvoices
+            "totalInvoices",  totalInvoices,
+            "tenantId",       tenantId
         ));
     }
 }

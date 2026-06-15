@@ -44,11 +44,19 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public List<TaskDTO> findAll(String status, String assignedTo, String dueFilter, String search) {
+        return findAll(status, assignedTo, dueFilter, search, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskDTO> findAll(String status, String assignedTo, String dueFilter, String search, String leadId) {
         List<Task> tasks = taskRepository.findByTenantIdAndDeletedFalseOrderByDueDateAsc(tenantId());
+        User current = currentUser();
         return tasks.stream()
             .filter(task -> matchesStatus(task, status))
             .filter(task -> matchesAssignee(task, assignedTo))
             .filter(task -> matchesDueFilter(task, dueFilter))
+            .filter(task -> matchesLead(task, leadId))
+            .filter(task -> matchesVisibility(task, current))
             .filter(task -> matchesSearch(task, search))
             .sorted(Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(Task::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
@@ -58,9 +66,15 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public TaskDTO findById(String id) {
-        return taskRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
-            .map(this::toDTO)
+        Task task = taskRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
+        ensureVisibility(task);
+        return toDTO(task);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskDTO> findByLeadId(String leadId) {
+        return findAll(null, null, null, null, leadId);
     }
 
     public TaskDTO create(TaskDTO dto) {
@@ -81,6 +95,7 @@ public class TaskService {
     public TaskDTO update(String id, TaskDTO dto) {
         Task task = taskRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
+        ensureVisibility(task);
 
         String previousAssignee = task.getAssignedToId();
 
@@ -108,6 +123,7 @@ public class TaskService {
     public TaskDTO complete(String id) {
         Task task = taskRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
+        ensureVisibility(task);
         task.setStatus("COMPLETED");
         task.setCompletedAt(LocalDateTime.now());
         Task saved = taskRepository.save(task);
@@ -120,28 +136,57 @@ public class TaskService {
     public void delete(String id) {
         Task task = taskRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
+        ensureVisibility(task);
         task.setDeleted(true);
         taskRepository.save(task);
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> overdue() {
-        return findAll(null, null, "overdue", null);
+        return findAll(null, null, "overdue", null, null);
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> dueToday() {
-        return findAll(null, null, "today", null);
+        return findAll(null, null, "today", null, null);
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> dueTomorrow() {
-        return findAll(null, null, "tomorrow", null);
+        return findAll(null, null, "tomorrow", null, null);
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> pendingFollowUps() {
-        return findAll("PENDING", null, null, null);
+        return findAll("PENDING", null, null, null, null);
+    }
+
+    private void ensureVisibility(Task task) {
+        if (!matchesVisibility(task, currentUser())) {
+            throw new ResourceNotFoundException("Task not found: " + task.getId());
+        }
+    }
+
+    private boolean matchesVisibility(Task task, User current) {
+        if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
+            return true;
+        }
+        String currentUserId = current.getId();
+        if (currentUserId == null || currentUserId.isBlank()) {
+            return false;
+        }
+        return currentUserId.equals(task.getAssignedToId()) || currentUserId.equals(task.getCreatedById());
+    }
+
+    private boolean matchesLead(Task task, String leadId) {
+        if (leadId == null || leadId.isBlank()) return true;
+        return leadId.equals(task.getLeadId());
+    }
+
+    private User currentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 
     private void validateReferences(Task task) {
@@ -297,12 +342,6 @@ public class TaskService {
             .dealId(blankToNull(dto.getDealId()))
             .assignedToId(blankToNull(dto.getAssignedToId()))
             .build();
-    }
-
-    private User currentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
-            .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 
     private String normalizeStatus(String status) {

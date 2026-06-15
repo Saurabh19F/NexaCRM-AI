@@ -10,6 +10,10 @@ import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Document(collection = "tenants")
 @CompoundIndexes({
     @CompoundIndex(name = "tenant_slug_idx", def = "{'slug': 1}", unique = true)
@@ -38,4 +42,30 @@ public class Tenant extends BaseEntity {
 
     @Field("logo_url")
     private String logoUrl;
+
+    @Field("billing_status")
+    private String billingStatus = "TRIAL";
+
+    @Field("trial_ends_at")
+    private LocalDateTime trialEndsAt;
+
+    @Field("subscription_started_at")
+    private LocalDateTime subscriptionStartedAt;
+
+    @Field("subscription_ends_at")
+    private LocalDateTime subscriptionEndsAt;
+
+    @Field("activated_at")
+    private LocalDateTime activatedAt;
+
+    @Field("deactivated_at")
+    private LocalDateTime deactivatedAt;
+
+    @Field("feature_flags")
+    @Builder.Default
+    private Map<String, Boolean> featureFlags = new LinkedHashMap<>();
+
+    @Field("usage_limits")
+    @Builder.Default
+    private Map<String, Integer> usageLimits = new LinkedHashMap<>();
 }

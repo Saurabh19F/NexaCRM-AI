@@ -115,12 +115,12 @@ Open **http://localhost:5173** and sign in with:
 
 | Field | Value |
 |-------|-------|
-| Email | `saurabhke4@gmail.com` |
+| Email | `superadmin@nexacrm.com` |
 | Password | `demo1234` |
-| Role | Admin |
+| Role | Super Admin |
 
 > All demo users share the password `demo1234`.  
-> Other accounts: `priya@nexacrm.com`, `rahul@nexacrm.com`, `amit@nexacrm.com`
+> Other accounts: `companyadmin@nexacrm.com`, `saurabhke4@gmail.com`, `priya@nexacrm.com`, `rahul@nexacrm.com`, `amit@nexacrm.com`, `normaluser@nexacrm.com`
 
 ---
 

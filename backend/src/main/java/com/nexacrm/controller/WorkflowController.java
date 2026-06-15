@@ -23,28 +23,28 @@ public class WorkflowController {
     private final WorkflowService workflowService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('workflows.view')")
+    @PreAuthorize("hasAuthority('automation.read')")
     @Operation(summary = "Get all workflows")
     public ResponseEntity<List<WorkflowDTO>> getAll() {
         return ResponseEntity.ok(workflowService.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('workflows.manage')")
+    @PreAuthorize("hasAuthority('automation.create')")
     @Operation(summary = "Create workflow")
     public ResponseEntity<WorkflowDTO> create(@Valid @RequestBody WorkflowDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(workflowService.create(dto));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('workflows.manage')")
+    @PreAuthorize("hasAuthority('automation.update')")
     @Operation(summary = "Update workflow")
     public ResponseEntity<WorkflowDTO> update(@PathVariable String id, @RequestBody WorkflowDTO dto) {
         return ResponseEntity.ok(workflowService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('workflows.manage')")
+    @PreAuthorize("hasAuthority('automation.delete')")
     @Operation(summary = "Delete workflow")
     public ResponseEntity<Void> delete(@PathVariable String id) {
         workflowService.delete(id);
@@ -52,14 +52,14 @@ public class WorkflowController {
     }
 
     @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasAuthority('workflows.manage')")
+    @PreAuthorize("hasAuthority('automation.manage')")
     @Operation(summary = "Toggle workflow active/paused status")
     public ResponseEntity<WorkflowDTO> toggle(@PathVariable String id) {
         return ResponseEntity.ok(workflowService.toggle(id));
     }
 
     @GetMapping("/{id}/logs")
-    @PreAuthorize("hasAuthority('workflows.view')")
+    @PreAuthorize("hasAuthority('automation.read')")
     @Operation(summary = "Get workflow logs")
     public ResponseEntity<List<Map<String, Object>>> logs(@PathVariable String id) {
         return ResponseEntity.ok(workflowService.logs(id));

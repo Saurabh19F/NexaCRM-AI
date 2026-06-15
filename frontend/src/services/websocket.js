@@ -60,6 +60,12 @@ function resolveWebSocketUrl() {
   if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
     url = `https://${url.slice('http://'.length)}`
   }
+
+  const token = normalizeJwtToken(useAuthStore.getState().token)
+  if (token) {
+    const joiner = url.includes('?') ? '&' : '?'
+    url = `${url}${joiner}access_token=${encodeURIComponent(token)}`
+  }
   return url
 }
 

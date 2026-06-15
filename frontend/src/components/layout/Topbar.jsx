@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, Search, Bell, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle, Users, Building2, Kanban } from 'lucide-react'
+import { Menu, Search, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle, Users, Building2, Kanban } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 import { useThemeStore } from '../../store/themeStore'
 import { useNotificationStore } from '../../store/notificationStore'
 import { useLeadsStore } from '../../store/leadsStore'
-import NotificationPanel from './NotificationPanel'
+import NotificationBell from '../notifications/NotificationBell'
+import NotificationDropdown from '../notifications/NotificationDropdown'
 import DelayAlertPanel from './DelayAlertPanel'
 import { getLeadAgeMinutes } from '../../utils/leadSla'
 import { connectWebSocket, disconnectWebSocket } from '../../services/websocket'
@@ -140,18 +142,22 @@ export default function Topbar({ onMenuClick, onRefresh }) {
   }, [user?.avatarUrl])
 
   useEffect(() => {
-    try {
-      connectWebSocket((incoming) => {
-        const type = String(incoming?.type ?? 'lead').toLowerCase()
-        addNotification({
-          type,
-          direction: incoming?.direction,
-          title: incoming?.title ?? 'Notification',
-          message: incoming?.message ?? 'You have a new update',
+      try {
+        connectWebSocket((incoming) => {
+          const type = String(incoming?.type ?? 'lead').toLowerCase()
+          const title = incoming?.title ?? 'Notification'
+          const message = incoming?.message ?? 'You have a new update'
+          addNotification({
+            type,
+            direction: incoming?.direction,
+            title,
+            message,
+            actionUrl: incoming?.actionUrl || incoming?.action_url || null,
+          })
+          toast.success(`${title}: ${message}`.slice(0, 120))
         })
-      })
-    } catch {
-      // WebSocket unavailable — real-time notifications disabled
+      } catch {
+        // WebSocket unavailable — real-time notifications disabled
     }
 
     return () => {
@@ -468,22 +474,14 @@ export default function Topbar({ onMenuClick, onRefresh }) {
 
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-            aria-expanded={showNotifications}
-            className="relative p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
+          <NotificationBell
+            unreadCount={unreadCount}
+            active={showNotifications}
+            onClick={() => setShowNotifications((current) => !current)}
+          />
           <AnimatePresence>
             {showNotifications && (
-              <NotificationPanel onClose={() => setShowNotifications(false)} />
+              <NotificationDropdown onClose={() => setShowNotifications(false)} />
             )}
           </AnimatePresence>
         </div>

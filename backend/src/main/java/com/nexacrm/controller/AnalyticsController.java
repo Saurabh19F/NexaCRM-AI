@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/analytics")
@@ -24,21 +26,67 @@ public class AnalyticsController {
     private final DashboardAnalyticsService dashboardAnalyticsService;
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAuthority('dashboard.view')")
+    @PreAuthorize("hasAuthority('reports.read')")
     @Operation(summary = "Aggregated dashboard overview")
     public ResponseEntity<DashboardOverviewDTO> getDashboard() {
         return ResponseEntity.ok(dashboardAnalyticsService.overview());
     }
 
     @GetMapping("/dashboard/widgets")
-    @PreAuthorize("hasAuthority('dashboard.view')")
+    @PreAuthorize("hasAuthority('reports.read')")
     @Operation(summary = "Operational dashboard widget data")
     public ResponseEntity<DashboardWidgetSnapshotDTO> getDashboardWidgets() {
         return ResponseEntity.ok(dashboardAnalyticsService.widgets());
     }
 
+    @GetMapping("/revenue")
+    @PreAuthorize("hasAuthority('reports.read')")
+    @Operation(summary = "Revenue trend by month")
+    public ResponseEntity<Map<String, Object>> getRevenue() {
+        DashboardWidgetSnapshotDTO widgets = dashboardAnalyticsService.widgets();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("series", widgets.monthlyRevenue());
+        response.put("generatedAt", widgets.generatedAt());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/conversion")
+    @PreAuthorize("hasAuthority('reports.read')")
+    @Operation(summary = "Lead conversion summary")
+    public ResponseEntity<Map<String, Object>> getConversion() {
+        DashboardWidgetSnapshotDTO widgets = dashboardAnalyticsService.widgets();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("funnel", widgets.funnelData());
+        response.put("agingCounts", widgets.agingCounts());
+        response.put("slaSummary", widgets.slaSummary());
+        response.put("generatedAt", widgets.generatedAt());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/team")
+    @PreAuthorize("hasAuthority('reports.read')")
+    @Operation(summary = "Team performance analytics")
+    public ResponseEntity<Map<String, Object>> getTeam() {
+        DashboardWidgetSnapshotDTO widgets = dashboardAnalyticsService.widgets();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("series", widgets.employeePerformance());
+        response.put("generatedAt", widgets.generatedAt());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/campaigns")
+    @PreAuthorize("hasAuthority('reports.read')")
+    @Operation(summary = "Lead source and campaign performance")
+    public ResponseEntity<Map<String, Object>> getCampaigns() {
+        DashboardWidgetSnapshotDTO widgets = dashboardAnalyticsService.widgets();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("series", widgets.leadSources());
+        response.put("generatedAt", widgets.generatedAt());
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping(value = "/export", produces = "text/csv")
-    @PreAuthorize("hasAuthority('analytics.export')")
+    @PreAuthorize("hasAuthority('reports.export')")
     @Operation(summary = "Export live analytics data as CSV")
     public ResponseEntity<byte[]> exportReport() {
         DashboardOverviewDTO overview = dashboardAnalyticsService.overview();

@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final RateLimitingFilter rateLimitingFilter;
     private final AuthenticationProvider authenticationProvider;
 
     @Value("${cors.allowed-origins}")
@@ -48,20 +49,8 @@ public class SecurityConfig {
     @Value("${cors.max-age:3600}")
     private long corsMaxAge;
 
-    private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/auth/login",
-            "/api/auth/refresh",
-            "/api/webhooks/**",
-            "/api/calls/webhook",
-            "/api/leads/facebook",
-            "/api/leads/facebook/**",
-            "/ws/**",
-            "/swagger-ui/**",
-            "/v3/api-docs/**",
-            "/actuator/health",
-            "/actuator/health/**",
-
-    };
+    @Value("${api.docs.public-enabled:false}")
+    private boolean swaggerPublicEnabled;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -70,7 +59,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                .requestMatchers(publicEndpoints()).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                 // Role-based access
                 .requestMatchers("/api/admin/**").hasAnyRole("SUPER_ADMIN", "COMPANY_ADMIN", "ADMIN")
@@ -80,6 +69,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider)
+            .addFilterBefore(rateLimitingFilter, JwtAuthFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -103,6 +93,34 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    private String[] publicEndpoints() {
+        return swaggerPublicEnabled
+            ? new String[] {
+                "/api/auth/login",
+                "/api/auth/refresh",
+                "/api/webhooks/**",
+                "/api/calls/webhook",
+                "/api/leads/facebook",
+                "/api/leads/facebook/**",
+                "/ws/**",
+                "/swagger-ui/**",
+                "/v3/api-docs/**",
+                "/actuator/health",
+                "/actuator/health/**",
+            }
+            : new String[] {
+                "/api/auth/login",
+                "/api/auth/refresh",
+                "/api/webhooks/**",
+                "/api/calls/webhook",
+                "/api/leads/facebook",
+                "/api/leads/facebook/**",
+                "/ws/**",
+                "/actuator/health",
+                "/actuator/health/**",
+            };
     }
 
     private List<String> splitCsv(String csv) {

@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
   Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
-  ChevronLeft, ChevronRight, X
+  ChevronLeft, ChevronRight, X, ListTodo, Bell, ShieldCheck, Clock3
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
@@ -12,16 +12,20 @@ const NAV_ITEMS = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
   { label: 'Leads',          icon: Users,           path: '/leads', permission: PERMISSIONS.LEADS_READ },
   { label: 'Pipeline',       icon: Kanban,          path: '/pipeline', permission: PERMISSIONS.DEALS_READ },
+  { label: 'Tasks',          icon: ListTodo,        path: '/tasks', permission: PERMISSIONS.TASKS_READ },
+  { label: 'Follow-ups',     icon: Clock3,          path: '/follow-ups', permission: PERMISSIONS.TASKS_READ },
   { label: 'Customers',      icon: UserCircle,      path: '/customers', permission: PERMISSIONS.CUSTOMERS_READ },
   { label: 'Communication',  icon: MessageSquare,   path: '/communication', permission: PERMISSIONS.COMMUNICATIONS_READ },
   { label: 'AI Engine',      icon: Sparkles,        path: '/ai-engine', permission: PERMISSIONS.AI_USE },
-  { label: 'Automation',     icon: Zap,             path: '/automation', permission: PERMISSIONS.WORKFLOWS_VIEW },
+  { label: 'Automation',     icon: Zap,             path: '/automation', permission: PERMISSIONS.AUTOMATION_READ },
   { label: 'Invoices',       icon: Receipt,         path: '/invoices', permission: PERMISSIONS.INVOICES_READ },
-  { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.ANALYTICS_VIEW },
-  { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_VIEW },
+  { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.REPORTS_READ },
+  { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_READ },
+  { label: 'Notifications',  icon: Bell,            path: '/notifications', permission: PERMISSIONS.NOTIFICATIONS_READ },
   { label: 'My Profile',     icon: User,             path: '/profile' },
-  { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_VIEW },
+  { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
+  { label: 'SaaS Admin',     icon: ShieldCheck,     path: '/admin/saas', permission: null, superAdminOnly: true },
 ]
 const AVATAR_STYLE_CLASS = {
   brand: 'from-brand-500 to-accent-500',
@@ -35,7 +39,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const { user } = useAuthStore()
   const [avatarBroken, setAvatarBroken] = useState(false)
   const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
-  const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission(user, item.permission))
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.superAdminOnly) return user?.role === 'SUPER_ADMIN'
+    return hasPermission(user, item.permission)
+  })
 
   useEffect(() => {
     setAvatarBroken(false)

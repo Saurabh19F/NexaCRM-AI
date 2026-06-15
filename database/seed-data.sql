@@ -13,11 +13,14 @@ INSERT INTO tenants (id, name, slug, plan, is_active, max_users) VALUES
 --  Users (passwords are BCrypt of 'demo1234')
 -- ─────────────────────────────────────────────────────────────────
 INSERT INTO users (tenant_id, name, email, password, role, phone, is_active) VALUES
+(1, 'Aarav Joshi',    'superadmin@nexacrm.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'SUPER_ADMIN',   '+91-98765-00000', TRUE),
+(1, 'Nisha Kapoor',   'companyadmin@nexacrm.com','$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'COMPANY_ADMIN', '+91-98765-00006', TRUE),
 (1, 'Saurabh Kumar', 'saurabhke4@gmail.com',  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'ADMIN',     '+91-98765-00001', TRUE),
 (1, 'Priya Sharma',  'priya@nexacrm.com',     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'MANAGER',   '+91-98765-00002', TRUE),
 (1, 'Rahul Mehta',   'rahul@nexacrm.com',     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'SALES_EXEC','+91-98765-00003', TRUE),
 (1, 'Amit Kumar',    'amit@nexacrm.com',      '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'SALES_EXEC','+91-98765-00004', TRUE),
-(1, 'Neha Singh',    'neha@nexacrm.com',      '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'SALES_EXEC','+91-98765-00005', FALSE);
+(1, 'Neha Singh',    'neha@nexacrm.com',      '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'SALES_EXEC','+91-98765-00005', FALSE),
+(1, 'Rohan Verma',   'normaluser@nexacrm.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQyCgO9U5HJXP2wt2MeqZ3N2a', 'NORMAL_USER', '+91-98765-00007', TRUE);
 
 -- ─────────────────────────────────────────────────────────────────
 --  Pipeline
