@@ -141,7 +141,6 @@ public class WorkspaceSettingsService {
         AppSetting setting = appSettingRepository
             .findByTenantIdAndNamespaceAndKeyAndDeletedFalse(tenantId(), NAMESPACE, key)
             .orElseGet(() -> AppSetting.builder()
-                .tenantId(tenantId())
                 .namespace(NAMESPACE)
                 .key(key)
                 .encrypted(false)
