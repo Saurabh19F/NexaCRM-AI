@@ -53,7 +53,7 @@ public class FacebookLeadLiveSyncScheduler {
         try {
             List<Long> tenantIds = resolveTenantIds();
             if (tenantIds.isEmpty()) {
-                log.debug("Facebook live sync skipped: no tenants found");
+                log.warn("Facebook live sync skipped: no tenants found in any collection");
                 return;
             }
 
@@ -113,6 +113,8 @@ public class FacebookLeadLiveSyncScheduler {
 
     private List<Long> resolveTenantIds() {
         LinkedHashSet<Long> tenantIds = new LinkedHashSet<>();
+        tenantIds.addAll(distinctTenantIds("users"));
+        tenantIds.addAll(distinctTenantIds("integration_configs"));
         tenantIds.addAll(distinctTenantIds("leads"));
         tenantIds.addAll(distinctTenantIds("app_settings"));
         return tenantIds.stream().filter(Objects::nonNull).distinct().toList();
