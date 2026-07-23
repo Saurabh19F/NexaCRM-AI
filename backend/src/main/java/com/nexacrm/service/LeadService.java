@@ -84,6 +84,9 @@ public class LeadService {
     @Value("${meta.page-access-token}")
     private String pageAccessToken;
 
+    @Value("${meta.page-id:}")
+    private String envPageId;
+
     @Value("${meta.graph-api-version:v19.0}")
     private String graphApiVersion;
 
@@ -619,7 +622,10 @@ public class LeadService {
 
         String pageId = trim(config.get("pageId"));
         if (pageId == null || pageId.isBlank()) {
-            throw new IllegalStateException("Facebook pageId is missing. Set it in Integrations > Facebook.");
+            pageId = trim(envPageId);
+        }
+        if (pageId == null || pageId.isBlank()) {
+            throw new IllegalStateException("Facebook pageId is missing. Set it in Integrations > Facebook or META_PAGE_ID.");
         }
 
         String accessToken = resolveFacebookLeadAccessTokenForPage(
