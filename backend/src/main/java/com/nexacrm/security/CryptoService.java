@@ -74,8 +74,8 @@ public class CryptoService {
             byte[] plain = cipher.doFinal(cipherText);
             return new String(plain, StandardCharsets.UTF_8);
         } catch (Exception ex) {
-            log.warn("Failed to decrypt secret value, returning raw payload: {}", ex.getMessage());
-            return value;
+            log.warn("Failed to decrypt secret value, returning empty (encryption key may have changed): {}", ex.getMessage());
+            return "";
         }
     }
 
