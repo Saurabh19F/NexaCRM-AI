@@ -648,18 +648,17 @@ public class LeadService {
         int skipped = 0;
         List<String> errors = new ArrayList<>();
 
-        String formsUrl = UriComponentsBuilder
-            .fromHttpUrl("https://graph.facebook.com/{version}/{pageId}/leadgen_forms")
-            .queryParam("fields", "id,name,status,created_time")
-            .queryParam("limit", formPageSize)
-            .queryParam("access_token", accessToken)
-            .buildAndExpand(graphApiVersion, pageId)
-            .toUriString();
+        String formsUrl = "https://graph.facebook.com/" + graphApiVersion + "/" + pageId
+            + "/leadgen_forms?fields=id,name,status,created_time&limit=" + formPageSize
+            + "&access_token=" + accessToken;
+
+        log.info("Facebook lead sync starting for pageId={}, apiVersion={}, tokenLen={}",
+            pageId, graphApiVersion, accessToken != null ? accessToken.length() : 0);
 
         while (formsUrl != null && !formsUrl.isBlank()) {
             Map<String, Object> formsResponse;
             try {
-                formsResponse = restTemplate.getForObject(formsUrl, Map.class);
+                formsResponse = restTemplate.getForObject(URI.create(formsUrl), Map.class);
             } catch (RestClientResponseException ex) {
                 if (isFacebookPageAccessTokenRequiredError(ex)) {
                     throw new IllegalStateException(
@@ -962,14 +961,11 @@ public class LeadService {
                 return;
             }
 
-            String url = UriComponentsBuilder
-                .fromHttpUrl("https://graph.facebook.com/{version}/{id}")
-                .queryParam("access_token", accessToken)
-                .queryParam("fields", "field_data,created_time,ad_id,form_id,campaign_id")
-                .buildAndExpand(graphApiVersion, leadgenId)
-                .toUriString();
+            String url = "https://graph.facebook.com/" + graphApiVersion + "/" + leadgenId
+                + "?access_token=" + accessToken
+                + "&fields=field_data,created_time,ad_id,form_id,campaign_id";
 
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            Map<String, Object> response = restTemplate.getForObject(URI.create(url), Map.class);
             if (response == null) {
                 log.warn("Facebook Graph API returned null for leadgen_id={}", leadgenId);
                 return;
@@ -1020,9 +1016,24 @@ public class LeadService {
     private String resolveFacebookLeadAccessToken() {
         String integrationToken = trim(integrationService.getConfig("facebook").get("accessToken"));
         if (integrationToken != null && !integrationToken.isBlank()) {
+            log.info("Facebook token source: integration_configs DB ({}...{})",
+                safePrefix(integrationToken, 6), safeSuffix(integrationToken, 4));
             return integrationToken;
         }
-        return trim(pageAccessToken);
+        String envToken = trim(pageAccessToken);
+        if (envToken != null && !envToken.isBlank()) {
+            log.info("Facebook token source: META_PAGE_ACCESS_TOKEN env var ({}...{})",
+                safePrefix(envToken, 6), safeSuffix(envToken, 4));
+        }
+        return envToken;
+    }
+
+    private static String safePrefix(String s, int n) {
+        return s == null || s.length() < n ? "?" : s.substring(0, n);
+    }
+
+    private static String safeSuffix(String s, int n) {
+        return s == null || s.length() < n ? "?" : s.substring(s.length() - n);
     }
 
     @SuppressWarnings("unchecked")
@@ -1037,15 +1048,10 @@ public class LeadService {
 
         String discoveredPageToken = null;
         try {
-            String meAccountsUrl = UriComponentsBuilder
-                .fromHttpUrl("https://graph.facebook.com/{version}/me/accounts")
-                .queryParam("fields", "id,access_token")
-                .queryParam("limit", 200)
-                .queryParam("access_token", token)
-                .buildAndExpand(graphApiVersion)
-                .toUriString();
+            String meAccountsUrl = "https://graph.facebook.com/" + graphApiVersion
+                + "/me/accounts?fields=id,access_token&limit=200&access_token=" + token;
 
-            Map<String, Object> meAccounts = restTemplate.getForObject(meAccountsUrl, Map.class);
+            Map<String, Object> meAccounts = restTemplate.getForObject(URI.create(meAccountsUrl), Map.class);
             List<Map<String, Object>> pages = meAccounts != null && meAccounts.get("data") instanceof List<?>
                 ? (List<Map<String, Object>>) meAccounts.get("data")
                 : List.of();
@@ -1085,18 +1091,14 @@ public class LeadService {
         int skipped = 0;
         List<String> errors = new ArrayList<>();
 
-        String leadsUrl = UriComponentsBuilder
-            .fromHttpUrl("https://graph.facebook.com/{version}/{formId}/leads")
-            .queryParam("fields", "id,created_time,ad_id,form_id,campaign_name,field_data")
-            .queryParam("limit", leadPageSize)
-            .queryParam("access_token", accessToken)
-            .buildAndExpand(graphApiVersion, formId)
-            .toUriString();
+        String leadsUrl = "https://graph.facebook.com/" + graphApiVersion + "/" + formId
+            + "/leads?fields=id,created_time,ad_id,form_id,campaign_name,field_data"
+            + "&limit=" + leadPageSize + "&access_token=" + accessToken;
 
         while (leadsUrl != null && !leadsUrl.isBlank()) {
             Map<String, Object> leadsResponse;
             try {
-                leadsResponse = restTemplate.getForObject(leadsUrl, Map.class);
+                leadsResponse = restTemplate.getForObject(URI.create(leadsUrl), Map.class);
             } catch (Exception ex) {
                 errors.add("Form " + formId + ": fetch failed - " + ex.getMessage());
                 break;
