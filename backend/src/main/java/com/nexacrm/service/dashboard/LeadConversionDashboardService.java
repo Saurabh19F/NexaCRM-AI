@@ -247,7 +247,7 @@ public class LeadConversionDashboardService {
             long lost = countStage(sourceLeads, "LOST");
             BigDecimal revenue = revenueFromConverted(sourceLeads);
             double conversionRate = total > 0 ? (converted * 100.0) / total : 0.0;
-            if (conversionRate > bestRate && total > 0) {
+            if (converted > 0 && conversionRate > bestRate) {
                 bestRate = conversionRate;
                 bestSource = source;
             }
@@ -320,7 +320,7 @@ public class LeadConversionDashboardService {
             addLifecycleActivity(rows, seen, lead, "CONVERTED", lead.getConvertedAt(), "QUALIFIED", "CONVERTED", lead.getRevenueValue() != null
                 ? "Converted lead revenue: " + lead.getRevenueValue()
                 : "Lead converted");
-            addLifecycleActivity(rows, seen, lead, "LOST", lead.getUpdatedAt(), "OPEN", "LOST", StringUtils.hasText(lead.getLostReason()) ? lead.getLostReason() : "Lead marked as lost");
+            addLifecycleActivity(rows, seen, lead, "LOST", lead.getUpdatedAt(), "NEW", "LOST", StringUtils.hasText(lead.getLostReason()) ? lead.getLostReason() : "Lead marked as lost");
             addLifecycleActivity(rows, seen, lead, "CONTACTED", lead.getLastContactedAt(), "NEW", "CONTACTED", "Lead contacted");
             addLifecycleActivity(rows, seen, lead, "FOLLOW_UP", lead.getFollowUpDate(), "CONTACTED", "FOLLOW_UP", "Follow-up scheduled");
         }
@@ -426,8 +426,10 @@ public class LeadConversionDashboardService {
         if (!scope.fullAccess()) {
             return List.of(scope.currentUser());
         }
+        Set<String> seenIds = new LinkedHashSet<>();
         return userRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
             .filter(user -> !Boolean.FALSE.equals(user.getIsActive()))
+            .filter(user -> user.getId() != null && seenIds.add(user.getId()))
             .sorted(Comparator.comparing(User::getName, String.CASE_INSENSITIVE_ORDER))
             .toList();
     }
@@ -578,7 +580,7 @@ public class LeadConversionDashboardService {
         }
         return switch (detectActivityType(activity, lead)) {
             case "CONVERTED" -> "QUALIFIED";
-            case "LOST" -> "OPEN";
+            case "LOST" -> "NEW";
             case "CONTACTED" -> "NEW";
             case "ASSIGNED" -> "NEW";
             default -> normalizeStage(lead);

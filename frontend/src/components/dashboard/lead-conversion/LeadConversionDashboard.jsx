@@ -303,7 +303,7 @@ export default function LeadConversionDashboard() {
     color: STAGE_COLORS[row.key] || '#8b5cf6',
   })), [summary])
 
-  const bestSource = useMemo(() => sources.find((row) => row.bestPerforming) || sources[0] || null, [sources])
+  const bestSource = useMemo(() => sources.find((row) => row.bestPerforming) || null, [sources])
 
   const onSort = (key) => {
     setSortBy((prev) => {
