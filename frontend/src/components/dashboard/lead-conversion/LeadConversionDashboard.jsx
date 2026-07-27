@@ -276,12 +276,17 @@ export default function LeadConversionDashboard() {
     metric: summary?.[item.key],
   })), [summary])
 
-  const funnelData = useMemo(() => funnel.map((row, index) => ({
-    ...row,
-    color: STAGE_COLORS[row.key] || SOURCE_COLORS[index % SOURCE_COLORS.length],
-    dropOffLabel: `${prettyPercent(row.dropOffPercent)} drop-off`,
-    conversionLabel: `${prettyPercent(row.conversionPercent)} conversion`,
-  })), [funnel])
+  const funnelData = useMemo(() => {
+    const maxCount = Math.max(1, ...funnel.map((row) => Number(row.count || 0)))
+    const minSliver = Math.max(1, Math.round(maxCount * 0.04))
+    return funnel.map((row, index) => ({
+      ...row,
+      displayCount: Math.max(minSliver, Number(row.count || 0)),
+      color: STAGE_COLORS[row.key] || SOURCE_COLORS[index % SOURCE_COLORS.length],
+      dropOffLabel: `${prettyPercent(row.dropOffPercent)} drop-off`,
+      conversionLabel: `${prettyPercent(row.conversionPercent)} conversion`,
+    }))
+  }, [funnel])
 
   const sourcePieData = useMemo(() => sources.map((row, index) => ({
     name: row.sourceLabel,
@@ -468,7 +473,7 @@ export default function LeadConversionDashboard() {
                         )
                       }}
                     />
-                    <Funnel dataKey="count" data={funnelData} isAnimationActive>
+                    <Funnel dataKey="displayCount" data={funnelData} isAnimationActive>
                       <LabelList position="right" fill="#475569" stroke="none" dataKey="label" />
                     </Funnel>
                   </FunnelChart>
