@@ -465,7 +465,7 @@ export default function LeadConversionDashboard() {
               />
               {funnelData.length ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <FunnelChart margin={{ right: 160, top: 4, bottom: 4 }}>
+                  <FunnelChart margin={{ right: 110, top: 4, bottom: 4 }}>
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
