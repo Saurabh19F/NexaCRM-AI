@@ -289,8 +289,8 @@ export default function LeadConversionDashboard() {
         displayCount: realCount > 0 ? Math.max(realCount, descendingMin) : descendingMin,
         color: stageColor,
         fill: stageColor,
-        dropOffLabel: `${prettyPercent(row.dropOffPercent)} drop-off`,
-        conversionLabel: `${prettyPercent(row.conversionPercent)} conversion`,
+        dropOffLabel: prettyPercent(row.dropOffPercent),
+        conversionLabel: prettyPercent(row.conversionPercent),
       }
     })
   }, [funnel])
@@ -464,8 +464,8 @@ export default function LeadConversionDashboard() {
                 action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best source: {bestSource.sourceLabel}</span> : null}
               />
               {funnelData.length ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <FunnelChart>
+                <ResponsiveContainer width="100%" height={300}>
+                  <FunnelChart margin={{ right: 120 }}>
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
