@@ -628,7 +628,7 @@ export default function LeadConversionDashboard() {
               </div>
             </div>
 
-            <div className="glass-card p-4 sm:p-5 xl:col-span-5 space-y-4">
+            <div className="glass-card p-3 sm:p-4 xl:col-span-5 space-y-3">
               <div>
                 <SectionShell
                   title="Lead Source Analytics"
@@ -702,20 +702,51 @@ export default function LeadConversionDashboard() {
                   icon={Repeat2}
                   subtitle="Current pipeline balance by status."
                 />
-                {statusDonutData.length ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={statusDonutData} dataKey="value" cx="50%" cy="50%" innerRadius={54} outerRadius={78} paddingAngle={3}>
-                        {statusDonutData.map((entry) => (
-                          <Cell key={entry.key} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value, name, props) => [`${prettyNumber(value)} leads`, props.payload.name]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <ChartEmptyState label="No status data available." />
-                )}
+                {(() => {
+                  const activeStatuses = statusDonutData.filter((row) => row.value > 0)
+                  const totalStatusLeads = activeStatuses.reduce((sum, r) => sum + r.value, 0)
+                  if (!activeStatuses.length) return <ChartEmptyState label="No status data available." />
+                  return (
+                    <div className="flex items-center gap-4">
+                      <div className="w-[150px] shrink-0">
+                        <ResponsiveContainer width="100%" height={150}>
+                          <PieChart>
+                            <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} strokeWidth={0}>
+                              {activeStatuses.map((entry) => (
+                                <Cell key={entry.key} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null
+                                const d = payload[0].payload
+                                return (
+                                  <div className="glass-card px-3 py-2 text-xs shadow-xl">
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
+                                    <p className="text-slate-500">{prettyNumber(d.value)} leads</p>
+                                  </div>
+                                )
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        {activeStatuses.map((row) => {
+                          const share = totalStatusLeads > 0 ? (row.value / totalStatusLeads) * 100 : 0
+                          return (
+                            <div key={row.key} className="flex items-center gap-2 text-xs">
+                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
+                              <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
+                              <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
+                              <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>
