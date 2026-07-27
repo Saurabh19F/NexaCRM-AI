@@ -544,7 +544,7 @@ export default function LeadConversionDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-start">
             <div className="glass-card p-4 sm:p-5 xl:col-span-7">
               <SectionShell
                 title="Employee Performance"
