@@ -456,7 +456,7 @@ export default function LeadConversionDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
-            <div className="glass-card p-3 sm:p-4 xl:col-span-7">
+            <div className="glass-card p-3 sm:p-4 xl:col-span-5">
               <SectionShell
                 title="Lead Conversion Funnel"
                 icon={Target}
@@ -502,7 +502,7 @@ export default function LeadConversionDashboard() {
               )}
             </div>
 
-            <div className="glass-card p-3 sm:p-4 xl:col-span-5">
+            <div className="glass-card p-3 sm:p-4 xl:col-span-7">
               <SectionShell
                 title="Trend Line"
                 icon={LineChartIcon}
