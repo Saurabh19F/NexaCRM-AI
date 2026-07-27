@@ -121,26 +121,22 @@ function MetricCard({ item, metric }) {
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28 }}
-      className="flex aspect-[3/2] w-full flex-col overflow-hidden rounded-[24px] border border-slate-200/70 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)] dark:border-slate-700/60 dark:bg-slate-900/80 dark:shadow-[0_12px_28px_rgba(0,0,0,0.22)]"
+      className="flex w-full flex-col rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/80"
     >
-      <div className="flex h-full flex-col justify-between">
-        <div className="flex items-start justify-between gap-3">
-          <div className={`h-12 w-12 rounded-[18px] bg-gradient-to-br ${item.color} flex items-center justify-center shadow-[0_10px_20px_rgba(15,23,42,0.16)]`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-          <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold ${positive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-300'}`}>
-            <span>{positive ? '↗' : '↘'}</span>
-            <span>{changeLabel}</span>
-            <span>{prettyPercent(Math.abs(change))}</span>
-          </span>
+      <div className="flex items-start justify-between gap-2">
+        <div className={`h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+          <Icon className="h-4 w-4 text-white" />
         </div>
-        <div className="pt-4">
-          <p className="text-[2.1rem] font-semibold leading-none tracking-tight text-slate-900 dark:text-slate-50">
-            {metricValue(metric, { currency: item.currency, percent: item.percent })}
-          </p>
-          <p className="mt-2.5 text-[15px] font-medium leading-snug text-slate-600 dark:text-slate-200">{item.title}</p>
-          <p className="mt-1.5 text-[12px] leading-snug text-slate-400 dark:text-slate-400">{item.helper}</p>
-        </div>
+        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${positive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-300'}`}>
+          <span>{positive ? '↗' : '↘'}</span>
+          <span>{prettyPercent(Math.abs(change))}</span>
+        </span>
+      </div>
+      <div className="mt-3">
+        <p className="text-2xl font-bold leading-none tracking-tight text-slate-900 dark:text-slate-50">
+          {metricValue(metric, { currency: item.currency, percent: item.percent })}
+        </p>
+        <p className="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">{item.title}</p>
       </div>
     </motion.div>
   )
@@ -162,7 +158,7 @@ function SectionShell({ title, icon: Icon, subtitle, action }) {
 }
 
 function LoadingCard() {
-  return <div className="aspect-[3/2] w-full rounded-[24px] border border-slate-200/70 bg-slate-100/50 dark:border-slate-700/60 dark:bg-slate-800/40 animate-pulse" />
+  return <div className="h-24 w-full rounded-2xl border border-slate-200/70 bg-slate-100/50 dark:border-slate-700/60 dark:bg-slate-800/40 animate-pulse" />
 }
 
 function ChartEmptyState({ label }) {
@@ -434,14 +430,14 @@ export default function LeadConversionDashboard() {
       )}
 
       {loading && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {Array.from({ length: 12 }).map((_, index) => <LoadingCard key={index} />)}
         </div>
       )}
 
       {!loading && (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {summaryCards.map((item) => (
               <MetricCard key={item.key} item={item} metric={item.metric} />
             ))}
