@@ -48,13 +48,13 @@ const SOURCE_COLORS = [
 ]
 
 const STAGE_COLORS = {
-  NEW: '#8b5cf6',
-  ASSIGNED: '#6366f1',
+  NEW: '#6366f1',
+  ASSIGNED: '#8b5cf6',
   CONTACTED: '#0ea5e9',
-  INTERESTED: '#14b8a6',
-  QUALIFIED: '#22c55e',
+  INTERESTED: '#06b6d4',
+  QUALIFIED: '#10b981',
   PROPOSAL_SENT: '#f59e0b',
-  CONVERTED: '#10b981',
+  CONVERTED: '#22c55e',
   LOST: '#ef4444',
 }
 
@@ -277,15 +277,22 @@ export default function LeadConversionDashboard() {
   })), [summary])
 
   const funnelData = useMemo(() => {
-    const maxCount = Math.max(1, ...funnel.map((row) => Number(row.count || 0)))
-    const minSliver = Math.max(1, Math.round(maxCount * 0.04))
-    return funnel.map((row, index) => ({
-      ...row,
-      displayCount: Math.max(minSliver, Number(row.count || 0)),
-      color: STAGE_COLORS[row.key] || SOURCE_COLORS[index % SOURCE_COLORS.length],
-      dropOffLabel: `${prettyPercent(row.dropOffPercent)} drop-off`,
-      conversionLabel: `${prettyPercent(row.conversionPercent)} conversion`,
-    }))
+    const sorted = [...funnel].sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
+    const maxCount = Math.max(1, ...sorted.map((row) => Number(row.count || 0)))
+    const step = maxCount / Math.max(1, sorted.length)
+    return sorted.map((row, index) => {
+      const stageColor = STAGE_COLORS[row.key] || SOURCE_COLORS[index % SOURCE_COLORS.length]
+      const realCount = Number(row.count || 0)
+      const descendingMin = Math.max(1, Math.round(maxCount - step * index))
+      return {
+        ...row,
+        displayCount: realCount > 0 ? Math.max(realCount, descendingMin) : descendingMin,
+        color: stageColor,
+        fill: stageColor,
+        dropOffLabel: `${prettyPercent(row.dropOffPercent)} drop-off`,
+        conversionLabel: `${prettyPercent(row.conversionPercent)} conversion`,
+      }
+    })
   }, [funnel])
 
   const sourcePieData = useMemo(() => sources.map((row, index) => ({
