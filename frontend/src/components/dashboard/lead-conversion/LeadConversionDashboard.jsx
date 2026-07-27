@@ -636,50 +636,64 @@ export default function LeadConversionDashboard() {
                   subtitle="Conversion rates and revenue by source."
                 />
                 {sourcePieData.length > 1 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3}>
-                        {sourcePieData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value, name, props) => [`${prettyNumber(value)} leads`, props.payload.name]}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : sourcePieData.length === 1 ? (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}18`, border: `3px solid ${sourcePieData[0].color}` }}>
-                      <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</span>
+                  <div className="flex items-center gap-4">
+                    <div className="w-[180px] shrink-0">
+                      <ResponsiveContainer width="100%" height={180}>
+                        <PieChart>
+                          <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} strokeWidth={0}>
+                            {sourcePieData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null
+                              const d = payload[0].payload
+                              return (
+                                <div className="glass-card px-3 py-2 text-xs shadow-xl">
+                                  <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
+                                  <p className="text-slate-500">{prettyNumber(d.value)} leads · {prettyPercent(d.rate)} conv.</p>
+                                </div>
+                              )
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{sourcePieData[0].name}</p>
-                    <p className="text-xs text-slate-500">Only active source</p>
+                    <div className="flex-1 space-y-1.5">
+                      {sourcePieData.map((row) => {
+                        const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
+                        const share = total > 0 ? (row.value / total) * 100 : 0
+                        return (
+                          <div key={row.name} className="flex items-center gap-2 text-xs">
+                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
+                            <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
+                            <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
+                            <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : sourcePieData.length === 1 ? (
+                  <div className="flex items-center gap-5 py-4">
+                    <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
+                        <p className="text-[10px] text-slate-400">leads</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{sourcePieData[0].name}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Only active source · {prettyPercent(sourcePieData[0].rate)} conversion</p>
+                      {sourcePieData[0].converted > 0 && (
+                        <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">{prettyNumber(sourcePieData[0].converted)} converted</p>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <ChartEmptyState label="No source analytics available." />
                 )}
-                <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  {sourcePieData.map((row) => {
-                    const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
-                    const share = total > 0 ? (row.value / total) * 100 : 0
-                    return (
-                      <div key={row.name} className="flex items-center justify-between rounded-xl border border-slate-200/70 px-3 py-2.5 dark:border-slate-700/70">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ background: row.color }} />
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">{row.name}</span>
-                          <span className="text-slate-400">·</span>
-                          <span className="text-slate-500">{prettyNumber(row.value)} leads</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-slate-500">{prettyPercent(share)}</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-300">{prettyPercent(row.rate)} conv.</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
               </div>
 
               <div>
