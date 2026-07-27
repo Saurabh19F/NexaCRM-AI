@@ -49,8 +49,8 @@ const SOURCE_COLORS = [
 
 const STAGE_COLORS = {
   NEW: '#6366f1',
-  ASSIGNED: '#8b5cf6',
-  CONTACTED: '#0ea5e9',
+  ASSIGNED: '#a855f7',
+  CONTACTED: '#3b82f6',
   INTERESTED: '#06b6d4',
   QUALIFIED: '#10b981',
   PROPOSAL_SENT: '#f59e0b',
