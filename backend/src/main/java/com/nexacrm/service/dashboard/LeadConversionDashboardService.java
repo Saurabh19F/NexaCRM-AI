@@ -189,22 +189,39 @@ public class LeadConversionDashboardService {
         Map<String, List<LeadActivity>> activitiesByLead = activities.stream()
             .collect(Collectors.groupingBy(LeadActivity::getLeadId));
 
-        List<LeadConversionEmployeeDTO> rows = new ArrayList<>();
+        Map<String, List<User>> usersByName = new LinkedHashMap<>();
         for (User user : visibleUsers) {
-            List<Lead> assignedLeads = leadsByUser.getOrDefault(user.getId(), List.of());
+            String name = user.getName() != null ? user.getName().trim() : "Unnamed";
+            usersByName.computeIfAbsent(name, k -> new ArrayList<>()).add(user);
+        }
+
+        List<LeadConversionEmployeeDTO> rows = new ArrayList<>();
+        for (Map.Entry<String, List<User>> entry : usersByName.entrySet()) {
+            String name = entry.getKey();
+            List<User> usersWithSameName = entry.getValue();
+            User primaryUser = usersWithSameName.get(0);
+
+            List<Lead> assignedLeads = new ArrayList<>();
+            for (User u : usersWithSameName) {
+                assignedLeads.addAll(leadsByUser.getOrDefault(u.getId(), List.of()));
+            }
+
             long assigned = assignedLeads.size();
             long contacted = countStage(assignedLeads, "CONTACTED");
             long converted = countStage(assignedLeads, "CONVERTED");
             long lost = countStage(assignedLeads, "LOST");
             long pending = Math.max(0L, assigned - converted - lost);
-            long followUpsDone = countFollowUpsDone(assignedLeads, activitiesByLead, user);
+            long followUpsDone = 0;
+            for (User u : usersWithSameName) {
+                followUpsDone += countFollowUpsDone(assignedLeads, activitiesByLead, u);
+            }
             double conversionRate = assigned > 0 ? (converted * 100.0) / assigned : 0.0;
             double responseMinutes = averageResponseMinutes(assignedLeads, activitiesByLead);
             double revenueGenerated = revenueFromConverted(assignedLeads).doubleValue();
 
             rows.add(new LeadConversionEmployeeDTO(
-                user.getId(),
-                user.getName(),
+                primaryUser.getId(),
+                name,
                 assigned,
                 contacted,
                 converted,
@@ -427,9 +444,14 @@ public class LeadConversionDashboardService {
             return List.of(scope.currentUser());
         }
         Set<String> seenIds = new LinkedHashSet<>();
+        Set<String> seenNames = new LinkedHashSet<>();
         return userRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
             .filter(user -> !Boolean.FALSE.equals(user.getIsActive()))
             .filter(user -> user.getId() != null && seenIds.add(user.getId()))
+            .filter(user -> {
+                String name = user.getName() != null ? user.getName().trim().toLowerCase(Locale.ROOT) : "";
+                return name.isEmpty() || seenNames.add(name);
+            })
             .sorted(Comparator.comparing(User::getName, String.CASE_INSENSITIVE_ORDER))
             .toList();
     }
