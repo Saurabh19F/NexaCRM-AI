@@ -295,14 +295,16 @@ export default function LeadConversionDashboard() {
     })
   }, [funnel])
 
-  const sourcePieData = useMemo(() => sources.map((row, index) => ({
-    name: row.sourceLabel,
-    value: Number(row.totalLeads || 0),
-    converted: Number(row.convertedLeads || 0),
-    rate: Number(row.conversionRate || 0),
-    color: SOURCE_COLORS[index % SOURCE_COLORS.length],
-    bestPerforming: row.bestPerforming,
-  })), [sources])
+  const sourcePieData = useMemo(() => sources
+    .filter((row) => Number(row.totalLeads || 0) > 0)
+    .map((row, index) => ({
+      name: row.sourceLabel,
+      value: Number(row.totalLeads || 0),
+      converted: Number(row.convertedLeads || 0),
+      rate: Number(row.conversionRate || 0),
+      color: SOURCE_COLORS[index % SOURCE_COLORS.length],
+      bestPerforming: row.bestPerforming,
+    })), [sources])
 
   const statusDonutData = useMemo(() => (summary?.statusBreakdown || []).map((row) => ({
     name: row.label,
@@ -633,7 +635,7 @@ export default function LeadConversionDashboard() {
                   icon={Globe2}
                   subtitle="Conversion rates and revenue by source."
                 />
-                {sourcePieData.length ? (
+                {sourcePieData.length > 1 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
                       <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3}>
@@ -647,19 +649,36 @@ export default function LeadConversionDashboard() {
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
+                ) : sourcePieData.length === 1 ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}18`, border: `3px solid ${sourcePieData[0].color}` }}>
+                      <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{sourcePieData[0].name}</p>
+                    <p className="text-xs text-slate-500">Only active source</p>
+                  </div>
                 ) : (
                   <ChartEmptyState label="No source analytics available." />
                 )}
                 <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  {sourcePieData.map((row) => (
-                    <div key={row.name} className="flex items-center justify-between rounded-xl border border-slate-200/70 px-3 py-2 dark:border-slate-700/70">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: row.color }} />
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">{row.name}</span>
+                  {sourcePieData.map((row) => {
+                    const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
+                    const share = total > 0 ? (row.value / total) * 100 : 0
+                    return (
+                      <div key={row.name} className="flex items-center justify-between rounded-xl border border-slate-200/70 px-3 py-2.5 dark:border-slate-700/70">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ background: row.color }} />
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">{row.name}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-500">{prettyNumber(row.value)} leads</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-500">{prettyPercent(share)}</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{prettyPercent(row.rate)} conv.</span>
+                        </div>
                       </div>
-                      <span>{prettyPercent(row.rate)} conversion</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
