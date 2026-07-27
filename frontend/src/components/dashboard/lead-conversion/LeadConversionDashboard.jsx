@@ -464,8 +464,8 @@ export default function LeadConversionDashboard() {
                 action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best source: {bestSource.sourceLabel}</span> : null}
               />
               {funnelData.length ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <FunnelChart margin={{ right: 120 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <FunnelChart margin={{ right: 120, top: 0, bottom: 0 }}>
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
