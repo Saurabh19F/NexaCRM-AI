@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Area, AreaChart, Bar, BarChart, Cell, ComposedChart, Legend, Line,
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
   CartesianGrid, FunnelChart, Funnel, LabelList
 } from 'recharts'
 import {
-  Activity, CalendarDays, ChevronDown, Clock3, Filter, FolderClock,
+  Activity, CalendarDays, ChevronDown, ChevronRight, Clock3, Filter, FolderClock,
   Globe2, Layers3, LineChart as LineChartIcon, Repeat2, Search, Sparkles,
   Target, TrendingDown, TrendingUp, Users, UserCheck
 } from 'lucide-react'
@@ -58,19 +58,22 @@ const STAGE_COLORS = {
   LOST: '#ef4444',
 }
 
-const CARD_CONFIG = [
-  { key: 'totalLeads', title: 'Total Leads', helper: 'current period vs previous period', icon: Users, color: 'from-brand-500 to-accent-500', accent: 'text-brand-600' },
-  { key: 'newLeads', title: 'New Leads', helper: 'new leads in selected range', icon: Sparkles, color: 'from-cyan-500 to-brand-500', accent: 'text-cyan-600' },
-  { key: 'assignedLeads', title: 'Assigned Leads', helper: 'assigned and in progress', icon: Repeat2, color: 'from-cyan-500 to-sky-600', accent: 'text-cyan-600' },
-  { key: 'contactedLeads', title: 'Contacted Leads', helper: 'contacted leads in selected range', icon: Activity, color: 'from-cyan-500 to-sky-600', accent: 'text-cyan-600' },
-  { key: 'interestedLeads', title: 'Interested Leads', helper: 'showing buying intent', icon: Globe2, color: 'from-emerald-500 to-teal-600', accent: 'text-emerald-600' },
-  { key: 'qualifiedLeads', title: 'Qualified Leads', helper: 'qualified leads in selected range', icon: Target, color: 'from-emerald-500 to-green-600', accent: 'text-emerald-600' },
-  { key: 'proposalSentLeads', title: 'Proposal Sent', helper: 'proposals sent this period', icon: LineChartIcon, color: 'from-orange-500 to-amber-600', accent: 'text-orange-600' },
-  { key: 'convertedLeads', title: 'Converted Leads', helper: 'won leads this period', icon: UserCheck, color: 'from-emerald-500 to-teal-600', accent: 'text-emerald-600' },
-  { key: 'lostLeads', title: 'Lost Leads', helper: 'lost leads this period', icon: TrendingDown, color: 'from-rose-500 to-red-600', accent: 'text-rose-600' },
-  { key: 'pendingFollowUps', title: 'Pending Follow-ups', helper: 'follow-ups awaiting action', icon: Clock3, color: 'from-amber-500 to-orange-600', accent: 'text-amber-600' },
-  { key: 'conversionRate', title: 'Conversion Rate %', helper: 'won leads rate vs last period', icon: TrendingUp, color: 'from-emerald-500 to-teal-600', accent: 'text-emerald-600', percent: true },
-  { key: 'revenueFromConvertedLeads', title: 'Revenue from Converted Leads', helper: 'won revenue this period', icon: FolderClock, color: 'from-cyan-500 to-blue-600', accent: 'text-cyan-600', currency: true },
+const PRIMARY_CARDS = [
+  { key: 'totalLeads', title: 'Total Leads', icon: Users, color: 'from-brand-500 to-accent-500' },
+  { key: 'newLeads', title: 'New Leads', icon: Sparkles, color: 'from-cyan-500 to-brand-500' },
+  { key: 'convertedLeads', title: 'Converted', icon: UserCheck, color: 'from-emerald-500 to-teal-600' },
+  { key: 'conversionRate', title: 'Conv. Rate', icon: TrendingUp, color: 'from-emerald-500 to-teal-600', percent: true },
+  { key: 'revenueFromConvertedLeads', title: 'Revenue', icon: FolderClock, color: 'from-cyan-500 to-blue-600', currency: true },
+]
+
+const SECONDARY_CARDS = [
+  { key: 'assignedLeads', title: 'Assigned', icon: Repeat2, color: 'from-cyan-500 to-sky-600' },
+  { key: 'contactedLeads', title: 'Contacted', icon: Activity, color: 'from-cyan-500 to-sky-600' },
+  { key: 'interestedLeads', title: 'Interested', icon: Globe2, color: 'from-emerald-500 to-teal-600' },
+  { key: 'qualifiedLeads', title: 'Qualified', icon: Target, color: 'from-emerald-500 to-green-600' },
+  { key: 'proposalSentLeads', title: 'Proposal Sent', icon: LineChartIcon, color: 'from-orange-500 to-amber-600' },
+  { key: 'lostLeads', title: 'Lost', icon: TrendingDown, color: 'from-rose-500 to-red-600' },
+  { key: 'pendingFollowUps', title: 'Pending Follow-ups', icon: Clock3, color: 'from-amber-500 to-orange-600' },
 ]
 
 const prettyNumber = (value) => {
@@ -111,17 +114,34 @@ const metricValue = (metric, { currency = false, percent = false } = {}) => {
   return prettyNumber(metric.value)
 }
 
-function MetricCard({ item, metric }) {
+function MetricCard({ item, metric, compact = false }) {
   const Icon = item.icon
   const change = Number(metric?.changePercent || 0)
   const positive = change >= 0
-  const changeLabel = positive ? 'Up' : 'Down'
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/70 bg-white px-3 py-2 dark:border-slate-700/60 dark:bg-slate-900/80">
+        <div className={`h-7 w-7 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+          <Icon className="h-3 w-3 text-white" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{item.title}</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+            {metricValue(metric, { currency: item.currency, percent: item.percent })}
+          </p>
+        </div>
+        <span className={`text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+          {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
+        </span>
+      </div>
+    )
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28 }}
-      className="flex w-full flex-col rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/80"
+      className="flex w-full flex-col rounded-2xl border border-slate-200/70 bg-white p-3.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/80"
     >
       <div className="flex items-start justify-between gap-2">
         <div className={`h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center`}>
@@ -132,11 +152,11 @@ function MetricCard({ item, metric }) {
           <span>{prettyPercent(Math.abs(change))}</span>
         </span>
       </div>
-      <div className="mt-3">
+      <div className="mt-2.5">
         <p className="text-2xl font-bold leading-none tracking-tight text-slate-900 dark:text-slate-50">
           {metricValue(metric, { currency: item.currency, percent: item.percent })}
         </p>
-        <p className="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">{item.title}</p>
+        <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">{item.title}</p>
       </div>
     </motion.div>
   )
@@ -163,10 +183,17 @@ function LoadingCard() {
 
 function ChartEmptyState({ label }) {
   return (
-    <div className="flex h-[260px] items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
+    <div className="flex h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
       {label}
     </div>
   )
+}
+
+const formatActivityTime = (value) => {
+  if (!value) return 'Just now'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Just now'
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
 export default function LeadConversionDashboard() {
@@ -191,6 +218,8 @@ export default function LeadConversionDashboard() {
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [showSecondaryCards, setShowSecondaryCards] = useState(false)
+  const [expandedEmployee, setExpandedEmployee] = useState(null)
 
   const trendGranularity = useMemo(() => getTrendGranularity(filter, startDate, endDate), [filter, startDate, endDate])
 
@@ -271,11 +300,6 @@ export default function LeadConversionDashboard() {
     return employees.map((row) => ({ value: row.employeeId, label: row.employeeName }))
   }, [employees, isFullAccess])
 
-  const summaryCards = useMemo(() => CARD_CONFIG.map((item) => ({
-    ...item,
-    metric: summary?.[item.key],
-  })), [summary])
-
   const funnelData = useMemo(() => {
     const sorted = [...funnel].sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
     const maxCount = Math.max(1, ...sorted.map((row) => Number(row.count || 0)))
@@ -315,6 +339,10 @@ export default function LeadConversionDashboard() {
 
   const bestSource = useMemo(() => sources.find((row) => row.bestPerforming) || null, [sources])
 
+  const trendHasData = useMemo(() => trend.some((row) =>
+    Number(row.leadCount || 0) > 0 || Number(row.convertedCount || 0) > 0 || Number(row.revenueGenerated || 0) > 0
+  ), [trend])
+
   const onSort = (key) => {
     setSortBy((prev) => {
       if (prev === key) {
@@ -328,6 +356,7 @@ export default function LeadConversionDashboard() {
 
   return (
     <section className="space-y-2.5 sm:space-y-3">
+      {/* ── Filter bar ── */}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
@@ -425,10 +454,10 @@ export default function LeadConversionDashboard() {
           </div>
         )}
 
-          <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
           <span className="inline-flex items-center gap-1.5">
             <Filter className="h-3.5 w-3.5 text-brand-500" />
-            Auto-refreshes every minute and updates the dashboard in real time.
+            Auto-refreshes every minute.
           </span>
           <span className="hidden sm:inline-flex items-center gap-1.5">
             <LineChartIcon className="h-3.5 w-3.5 text-brand-500" />
@@ -444,26 +473,55 @@ export default function LeadConversionDashboard() {
       )}
 
       {loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, index) => <LoadingCard key={index} />)}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => <LoadingCard key={index} />)}
         </div>
       )}
 
       {!loading && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {summaryCards.map((item) => (
-              <MetricCard key={item.key} item={item} metric={item.metric} />
+          {/* ── #1: KPI Cards — 5 primary, expandable secondary ── */}
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+            {PRIMARY_CARDS.map((item) => (
+              <MetricCard key={item.key} item={item} metric={summary?.[item.key]} />
             ))}
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowSecondaryCards((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 transition-colors"
+          >
+            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showSecondaryCards ? 'rotate-90' : ''}`} />
+            {showSecondaryCards ? 'Hide' : 'Show'} pipeline breakdown ({SECONDARY_CARDS.length} metrics)
+          </button>
+
+          <AnimatePresence>
+            {showSecondaryCards && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+                  {SECONDARY_CARDS.map((item) => (
+                    <MetricCard key={item.key} item={item} metric={summary?.[item.key]} compact />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Funnel + Trend ── */}
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
             <div className="glass-card p-3 sm:p-4 xl:col-span-5">
               <SectionShell
                 title="Lead Conversion Funnel"
                 icon={Target}
-                subtitle="Stage progression with drop-off between each step."
-                action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best source: {bestSource.sourceLabel}</span> : null}
+                subtitle="Stage progression with drop-off."
+                action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best: {bestSource.sourceLabel}</span> : null}
               />
               {funnelData.length ? (
                 <ResponsiveContainer width="100%" height={280}>
@@ -500,7 +558,7 @@ export default function LeadConversionDashboard() {
                   </FunnelChart>
                 </ResponsiveContainer>
               ) : (
-                <ChartEmptyState label="No funnel data available for the selected range." />
+                <ChartEmptyState label="No funnel data available." />
               )}
             </div>
 
@@ -508,9 +566,9 @@ export default function LeadConversionDashboard() {
               <SectionShell
                 title="Trend Line"
                 icon={LineChartIcon}
-                subtitle="Lead movement, conversion, and revenue over time."
+                subtitle="Leads, conversions, and revenue over time."
               />
-              {trend.length ? (
+              {trend.length && trendHasData ? (
                 <ResponsiveContainer width="100%" height={240}>
                   <ComposedChart data={trend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.14)" />
@@ -539,95 +597,100 @@ export default function LeadConversionDashboard() {
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
-                <ChartEmptyState label="No trend data available for the selected range." />
+                <div className="flex h-[240px] flex-col items-center justify-center text-center">
+                  <LineChartIcon className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Not enough data for trends yet</p>
+                  <p className="text-xs text-slate-400">Trends will appear as leads flow in over multiple days.</p>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-start">
-            <div className="glass-card p-4 sm:p-5 xl:col-span-7">
+          {/* ── #2: Employee Performance — compact leaderboard ── */}
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-12 xl:items-start">
+            <div className="glass-card p-3 sm:p-4 xl:col-span-7">
               <SectionShell
                 title="Employee Performance"
                 icon={Users}
-                subtitle="Sort by conversion, pending leads, revenue, or name."
+                subtitle="Click a row to expand details."
                 action={(
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => onSort('conversion')} className="badge bg-white/80 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">Top conversion</button>
-                    <button type="button" onClick={() => onSort('pending')} className="badge bg-white/80 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">Lowest pending</button>
-                    <button type="button" onClick={() => onSort('revenue')} className="badge bg-white/80 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">Revenue</button>
+                  <div className="flex items-center gap-1.5">
+                    {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
+                      <button key={key} type="button" onClick={() => onSort(key)}
+                        className={`rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                      >{label}</button>
+                    ))}
                   </div>
                 )}
               />
 
               {employees.length ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={employees.slice(0, 8)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.14)" />
-                    <XAxis dataKey="employeeName" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} interval={0} />
-                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null
-                        return (
-                          <div className="glass-card px-4 py-3 text-sm shadow-xl">
-                            <p className="font-semibold text-slate-800 dark:text-slate-200">{label}</p>
-                            {payload.map((entry) => (
-                              <p key={entry.dataKey} style={{ color: entry.color }}>
-                                {entry.name}: <span className="font-semibold">{prettyNumber(entry.value)}</span>
-                              </p>
-                            ))}
+                <div className="space-y-1.5">
+                  {employees.slice(0, 8).map((row, idx) => {
+                    const isExpanded = expandedEmployee === row.employeeId
+                    const maxAssigned = Math.max(1, ...employees.slice(0, 8).map((e) => Number(e.assignedLeads || 0)))
+                    const barWidth = Math.max(4, (Number(row.assignedLeads || 0) / maxAssigned) * 100)
+                    return (
+                      <div key={row.employeeId}>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedEmployee(isExpanded ? null : row.employeeId)}
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{row.employeeName}</p>
+                            <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800">
+                              <div className="h-full rounded-full bg-brand-500" style={{ width: `${barWidth}%` }} />
+                            </div>
                           </div>
-                        )
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="assignedLeads" name="Assigned" fill="#7c3aed" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="convertedLeads" name="Converted" fill="#10b981" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="pendingLeads" name="Pending" fill="#f59e0b" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <ChartEmptyState label="No employee performance data yet." />
-              )}
-
-              <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-700/70">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50/90 dark:bg-slate-900/60">
-                      <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <th className="px-4 py-3">Employee</th>
-                        <th className="px-4 py-3">Assigned</th>
-                        <th className="px-4 py-3">Contacted</th>
-                        <th className="px-4 py-3">Converted</th>
-                        <th className="px-4 py-3">Lost</th>
-                        <th className="px-4 py-3">Pending</th>
-                        <th className="px-4 py-3">Follow-ups</th>
-                        <th className="px-4 py-3">Conv. Rate</th>
-                        <th className="px-4 py-3">Resp. Time</th>
-                        <th className="px-4 py-3">Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {employees.map((row) => (
-                        <tr key={row.employeeId} className="bg-white/60 dark:bg-slate-950/20">
-                          <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">{row.employeeName}</td>
-                          <td className="px-4 py-3">{prettyNumber(row.assignedLeads)}</td>
-                          <td className="px-4 py-3">{prettyNumber(row.contactedLeads)}</td>
-                          <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400">{prettyNumber(row.convertedLeads)}</td>
-                          <td className="px-4 py-3 text-rose-600 dark:text-rose-400">{prettyNumber(row.lostLeads)}</td>
-                          <td className="px-4 py-3 text-amber-600 dark:text-amber-400">{prettyNumber(row.pendingLeads)}</td>
-                          <td className="px-4 py-3">{prettyNumber(row.followUpsDone)}</td>
-                          <td className="px-4 py-3 font-semibold">{prettyPercent(row.conversionRate)}</td>
-                          <td className="px-4 py-3">{prettyNumber(row.averageResponseMinutes)} min</td>
-                          <td className="px-4 py-3 font-semibold">{prettyCurrency(row.revenueGenerated)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          <div className="flex shrink-0 items-center gap-3 text-xs tabular-nums">
+                            <span className="text-slate-600 dark:text-slate-400">{prettyNumber(row.assignedLeads)} assigned</span>
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{prettyPercent(row.conversionRate)}</span>
+                          </div>
+                          <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                        </button>
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mx-3 mb-2 grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl bg-slate-50/80 px-4 py-3 text-xs dark:bg-slate-800/40 sm:grid-cols-4">
+                                {[
+                                  ['Contacted', row.contactedLeads, ''],
+                                  ['Converted', row.convertedLeads, 'text-emerald-600 dark:text-emerald-400'],
+                                  ['Lost', row.lostLeads, 'text-rose-600 dark:text-rose-400'],
+                                  ['Pending', row.pendingLeads, 'text-amber-600 dark:text-amber-400'],
+                                  ['Follow-ups', row.followUpsDone, ''],
+                                  ['Resp. Time', `${prettyNumber(row.averageResponseMinutes)} min`, ''],
+                                  ['Revenue', prettyCurrency(row.revenueGenerated), 'font-semibold'],
+                                  ['Conv. Rate', prettyPercent(row.conversionRate), 'font-semibold'],
+                                ].map(([label, val, cls]) => (
+                                  <div key={label} className="flex items-center justify-between py-0.5">
+                                    <span className="text-slate-500">{label}</span>
+                                    <span className={`font-medium text-slate-700 dark:text-slate-300 ${cls}`}>{typeof val === 'number' ? prettyNumber(val) : val}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
+              ) : (
+                <ChartEmptyState label="No employee data yet." />
+              )}
             </div>
 
+            {/* ── Source + Status (right column) ── */}
             <div className="glass-card p-3 sm:p-4 xl:col-span-5 space-y-3">
               <div>
                 <SectionShell
@@ -637,10 +700,10 @@ export default function LeadConversionDashboard() {
                 />
                 {sourcePieData.length > 1 ? (
                   <div className="flex items-center gap-4">
-                    <div className="w-[180px] shrink-0">
-                      <ResponsiveContainer width="100%" height={180}>
+                    <div className="w-[160px] shrink-0">
+                      <ResponsiveContainer width="100%" height={160}>
                         <PieChart>
-                          <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} strokeWidth={0}>
+                          <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={62} paddingAngle={2} strokeWidth={0}>
                             {sourcePieData.map((entry) => (
                               <Cell key={entry.name} fill={entry.color} />
                             ))}
@@ -676,10 +739,10 @@ export default function LeadConversionDashboard() {
                     </div>
                   </div>
                 ) : sourcePieData.length === 1 ? (
-                  <div className="flex items-center gap-5 py-4">
-                    <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
+                  <div className="flex items-center gap-5 py-3">
+                    <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
+                        <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
                         <p className="text-[10px] text-slate-400">leads</p>
                       </div>
                     </div>
@@ -708,10 +771,10 @@ export default function LeadConversionDashboard() {
                   if (!activeStatuses.length) return <ChartEmptyState label="No status data available." />
                   return (
                     <div className="flex items-center gap-4">
-                      <div className="w-[150px] shrink-0">
-                        <ResponsiveContainer width="100%" height={150}>
+                      <div className="w-[140px] shrink-0">
+                        <ResponsiveContainer width="100%" height={140}>
                           <PieChart>
-                            <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} strokeWidth={0}>
+                            <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={36} outerRadius={55} paddingAngle={2} strokeWidth={0}>
                               {activeStatuses.map((entry) => (
                                 <Cell key={entry.key} fill={entry.color} />
                               ))}
@@ -751,45 +814,48 @@ export default function LeadConversionDashboard() {
             </div>
           </div>
 
+          {/* ── #3: Activity Timeline ── */}
           <div className="glass-card p-3 sm:p-4">
             <SectionShell
-              title="Lead Activity Workflow"
+              title="Lead Activity Timeline"
               icon={CalendarDays}
-              subtitle="Latest lifecycle events from the lead stream and activity logs."
+              subtitle="Latest lifecycle events."
             />
-              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
-              {activities.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  No recent lead activities for the selected filters.
+            {activities.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                No recent activities for the selected filters.
+              </div>
+            ) : (
+              <div className="relative max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="absolute left-[15px] top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700" />
+                <div className="space-y-0.5">
+                  {activities.map((item) => {
+                    const stageColor = STAGE_COLORS[item.newStatus] || '#7c3aed'
+                    return (
+                      <div key={item.id} className="relative flex gap-3 py-2 pl-1">
+                        <div className="relative z-10 mt-1 flex h-[10px] w-[10px] shrink-0 items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900" style={{ backgroundColor: stageColor }} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{item.leadName || 'Unnamed lead'}</p>
+                            <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">
+                              {formatActivityTime(item.occurredAt)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span className="text-slate-500">{item.employeeName || 'Unassigned'}</span>
+                            <span className="text-slate-300 dark:text-slate-600">·</span>
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.oldStatus || '—'}</span>
+                            <span className="text-slate-400">→</span>
+                            <span className="rounded px-1.5 py-0.5 font-medium" style={{ backgroundColor: `${stageColor}14`, color: stageColor }}>{item.newStatus || '—'}</span>
+                          </div>
+                          {item.notes && <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">{item.notes}</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              )}
-              {activities.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-slate-700/70 dark:bg-slate-950/20">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">{item.leadName || 'Unnamed lead'}</p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {item.employeeName || 'Unassigned'} · {item.source || 'Manual Entry'}
-                      </p>
-                    </div>
-                    <span className="badge" style={{ backgroundColor: `${(STAGE_COLORS[item.newStatus] || '#7c3aed')}14`, color: STAGE_COLORS[item.newStatus] || '#7c3aed' }}>
-                      {item.activityType}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.oldStatus || 'Unknown'}</span>
-                    <span className="text-slate-400">→</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.newStatus || 'Unknown'}</span>
-                    <span className="ml-auto flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                      <Clock3 className="h-3 w-3" />
-                      {item.occurredAt ? new Date(item.occurredAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Just now'}
-                    </span>
-                  </div>
-                  {item.notes && <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.notes}</p>}
-                </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         </>
       )}
