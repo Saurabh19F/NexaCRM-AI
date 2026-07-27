@@ -481,7 +481,18 @@ export default function LeadConversionDashboard() {
                       }}
                     />
                     <Funnel dataKey="displayCount" data={funnelData} isAnimationActive>
-                      <LabelList position="right" fill="#475569" stroke="none" dataKey="label" />
+                      <LabelList position="right" fill="#475569" stroke="none" content={({ x, y, width, height, value, index }) => {
+                        const item = funnelData[index]
+                        if (!item) return null
+                        const labelX = x + width + 8
+                        const centerY = y + height / 2
+                        return (
+                          <g>
+                            <text x={labelX} y={centerY - 7} fill="#334155" fontSize={13} fontWeight={600}>{item.label}</text>
+                            <text x={labelX} y={centerY + 10} fill="#94a3b8" fontSize={11}>{prettyNumber(item.count)} leads · {item.conversionLabel} conv.</text>
+                          </g>
+                        )
+                      }} />
                     </Funnel>
                   </FunnelChart>
                 </ResponsiveContainer>
