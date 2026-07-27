@@ -667,84 +667,44 @@ export default function LeadConversionDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
-            <div className="glass-card p-3 sm:p-4 xl:col-span-7">
-              <SectionShell
-                title="Lead Activity Workflow"
-                icon={CalendarDays}
-                subtitle="Latest lifecycle events from the lead stream and activity logs."
-              />
-                <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
-                {activities.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    No recent lead activities for the selected filters.
-                  </div>
-                )}
-                {activities.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-slate-700/70 dark:bg-slate-950/20">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">{item.leadName || 'Unnamed lead'}</p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {item.employeeName || 'Unassigned'} · {item.source || 'Manual Entry'}
-                        </p>
-                      </div>
-                      <span className="badge" style={{ backgroundColor: `${(STAGE_COLORS[item.newStatus] || '#7c3aed')}14`, color: STAGE_COLORS[item.newStatus] || '#7c3aed' }}>
-                        {item.activityType}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.oldStatus || 'Unknown'}</span>
-                      <span className="text-slate-400">→</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.newStatus || 'Unknown'}</span>
-                      <span className="ml-auto flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                        <Clock3 className="h-3 w-3" />
-                        {item.occurredAt ? new Date(item.occurredAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Just now'}
-                      </span>
-                    </div>
-                    {item.notes && <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.notes}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="glass-card p-3 sm:p-4 xl:col-span-5">
-              <SectionShell
-                title="Source Performance"
-                icon={LineChartIcon}
-                subtitle="Best performing source, conversion counts, and revenue."
-              />
-              <div className="space-y-3">
-                {bestSource ? (
-                  <div className="rounded-2xl border border-brand-200 bg-brand-50/80 p-4 dark:border-brand-800/50 dark:bg-brand-950/20">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">Best source</p>
-                    <p className="mt-1 text-lg font-bold text-slate-800 dark:text-slate-100">{bestSource.sourceLabel}</p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      {prettyPercent(bestSource.conversionRate)} conversion · {prettyNumber(bestSource.convertedLeads)} converted
-                    </p>
-                  </div>
-                ) : (
-                  <ChartEmptyState label="No source data for this filter." />
-                )}
-
-                <div className="grid grid-cols-1 gap-2">
-                  {sources.map((row) => (
-                    <div key={row.sourceKey} className="rounded-2xl border border-slate-200/70 px-4 py-3 dark:border-slate-700/70">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-800 dark:text-slate-200">{row.sourceLabel}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{prettyNumber(row.totalLeads)} leads · {prettyNumber(row.convertedLeads)} converted</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-slate-800 dark:text-slate-100">{prettyPercent(row.conversionRate)}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{prettyCurrency(row.revenueGenerated)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+          <div className="glass-card p-3 sm:p-4">
+            <SectionShell
+              title="Lead Activity Workflow"
+              icon={CalendarDays}
+              subtitle="Latest lifecycle events from the lead stream and activity logs."
+            />
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
+              {activities.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  No recent lead activities for the selected filters.
                 </div>
-              </div>
+              )}
+              {activities.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200/80 bg-white/70 p-4 dark:border-slate-700/70 dark:bg-slate-950/20">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{item.leadName || 'Unnamed lead'}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {item.employeeName || 'Unassigned'} · {item.source || 'Manual Entry'}
+                      </p>
+                    </div>
+                    <span className="badge" style={{ backgroundColor: `${(STAGE_COLORS[item.newStatus] || '#7c3aed')}14`, color: STAGE_COLORS[item.newStatus] || '#7c3aed' }}>
+                      {item.activityType}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.oldStatus || 'Unknown'}</span>
+                    <span className="text-slate-400">→</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.newStatus || 'Unknown'}</span>
+                    <span className="ml-auto flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                      <Clock3 className="h-3 w-3" />
+                      {item.occurredAt ? new Date(item.occurredAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Just now'}
+                    </span>
+                  </div>
+                  {item.notes && <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.notes}</p>}
+                </div>
+              ))}
             </div>
           </div>
         </>
