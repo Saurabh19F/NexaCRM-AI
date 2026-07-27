@@ -6,7 +6,10 @@ const DEFAULT_PAGE_SIZE = 200
 
 const toIso = (value) => {
   if (!value) return null
-  const d = new Date(value)
+  const s = typeof value === 'string' && !value.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(value)
+    ? value + 'Z'
+    : value
+  const d = new Date(s)
   if (Number.isNaN(d.getTime())) return null
   return d.toISOString()
 }
