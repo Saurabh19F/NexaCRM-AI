@@ -464,8 +464,8 @@ export default function LeadConversionDashboard() {
                 action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best source: {bestSource.sourceLabel}</span> : null}
               />
               {funnelData.length ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <FunnelChart margin={{ right: 120, top: 0, bottom: 0 }}>
+                <ResponsiveContainer width="100%" height={280}>
+                  <FunnelChart margin={{ right: 160, top: 4, bottom: 4 }}>
                     <Tooltip
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null
@@ -481,16 +481,17 @@ export default function LeadConversionDashboard() {
                       }}
                     />
                     <Funnel dataKey="displayCount" data={funnelData} isAnimationActive>
-                      <LabelList position="right" fill="#475569" stroke="none" content={({ x, y, width, height, value, index }) => {
+                      <LabelList position="right" fill="#475569" stroke="none" content={({ x, y, width, height, index }) => {
                         const item = funnelData[index]
                         if (!item) return null
-                        const labelX = x + width + 8
-                        const centerY = y + height / 2
+                        const labelX = x + width + 10
+                        const centerY = y + height / 2 + 1
+                        const count = Number(item.count || 0)
                         return (
-                          <g>
-                            <text x={labelX} y={centerY - 7} fill="#334155" fontSize={13} fontWeight={600}>{item.label}</text>
-                            <text x={labelX} y={centerY + 10} fill="#94a3b8" fontSize={11}>{prettyNumber(item.count)} leads · {item.conversionLabel} conv.</text>
-                          </g>
+                          <text x={labelX} y={centerY} dominantBaseline="central" fontSize={12}>
+                            <tspan fill="#334155" fontWeight={600}>{item.label}</tspan>
+                            <tspan fill="#94a3b8" fontWeight={400}>{` · ${count}`}</tspan>
+                          </text>
                         )
                       }} />
                     </Funnel>
