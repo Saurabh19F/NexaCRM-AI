@@ -3,31 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   Sparkles, PlayCircle, ExternalLink, Mic, RefreshCw
 } from 'lucide-react'
-import {
-  AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer
-} from 'recharts'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
 import { analyticsAPI } from '../../services/api'
 import LeadConversionDashboard from './lead-conversion/LeadConversionDashboard'
-
-const CUSTOM_TOOLTIP = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="glass-card px-4 py-3 text-sm">
-      <p className="font-semibold text-slate-700 dark:text-slate-300 mb-1">{label}</p>
-      {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color }}>
-          {p.name}: <span className="font-bold">
-            {p.dataKey === 'revenue' ? `₹${(p.value / 100000).toFixed(1)}L` : p.value}
-          </span>
-        </p>
-      ))}
-    </div>
-  )
-}
 
 const INSIGHT_ROUTES = {
   'Schedule Call':  '/communication',
@@ -179,98 +158,6 @@ export default function DashboardPage() {
       {/* Lead Conversion Dashboard Module */}
       <LeadConversionDashboard />
 
-      {/* Lead Aging + SLA Monitoring */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Lead Aging Monitor</h2>
-            <button
-              type="button"
-              onClick={() => refreshSection('aging')}
-              className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Refresh this widget"
-              aria-label="Refresh lead aging monitor"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshingSection === 'aging' ? 'animate-spin text-slate-600' : ''}`} />
-            </button>
-          </div>
-          <span className="text-xs text-slate-500">Live SLA bands</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/20 p-3">
-            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Fresh (0-15 min)</p>
-            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{dashboardWidgets.agingCounts.fresh}</p>
-          </div>
-          <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/20 p-3">
-            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Warning (15-60 min)</p>
-            <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{dashboardWidgets.agingCounts.warning}</p>
-          </div>
-          <div className="rounded-xl border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/20 p-3">
-            <p className="text-xs font-semibold text-red-700 dark:text-red-400">Critical (60+ min)</p>
-            <p className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">{dashboardWidgets.agingCounts.critical}</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
-            <p className="text-[11px] text-slate-500">Unattended 1+ hr</p>
-            <p className="text-lg font-bold text-red-600 dark:text-red-400">{dashboardWidgets.slaSummary.unattendedCritical}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
-            <p className="text-[11px] text-slate-500">Avg response</p>
-            <p className="text-lg font-bold text-slate-800 dark:text-slate-200">
-              {dashboardWidgets.slaSummary.avgResponseMinutes === null ? '--' : `${(dashboardWidgets.slaSummary.avgResponseMinutes / 60).toFixed(1)}h`}
-            </p>
-          </div>
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
-            <p className="text-[11px] text-slate-500">SLA met</p>
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{dashboardWidgets.slaSummary.met}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3">
-            <p className="text-[11px] text-slate-500">SLA breached</p>
-            <p className="text-lg font-bold text-red-600 dark:text-red-400">{dashboardWidgets.slaSummary.breached}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Revenue & Deals */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Revenue & Deals</h2>
-            <button
-              type="button"
-              onClick={() => refreshSection('revenue')}
-              className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Refresh this widget"
-              aria-label="Refresh revenue widget"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshingSection === 'revenue' ? 'animate-spin text-slate-600' : ''}`} />
-            </button>
-          </div>
-          <span className="badge bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">Last 6 months</span>
-        </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={dashboardWidgets.monthlyRevenue} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradDeals" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-            <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="revenue" orientation="left" tickFormatter={(v) => `₹${v / 100000}L`} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="deals" orientation="right" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip content={<CUSTOM_TOOLTIP />} />
-            <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gradRevenue)" />
-            <Area yAxisId="deals"   type="monotone" dataKey="deals"   name="Deals"   stroke="#10b981" strokeWidth={2.5} fill="url(#gradDeals)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
 
       {/* Recent call recordings */}
       <div className="glass-card p-5">
