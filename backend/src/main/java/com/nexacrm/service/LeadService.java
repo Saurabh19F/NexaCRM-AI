@@ -27,6 +27,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -170,6 +172,14 @@ public class LeadService {
 
     // ── Commands ─────────────────────────────────────────────────
 
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true)
+    })
     public LeadDTO create(LeadDTO dto) {
         String normalizedEmail = normalizeEmail(dto.getEmail());
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
@@ -239,6 +249,14 @@ public class LeadService {
         return toDTO(saved);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true)
+    })
     public LeadDTO update(String id, LeadDTO dto) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -305,6 +323,14 @@ public class LeadService {
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true)
+    })
     public void delete(String id) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -313,6 +339,14 @@ public class LeadService {
         leadRepository.save(lead);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true)
+    })
     public int bulkDelete(List<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
         Long tenantId = tenantId();

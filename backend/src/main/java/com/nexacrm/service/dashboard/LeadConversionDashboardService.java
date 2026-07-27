@@ -22,6 +22,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -83,6 +84,7 @@ public class LeadConversionDashboardService {
         return TenantContext.currentTenantId();
     }
 
+    @Cacheable(value = "dashboard-summary", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public LeadConversionSummaryDTO summary(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -145,6 +147,7 @@ public class LeadConversionDashboardService {
         );
     }
 
+    @Cacheable(value = "dashboard-funnel", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public List<LeadConversionFunnelDTO> funnel(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -166,6 +169,7 @@ public class LeadConversionDashboardService {
         return funnel;
     }
 
+    @Cacheable(value = "dashboard-employees", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #sortBy + ':' + #sortDir")
     public List<LeadConversionEmployeeDTO> employees(
         String filter,
         String startDate,
@@ -248,6 +252,7 @@ public class LeadConversionDashboardService {
         return rows;
     }
 
+    @Cacheable(value = "dashboard-sources", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public List<LeadConversionSourceDTO> sources(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -295,6 +300,7 @@ public class LeadConversionDashboardService {
             .toList();
     }
 
+    @Cacheable(value = "dashboard-activities", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #limit")
     public List<LeadConversionActivityDTO> activities(
         String filter,
         String startDate,
@@ -348,6 +354,7 @@ public class LeadConversionDashboardService {
             .toList();
     }
 
+    @Cacheable(value = "dashboard-trend", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #granularity")
     public List<LeadConversionTrendDTO> trend(
         String filter,
         String startDate,
