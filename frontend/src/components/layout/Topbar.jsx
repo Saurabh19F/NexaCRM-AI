@@ -440,7 +440,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
 
         <div className="relative" ref={delayRef}>
           <button
-            onClick={() => setShowDelayAlerts(!showDelayAlerts)}
+            onClick={() => { setShowDelayAlerts((v) => !v); setShowNotifications(false); setShowUserMenu(false) }}
             className="relative p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 transition-colors"
             title="Lead delay alert"
             aria-label="Lead delay alert"
@@ -477,7 +477,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
           <NotificationBell
             unreadCount={unreadCount}
             active={showNotifications}
-            onClick={() => setShowNotifications((current) => !current)}
+            onClick={() => { setShowNotifications((v) => !v); setShowDelayAlerts(false); setShowUserMenu(false) }}
           />
           <AnimatePresence>
             {showNotifications && (
@@ -489,7 +489,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
         {/* User menu */}
         <div className="relative" ref={userRef}>
           <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
+            onClick={() => { setShowUserMenu((v) => !v); setShowNotifications(false); setShowDelayAlerts(false) }}
             aria-label="Open user menu"
             aria-expanded={showUserMenu}
             className="flex items-center gap-2 pl-2 pr-1 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
