@@ -269,7 +269,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-4 py-2 sm:py-0 gap-2 sm:gap-4
+    <header className="sticky top-0 z-40 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-4 py-2 sm:py-0 gap-2 sm:gap-4
                        bg-white/80 dark:bg-slate-950/90 backdrop-blur-md
                        border-b border-slate-200/60 dark:border-slate-800/60">
       {/* Mobile menu button */}
