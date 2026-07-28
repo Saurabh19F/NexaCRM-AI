@@ -51,7 +51,7 @@ function resolveWebSocketUrl() {
     url = `${fromApiBase.replace(/\/api\/?$/, '')}/ws`
   }
   if (!url) {
-    url = 'http://localhost:8080/ws'
+    url = '/ws'
   }
 
   url = normalizeSockJsUrl(url)
