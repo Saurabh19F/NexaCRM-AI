@@ -80,6 +80,7 @@ public class LeadService {
     private final WorkflowEngine workflowEngine;
     private final CommunicationService communicationService;
     private final IntegrationService integrationService;
+    private final LeadAutoAssignService leadAutoAssignService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -222,6 +223,18 @@ public class LeadService {
             saved = leadRepository.save(lead);
         } catch (DuplicateKeyException ex) {
             throw new IllegalStateException("Lead already exists with that email, phone, or external ID", ex);
+        }
+
+        if (saved.getAssignedTo() == null) {
+            try {
+                User assignee = leadAutoAssignService.autoAssignAndCreateTask(saved, tenantId);
+                if (assignee != null) {
+                    saved.setAssignedTo(assignee);
+                    saved = leadRepository.save(saved);
+                }
+            } catch (Exception ex) {
+                log.warn("Auto-assign failed for lead {}: {}", saved.getId(), ex.getMessage());
+            }
         }
 
         notificationService.notifyLeadCreated(
