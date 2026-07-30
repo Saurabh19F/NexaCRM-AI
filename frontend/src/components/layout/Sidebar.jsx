@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
+import { prefetchPage } from '../../App'
 
 const NAV_ITEMS = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
@@ -73,6 +74,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             key={path}
             to={path}
             onClick={() => setMobileOpen(false)}
+            onMouseEnter={() => prefetchPage(path)}
             className={({ isActive }) =>
               `nav-item ${isActive ? 'active' : ''}`
             }

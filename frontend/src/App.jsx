@@ -8,25 +8,52 @@ import { useThemeStore } from './store/themeStore'
 import { authAPI } from './services/api'
 import { PERMISSIONS, hasPermission } from './utils/permissions'
 
-const LoginPage = lazy(() => import('./pages/LoginPage'))
-const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const LeadsPage = lazy(() => import('./pages/LeadsPage'))
-const KanbanPage = lazy(() => import('./pages/KanbanPage'))
-const TasksPage = lazy(() => import('./pages/TasksPage'))
-const FollowUpsPage = lazy(() => import('./pages/FollowUpsPage'))
-const CustomersPage = lazy(() => import('./pages/CustomersPage'))
-const CommunicationPage = lazy(() => import('./pages/CommunicationPage'))
-const AIEnginePage = lazy(() => import('./pages/AIEnginePage'))
-const AutomationPage = lazy(() => import('./pages/AutomationPage'))
-const InvoicesPage = lazy(() => import('./pages/InvoicesPage'))
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
-const TeamPage = lazy(() => import('./pages/TeamPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const NotificationCenterPage = lazy(() => import('./pages/NotificationCenterPage'))
-const SaaSAdminPage = lazy(() => import('./pages/SaaSAdminPage'))
+const pageImports = {
+  '/login': () => import('./pages/LoginPage'),
+  '/register': () => import('./pages/RegisterPage'),
+  '/dashboard': () => import('./pages/DashboardPage'),
+  '/leads': () => import('./pages/LeadsPage'),
+  '/pipeline': () => import('./pages/KanbanPage'),
+  '/tasks': () => import('./pages/TasksPage'),
+  '/follow-ups': () => import('./pages/FollowUpsPage'),
+  '/customers': () => import('./pages/CustomersPage'),
+  '/communication': () => import('./pages/CommunicationPage'),
+  '/ai-engine': () => import('./pages/AIEnginePage'),
+  '/automation': () => import('./pages/AutomationPage'),
+  '/invoices': () => import('./pages/InvoicesPage'),
+  '/analytics': () => import('./pages/AnalyticsPage'),
+  '/team': () => import('./pages/TeamPage'),
+  '/settings': () => import('./pages/SettingsPage'),
+  '/integrations': () => import('./pages/IntegrationsPage'),
+  '/profile': () => import('./pages/ProfilePage'),
+  '/notifications': () => import('./pages/NotificationCenterPage'),
+  '/admin/saas': () => import('./pages/SaaSAdminPage'),
+}
+
+export const prefetchPage = (path) => {
+  const loader = pageImports[path]
+  if (loader) loader()
+}
+
+const LoginPage = lazy(pageImports['/login'])
+const RegisterPage = lazy(pageImports['/register'])
+const DashboardPage = lazy(pageImports['/dashboard'])
+const LeadsPage = lazy(pageImports['/leads'])
+const KanbanPage = lazy(pageImports['/pipeline'])
+const TasksPage = lazy(pageImports['/tasks'])
+const FollowUpsPage = lazy(pageImports['/follow-ups'])
+const CustomersPage = lazy(pageImports['/customers'])
+const CommunicationPage = lazy(pageImports['/communication'])
+const AIEnginePage = lazy(pageImports['/ai-engine'])
+const AutomationPage = lazy(pageImports['/automation'])
+const InvoicesPage = lazy(pageImports['/invoices'])
+const AnalyticsPage = lazy(pageImports['/analytics'])
+const TeamPage = lazy(pageImports['/team'])
+const SettingsPage = lazy(pageImports['/settings'])
+const IntegrationsPage = lazy(pageImports['/integrations'])
+const ProfilePage = lazy(pageImports['/profile'])
+const NotificationCenterPage = lazy(pageImports['/notifications'])
+const SaaSAdminPage = lazy(pageImports['/admin/saas'])
 
 function RouteFallback() {
   return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
