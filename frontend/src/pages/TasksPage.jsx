@@ -187,8 +187,8 @@ export default function TasksPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <PageHeading
-          title="Tasks & Follow-ups"
-          subtitle="Track assignments, due dates, and lead follow-up execution from one place."
+          title="Tasks"
+          subtitle="Track assignments, due dates, and task execution from one place."
           icon={<CalendarRange className="h-5 w-5" />}
         />
         <div className="flex flex-wrap gap-2">
