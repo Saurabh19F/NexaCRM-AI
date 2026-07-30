@@ -9,8 +9,32 @@ const directionToLower = (direction) => {
   return null
 }
 
+export const formatIndianTime = (isoString) => {
+  const date = new Date(isoString)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMin = Math.floor(diffMs / 60000)
+  const diffHr = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMin < 1) return 'Just now'
+  if (diffMin < 60) return `${diffMin} min ago`
+  if (diffHr < 24) return `${diffHr}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: 'short',
+    hour12: true,
+  })
+}
+
 const toUiNotification = (notification) => {
   const createdAt = notification?.createdAt ? new Date(notification.createdAt) : new Date()
+  const isoString = createdAt.toISOString()
   return {
     id: notification?.id,
     type: typeToLower(notification?.type),
@@ -19,8 +43,8 @@ const toUiNotification = (notification) => {
     message: notification?.message || '',
     read: Boolean(notification?.isRead),
     actionUrl: notification?.actionUrl || notification?.action_url || null,
-    time: createdAt.toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }),
-    createdAt: createdAt.toISOString(),
+    time: formatIndianTime(isoString),
+    createdAt: isoString,
   }
 }
 
@@ -45,20 +69,23 @@ export const useNotificationStore = create((set, get) => ({
   },
 
   addNotification: (notification) =>
-    set((s) => ({
-      notifications: [{
-        id: `local-${Date.now()}`,
-        type: typeToLower(notification?.type),
-        direction: directionToLower(notification?.direction),
-        title: notification?.title || 'Notification',
-        message: notification?.message || '',
-        read: false,
-        actionUrl: notification?.actionUrl || notification?.action_url || null,
-        time: 'Just now',
-        createdAt: new Date().toISOString(),
-      }, ...s.notifications],
-      unreadCount: s.unreadCount + 1,
-    })),
+    set((s) => {
+      const isoString = new Date().toISOString()
+      return {
+        notifications: [{
+          id: `local-${Date.now()}`,
+          type: typeToLower(notification?.type),
+          direction: directionToLower(notification?.direction),
+          title: notification?.title || 'Notification',
+          message: notification?.message || '',
+          read: false,
+          actionUrl: notification?.actionUrl || notification?.action_url || null,
+          time: formatIndianTime(isoString),
+          createdAt: isoString,
+        }, ...s.notifications],
+        unreadCount: s.unreadCount + 1,
+      }
+    }),
 
   markRead: async (id) => {
     try {

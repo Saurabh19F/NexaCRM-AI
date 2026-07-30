@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck, RefreshCw, Trash2, ExternalLink, Filter, Mail, User, Kanban, Receipt, Sparkles, AlertCircle, Circle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
-import { useNotificationStore } from '../store/notificationStore'
+import { useNotificationStore, formatIndianTime } from '../store/notificationStore'
 
 const iconMap = {
   lead: { icon: User, color: 'text-brand-500', bg: 'bg-brand-50 dark:bg-brand-950/40' },
@@ -154,7 +154,7 @@ export default function NotificationCenterPage() {
                         {!notification.read && <Circle className="mt-1 h-3.5 w-3.5 fill-brand-500 text-brand-500" />}
                       </div>
                       <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        {notification.time}
+                        {formatIndianTime(notification.createdAt)}
                       </p>
                     </div>
                   </button>

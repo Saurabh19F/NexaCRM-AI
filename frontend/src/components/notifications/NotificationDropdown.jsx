@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, CheckCheck, ExternalLink, Mail, Trash2, User, Kanban, Receipt, Sparkles, AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useNotificationStore } from '../../store/notificationStore'
+import { useNotificationStore, formatIndianTime } from '../../store/notificationStore'
 
 const iconMap = {
   lead: { icon: User, color: 'text-brand-500', bg: 'bg-brand-50 dark:bg-brand-950/40' },
@@ -120,7 +120,7 @@ export default function NotificationDropdown({ onClose }) {
                       {notification.message}
                     </p>
                     <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                      {notification.time}
+                      {formatIndianTime(notification.createdAt)}
                     </p>
                   </div>
                 </button>
