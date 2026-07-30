@@ -109,6 +109,21 @@ public class Lead extends BaseEntity {
     @Field("follow_up_date")
     private LocalDateTime followUpDate;
 
+    @Field("reminder_15_sent_at")
+    private LocalDateTime reminder15SentAt;
+
+    @Field("reminder_45_sent_at")
+    private LocalDateTime reminder45SentAt;
+
+    @Field("reminder_60_sent_at")
+    private LocalDateTime reminder60SentAt;
+
+    @Field("escalated_at")
+    private LocalDateTime escalatedAt;
+
+    @Field("reassigned_at")
+    private LocalDateTime reassignedAt;
+
     @Field("revenue_value")
     private BigDecimal revenueValue;
 

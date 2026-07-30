@@ -113,6 +113,11 @@ const toBackendLead = (lead) => ({
     .filter(Boolean),
   notes: lead?.notes || null,
   lastContactedAt: toBackendLocalDateTime(lead?.lastContactedAtTs || lead?.lastActivityAtTs),
+  reminder15SentAt: lead?.reminder15SentAt || null,
+  reminder45SentAt: lead?.reminder45SentAt || null,
+  reminder60SentAt: lead?.reminder60SentAt || null,
+  escalatedAt: lead?.escalatedAt || null,
+  reassignedAt: lead?.reassignedAt || null,
 })
 
 export const useLeadsStore = create((set, get) => ({

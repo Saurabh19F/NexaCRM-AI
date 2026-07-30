@@ -232,6 +232,12 @@ export default function Topbar({ onMenuClick, onRefresh }) {
       if (Object.keys(nextPatch).length > 0) {
         patchLeadLocal(lead.id, (prev) => ({ ...prev, ...nextPatch }))
         reminders.forEach((notification) => addNotification(notification))
+        const srcMap = { facebook: 'FACEBOOK', instagram: 'INSTAGRAM', linkedin: 'LINKEDIN', website: 'WEBSITE', whatsapp: 'WHATSAPP', 'google ads': 'GOOGLE_ADS', 'meta ads': 'META_ADS', referral: 'REFERRAL', email: 'EMAIL' }
+        leadsAPI.update(lead.id, {
+          name: lead.name, email: lead.email,
+          source: srcMap[String(lead.source || '').toLowerCase()] || 'OTHER',
+          ...nextPatch,
+        }).catch(() => {})
       }
     }
   }, [timeTick, leads, addNotification, patchLeadLocal])

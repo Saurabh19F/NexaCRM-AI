@@ -59,6 +59,11 @@ public class LeadDTO {
     private LocalDateTime convertedAt;
     private String lostReason;
     private LocalDateTime followUpDate;
+    private LocalDateTime reminder15SentAt;
+    private LocalDateTime reminder45SentAt;
+    private LocalDateTime reminder60SentAt;
+    private LocalDateTime escalatedAt;
+    private LocalDateTime reassignedAt;
     private BigDecimal revenueValue;
     private List<String> activityLogs;
 }

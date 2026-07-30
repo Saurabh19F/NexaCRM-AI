@@ -327,6 +327,11 @@ public class LeadService {
         if (dto.getRevenueValue() != null) {
             lead.setRevenueValue(dto.getRevenueValue());
         }
+        if (dto.getReminder15SentAt() != null) lead.setReminder15SentAt(dto.getReminder15SentAt());
+        if (dto.getReminder45SentAt() != null) lead.setReminder45SentAt(dto.getReminder45SentAt());
+        if (dto.getReminder60SentAt() != null) lead.setReminder60SentAt(dto.getReminder60SentAt());
+        if (dto.getEscalatedAt() != null) lead.setEscalatedAt(dto.getEscalatedAt());
+        if (dto.getReassignedAt() != null) lead.setReassignedAt(dto.getReassignedAt());
         validateLostReason(lead);
 
         try {
@@ -1911,6 +1916,11 @@ public class LeadService {
             .facebookLeadId(l.getFacebookLeadId())
             .facebookFormId(l.getFacebookFormId())
             .facebookAdId(l.getFacebookAdId())
+            .reminder15SentAt(l.getReminder15SentAt())
+            .reminder45SentAt(l.getReminder45SentAt())
+            .reminder60SentAt(l.getReminder60SentAt())
+            .escalatedAt(l.getEscalatedAt())
+            .reassignedAt(l.getReassignedAt())
             .createdAt(l.getCreatedAt())
             .updatedAt(l.getUpdatedAt())
             .lastContactedAt(l.getLastContactedAt())
