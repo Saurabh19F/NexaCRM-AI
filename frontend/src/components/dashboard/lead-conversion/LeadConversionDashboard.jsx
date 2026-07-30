@@ -120,17 +120,17 @@ function MetricCard({ item, metric, compact = false }) {
   const positive = change >= 0
   if (compact) {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/70 bg-white px-3 py-2 dark:border-slate-700/60 dark:bg-slate-900/80">
-        <div className={`h-7 w-7 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-          <Icon className="h-3 w-3 text-white" />
+      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/70 bg-white px-3 py-2.5 dark:border-slate-700/60 dark:bg-slate-900/80">
+        <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+          <Icon className="h-3.5 w-3.5 text-white" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{item.title}</p>
-          <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+          <p className="text-[11px] leading-tight text-slate-500 dark:text-slate-400">{item.title}</p>
+          <p className="text-base font-bold text-slate-900 dark:text-slate-50">
             {metricValue(metric, { currency: item.currency, percent: item.percent })}
           </p>
         </div>
-        <span className={`text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+        <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
           {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
         </span>
       </div>
@@ -505,7 +505,7 @@ export default function LeadConversionDashboard() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7">
                   {SECONDARY_CARDS.map((item) => (
                     <MetricCard key={item.key} item={item} metric={summary?.[item.key]} compact />
                   ))}
