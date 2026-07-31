@@ -14,8 +14,7 @@ const pageImports = {
   '/dashboard': () => import('./pages/DashboardPage'),
   '/leads': () => import('./pages/LeadsPage'),
   '/pipeline': () => import('./pages/KanbanPage'),
-  '/tasks': () => import('./pages/TasksPage'),
-  '/follow-ups': () => import('./pages/FollowUpsPage'),
+  '/task-followup': () => import('./pages/TaskFollowUpPage'),
   '/customers': () => import('./pages/CustomersPage'),
   '/communication': () => import('./pages/CommunicationPage'),
   '/ai-engine': () => import('./pages/AIEnginePage'),
@@ -40,8 +39,7 @@ const RegisterPage = lazy(pageImports['/register'])
 const DashboardPage = lazy(pageImports['/dashboard'])
 const LeadsPage = lazy(pageImports['/leads'])
 const KanbanPage = lazy(pageImports['/pipeline'])
-const TasksPage = lazy(pageImports['/tasks'])
-const FollowUpsPage = lazy(pageImports['/follow-ups'])
+const TaskFollowUpPage = lazy(pageImports['/task-followup'])
 const CustomersPage = lazy(pageImports['/customers'])
 const CommunicationPage = lazy(pageImports['/communication'])
 const AIEnginePage = lazy(pageImports['/ai-engine'])
@@ -235,8 +233,7 @@ export default function App() {
             <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.AUTOMATION_READ}><AutomationPage /></PermissionRoute>} />
             <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
             <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><AnalyticsPage /></PermissionRoute>} />
-            <Route path="/tasks" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TasksPage /></PermissionRoute>} />
-            <Route path="/follow-ups" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><FollowUpsPage /></PermissionRoute>} />
+            <Route path="/task-followup" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TaskFollowUpPage /></PermissionRoute>} />
             <Route path="/notifications" element={<PermissionRoute permission={PERMISSIONS.NOTIFICATIONS_READ}><NotificationCenterPage /></PermissionRoute>} />
             <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_READ}><TeamPage /></PermissionRoute>} />
             <Route path="/profile" element={<ProfilePage />} />

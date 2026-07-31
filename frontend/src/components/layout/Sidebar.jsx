@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
   Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
-  ChevronLeft, ChevronRight, X, ListTodo, Bell, ShieldCheck, Clock3
+  ChevronLeft, ChevronRight, X, ListTodo, Bell, ShieldCheck
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
@@ -13,8 +13,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
   { label: 'Leads',          icon: Users,           path: '/leads', permission: PERMISSIONS.LEADS_READ },
   { label: 'Pipeline',       icon: Kanban,          path: '/pipeline', permission: PERMISSIONS.DEALS_READ },
-  { label: 'Tasks',          icon: ListTodo,        path: '/tasks', permission: PERMISSIONS.TASKS_READ },
-  { label: 'Follow-ups',     icon: Clock3,          path: '/follow-ups', permission: PERMISSIONS.TASKS_READ },
+  { label: 'Task Follow-up',  icon: ListTodo,        path: '/task-followup', permission: PERMISSIONS.TASKS_READ },
   { label: 'Customers',      icon: UserCircle,      path: '/customers', permission: PERMISSIONS.CUSTOMERS_READ },
   { label: 'Communication',  icon: MessageSquare,   path: '/communication', permission: PERMISSIONS.COMMUNICATIONS_READ },
   { label: 'AI Engine',      icon: Sparkles,        path: '/ai-engine', permission: PERMISSIONS.AI_USE },
