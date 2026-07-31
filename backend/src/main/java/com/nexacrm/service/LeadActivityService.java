@@ -158,15 +158,15 @@ public class LeadActivityService {
         values.put("actualDateStatus", computeActualDateStatus(plannedDate, savedAt));
         values.put("assignedTo", assignedTo);
 
-        if (!connectionStatus.isBlank()) {
+        if (connectionStatus != null && !connectionStatus.isBlank()) {
             values.put("connectionStatus", connectionStatus);
             values.put("callOutcome", connectionStatus);
         }
-        if (!remarks.isBlank()) {
+        if (remarks != null && !remarks.isBlank()) {
             values.put("remark", remarks);
             values.put("remarks", remarks);
         }
-        if (!nextFollowUpDate.isBlank()) {
+        if (nextFollowUpDate != null && !nextFollowUpDate.isBlank()) {
             values.put("nextFollowUpDate", nextFollowUpDate);
             values.put("followUpDate", nextFollowUpDate);
         }
@@ -200,14 +200,14 @@ public class LeadActivityService {
         values.put("actualDateStatus", computeActualDateStatus(plannedDate, savedAt));
         values.put("assignedTo", assignedTo);
 
-        if (!status.isBlank()) {
+        if (status != null && !status.isBlank()) {
             values.put("status", status);
         }
-        if (!remark.isBlank()) {
+        if (remark != null && !remark.isBlank()) {
             values.put("remark", remark);
             values.put("remarks", remark);
         }
-        if (!nextFollowUpDate.isBlank()) {
+        if (nextFollowUpDate != null && !nextFollowUpDate.isBlank()) {
             values.put("nextFollowUpDate", nextFollowUpDate);
             values.put("followUpDate", nextFollowUpDate);
         }
@@ -231,11 +231,11 @@ public class LeadActivityService {
         values.put("actualDateStatus", computeActualDateStatus(plannedDate, savedAt));
         values.put("assignedTo", assignedTo);
 
-        if (!status.isBlank()) {
+        if (status != null && !status.isBlank()) {
             values.put("status", status);
             values.put("meetingStatus", status);
         }
-        if (!remark.isBlank()) {
+        if (remark != null && !remark.isBlank()) {
             values.put("remark", remark);
             values.put("remarks", remark);
         }
@@ -274,27 +274,27 @@ public class LeadActivityService {
         values.put("actualDateStatus", computeActualDateStatus(plannedDate, savedAt));
         values.put("assignedTo", assignedTo);
 
-        if (!status.isBlank()) {
+        if (status != null && !status.isBlank()) {
             values.put("status", status);
         }
-        if (!remark.isBlank()) {
+        if (remark != null && !remark.isBlank()) {
             values.put("remark", remark);
             values.put("remarks", remark);
         }
-        if (!followUpDate.isBlank()) {
+        if (followUpDate != null && !followUpDate.isBlank()) {
             values.put("followUpDate", followUpDate);
             values.put("nextFollowUpDate", followUpDate);
         }
-        if (!lostCategory.isBlank()) {
+        if (lostCategory != null && !lostCategory.isBlank()) {
             values.put("lostCategory", lostCategory);
         }
-        if (!paymentReceived.isBlank()) {
+        if (paymentReceived != null && !paymentReceived.isBlank()) {
             values.put("paymentReceived", paymentReceived);
         }
-        if (!meetingPriceFinal.isBlank()) {
+        if (meetingPriceFinal != null && !meetingPriceFinal.isBlank()) {
             values.put("meetingPriceFinal", meetingPriceFinal);
         }
-        if (!calendarStatus.isBlank()) {
+        if (calendarStatus != null && !calendarStatus.isBlank()) {
             values.put("calendarStatus", calendarStatus);
         }
     }

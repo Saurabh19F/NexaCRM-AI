@@ -355,17 +355,27 @@ export default function TaskFollowUpPage() {
 
   const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
     const normalizedStatus = normalizeOutcome(values?.callOutcome || values?.connectionStatus || values?.status)
-    const summary = Object.entries(values || {})
-      .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(' | ') || 'Activity recorded'
+    const summary = activityIndex === 0
+      ? [
+          normalizedStatus ? `Status: ${normalizedStatus}` : null,
+          lead?.source ? `Source: ${lead.source}` : null,
+          lead?.service ? `Service: ${lead.service}` : lead?.specialization ? `Service: ${lead.specialization}` : null,
+          lead?.createdAt ? `Planned: ${lead.createdAt}` : null,
+          `Actual: ${new Date().toISOString()}`,
+          values?.nextFollowUpDate || values?.followUpDate ? `Next follow-up: ${values.nextFollowUpDate || values.followUpDate}` : null,
+          values?.remark || values?.remarks || values?.note ? `Remarks: ${values.remark || values.remarks || values.note}` : null,
+        ].filter(Boolean).join(' | ') || 'Lead activity recorded'
+      : Object.entries(values || {})
+          .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(' | ') || 'No extra details'
 
     const payload = {
       activityIndex,
       activityId: activity?.id || null,
       activityLabel: activity?.label || `Activity ${Number(activityIndex) + 1}`,
       activityTitle: activity?.title || '',
-      assignedTo: values?.assignedTo || lead?.assignedToName || null,
+      assignedTo: values?.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || 'Unassigned',
       values: values || {},
       summary,
     }
