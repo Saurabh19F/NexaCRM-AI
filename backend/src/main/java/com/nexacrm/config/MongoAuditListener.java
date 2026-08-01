@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+// @Component — disabled to save MongoDB storage on free-tier Atlas
 @RequiredArgsConstructor
 public class MongoAuditListener extends AbstractMongoEventListener<Object> {
 
