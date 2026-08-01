@@ -68,40 +68,53 @@ public class WorkflowEngine {
     private final NotificationPublisher notificationPublisher;
     private final MongoTemplate mongoTemplate;
 
-    @Async
     public void processEvent(String trigger, Map<String, Object> context) {
-        Map<String, Object> safeContext = context != null ? context : Map.of();
-        log.info("Processing automation trigger: {} with context keys: {}", trigger, safeContext.keySet());
+        processEventAsync(trigger, context, TenantContext.currentTenantIdOrNull());
+    }
 
-        var activeWorkflows = workflowRepository.findByTenantIdAndDeletedFalseAndStatus(
-            tenantId(),
-            Workflow.WorkflowStatus.ACTIVE
-        );
-        if (activeWorkflows.isEmpty()) return;
+    @Async
+    public void processEventAsync(String trigger, Map<String, Object> context, Long tenantId) {
+        boolean contextSet = false;
+        if (tenantId != null && TenantContext.currentTenantIdOrNull() == null) {
+            TenantContext.setCurrentTenantId(tenantId);
+            contextSet = true;
+        }
+        try {
+            Map<String, Object> safeContext = context != null ? context : Map.of();
+            log.info("Processing automation trigger: {} with context keys: {}", trigger, safeContext.keySet());
 
-        for (Workflow workflow : activeWorkflows) {
-            try {
-                ExecutionOutcome outcome = executeWorkflow(workflow, trigger, safeContext);
-                if (!outcome.conditionMatched()) {
-                    saveRunLog(workflow, trigger, "SKIPPED", "No matching IF/CONDITION rule for this trigger");
-                    continue;
+            var activeWorkflows = workflowRepository.findByTenantIdAndDeletedFalseAndStatus(
+                tenantId(),
+                Workflow.WorkflowStatus.ACTIVE
+            );
+            if (activeWorkflows.isEmpty()) return;
+
+            for (Workflow workflow : activeWorkflows) {
+                try {
+                    ExecutionOutcome outcome = executeWorkflow(workflow, trigger, safeContext);
+                    if (!outcome.conditionMatched()) {
+                        saveRunLog(workflow, trigger, "SKIPPED", "No matching IF/CONDITION rule for this trigger");
+                        continue;
+                    }
+                    if (outcome.executedActions() == 0) {
+                        String note = outcome.notes().isEmpty()
+                            ? "No executable THEN action found"
+                            : String.join(" | ", outcome.notes());
+                        saveRunLog(workflow, trigger, "SKIPPED", note);
+                        continue;
+                    }
+                    Integer currentRuns = workflow.getRuns() != null ? workflow.getRuns() : 0;
+                    workflow.setRuns(currentRuns + 1);
+                    workflow.setLastRun(LocalDateTime.now().toString());
+                    workflowRepository.save(workflow);
+                    saveRunLog(workflow, trigger, "EXECUTED", String.join(" | ", outcome.notes()));
+                } catch (Exception ex) {
+                    log.error("Workflow execution failed: workflowId={}, trigger={}", workflow.getId(), trigger, ex);
+                    saveRunLog(workflow, trigger, "FAILED", ex.getMessage());
                 }
-                if (outcome.executedActions() == 0) {
-                    String note = outcome.notes().isEmpty()
-                        ? "No executable THEN action found"
-                        : String.join(" | ", outcome.notes());
-                    saveRunLog(workflow, trigger, "SKIPPED", note);
-                    continue;
-                }
-                Integer currentRuns = workflow.getRuns() != null ? workflow.getRuns() : 0;
-                workflow.setRuns(currentRuns + 1);
-                workflow.setLastRun(LocalDateTime.now().toString());
-                workflowRepository.save(workflow);
-                saveRunLog(workflow, trigger, "EXECUTED", String.join(" | ", outcome.notes()));
-            } catch (Exception ex) {
-                log.error("Workflow execution failed: workflowId={}, trigger={}", workflow.getId(), trigger, ex);
-                saveRunLog(workflow, trigger, "FAILED", ex.getMessage());
             }
+        } finally {
+            if (contextSet) TenantContext.clear();
         }
     }
 
