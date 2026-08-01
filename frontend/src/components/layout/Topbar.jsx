@@ -275,9 +275,14 @@ export default function Topbar({ onMenuClick, onRefresh }) {
   }
 
   return (
-    <header className="sticky top-0 z-40 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-4 py-2 sm:py-0 gap-2 sm:gap-4
-                       bg-white/80 dark:bg-slate-950/90 backdrop-blur-md
-                       border-b border-slate-200/60 dark:border-slate-800/60">
+    <header className="sticky top-0 z-40 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-5 py-2 sm:py-0 gap-2 sm:gap-4
+                       border-b border-white/40 dark:border-white/[0.06]"
+      style={{
+        background: 'rgba(255,255,255,0.55)',
+        backdropFilter: 'blur(20px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
+        boxShadow: '0 4px 30px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6)',
+      }}>
       {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
@@ -289,11 +294,18 @@ export default function Topbar({ onMenuClick, onRefresh }) {
 
       {/* Search */}
       <div ref={searchRef} className="relative order-3 w-full sm:order-none sm:w-auto flex-1 sm:max-w-md">
-        <div className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200
-                         ${searchFocused
-                           ? 'bg-white dark:bg-slate-900/90 ring-2 ring-brand-500/40 shadow-sm'
-                           : 'bg-slate-100 dark:bg-slate-900/60'}`}>
-          <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        <div
+          className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 transition-all duration-200 ${searchFocused ? 'ring-2 ring-brand-400/30' : ''}`}
+          style={{
+            background: searchFocused ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.4)',
+            backdropFilter: 'blur(12px) saturate(1.5)',
+            WebkitBackdropFilter: 'blur(12px) saturate(1.5)',
+            border: '1px solid rgba(255,255,255,0.45)',
+            boxShadow: searchFocused
+              ? '0 8px 24px rgba(14,165,233,0.08), inset 0 1px 0 rgba(255,255,255,0.6)'
+              : 'inset 0 1px 0 rgba(255,255,255,0.5)',
+          }}>
+          <Search className="w-4 h-4 text-brand-400 flex-shrink-0" />
           <input
             value={searchQuery}
             onChange={(e) => {
@@ -323,11 +335,11 @@ export default function Topbar({ onMenuClick, onRefresh }) {
                 setShowSearchResults(false)
               }
             }}
-            placeholder="Search leads, customers, and pipeline…"
+            placeholder="Search leads, customers, pipeline…"
             className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none"
           />
-          <kbd className="hidden sm:inline-flex items-center px-1.5 rounded text-[10px] font-mono text-slate-400 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-            ⌘K
+          <kbd className="hidden sm:inline-flex items-center px-1.5 rounded-md text-[10px] font-mono text-slate-400 border border-slate-200/60 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            /
           </kbd>
         </div>
 

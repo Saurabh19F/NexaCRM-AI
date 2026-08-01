@@ -176,13 +176,6 @@ function AuditLogsPanel() {
 }
 
 /* ── IP Whitelist Panel ───────────────────────────────────────────── */
-const IP_REGEX = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/
-const DEFAULT_IPS = [
-  { id: 1, ip: '103.21.244.0/22', label: 'Office — Mumbai HQ', added: '2026-01-10' },
-  { id: 2, ip: '192.168.1.0/24',  label: 'Internal VPN',       added: '2026-02-03' },
-  { id: 3, ip: '49.36.112.45',    label: 'Saurabh — Home',     added: '2026-03-15' },
-]
-
 function IPWhitelistPanel() {
   return (
     <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }}

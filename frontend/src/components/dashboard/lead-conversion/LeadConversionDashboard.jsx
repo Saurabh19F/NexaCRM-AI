@@ -114,51 +114,34 @@ const metricValue = (metric, { currency = false, percent = false } = {}) => {
   return prettyNumber(metric.value)
 }
 
-function MetricCard({ item, metric, compact = false }) {
+function MetricCard({ item, metric }) {
   const Icon = item.icon
   const change = Number(metric?.changePercent || 0)
   const positive = change >= 0
-  if (compact) {
-    return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/70 bg-white px-3 py-2.5 dark:border-slate-700/60 dark:bg-slate-900/80">
-        <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-          <Icon className="h-3.5 w-3.5 text-white" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] leading-tight text-slate-500 dark:text-slate-400">{item.title}</p>
-          <p className="text-base font-bold text-slate-900 dark:text-slate-50">
-            {metricValue(metric, { currency: item.currency, percent: item.percent })}
-          </p>
-        </div>
-        <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
-          {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
-        </span>
-      </div>
-    )
-  }
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28 }}
-      className="flex w-full flex-col rounded-2xl border border-slate-200/70 bg-white p-3.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/80"
+    <div
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5"
+      style={{
+        background: 'rgba(255,255,255,0.5)',
+        backdropFilter: 'blur(16px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(16px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.4)',
+        boxShadow: '0 2px 12px rgba(14,165,233,0.04), inset 0 1px 0 rgba(255,255,255,0.5)',
+      }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className={`h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
-        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${positive ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-300'}`}>
-          <span>{positive ? '↗' : '↘'}</span>
-          <span>{prettyPercent(Math.abs(change))}</span>
-        </span>
+      <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+        <Icon className="h-3.5 w-3.5 text-white" />
       </div>
-      <div className="mt-2.5">
-        <p className="text-2xl font-bold leading-none tracking-tight text-slate-900 dark:text-slate-50">
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-bold leading-tight text-slate-900 dark:text-slate-50">
           {metricValue(metric, { currency: item.currency, percent: item.percent })}
         </p>
-        <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">{item.title}</p>
+        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.title}</p>
       </div>
-    </motion.div>
+      <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+        {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
+      </span>
+    </div>
   )
 }
 
@@ -178,7 +161,7 @@ function SectionShell({ title, icon: Icon, subtitle, action }) {
 }
 
 function LoadingCard() {
-  return <div className="h-24 w-full rounded-2xl border border-slate-200/70 bg-slate-100/50 dark:border-slate-700/60 dark:bg-slate-800/40 animate-pulse" />
+  return <div className="h-14 w-full rounded-xl border border-white/40 bg-white/30 backdrop-blur-sm dark:border-slate-700/40 dark:bg-slate-800/30 animate-pulse" />
 }
 
 function ChartEmptyState({ label }) {
@@ -356,115 +339,85 @@ export default function LeadConversionDashboard() {
 
   return (
     <section className="space-y-2.5 sm:space-y-3">
-      {/* ── Filter bar ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="glass-card p-2.5 sm:p-3.5"
-      >
-        <SectionShell
-          title="Lead Conversion Dashboard"
-          icon={Layers3}
-          subtitle={`Realtime conversion analytics for ${formatDateRangeLabel(filter, startDate, endDate)}.`}
-        />
-
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
-          <div ref={dateFilterRef} className="relative flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50">
-            <Search className="h-4 w-4 shrink-0 text-slate-400" />
-            <button
-              type="button"
-              onClick={() => setDateMenuOpen((open) => !open)}
-              className="flex min-w-0 flex-1 items-center justify-between gap-3 bg-transparent text-left text-sm font-medium text-slate-700 outline-none dark:text-slate-200"
-            >
-              <span className="truncate">{DATE_FILTERS.find((option) => option.value === filter)?.label || 'This Month'}</span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
-            </button>
-
-            {dateMenuOpen && (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-950">
-                {DATE_FILTERS.map((option) => {
-                  const active = option.value === filter
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        setFilter(option.value)
-                        setDateMenuOpen(false)
-                      }}
-                      className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
-                        active
-                          ? 'bg-brand-600 text-white'
-                          : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/70'
-                      }`}
-                    >
-                      <span>{option.label}</span>
-                      {active && <span className="text-[11px] font-semibold uppercase tracking-wide">Selected</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {isFullAccess && (
-            <select
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              className="input w-full rounded-xl border-slate-200 bg-white/90 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900/70 lg:w-44"
-            >
-              <option value="">All Employees</option>
-              {employeeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          )}
-
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="input w-full rounded-xl border-slate-200 bg-white/90 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900/70 lg:w-44"
+      {/* ── Compact filter bar ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div ref={dateFilterRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setDateMenuOpen((open) => !open)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm font-medium text-slate-700 backdrop-blur-sm transition-colors hover:bg-white dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800/80"
           >
-            {STATUS_FILTERS.map((option) => (
+            <CalendarDays className="h-3.5 w-3.5 text-brand-500" />
+            <span>{DATE_FILTERS.find((option) => option.value === filter)?.label || 'This Month'}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          </button>
+
+          {dateMenuOpen && (
+            <div className="absolute left-0 top-full z-30 mt-1.5 min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-950">
+              {DATE_FILTERS.map((option) => {
+                const active = option.value === filter
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setFilter(option.value)
+                      setDateMenuOpen(false)
+                    }}
+                    className={`flex w-full items-center px-3.5 py-2 text-left text-sm transition-colors ${
+                      active
+                        ? 'bg-brand-600 text-white'
+                        : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/70'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {isFullAccess && (
+          <select
+            value={employeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+            className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm text-slate-700 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200"
+          >
+            <option value="">All Employees</option>
+            {employeeOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
+        )}
 
-          <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-sm font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 lg:w-40">
-            <LineChartIcon className="h-4 w-4 shrink-0 text-brand-500" />
-            <span>{trendGranularity.charAt(0).toUpperCase() + trendGranularity.slice(1)} trend</span>
-          </div>
-        </div>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm text-slate-700 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200"
+        >
+          {STATUS_FILTERS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
 
         {filter === 'custom' && (
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
+          <>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="input w-full rounded-xl border-slate-200 bg-white/90 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900/70 lg:w-44"
+              className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm dark:border-slate-700/60 dark:bg-slate-900/60"
             />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="input w-full rounded-xl border-slate-200 bg-white/90 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900/70 lg:w-44"
+              className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm dark:border-slate-700/60 dark:bg-slate-900/60"
             />
-          </div>
+          </>
         )}
-
-        <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-brand-500" />
-            Auto-refreshes every minute.
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-1.5">
-            <LineChartIcon className="h-3.5 w-3.5 text-brand-500" />
-            {trendGranularity.charAt(0).toUpperCase() + trendGranularity.slice(1)} trend view
-          </span>
-        </div>
-      </motion.div>
+      </div>
 
       {error && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
@@ -473,15 +426,15 @@ export default function LeadConversionDashboard() {
       )}
 
       {loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, index) => <LoadingCard key={index} />)}
         </div>
       )}
 
       {!loading && (
         <>
-          {/* ── #1: KPI Cards — 5 primary, expandable secondary ── */}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          {/* ── KPI Cards — uniform glass tiles ── */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {PRIMARY_CARDS.map((item) => (
               <MetricCard key={item.key} item={item} metric={summary?.[item.key]} />
             ))}
@@ -505,9 +458,9 @@ export default function LeadConversionDashboard() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                   {SECONDARY_CARDS.map((item) => (
-                    <MetricCard key={item.key} item={item} metric={summary?.[item.key]} compact />
+                    <MetricCard key={item.key} item={item} metric={summary?.[item.key]} />
                   ))}
                 </div>
               </motion.div>

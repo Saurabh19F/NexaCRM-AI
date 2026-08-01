@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export const THEME_IDS = ['light', 'dark', 'corporate']
+const THEME_IDS = ['light', 'dark', 'corporate']
 const SUPPORTED_THEME_IDS = new Set(THEME_IDS)
 const normalizeTheme = (theme) => (SUPPORTED_THEME_IDS.has(theme) ? theme : 'corporate')
 

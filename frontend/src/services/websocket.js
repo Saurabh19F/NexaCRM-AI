@@ -86,7 +86,7 @@ export function connectWebSocket(onNotification) {
       connectHeaders,
       () => {
         reconnectAttempts = 0
-        console.info('WebSocket connected')
+        if (import.meta.env.DEV) console.info('WebSocket connected')
 
         const sub1 = stompClient.subscribe('/user/queue/notifications', (msg) => {
           const notification = JSON.parse(msg.body)
@@ -122,13 +122,8 @@ export function disconnectWebSocket() {
   subscriptions.forEach((sub) => sub.unsubscribe())
   subscriptions.clear()
   if (stompClient?.connected) {
-    stompClient.disconnect(() => console.info('WebSocket disconnected'))
+    stompClient.disconnect(() => { if (import.meta.env.DEV) console.info('WebSocket disconnected') })
   }
   stompClient = null
 }
 
-export function sendMessage(destination, body) {
-  if (stompClient?.connected) {
-    stompClient.send(destination, {}, JSON.stringify(body))
-  }
-}

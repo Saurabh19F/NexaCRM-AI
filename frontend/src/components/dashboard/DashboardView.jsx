@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Sparkles, PlayCircle, ExternalLink, Mic, RefreshCw
+  Sparkles, PlayCircle, ExternalLink, Mic, Phone,
 } from 'lucide-react'
-import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
 import { analyticsAPI } from '../../services/api'
 import LeadConversionDashboard from './lead-conversion/LeadConversionDashboard'
@@ -15,259 +14,189 @@ const INSIGHT_ROUTES = {
   'Plan Campaign':  '/ai-engine',
 }
 
+const glassStyle = {
+  background: 'rgba(255,255,255,0.5)',
+  backdropFilter: 'blur(16px) saturate(1.8)',
+  WebkitBackdropFilter: 'blur(16px) saturate(1.8)',
+  border: '1px solid rgba(255,255,255,0.4)',
+  boxShadow: '0 4px 24px rgba(14,165,233,0.05), inset 0 1px 0 rgba(255,255,255,0.5)',
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { replaceLeads } = useLeadsStore()
   const { user } = useAuthStore()
+  const firstName = (user?.name || 'User').trim().split(/\s+/)[0]
   const [liveInsights, setLiveInsights] = useState([])
   const [recentCallSnapshots, setRecentCallSnapshots] = useState([])
-  const [dashboardWidgets, setDashboardWidgets] = useState({
-    agingCounts: { fresh: 0, warning: 0, critical: 0 },
-    slaSummary: { total: 0, unattendedCritical: 0, pending: 0, met: 0, breached: 0, avgResponseMinutes: null },
-    employeePerformance: [],
-    monthlyRevenue: [],
-    funnelData: [],
-    leadSources: [],
-  })
-  const [callSnapshotsLoading, setCallSnapshotsLoading] = useState(false)
-  const [dashboardLoading, setDashboardLoading] = useState(false)
-  const [dashboardError, setDashboardError] = useState('')
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(null)
-  const [refreshingSection, setRefreshingSection] = useState('')
+  const [extrasLoading, setExtrasLoading] = useState(true)
   const mountedRef = useRef(true)
-  const loadSeqRef = useRef(0)
-  const firstName = (user?.name || 'User').trim().split(/\s+/)[0]
 
   useEffect(() => {
     mountedRef.current = true
-    return () => {
-      mountedRef.current = false
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const loadExtras = useCallback(async () => {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15000)
+      const overview = await analyticsAPI.getDashboard()
+      clearTimeout(timeout)
+      if (!mountedRef.current) return
+      setLiveInsights(Array.isArray(overview?.insights) ? overview.insights : [])
+      setRecentCallSnapshots(Array.isArray(overview?.recentCallSnapshots) ? overview.recentCallSnapshots : [])
+    } catch {
+      // silently fail — these are supplementary widgets
+    } finally {
+      if (mountedRef.current) setExtrasLoading(false)
     }
   }, [])
 
-  const loadDashboard = useCallback(async (options = {}) => {
-    const silent = Boolean(options?.silent)
-    const requestId = loadSeqRef.current + 1
-    loadSeqRef.current = requestId
-
-    if (!silent && mountedRef.current) {
-      setDashboardLoading(true)
-      setDashboardError('')
-      setCallSnapshotsLoading(true)
-    }
-
-    try {
-      const [overview, widgets] = await Promise.all([
-        analyticsAPI.getDashboard(),
-        analyticsAPI.getDashboardWidgets(),
-      ])
-
-      if (!mountedRef.current || loadSeqRef.current !== requestId) return
-
-      replaceLeads(Array.isArray(overview?.leads) ? overview.leads : [])
-      setLiveInsights(Array.isArray(overview?.insights) ? overview.insights : [])
-      setRecentCallSnapshots(Array.isArray(overview?.recentCallSnapshots) ? overview.recentCallSnapshots : [])
-      setDashboardWidgets({
-        agingCounts: widgets?.agingCounts || { fresh: 0, warning: 0, critical: 0 },
-        slaSummary: widgets?.slaSummary || { total: 0, unattendedCritical: 0, pending: 0, met: 0, breached: 0, avgResponseMinutes: null },
-        employeePerformance: Array.isArray(widgets?.employeePerformance) ? widgets.employeePerformance : [],
-        monthlyRevenue: Array.isArray(widgets?.monthlyRevenue) ? widgets.monthlyRevenue : [],
-        funnelData: Array.isArray(widgets?.funnelData) ? widgets.funnelData : [],
-        leadSources: Array.isArray(widgets?.leadSources) ? widgets.leadSources : [],
-      })
-      setCallSnapshotsLoading(false)
-
-      setLastRefreshedAt(overview?.generatedAt || new Date().toISOString())
-    } catch (err) {
-      if (!mountedRef.current || loadSeqRef.current !== requestId) return
-      setDashboardError(err?.message || 'Failed to load live dashboard data')
-      setLiveInsights([])
-      setRecentCallSnapshots([])
-      setDashboardWidgets({
-        agingCounts: { fresh: 0, warning: 0, critical: 0 },
-        slaSummary: { total: 0, unattendedCritical: 0, pending: 0, met: 0, breached: 0, avgResponseMinutes: null },
-        employeePerformance: [],
-        monthlyRevenue: [],
-        funnelData: [],
-        leadSources: [],
-      })
-      setCallSnapshotsLoading(false)
-    } finally {
-      if (mountedRef.current && loadSeqRef.current === requestId && !silent) {
-        setDashboardLoading(false)
-      }
-      if (mountedRef.current && loadSeqRef.current === requestId) {
-        setCallSnapshotsLoading(false)
-      }
-    }
-  }, [replaceLeads])
-
-  const refreshSection = useCallback(async (section = 'dashboard') => {
-    setRefreshingSection(section)
-    try {
-      await loadDashboard({ silent: true })
-    } finally {
-      if (mountedRef.current) setRefreshingSection('')
-    }
-  }, [loadDashboard])
-
+  // Load extras after a short delay so they don't compete with the main dashboard API calls
   useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      loadDashboard({ silent: true })
-    }, 5 * 60 * 1000)
-    return () => window.clearInterval(id)
-  }, [loadDashboard])
+    const delay = setTimeout(() => loadExtras(), 2000)
+    return () => clearTimeout(delay)
+  }, [loadExtras])
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Welcome back, {firstName} 👋 — Here&apos;s your overview</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {lastRefreshedAt && (
-            <span className="hidden sm:inline-flex text-[11px] text-slate-500 dark:text-slate-400">
-              Updated {new Date(lastRefreshedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => loadDashboard()}
-            disabled={dashboardLoading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
-            title="Refresh live dashboard"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${dashboardLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          Welcome back, {firstName}
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
       </div>
 
-      {(dashboardLoading || dashboardError) && (
-        <div className={`rounded-2xl border px-4 py-3 text-sm ${dashboardError ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200' : 'border-slate-200 bg-white/70 text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300'}`}>
-          {dashboardError || 'Refreshing live dashboard data…'}
-        </div>
-      )}
-
-      {/* Lead Conversion Dashboard Module */}
+      {/* Lead Conversion Dashboard — main content */}
       <LeadConversionDashboard />
 
+      {/* Call Intelligence + AI Insights — side by side */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
-      {/* Recent call recordings */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Recent Call Recordings</h2>
-              <button
-                type="button"
-                onClick={() => refreshSection('calls')}
-                className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                title="Refresh this widget"
-                aria-label="Refresh recent call recordings widget"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${refreshingSection === 'calls' ? 'animate-spin text-slate-600' : ''}`} />
-              </button>
+        {/* Call Intelligence */}
+        <div className="rounded-2xl p-4" style={glassStyle}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center">
+              <Phone className="h-3.5 w-3.5 text-white" />
             </div>
-            <p className="text-xs text-slate-500">Pulled from live call intelligence</p>
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Call Intelligence</h2>
+            <div className="ml-auto flex items-center gap-1 text-[10px] text-slate-400">
+              <Mic className="h-3 w-3" />
+              Live
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Mic className="w-3.5 h-3.5" />
-            Live call review
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {callSnapshotsLoading && recentCallSnapshots.length === 0 && (
-            <div className="col-span-full text-sm text-slate-500">Loading call recordings…</div>
+          {extrasLoading && (
+            <div className="space-y-2">
+              {[1,2].map(i => <div key={i} className="h-14 rounded-xl bg-white/30 animate-pulse" />)}
+            </div>
           )}
-          {!callSnapshotsLoading && recentCallSnapshots.length === 0 && (
-            <div className="col-span-full text-sm text-slate-500">No call recordings available yet.</div>
+          {!extrasLoading && recentCallSnapshots.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <Phone className="h-5 w-5 text-slate-300 dark:text-slate-600" />
+              <p className="mt-1.5 text-xs text-slate-400">No call recordings yet</p>
+            </div>
           )}
 
-          {recentCallSnapshots.map((item) => (
-            <div key={item.leadId} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/50 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.leadName}</p>
-                  <p className="text-[11px] text-slate-500">{item.company || 'No company'} · {item.currentStatus}</p>
+          {recentCallSnapshots.length > 0 && (
+            <div className="space-y-2">
+              {recentCallSnapshots.map((item) => (
+                <div
+                  key={item.leadId}
+                  className="rounded-xl px-3 py-2.5"
+                  style={{
+                    background: 'rgba(255,255,255,0.45)',
+                    border: '1px solid rgba(255,255,255,0.35)',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">{item.leadName}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{item.company || 'No company'} · {item.currentStatus}</p>
+                    </div>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-100/80 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 shrink-0">
+                      {item.verdict}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mt-1.5 line-clamp-2">
+                    {item.summary || 'No summary available.'}
+                  </p>
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-400">Score: {item.confidence}%</span>
+                    {item.recordingUrl ? (
+                      <a
+                        href={item.recordingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                      >
+                        <PlayCircle className="w-3 h-3" />
+                        Play
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">No recording</span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
-                  {item.verdict}
-                </span>
-              </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-              <div className="mt-3">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">AI Review</p>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-1 line-clamp-3">
-                  {item.summary || 'No summary available yet.'}
-                </p>
-              </div>
+        {/* AI Insights */}
+        <div className="rounded-2xl p-4" style={glassStyle}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-white" />
+            </div>
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">AI Insights</h2>
+          </div>
 
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-[11px] text-slate-500">
-                  Confidence {item.confidence}%
-                </span>
-                {item.recordingUrl ? (
-                  <a
-                    href={item.recordingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+          {extrasLoading && (
+            <div className="space-y-2">
+              {[1,2].map(i => <div key={i} className="h-14 rounded-xl bg-white/30 animate-pulse" />)}
+            </div>
+          )}
+          {!extrasLoading && liveInsights.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <Sparkles className="h-5 w-5 text-slate-300 dark:text-slate-600" />
+              <p className="mt-1.5 text-xs text-slate-400">No insights available yet</p>
+            </div>
+          )}
+
+          {liveInsights.length > 0 && (
+            <div className="space-y-2">
+              {liveInsights.map((insight) => {
+                const colors = {
+                  prediction: 'border-l-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/10',
+                  warning: 'border-l-amber-400 bg-amber-50/50 dark:bg-amber-950/10',
+                  opportunity: 'border-l-brand-400 bg-brand-50/50 dark:bg-brand-950/10',
+                }
+                return (
+                  <div
+                    key={insight.id}
+                    className={`rounded-xl border-l-[3px] px-3 py-2.5 ${colors[insight.type] || 'border-l-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/10'}`}
+                    style={{ border: '1px solid rgba(255,255,255,0.3)', borderLeftWidth: '3px' }}
                   >
-                    <PlayCircle className="w-3.5 h-3.5" />
-                    Open recording
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                ) : (
-                  <span className="text-[11px] text-slate-400">No recording URL yet</span>
-                )}
-              </div>
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mt-0.5 line-clamp-2">{insight.body}</p>
+                    <button
+                      onClick={() => navigate(INSIGHT_ROUTES[insight.action] ?? '/dashboard')}
+                      className="mt-1 text-[10px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      {insight.action} →
+                    </button>
+                  </div>
+                )
+              })}
             </div>
-          ))}
+          )}
         </div>
       </div>
-
-      {/* AI Insights */}
-      <div className="glass-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-brand-500" />
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">AI Insights</h2>
-          <button
-            type="button"
-            onClick={() => refreshSection('insights')}
-            className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="Refresh this widget"
-            aria-label="Refresh AI insights widget"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshingSection === 'insights' ? 'animate-spin text-slate-600' : ''}`} />
-          </button>
-        </div>
-        <div className="space-y-3">
-          {liveInsights.map((insight) => (
-            <div key={insight.id} className={`rounded-xl p-3 border text-xs space-y-1.5
-              ${insight.type === 'prediction' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40' :
-                insight.type === 'warning'    ? 'bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/40' :
-                insight.type === 'opportunity'? 'bg-brand-50 border-brand-200 dark:bg-brand-950/20 dark:border-brand-800/40' :
-                'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/20 dark:border-cyan-800/40'}`}>
-              <p className="font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{insight.body}</p>
-              <button
-                onClick={() => navigate(INSIGHT_ROUTES[insight.action] ?? '/dashboard')}
-                className="text-brand-600 dark:text-brand-400 font-semibold hover:underline">
-                {insight.action} →
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
     </div>
   )
 }
