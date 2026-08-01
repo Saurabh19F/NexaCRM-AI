@@ -244,6 +244,7 @@ public class LeadService {
         );
         workflowEngine.processEvent("LEAD_CREATED", Map.of(
             "leadId", saved.getId(),
+            "leadName", saved.getName() != null ? saved.getName() : "",
             "leadEmail", saved.getEmail() != null ? saved.getEmail() : "",
             "leadPhone", saved.getPhone() != null ? saved.getPhone() : "",
             "source", saved.getSource() != null ? saved.getSource().name() : "OTHER",

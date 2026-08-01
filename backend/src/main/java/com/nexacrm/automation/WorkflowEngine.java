@@ -220,6 +220,11 @@ public class WorkflowEngine {
             return sendEmailAction(payload, workflow.getName(), trigger);
         }
 
+        if (lower.startsWith("send_whatsapp:")) {
+            String payload = normalize(text.substring("send_whatsapp:".length()));
+            return sendWhatsAppAction(payload, context);
+        }
+
         if (lower.startsWith("send_call:")) {
             String payload = normalize(text.substring("send_call:".length()));
             return sendCallAction(payload, context);
@@ -237,6 +242,16 @@ public class WorkflowEngine {
             String leadEmail = normalize((String) context.get("leadEmail"));
             if (StringUtils.hasText(leadEmail)) {
                 return sendEmailAction(leadEmail + "|Workflow Notification|" + text, workflow.getName(), trigger);
+            }
+        }
+        if (lower.contains("send whatsapp") || lower.contains("whatsapp message")) {
+            String leadPhone = normalize((String) context.get("leadPhone"));
+            if (StringUtils.hasText(leadPhone)) {
+                String leadName = normalize((String) context.get("leadName"));
+                String greeting = StringUtils.hasText(leadName)
+                    ? "Hi " + leadName + ", thank you for your interest! We will get back to you shortly."
+                    : "Hi, thank you for your interest! We will get back to you shortly.";
+                return sendWhatsAppAction(leadPhone + "|" + greeting, context);
             }
         }
         if (lower.contains("send call")) {
@@ -353,6 +368,33 @@ public class WorkflowEngine {
         }
         communicationService.sendChannelMessage("call", recipient, "", script);
         return new ActionResult(true, "Call queued to " + recipient);
+    }
+
+    private ActionResult sendWhatsAppAction(String payload, Map<String, Object> context) {
+        String[] parts = payload.split("\\|", 2);
+        String recipient = normalize(parts.length > 0 ? parts[0] : "");
+        String message = normalize(parts.length > 1 ? parts[1] : "");
+        if (!StringUtils.hasText(recipient)) {
+            recipient = normalize((String) context.get("leadPhone"));
+        }
+        if (!StringUtils.hasText(recipient)) {
+            return new ActionResult(false, "send_whatsapp skipped: recipient phone missing");
+        }
+        if (!StringUtils.hasText(message)) {
+            String leadName = normalize((String) context.get("leadName"));
+            message = StringUtils.hasText(leadName)
+                ? "Hi " + leadName + ", thank you for your interest! We will get back to you shortly."
+                : "Hi, thank you for your interest! We will get back to you shortly.";
+        }
+        // Replace {{name}} placeholder with lead name from context
+        String leadName = normalize((String) context.get("leadName"));
+        if (StringUtils.hasText(leadName)) {
+            message = message.replace("{{name}}", leadName);
+        } else {
+            message = message.replace("{{name}}", "there");
+        }
+        communicationService.sendChannelMessage("whatsapp", recipient, "", message);
+        return new ActionResult(true, "WhatsApp sent to " + recipient);
     }
 
     private ActionResult notifyAction(String message, String workflowName, String trigger) {

@@ -72,14 +72,15 @@ const ADVANCED_TEMPLATES = [
     ],
   },
   {
-    id: 'whatsapp-conversation',
-    name: 'WhatsApp Conversation Automation',
+    id: 'whatsapp-welcome-lead',
+    name: 'Auto WhatsApp on New Lead',
     category: 'Communication',
+    priority: 'high',
     steps: [
-      { type: 'IF', text: 'Lead created' },
-      { type: 'THEN', text: 'Send welcome WhatsApp message' },
-      { type: 'WAIT', text: '30 minutes' },
-      { type: 'CONDITION', text: 'If reply received => move to Active Lead; else send follow-up message' },
+      { type: 'IF', text: 'trigger: LEAD_CREATED' },
+      { type: 'THEN', text: 'send_whatsapp:|Hi {{name}}, thank you for reaching out! Our team will connect with you shortly.' },
+      { type: 'THEN', text: 'set_lead_status:CONTACTED' },
+      { type: 'THEN', text: 'notify:WhatsApp welcome sent to new lead' },
     ],
   },
   {
@@ -159,6 +160,7 @@ const RULE_EXAMPLES = [
   { label: 'Broadcast Notify', type: 'THEN', text: 'notify:Lead requires immediate follow-up' },
   { label: 'Send Email', type: 'THEN', text: 'send_email:ops@example.com|Workflow Alert|Lead entered high-priority stage' },
   { label: 'Send Call', type: 'THEN', text: 'send_call:+919876543210|Hi, this is NexaCRM calling about your enquiry.' },
+  { label: 'Send WhatsApp', type: 'THEN', text: 'send_whatsapp:+919876543210|Hi {{name}}, thank you for your interest!' },
 ]
 
 export default function AutomationPage() {
