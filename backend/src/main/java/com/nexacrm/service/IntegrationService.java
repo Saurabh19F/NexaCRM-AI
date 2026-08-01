@@ -25,7 +25,7 @@ public class IntegrationService {
         "facebook", List.of("pageId", "accessToken"),
         "instagram", List.of("igAccountId", "accessToken"),
         "reddit", List.of("clientId", "clientSecret", "refreshToken", "username"),
-        "whatsapp", List.of("instanceId", "accessToken"),
+        "whatsapp", List.of(),
         "voice_call_agent", List.of(),
         "gmail", List.of("clientId", "clientSecret", "refreshToken"),
         "google_calendar", List.of("clientId", "clientSecret"),
