@@ -574,6 +574,14 @@ public class CommunicationService {
         }
 
         Map<String, String> config = integrationService.getConfig("whatsapp");
+        String apiKey = trim(config.get("apiKey"));
+        String sessionId = trim(config.get("sessionId"));
+
+        if (!apiKey.isBlank() && !sessionId.isBlank()) {
+            sendViaKriscelWA(number, body, config, apiKey, sessionId);
+            return;
+        }
+
         String instanceId = trim(config.get("instanceId"));
         String accessToken = trim(config.get("accessToken"));
         String configuredApiUrl = trim(config.get("apiUrl"));
@@ -623,6 +631,46 @@ public class CommunicationService {
         } catch (Exception ex) {
             log.error("Aiadrika send failed: {}", ex.getMessage());
             throw new IllegalStateException("Failed to send WhatsApp message via Aiadrika.");
+        }
+    }
+
+    private void sendViaKriscelWA(String number, String body, Map<String, String> config, String apiKey, String sessionId) {
+        String configuredApiUrl = trim(config.get("apiUrl"));
+        String baseUrl = configuredApiUrl.isBlank() ? "https://kriscelwa.187.127.149.196.nip.io/api" : configuredApiUrl;
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+
+        String url = baseUrl + "/sessions/" + sessionId + "/messages/send-text";
+        String chatId = number + "@c.us";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-API-Key", apiKey);
+
+        Map<String, String> payload = new HashMap<>();
+        payload.put("chatId", chatId);
+        payload.put("text", body);
+
+        try {
+            String jsonBody = objectMapper.writeValueAsString(payload);
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            String response = responseEntity.getBody();
+            String externalId = null;
+            if (response != null && !response.isBlank()) {
+                Map<String, Object> data = objectMapper.readValue(response, MAP_TYPE);
+                externalId = extractExternalId(objectMapper.valueToTree(data));
+            }
+            tryPersistCommunication("WHATSAPP", "OUT", number, body, "SENT", externalId, response, "kriscelwa");
+            notifyOutboundCommunication("whatsapp", number, body);
+            log.info("WhatsApp sent via KriscelWA to {}", number);
+        } catch (HttpStatusCodeException ex) {
+            log.error("KriscelWA API error {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw new IllegalStateException("KriscelWA API error: " + ex.getResponseBodyAsString());
+        } catch (Exception ex) {
+            log.error("KriscelWA send failed: {}", ex.getMessage());
+            throw new IllegalStateException("Failed to send WhatsApp message via KriscelWA.");
         }
     }
 
