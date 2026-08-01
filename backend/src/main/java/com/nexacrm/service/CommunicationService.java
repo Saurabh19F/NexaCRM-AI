@@ -243,7 +243,6 @@ public class CommunicationService {
         );
     }
 
-    @Async
     public void autoCallNewLeadAsync(
         String leadId,
         String leadName,
@@ -252,47 +251,70 @@ public class CommunicationService {
         String service,
         String assignedToName
     ) {
-        VoiceAgentConfig config = resolveVoiceAgentConfig();
-        if (!config.enabled() || !config.autoCallOnLeadCreate()) {
-            return;
-        }
-        if (trim(leadPhone).isBlank()) {
-            log.info("Auto-call skipped for lead {} because phone number is missing", trim(leadId));
-            return;
-        }
+        autoCallNewLeadAsync(leadId, leadName, leadPhone, company, service, assignedToName, TenantContext.currentTenantId());
+    }
 
-        String script = buildLeadCallScript(leadName, company, service);
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put("leadId", trim(leadId));
-        metadata.put("leadName", trim(leadName));
-        metadata.put("company", trim(company));
-        metadata.put("service", trim(service));
-        metadata.put("assignedTo", trim(assignedToName));
-        metadata.put("trigger", "LEAD_CREATED");
-
+    @Async
+    public void autoCallNewLeadAsync(
+        String leadId,
+        String leadName,
+        String leadPhone,
+        String company,
+        String service,
+        String assignedToName,
+        Long tenantId
+    ) {
+        if (tenantId != null) TenantContext.setCurrentTenantId(tenantId);
         try {
+            VoiceAgentConfig config = resolveVoiceAgentConfig();
+            if (!config.enabled() || !config.autoCallOnLeadCreate()) {
+                return;
+            }
+            if (trim(leadPhone).isBlank()) {
+                log.info("Auto-call skipped for lead {} because phone number is missing", trim(leadId));
+                return;
+            }
+
+            String script = buildLeadCallScript(leadName, company, service);
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("leadId", trim(leadId));
+            metadata.put("leadName", trim(leadName));
+            metadata.put("company", trim(company));
+            metadata.put("service", trim(service));
+            metadata.put("assignedTo", trim(assignedToName));
+            metadata.put("trigger", "LEAD_CREATED");
+
             sendLeadVoiceCall(leadId, leadName, leadPhone, script, "lead_auto_call", metadata);
             log.info("Auto-call queued for lead {}", trim(leadId));
         } catch (Exception ex) {
             log.warn("Auto-call failed for lead {}: {}", trim(leadId), ex.getMessage());
+        } finally {
+            TenantContext.clear();
         }
     }
 
-    @Async
     public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone) {
-        if (trim(leadPhone).isBlank()) {
-            log.info("Auto-WhatsApp skipped for lead {} because phone number is missing", trim(leadId));
-            return;
-        }
-        String name = trim(leadName).isBlank() ? "" : trim(leadName);
-        String greeting = name.isBlank()
-            ? "Hi! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!"
-            : "Hi " + name + "! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!";
+        autoWhatsAppNewLeadAsync(leadId, leadName, leadPhone, TenantContext.currentTenantId());
+    }
+
+    @Async
+    public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone, Long tenantId) {
+        if (tenantId != null) TenantContext.setCurrentTenantId(tenantId);
         try {
+            if (trim(leadPhone).isBlank()) {
+                log.info("Auto-WhatsApp skipped for lead {} because phone number is missing", trim(leadId));
+                return;
+            }
+            String name = trim(leadName).isBlank() ? "" : trim(leadName);
+            String greeting = name.isBlank()
+                ? "Hi! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!"
+                : "Hi " + name + "! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!";
             sendChannelMessage("whatsapp", leadPhone, "", greeting);
             log.info("Auto-WhatsApp welcome sent to lead {}", trim(leadId));
         } catch (Exception ex) {
             log.warn("Auto-WhatsApp failed for lead {}: {}", trim(leadId), ex.getMessage());
+        } finally {
+            TenantContext.clear();
         }
     }
 

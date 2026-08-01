@@ -250,18 +250,21 @@ public class LeadService {
             "source", saved.getSource() != null ? saved.getSource().name() : "OTHER",
             "status", saved.getStatus() != null ? saved.getStatus().name() : "NEW"
         ));
+        Long currentTenantId = TenantContext.currentTenantId();
         communicationService.autoCallNewLeadAsync(
             saved.getId(),
             saved.getName(),
             saved.getPhone(),
             saved.getCompany(),
             saved.getService(),
-            saved.getAssignedTo() != null ? saved.getAssignedTo().getName() : null
+            saved.getAssignedTo() != null ? saved.getAssignedTo().getName() : null,
+            currentTenantId
         );
         communicationService.autoWhatsAppNewLeadAsync(
             saved.getId(),
             saved.getName(),
-            saved.getPhone()
+            saved.getPhone(),
+            currentTenantId
         );
 
         log.info("Lead created: id={}, name={}", saved.getId(), saved.getName());
