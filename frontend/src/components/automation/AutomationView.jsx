@@ -73,14 +73,14 @@ const ADVANCED_TEMPLATES = [
   },
   {
     id: 'whatsapp-welcome-lead',
-    name: 'Auto WhatsApp on New Lead',
+    name: 'Auto WhatsApp + Call on New Lead',
     category: 'Communication',
     priority: 'high',
     steps: [
       { type: 'IF', text: 'trigger: LEAD_CREATED' },
       { type: 'THEN', text: 'send_whatsapp:|Hi {{name}}, thank you for reaching out! Our team will connect with you shortly.' },
       { type: 'THEN', text: 'set_lead_status:CONTACTED' },
-      { type: 'THEN', text: 'notify:WhatsApp welcome sent to new lead' },
+      { type: 'THEN', text: 'notify:Auto WhatsApp + Bolna AI call triggered for new lead' },
     ],
   },
   {

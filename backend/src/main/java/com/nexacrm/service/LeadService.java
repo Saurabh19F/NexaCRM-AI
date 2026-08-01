@@ -258,6 +258,11 @@ public class LeadService {
             saved.getService(),
             saved.getAssignedTo() != null ? saved.getAssignedTo().getName() : null
         );
+        communicationService.autoWhatsAppNewLeadAsync(
+            saved.getId(),
+            saved.getName(),
+            saved.getPhone()
+        );
 
         log.info("Lead created: id={}, name={}", saved.getId(), saved.getName());
         return toDTO(saved);

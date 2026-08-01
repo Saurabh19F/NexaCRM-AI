@@ -278,6 +278,24 @@ public class CommunicationService {
         }
     }
 
+    @Async
+    public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone) {
+        if (trim(leadPhone).isBlank()) {
+            log.info("Auto-WhatsApp skipped for lead {} because phone number is missing", trim(leadId));
+            return;
+        }
+        String name = trim(leadName).isBlank() ? "" : trim(leadName);
+        String greeting = name.isBlank()
+            ? "Hi! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!"
+            : "Hi " + name + "! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!";
+        try {
+            sendChannelMessage("whatsapp", leadPhone, "", greeting);
+            log.info("Auto-WhatsApp welcome sent to lead {}", trim(leadId));
+        } catch (Exception ex) {
+            log.warn("Auto-WhatsApp failed for lead {}: {}", trim(leadId), ex.getMessage());
+        }
+    }
+
     public List<WhatsAppMessageResponse> getWhatsAppMessages(@NonNull String contact) {
         String normalizedContact = normalizeContact(contact);
         return communicationRecordRepository

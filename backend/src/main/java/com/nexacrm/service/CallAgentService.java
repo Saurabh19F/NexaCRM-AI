@@ -748,6 +748,8 @@ public class CallAgentService {
         if (resolvedStatus != beforeStatus) {
             saveAiLeadReviewActivity(lead, beforeStatus, resolvedStatus, analysis, currentCallRow);
         }
+
+        sendPostCallIntelligenceWhatsApp(lead, analysis, resolvedStatus);
     }
 
     private void saveAiLeadReviewActivity(
@@ -788,6 +790,47 @@ public class CallAgentService {
             .build();
         activity.setTenantId(tenantId());
         leadActivityRepository.save(activity);
+    }
+
+    private void sendPostCallIntelligenceWhatsApp(Lead lead, Map<String, Object> analysis, Lead.LeadStatus resolvedStatus) {
+        String phone = trim(lead.getPhone());
+        if (phone.isBlank()) return;
+
+        String verdict = trim(stringValue(analysis.get("leadVerdict"))).toUpperCase(Locale.ROOT);
+        if ("NOT_GENUINE".equals(verdict)) return;
+
+        String name = trim(lead.getName());
+        String company = trim(lead.getCompany());
+        String service = trim(lead.getService());
+        String dealValue = lead.getDealValue() != null ? lead.getDealValue().toPlainString() : "";
+        String aiSummary = trim(stringValue(analysis.get("summary")));
+        String nextAction = trim(stringValue(analysis.get("nextBestAction")));
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("Hi");
+        if (!name.isBlank()) msg.append(" ").append(name);
+        msg.append("! Thank you for speaking with us.\n\n");
+        msg.append("Here is a summary of your enquiry:\n");
+        if (!name.isBlank()) msg.append("- Name: ").append(name).append("\n");
+        if (!company.isBlank()) msg.append("- Company: ").append(company).append("\n");
+        if (!service.isBlank()) msg.append("- Requirement: ").append(service).append("\n");
+        if (!dealValue.isBlank()) msg.append("- Budget: ").append(dealValue).append("\n");
+        if (!aiSummary.isBlank()) {
+            String shortSummary = aiSummary.length() > 200 ? aiSummary.substring(0, 200) + "..." : aiSummary;
+            msg.append("\n").append(shortSummary).append("\n");
+        }
+        msg.append("\nOur team will follow up with you shortly");
+        if (!nextAction.isBlank()) {
+            msg.append(" regarding: ").append(nextAction);
+        }
+        msg.append(". If you have any questions, feel free to message us here!");
+
+        try {
+            communicationService.sendChannelMessage("whatsapp", phone, "", msg.toString());
+            log.info("Post-call intelligence WhatsApp sent to lead {}", lead.getId());
+        } catch (Exception ex) {
+            log.warn("Post-call intelligence WhatsApp failed for lead {}: {}", lead.getId(), ex.getMessage());
+        }
     }
 
     private Lead.LeadStatus resolveLeadStatusFromAnalysis(
