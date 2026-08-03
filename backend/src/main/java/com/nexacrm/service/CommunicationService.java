@@ -293,12 +293,15 @@ public class CommunicationService {
         }
     }
 
-    public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone) {
-        autoWhatsAppNewLeadAsync(leadId, leadName, leadPhone, TenantContext.currentTenantId());
+    public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone,
+            String company, String service, String source) {
+        autoWhatsAppNewLeadAsync(leadId, leadName, leadPhone, company, service, source,
+                TenantContext.currentTenantId());
     }
 
     @Async
-    public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone, Long tenantId) {
+    public void autoWhatsAppNewLeadAsync(String leadId, String leadName, String leadPhone,
+            String company, String service, String source, Long tenantId) {
         if (tenantId != null) TenantContext.setCurrentTenantId(tenantId);
         try {
             if (trim(leadPhone).isBlank()) {
@@ -306,10 +309,25 @@ public class CommunicationService {
                 return;
             }
             String name = trim(leadName).isBlank() ? "" : trim(leadName);
-            String greeting = name.isBlank()
-                ? "Hi! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!"
-                : "Hi " + name + "! Thank you for reaching out to us. Our team will connect with you shortly. We look forward to helping you!";
-            sendChannelMessage("whatsapp", leadPhone, "", greeting);
+            String comp = trim(company).isBlank() ? "" : trim(company);
+            String svc = trim(service).isBlank() ? "" : trim(service);
+            String src = trim(source).isBlank() ? "" : trim(source);
+
+            StringBuilder msg = new StringBuilder();
+            msg.append("Hello");
+            if (!name.isBlank()) msg.append(" ").append(name);
+            msg.append("! 👋\n\n");
+            msg.append("Welcome to *Automation by SJ*! We received your enquiry");
+            if (!svc.isBlank()) msg.append(" regarding *").append(svc).append("*");
+            if (!src.isBlank()) msg.append(" via ").append(src);
+            msg.append(".\n\n");
+            if (!comp.isBlank()) msg.append("Company: ").append(comp).append("\n");
+            msg.append("We have assigned a dedicated team member to assist you. ");
+            msg.append("Our AI calling agent will reach out to you shortly to understand your requirements in detail.\n\n");
+            msg.append("In the meantime, feel free to reply here with any questions or additional details you'd like to share.\n\n");
+            msg.append("Looking forward to working with you! 🙏");
+
+            sendChannelMessage("whatsapp", leadPhone, "", msg.toString());
             log.info("Auto-WhatsApp welcome sent to lead {}", trim(leadId));
         } catch (Exception ex) {
             log.warn("Auto-WhatsApp failed for lead {}: {}", trim(leadId), ex.getMessage());
@@ -1499,7 +1517,7 @@ public class CommunicationService {
         String leadId
     ) {
         CommunicationRecord record = new CommunicationRecord();
-        record.setTenantId(1L);
+        record.setTenantId(tenantId());
         record.setChannel(channel);
         record.setDirection(direction);
         record.setBody(body);

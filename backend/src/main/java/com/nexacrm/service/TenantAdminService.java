@@ -1,8 +1,6 @@
 package com.nexacrm.service;
 
-import com.nexacrm.model.AuditLog;
 import com.nexacrm.model.Tenant;
-import com.nexacrm.repository.AuditLogRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.InvoiceRepository;
 import com.nexacrm.repository.LeadRepository;
@@ -28,7 +26,6 @@ public class TenantAdminService {
     private final LeadRepository leadRepository;
     private final DealRepository dealRepository;
     private final InvoiceRepository invoiceRepository;
-    private final AuditLogRepository auditLogRepository;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listTenants() {
@@ -143,11 +140,6 @@ public class TenantAdminService {
         return tenantSummary(tenantRepository.save(tenant));
     }
 
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> globalAuditLogs() {
-        return auditLogRepository.findTop100ByOrderByCreatedAtDesc().stream().map(this::auditRow).toList();
-    }
-
     private Map<String, Object> tenantSummary(Tenant tenant) {
         Long tenantId = tenant.getTenantId();
         long userCount = tenantId != null ? userRepository.findByTenantIdAndDeletedFalse(tenantId).size() : 0L;
@@ -175,20 +167,6 @@ public class TenantAdminService {
         row.put("invoiceCount", invoiceCount);
         row.put("createdAt", tenant.getCreatedAt());
         row.put("updatedAt", tenant.getUpdatedAt());
-        return row;
-    }
-
-    private Map<String, Object> auditRow(AuditLog auditLog) {
-        Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", auditLog.getId());
-        row.put("tenantId", auditLog.getTenantId());
-        row.put("userId", auditLog.getUserId());
-        row.put("action", auditLog.getAction());
-        row.put("entityType", auditLog.getEntityType());
-        row.put("entityId", auditLog.getEntityId());
-        row.put("ipAddress", auditLog.getIpAddress());
-        row.put("userAgent", auditLog.getUserAgent());
-        row.put("createdAt", auditLog.getCreatedAt());
         return row;
     }
 

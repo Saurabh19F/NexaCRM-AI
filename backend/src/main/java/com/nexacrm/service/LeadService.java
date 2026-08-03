@@ -264,6 +264,9 @@ public class LeadService {
             saved.getId(),
             saved.getName(),
             saved.getPhone(),
+            saved.getCompany(),
+            saved.getService(),
+            saved.getSource() != null ? saved.getSource().name() : null,
             currentTenantId
         );
 

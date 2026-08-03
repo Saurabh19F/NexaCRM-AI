@@ -806,24 +806,38 @@ public class CallAgentService {
         String aiSummary = trim(stringValue(analysis.get("summary")));
         String nextAction = trim(stringValue(analysis.get("nextBestAction")));
 
+        String assignedTo = lead.getAssignedTo() != null ? trim(lead.getAssignedTo().getName()) : "";
+        int confidence = safeConfidence(analysis);
+
         StringBuilder msg = new StringBuilder();
         msg.append("Hi");
         if (!name.isBlank()) msg.append(" ").append(name);
-        msg.append("! Thank you for speaking with us.\n\n");
-        msg.append("Here is a summary of your enquiry:\n");
-        if (!name.isBlank()) msg.append("- Name: ").append(name).append("\n");
-        if (!company.isBlank()) msg.append("- Company: ").append(company).append("\n");
-        if (!service.isBlank()) msg.append("- Requirement: ").append(service).append("\n");
-        if (!dealValue.isBlank()) msg.append("- Budget: ").append(dealValue).append("\n");
+        msg.append("! 👋\n\n");
+        msg.append("Thank you for taking the time to speak with us. We truly appreciate it.\n\n");
+        msg.append("📋 *Your Enquiry Details:*\n");
+        if (!name.isBlank()) msg.append("• *Name:* ").append(name).append("\n");
+        if (!company.isBlank()) msg.append("• *Company:* ").append(company).append("\n");
+        if (!service.isBlank()) msg.append("• *Requirement:* ").append(service).append("\n");
+        if (!dealValue.isBlank()) msg.append("• *Budget:* ₹").append(dealValue).append("\n");
+        msg.append("\n");
+
         if (!aiSummary.isBlank()) {
-            String shortSummary = aiSummary.length() > 200 ? aiSummary.substring(0, 200) + "..." : aiSummary;
-            msg.append("\n").append(shortSummary).append("\n");
+            msg.append("📝 *Conversation Summary:*\n");
+            String shortSummary = aiSummary.length() > 250 ? aiSummary.substring(0, 250) + "..." : aiSummary;
+            msg.append(shortSummary).append("\n\n");
         }
-        msg.append("\nOur team will follow up with you shortly");
+
         if (!nextAction.isBlank()) {
-            msg.append(" regarding: ").append(nextAction);
+            msg.append("🎯 *Next Step:* ").append(nextAction).append("\n\n");
         }
-        msg.append(". If you have any questions, feel free to message us here!");
+
+        if (!assignedTo.isBlank()) {
+            msg.append("Your dedicated contact person is *").append(assignedTo).append("*, who will be reaching out to you shortly.\n\n");
+        } else {
+            msg.append("A member of our team will reach out to you shortly with next steps.\n\n");
+        }
+
+        msg.append("Feel free to reply here anytime with questions or additional details. We're here to help! 🙏");
 
         try {
             communicationService.sendChannelMessage("whatsapp", phone, "", msg.toString());
@@ -1055,22 +1069,6 @@ public class CallAgentService {
             || normalized.contains("scheduled")
             || normalized.contains("follow up")
             || normalized.contains("follow-up");
-    }
-
-    private boolean isNegativeOutcome(String outcome) {
-        String normalized = trim(outcome).toLowerCase(Locale.ROOT);
-        return normalized.contains("no_answer")
-            || normalized.contains("no answer")
-            || normalized.contains("busy")
-            || normalized.contains("voicemail")
-            || normalized.contains("not_interested")
-            || normalized.contains("not interested")
-            || normalized.contains("wrong_number")
-            || normalized.contains("wrong number")
-            || normalized.contains("unreachable")
-            || normalized.contains("failed")
-            || normalized.contains("rejected")
-            || normalized.contains("disconnected");
     }
 
     private int safeConfidence(Map<String, Object> analysis) {

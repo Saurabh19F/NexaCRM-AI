@@ -208,7 +208,6 @@ public class WorkspaceSettingsService {
         defaults.put("twoFAEnabled", false);
         defaults.put("sessionTimeoutEnabled", true);
         defaults.put("sessionTimeoutMinutes", 30);
-        defaults.put("auditLogsEnabled", true);
         defaults.put("ipWhitelistEnabled", false);
         return defaults;
     }

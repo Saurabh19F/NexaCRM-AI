@@ -68,9 +68,4 @@ public class SuperAdminController {
         return ResponseEntity.ok(tenantAdminService.getBillingDashboard());
     }
 
-    @GetMapping("/audit-logs")
-    @Operation(summary = "Global audit logs")
-    public ResponseEntity<List<Map<String, Object>>> auditLogs() {
-        return ResponseEntity.ok(tenantAdminService.globalAuditLogs());
-    }
 }
