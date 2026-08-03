@@ -63,7 +63,7 @@ public class AppConfig {
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
-        factory.setReadTimeout(15000);
+        factory.setReadTimeout(8000);
         return new RestTemplate(factory);
     }
 

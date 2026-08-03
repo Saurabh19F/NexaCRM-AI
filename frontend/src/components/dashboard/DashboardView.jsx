@@ -38,10 +38,7 @@ export default function DashboardPage() {
 
   const loadExtras = useCallback(async () => {
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 15000)
       const overview = await analyticsAPI.getDashboard()
-      clearTimeout(timeout)
       if (!mountedRef.current) return
       setLiveInsights(Array.isArray(overview?.insights) ? overview.insights : [])
       setRecentCallSnapshots(Array.isArray(overview?.recentCallSnapshots) ? overview.recentCallSnapshots : [])

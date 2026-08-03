@@ -2,35 +2,25 @@ package com.nexacrm.service.dashboard;
 
 import com.nexacrm.dto.DealDTO;
 import com.nexacrm.dto.LeadDTO;
-import com.nexacrm.dto.PageResponse;
 import com.nexacrm.dto.dashboard.DashboardOverviewDTO;
 import com.nexacrm.dto.dashboard.DashboardWidgetSnapshotDTO;
 import com.nexacrm.model.CommunicationRecord;
+import com.nexacrm.model.Deal;
 import com.nexacrm.model.Lead;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.User;
-import com.nexacrm.repository.CommunicationRecordRepository;
-import com.nexacrm.repository.LeadActivityRepository;
 import com.nexacrm.security.TenantContext;
-import com.nexacrm.service.AIService;
-import com.nexacrm.service.CallAgentService;
-import com.nexacrm.service.DealService;
-import com.nexacrm.service.LeadService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.DayOfWeek;
+import java.util.Arrays;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -43,7 +33,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class DashboardAnalyticsService {
 
     private static final int PAGE_SIZE = 250;
@@ -82,22 +71,21 @@ public class DashboardAnalyticsService {
         "Other"
     );
 
-    private final LeadService leadService;
-    private final DealService dealService;
-    private final AIService aiService;
-    private final CallAgentService callAgentService;
     private final MongoTemplate mongoTemplate;
-    private final LeadActivityRepository leadActivityRepository;
-    private final CommunicationRecordRepository communicationRecordRepository;
 
     private Long tenantId() {
         return TenantContext.currentTenantId();
     }
 
     public DashboardOverviewDTO overview() {
-        List<LeadDTO> leads = fetchAllLeads();
-        List<DealDTO> deals = fetchAllDeals();
-        List<Map<String, Object>> insights = safeInsights();
+        List<org.bson.Document> leadDocs = fetchLeadDocuments();
+        Map<String, String> leadAssignments = extractAssignments(leadDocs);
+        List<LeadDTO> leads = leadDocs.stream().map(d -> docToLeadDTO(d, leadAssignments)).toList();
+
+        List<org.bson.Document> dealDocs = fetchDealDocuments();
+        List<DealDTO> deals = dealDocs.stream().map(this::docToDealDTO).toList();
+
+        List<Map<String, Object>> insights = safeDashboardInsights(leads);
         List<Map<String, Object>> recentActivity = buildRecentActivity(leads);
         List<Map<String, Object>> recentCallSnapshots = buildRecentCallSnapshots(leads);
 
@@ -112,9 +100,9 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardWidgetSnapshotDTO widgets() {
-        List<LeadDTO> leads = fetchAllLeads();
-        List<DealDTO> deals = fetchAllDeals();
         List<Lead> leadEntities = fetchLeadEntities();
+        List<org.bson.Document> dealDocs = fetchDealDocuments();
+        List<DealDTO> deals = dealDocs.stream().map(this::docToDealDTO).toList();
 
         DashboardWidgetSnapshotDTO.AgingCounts agingCounts = buildAgingCounts(leadEntities);
         DashboardWidgetSnapshotDTO.LeadSlaSummary slaSummary = buildSlaSummary(leadEntities);
@@ -134,71 +122,124 @@ public class DashboardAnalyticsService {
         );
     }
 
-    private List<LeadDTO> fetchAllLeads() {
-        List<LeadDTO> all = new ArrayList<>();
-        int page = 0;
-        int totalPages = 1;
-        do {
-            PageResponse<LeadDTO> response = leadService.findAll(
-                null,
-                null,
-                null,
-                null,
-                null,
-                PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"))
-            );
-            if (response.getContent() != null) {
-                all.addAll(response.getContent());
-            }
-            totalPages = Math.max(1, response.getTotalPages());
-            page += 1;
-        } while (page < totalPages);
-        return all;
+    private List<org.bson.Document> fetchLeadDocuments() {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").is(false));
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        return mongoTemplate.find(query, org.bson.Document.class, "leads");
     }
 
-    private List<DealDTO> fetchAllDeals() {
-        List<DealDTO> all = new ArrayList<>();
-        int page = 0;
-        int totalPages = 1;
-        do {
-            PageResponse<DealDTO> response = dealService.findAll(
-                null,
-                null,
-                null,
-                PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "updatedAt"))
-            );
-            if (response.getContent() != null) {
-                all.addAll(response.getContent());
+    private List<org.bson.Document> fetchDealDocuments() {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").ne(true));
+        query.with(Sort.by(Sort.Direction.DESC, "updatedAt"));
+        return mongoTemplate.find(query, org.bson.Document.class, "deals");
+    }
+
+    private Map<String, String> extractAssignments(List<org.bson.Document> leadDocs) {
+        Map<String, String> leadToUserId = new LinkedHashMap<>();
+        Set<String> userIds = new LinkedHashSet<>();
+        for (org.bson.Document doc : leadDocs) {
+            Object ref = doc.get("assigned_to");
+            if (ref instanceof org.bson.Document refDoc) {
+                Object uid = refDoc.get("$id");
+                if (uid != null) {
+                    String leadId = doc.getObjectId("_id").toString();
+                    leadToUserId.put(leadId, uid.toString());
+                    userIds.add(uid.toString());
+                }
             }
-            totalPages = Math.max(1, response.getTotalPages());
-            page += 1;
-        } while (page < totalPages);
-        return all;
+        }
+        if (userIds.isEmpty()) return Map.of();
+
+        Query uq = new Query(Criteria.where("_id").in(userIds));
+        uq.fields().include("name");
+        Map<String, String> userNameMap = mongoTemplate.find(uq, org.bson.Document.class, "users").stream()
+            .collect(Collectors.toMap(
+                d -> d.getObjectId("_id").toString(),
+                d -> d.getString("name") != null ? d.getString("name") : "",
+                (a, b) -> a));
+
+        Map<String, String> result = new LinkedHashMap<>();
+        leadToUserId.forEach((leadId, userId) -> {
+            String name = userNameMap.get(userId);
+            if (name != null) result.put(leadId, name);
+        });
+        return result;
+    }
+
+    private LeadDTO docToLeadDTO(org.bson.Document d, Map<String, String> leadAssignments) {
+        String id = d.getObjectId("_id").toString();
+        return LeadDTO.builder()
+            .id(id).name(d.getString("name")).email(d.getString("email")).phone(d.getString("phone"))
+            .company(d.getString("company")).designation(d.getString("designation"))
+            .service(d.getString("service")).specialization(d.getString("specialization"))
+            .source(enumOrNull(Lead.LeadSource.class, d.getString("source")))
+            .status(enumOrNull(Lead.LeadStatus.class, d.getString("status")))
+            .score(enumOrNull(Lead.LeadScore.class, d.getString("score")))
+            .priority(enumOrNull(Lead.LeadPriority.class, d.getString("priority")))
+            .dealValue(d.get("deal_value") != null ? new BigDecimal(d.get("deal_value").toString()) : null)
+            .utmSource(d.getString("utm_source")).utmMedium(d.getString("utm_medium")).utmCampaign(d.getString("utm_campaign"))
+            .aiScoreValue(d.getInteger("ai_score_value")).aiNextAction(d.getString("ai_next_action"))
+            .assignedToName(leadAssignments.get(id))
+            .tags(d.getString("tags") != null && !d.getString("tags").isBlank() ? Arrays.asList(d.getString("tags").split(",")) : null)
+            .notes(d.getString("notes"))
+            .convertedAt(docDate(d, "converted_at")).lostReason(d.getString("lost_reason"))
+            .followUpDate(docDate(d, "follow_up_date"))
+            .revenueValue(d.get("revenue_value") != null ? new BigDecimal(d.get("revenue_value").toString()) : null)
+            .facebookLeadId(d.getString("facebook_lead_id")).facebookFormId(d.getString("facebook_form_id")).facebookAdId(d.getString("facebook_ad_id"))
+            .reminder15SentAt(docDate(d, "reminder_15_sent_at")).reminder45SentAt(docDate(d, "reminder_45_sent_at"))
+            .reminder60SentAt(docDate(d, "reminder_60_sent_at")).escalatedAt(docDate(d, "escalated_at"))
+            .reassignedAt(docDate(d, "reassigned_at"))
+            .createdAt(docDate(d, "createdAt")).updatedAt(docDate(d, "updatedAt")).lastContactedAt(docDate(d, "last_contacted_at"))
+            .build();
+    }
+
+    private DealDTO docToDealDTO(org.bson.Document d) {
+        return DealDTO.builder()
+            .id(d.getObjectId("_id").toString()).title(d.getString("title")).description(d.getString("description"))
+            .stage(enumOrNull(Deal.DealStage.class, d.getString("stage")))
+            .priority(enumOrNull(Deal.DealPriority.class, d.getString("priority")))
+            .dealValue(d.get("deal_value") != null ? new BigDecimal(d.get("deal_value").toString()) : null)
+            .expectedCloseDate(docLocalDate(d, "expected_close_date")).actualCloseDate(docLocalDate(d, "actual_close_date"))
+            .winProbability(d.getInteger("win_probability"))
+            .pipelineId(d.getLong("pipeline_id"))
+            .aiScore(d.getString("ai_score")).tags(d.getString("tags")).notes(d.getString("notes"))
+            .createdAt(docDate(d, "createdAt")).updatedAt(docDate(d, "updatedAt"))
+            .build();
+    }
+
+    private <E extends Enum<E>> E enumOrNull(Class<E> cls, String val) {
+        if (val == null || val.isBlank()) return null;
+        try { return Enum.valueOf(cls, val); } catch (Exception e) { return null; }
+    }
+
+    private LocalDateTime docDate(org.bson.Document d, String key) {
+        Object v = d.get(key);
+        if (v instanceof java.util.Date date) return date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        if (v instanceof String s && !s.isBlank()) { try { return LocalDateTime.parse(s); } catch (Exception e) { return null; } }
+        return null;
+    }
+
+    private LocalDate docLocalDate(org.bson.Document d, String key) {
+        LocalDateTime dt = docDate(d, key);
+        return dt != null ? dt.toLocalDate() : null;
     }
 
     private List<Lead> fetchLeadEntities() {
-        List<Lead> all = new ArrayList<>();
-        int page = 0;
-        Query countQuery = new Query();
-        countQuery.addCriteria(Criteria.where("tenant_id").is(tenantId()));
-        countQuery.addCriteria(Criteria.where("deleted").is(false));
-        long total = mongoTemplate.count(countQuery, Lead.class);
-        int totalPages = Math.max(1, (int) Math.ceil((double) total / PAGE_SIZE));
-        do {
-            Query query = new Query();
-            query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
-            query.addCriteria(Criteria.where("deleted").is(false));
-            query.with(PageRequest.of(page, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
-            List<Lead> pageRows = mongoTemplate.find(query, Lead.class);
-            all.addAll(pageRows);
-            page += 1;
-        } while (page < totalPages);
-        return all;
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").is(false));
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        query.fields().exclude("assigned_to");
+        return mongoTemplate.find(query, Lead.class);
     }
 
-    private List<Map<String, Object>> safeInsights() {
+    private List<Map<String, Object>> safeDashboardInsights(List<LeadDTO> leads) {
         try {
-            return aiService.generateInsights();
+            return buildLocalInsightsFromDTOs(leads);
         } catch (Exception ex) {
             return List.of(Map.of(
                 "id", "insights-fallback",
@@ -210,21 +251,62 @@ public class DashboardAnalyticsService {
         }
     }
 
+    private List<Map<String, Object>> buildLocalInsightsFromDTOs(List<LeadDTO> leads) {
+        long total = leads.size();
+        long qualified = leads.stream().filter(l -> l.getStatus() == Lead.LeadStatus.QUALIFIED || l.getStatus() == Lead.LeadStatus.PROPOSAL || l.getStatus() == Lead.LeadStatus.NEGOTIATION).count();
+        long won = leads.stream().filter(l -> l.getStatus() == Lead.LeadStatus.WON).count();
+        long stale = leads.stream().filter(l -> {
+            if (l.getStatus() == null || l.getStatus() == Lead.LeadStatus.WON || l.getStatus() == Lead.LeadStatus.LOST) return false;
+            LocalDateTime ref = l.getLastContactedAt() != null ? l.getLastContactedAt() : l.getUpdatedAt();
+            return ref != null && Duration.between(ref, LocalDateTime.now()).toDays() > 7;
+        }).count();
+
+        Map<String, Long> sourceCounts = new LinkedHashMap<>();
+        for (LeadDTO l : leads) {
+            String source = l.getSource() != null ? l.getSource().name().toLowerCase(Locale.ROOT) : "unknown";
+            sourceCounts.merge(source, 1L, Long::sum);
+        }
+        Map.Entry<String, Long> topSource = sourceCounts.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .orElse(Map.entry("unknown", 0L));
+
+        List<Map<String, Object>> insights = new ArrayList<>();
+        insights.add(Map.of("id", 1, "type", "prediction", "title", "Qualified pipeline momentum",
+            "body", qualified + " of " + total + " leads are already qualified or beyond, and " + won + " have closed won.", "action", "View Profile"));
+        insights.add(Map.of("id", 2, "type", "warning", "title", "Stale follow-ups need attention",
+            "body", stale + " leads have not been touched recently and are at risk of cooling off.", "action", "Schedule Call"));
+        insights.add(Map.of("id", 3, "type", "opportunity", "title", "Strongest lead source",
+            "body", "Your most active source is " + topSource.getKey() + " with " + topSource.getValue() + " live leads.", "action", "Plan Campaign"));
+        insights.add(Map.of("id", 4, "type", "insight", "title", "Re-engagement opportunity",
+            "body", "Many active prospects still need a follow-up touch. A quick re-engagement sequence can recover momentum.", "action", "Send Follow-up"));
+        return insights;
+    }
+
     private List<Map<String, Object>> buildRecentActivity(List<LeadDTO> leads) {
         List<LeadDTO> recentLeads = leads.stream()
             .sorted(Comparator.comparing(this::leadTimestamp, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
             .limit(4)
             .toList();
 
+        Set<String> leadIds = recentLeads.stream().map(LeadDTO::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+        Query actQ = new Query();
+        actQ.addCriteria(Criteria.where("lead_id").in(leadIds));
+        actQ.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        actQ.addCriteria(Criteria.where("deleted").is(false));
+        actQ.with(Sort.by(Sort.Direction.DESC, "savedAt"));
+        List<LeadActivity> allActivities = mongoTemplate.find(actQ, LeadActivity.class);
+
+        Map<String, List<LeadActivity>> actByLead = new LinkedHashMap<>();
+        for (LeadActivity a : allActivities) {
+            actByLead.computeIfAbsent(a.getLeadId(), k -> new ArrayList<>()).add(a);
+        }
+
         List<Map<String, Object>> feed = new ArrayList<>();
         for (LeadDTO lead : recentLeads) {
-            List<LeadActivity> activities = leadActivityRepository
-                .findByLeadIdAndTenantIdAndDeletedFalseOrderBySavedAtDesc(lead.getId(), tenantId());
-
+            List<LeadActivity> activities = actByLead.getOrDefault(lead.getId(), List.of());
             for (LeadActivity activity : activities.stream().limit(2).toList()) {
                 feed.add(activityRow(lead, activity));
             }
-
             feed.add(leadRow(lead));
         }
 
@@ -276,37 +358,44 @@ public class DashboardAnalyticsService {
             .limit(5)
             .toList();
 
+        Set<String> leadIds = sortedLeads.stream().map(LeadDTO::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+        Query callQ = new Query();
+        callQ.addCriteria(Criteria.where("lead_id").in(leadIds));
+        callQ.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
+        callQ.with(Sort.by(Sort.Direction.DESC, "created_at"));
+        List<CommunicationRecord> allCalls = mongoTemplate.find(callQ, CommunicationRecord.class);
+
+        Map<String, List<CommunicationRecord>> callsByLead = new LinkedHashMap<>();
+        for (CommunicationRecord c : allCalls) {
+            callsByLead.computeIfAbsent(c.getLeadId(), k -> new ArrayList<>()).add(c);
+        }
+
         List<Map<String, Object>> snapshots = new ArrayList<>();
         for (LeadDTO lead : sortedLeads) {
-            List<CommunicationRecord> calls = communicationRecordRepository
-                .findTop50ByLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc(lead.getId(), "CALL");
+            List<CommunicationRecord> calls = callsByLead.getOrDefault(lead.getId(), List.of());
             if (calls.isEmpty()) {
                 continue;
             }
 
             try {
-                Map<String, Object> intelligence = callAgentService.getLeadCallIntelligence(lead.getId());
-                Map<String, Object> analysis = asMap(intelligence.get("analysis"));
-                List<Map<String, Object>> history = asMapList(intelligence.get("calls"));
-                Map<String, Object> latest = history.isEmpty() ? Map.of() : history.get(0);
-
-                String leadName = safeText(String.valueOf(((Map<?, ?>) intelligence.getOrDefault("lead", Map.of())).get("name")), lead.getName());
-                String company = safeText(String.valueOf(((Map<?, ?>) intelligence.getOrDefault("lead", Map.of())).get("company")), lead.getCompany());
-                String currentStatus = safeText(String.valueOf(((Map<?, ?>) intelligence.getOrDefault("lead", Map.of())).get("status")), lead.getStatus() != null ? lead.getStatus().name() : "NEW");
+                CommunicationRecord latest = calls.get(0);
+                String summary = extractCallSummaryFromRecord(latest);
+                String recordingUrl = extractFieldFromRawPayload(latest.getRawPayload(), List.of("recording_url", "recordingUrl", "recording"));
+                String verdict = lead.getScore() != null ? lead.getScore().name() : "UNCERTAIN";
+                int confidence = lead.getAiScoreValue() != null ? lead.getAiScoreValue() : 0;
 
                 Map<String, Object> snapshot = new LinkedHashMap<>();
                 snapshot.put("leadId", lead.getId());
-                snapshot.put("leadName", leadName);
-                snapshot.put("company", company);
-                snapshot.put("currentStatus", currentStatus);
-                snapshot.put("verdict", safeText(String.valueOf(analysis.getOrDefault("leadVerdict", "UNCERTAIN")), "UNCERTAIN"));
-                snapshot.put("confidence", toNumber(analysis.get("confidence")));
-                snapshot.put("summary", safeText(String.valueOf(analysis.getOrDefault("summary", latest.getOrDefault("summary", "No summary available yet."))), "No summary available yet."));
-                snapshot.put("recordingUrl", safeText(String.valueOf(latest.getOrDefault("recordingUrl", "")), ""));
-                snapshot.put("calledAt", safeText(String.valueOf(latest.getOrDefault("createdAt", lead.getLastContactedAt())), ""));
+                snapshot.put("leadName", safeText(lead.getName(), "Unknown"));
+                snapshot.put("company", safeText(lead.getCompany(), ""));
+                snapshot.put("currentStatus", lead.getStatus() != null ? lead.getStatus().name() : "NEW");
+                snapshot.put("verdict", verdict);
+                snapshot.put("confidence", confidence);
+                snapshot.put("summary", safeText(summary, "No summary available yet."));
+                snapshot.put("recordingUrl", safeText(recordingUrl, ""));
+                snapshot.put("calledAt", latest.getCreatedAt() != null ? latest.getCreatedAt().toString() : "");
                 snapshots.add(snapshot);
             } catch (Exception ignored) {
-                // Best effort: skip malformed intelligence payloads and keep the dashboard responsive.
             }
 
             if (snapshots.size() >= 3) {
@@ -315,6 +404,35 @@ public class DashboardAnalyticsService {
         }
 
         return snapshots;
+    }
+
+    private String extractCallSummaryFromRecord(CommunicationRecord call) {
+        String raw = call.getRawPayload();
+        if (raw != null && !raw.isBlank()) {
+            for (String key : List.of("summary", "note", "message")) {
+                String value = extractFieldFromRawPayload(raw, List.of(key));
+                if (!value.isBlank()) return value;
+            }
+        }
+        String body = call.getBody();
+        if (body != null && !body.isBlank()) {
+            return body.length() > 320 ? body.substring(0, 320) + "..." : body;
+        }
+        return "";
+    }
+
+    private String extractFieldFromRawPayload(String rawPayload, List<String> keys) {
+        if (rawPayload == null || rawPayload.isBlank()) return "";
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = new com.fasterxml.jackson.databind.ObjectMapper().readValue(rawPayload, Map.class);
+            for (String key : keys) {
+                Object value = parsed.get(key);
+                if (value instanceof String text && !text.isBlank()) return text.trim();
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
     }
 
     private DashboardWidgetSnapshotDTO.AgingCounts buildAgingCounts(List<Lead> leads) {

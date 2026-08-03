@@ -245,6 +245,10 @@ public class AIService {
 
     // ── Insights ─────────────────────────────────────────────────
 
+    public List<Map<String, Object>> generateLocalInsights() {
+        return buildFallbackInsights();
+    }
+
     public List<Map<String, Object>> generateInsights() {
         try {
             String prompt = """
