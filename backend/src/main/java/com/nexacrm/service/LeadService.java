@@ -314,6 +314,10 @@ public class LeadService {
         if (dto.getStatus() != null) lead.setStatus(dto.getStatus());
         if (dto.getScore() != null)  lead.setScore(dto.getScore());
         if (dto.getPriority() != null) lead.setPriority(dto.getPriority());
+        if (dto.getExpectedCloseTimeline() != null) {
+            lead.setExpectedCloseTimeline(dto.getExpectedCloseTimeline());
+            lead.setScore(scoreFromTimeline(dto.getExpectedCloseTimeline()));
+        }
         if (dto.getDealValue() != null) lead.setDealValue(dto.getDealValue());
         if (dto.getAssignedToId() != null) {
             if (dto.getAssignedToId().isBlank()) {
@@ -1557,6 +1561,14 @@ public class LeadService {
     }
 
     private int calculateLeadScoreValue(Lead lead) {
+        if (lead.getExpectedCloseTimeline() != null) {
+            return switch (lead.getExpectedCloseTimeline()) {
+                case DAYS_1_3 -> 90;
+                case DAYS_7_10 -> 65;
+                case DAYS_10_15_PLUS -> 30;
+            };
+        }
+
         int scoreValue = 10;
 
         if (lead.getEmail() != null && !lead.getEmail().isBlank()) scoreValue += 12;
@@ -1928,6 +1940,7 @@ public class LeadService {
             .facebookLeadId(l.getFacebookLeadId())
             .facebookFormId(l.getFacebookFormId())
             .facebookAdId(l.getFacebookAdId())
+            .expectedCloseTimeline(l.getExpectedCloseTimeline())
             .reminder15SentAt(l.getReminder15SentAt())
             .reminder45SentAt(l.getReminder45SentAt())
             .reminder60SentAt(l.getReminder60SentAt())
@@ -1939,7 +1952,19 @@ public class LeadService {
             .build();
     }
 
+    private Lead.LeadScore scoreFromTimeline(Lead.ExpectedCloseTimeline timeline) {
+        return switch (timeline) {
+            case DAYS_1_3 -> Lead.LeadScore.HOT;
+            case DAYS_7_10 -> Lead.LeadScore.WARM;
+            case DAYS_10_15_PLUS -> Lead.LeadScore.COLD;
+        };
+    }
+
     private Lead fromDTO(LeadDTO dto) {
+        Lead.LeadScore resolvedScore = dto.getExpectedCloseTimeline() != null
+            ? scoreFromTimeline(dto.getExpectedCloseTimeline())
+            : (dto.getScore() != null ? dto.getScore() : Lead.LeadScore.COLD);
+
         Lead.LeadBuilder builder = Lead.builder()
             .name(dto.getName())
             .email(dto.getEmail())
@@ -1950,8 +1975,9 @@ public class LeadService {
             .specialization(dto.getSpecialization())
             .source(dto.getSource())
             .status(dto.getStatus() != null ? dto.getStatus() : Lead.LeadStatus.NEW)
-            .score(dto.getScore() != null ? dto.getScore() : Lead.LeadScore.COLD)
+            .score(resolvedScore)
             .priority(dto.getPriority() != null ? dto.getPriority() : Lead.LeadPriority.MEDIUM)
+            .expectedCloseTimeline(dto.getExpectedCloseTimeline())
             .dealValue(dto.getDealValue())
             .utmSource(dto.getUtmSource())
             .utmMedium(dto.getUtmMedium())

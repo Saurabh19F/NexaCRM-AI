@@ -43,9 +43,17 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '', service: '', specialization: '',
     source: 'Website', score: 'warm', status: 'new',
-    assignedToId: '', value: '', tags: '', lostReason: ''
+    assignedToId: '', value: '', tags: '', lostReason: '', expectedCloseTimeline: ''
   })
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'expectedCloseTimeline' && value) {
+      const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
+      setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }))
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -120,6 +128,15 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
               <input name="value" type="number" value={form.value} onChange={handleChange} className="input" placeholder="100000" />
             </div>
             <div>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Expected Close Timeline</label>
+              <select name="expectedCloseTimeline" value={form.expectedCloseTimeline} onChange={handleChange} className="input">
+                <option value="">Select timeline</option>
+                <option value="DAYS_1_3">1-3 Days (Hot)</option>
+                <option value="DAYS_7_10">7-10 Days (Warm)</option>
+                <option value="DAYS_10_15_PLUS">10-15+ Days (Cold)</option>
+              </select>
+            </div>
+            <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">AI Score</label>
               <select name="score" value={form.score} onChange={handleChange} className="input">
                 <option value="hot">🔥 Hot</option>
@@ -175,8 +192,16 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
 
 /* ── Edit Lead Modal ─────────────────────────────────────────────── */
 function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
-  const [form, setForm] = useState({ ...lead, assignedToId: lead?.assignedToId || '' })
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const [form, setForm] = useState({ ...lead, assignedToId: lead?.assignedToId || '', expectedCloseTimeline: lead?.expectedCloseTimeline || '' })
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'expectedCloseTimeline' && value) {
+      const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
+      setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }))
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -232,6 +257,15 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Deal Value (₹)</label>
               <input name="value" type="number" value={form.value} onChange={handleChange} className="input" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Expected Close Timeline</label>
+              <select name="expectedCloseTimeline" value={form.expectedCloseTimeline} onChange={handleChange} className="input">
+                <option value="">Select timeline</option>
+                <option value="DAYS_1_3">1-3 Days (Hot)</option>
+                <option value="DAYS_7_10">7-10 Days (Warm)</option>
+                <option value="DAYS_10_15_PLUS">10-15+ Days (Cold)</option>
+              </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">AI Score</label>

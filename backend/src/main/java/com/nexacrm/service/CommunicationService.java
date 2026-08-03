@@ -1133,6 +1133,7 @@ public class CommunicationService {
         }
         userData.put("trigger_source", trim(triggerSource));
         userData.put("call_script", callScript);
+        userData.put("agent_instructions", buildAgentInstructions(leadName, metadata));
         String callbackWebhookUrl = resolveCallAgentWebhookUrl(config);
         if (!callbackWebhookUrl.isBlank()) {
             userData.put("callback_webhook_url", callbackWebhookUrl);
@@ -1322,11 +1323,13 @@ public class CommunicationService {
         Map<String, String> providerConfig = integrationService.getConfig("voice_call_agent");
         String template = trim(providerConfig.get("scriptTemplate"));
         if (template.isBlank()) {
-            template = "Hi {leadName}, this is {agentName} from NexaCRM. We are calling regarding your enquiry{serviceSnippet}. Is now a good time to talk?";
+            template = "Hello, kya main {leadName} ji se baat kar rahi hoon? Main Kriscel Tech se bol rahi hoon. "
+                + "Aapne recently hamari website par inquiry submit ki thi{serviceSnippet}, usi regarding connect kar rahi hoon. "
+                + "Kya abhi 2 minute baat karna convenient rahega?";
         }
 
-        String safeLeadName = trim(leadName).isBlank() ? "there" : trim(leadName);
-        String safeAgentName = trim(providerConfig.get("agentName")).isBlank() ? "our team" : trim(providerConfig.get("agentName"));
+        String safeLeadName = trim(leadName).isBlank() ? "Sir/Ma'am" : trim(leadName);
+        String safeAgentName = trim(providerConfig.get("agentName")).isBlank() ? "Kriscel Tech" : trim(providerConfig.get("agentName"));
         String safeService = trim(service);
         String safeCompany = trim(company);
         String serviceSnippet = safeService.isBlank() ? "" : " for " + safeService;
@@ -1337,6 +1340,53 @@ public class CommunicationService {
             .replace("{company}", safeCompany)
             .replace("{service}", safeService)
             .replace("{serviceSnippet}", serviceSnippet);
+    }
+
+    private String buildAgentInstructions(String leadName, Map<String, Object> metadata) {
+        String name = trim(leadName).isBlank() ? "Sir/Ma'am" : trim(leadName);
+        String company = metadata != null ? trim(String.valueOf(metadata.getOrDefault("company", ""))) : "";
+        String service = metadata != null ? trim(String.valueOf(metadata.getOrDefault("service", ""))) : "";
+        String source = metadata != null ? trim(String.valueOf(metadata.getOrDefault("source", ""))) : "";
+
+        String sourceContext = "website";
+        if (!source.isBlank()) {
+            String s = source.toLowerCase(Locale.ROOT);
+            if (s.contains("facebook") || s.contains("meta")) sourceContext = "Facebook/Instagram";
+            else if (s.contains("instagram")) sourceContext = "Instagram";
+            else if (s.contains("linkedin")) sourceContext = "LinkedIn";
+            else if (s.contains("whatsapp")) sourceContext = "WhatsApp";
+            else if (s.contains("google")) sourceContext = "Google Ads";
+        }
+
+        return """
+            IDENTITY: You are a polite, professional, friendly female sales caller for Kriscel Tech. \
+            Speak naturally in Hinglish (Hindi-English mix), adapting to the caller's preferred language. \
+            Always use female Hindi verb forms (rahi hoon, chahti hoon, karungi, leti hoon, deti hoon). \
+            Tone: warm, consultative, never pushy. Keep calls 2-4 minutes.
+
+            LEAD CONTEXT:
+            - Name: %s
+            - Company: %s
+            - Service Interest: %s
+            - Inquiry Source: %s
+
+            CALL FLOW:
+            1. INTRO: Confirm identity and inquiry source. Ask permission for 2 minutes.
+            2. RAPPORT: "Main aapki requirement thoda better samajhna chahti hoon, taaki hum exactly wahi solution suggest kar sakein."
+            3. DISCOVERY: Ask about business type, current requirement, biggest challenge, and expected timeline.
+            4. TIMELINE SCORING: Based on their expected close timeline:
+               - 1-3 days = HOT lead (ready now)
+               - 7-10 days = WARM lead (interested but not urgent)
+               - 10-15+ days or later = COLD lead (needs nurturing)
+            5. SOFT CLOSE: Offer a short demo/discussion with expert team. Suggest today evening or tomorrow morning.
+            6. PRICE OBJECTION: Never quote pricing. Say "Pricing aapki exact requirement par depend karti hai, pehle requirement samajhte hain."
+            7. CLOSURE: Note details, confirm callback time, thank them warmly.
+            8. DNC: If "not interested" or "do not call", mark DNC immediately and end politely.
+
+            DATA TO CAPTURE: business_type, requirement, challenge, timeline, demo_scheduled, preferred_channel, call_outcome (HOT/WARM/COLD/DNC), summary.
+
+            GUARDRAILS: Never argue. Never invent info. Never quote pricing. Always confirm before finalizing. Respect DNC immediately.
+            """.formatted(name, company, service, sourceContext);
     }
 
     private String extractExternalIdFromRawResponse(String responseBody) {

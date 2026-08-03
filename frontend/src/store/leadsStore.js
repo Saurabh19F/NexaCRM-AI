@@ -92,6 +92,7 @@ const toFrontendLead = (lead, index = 0) => {
     reminder60SentAt: toIso(lead?.reminder60SentAt),
     escalatedAt: toIso(lead?.escalatedAt),
     reassignedAt: toIso(lead?.reassignedAt),
+    expectedCloseTimeline: lead?.expectedCloseTimeline || '',
   }
 }
 
@@ -112,6 +113,7 @@ const toBackendLead = (lead) => ({
     .map((tag) => tag.trim())
     .filter(Boolean),
   notes: lead?.notes || null,
+  expectedCloseTimeline: lead?.expectedCloseTimeline || null,
   lastContactedAt: toBackendLocalDateTime(lead?.lastContactedAtTs || lead?.lastActivityAtTs),
   reminder15SentAt: lead?.reminder15SentAt || null,
   reminder45SentAt: lead?.reminder45SentAt || null,

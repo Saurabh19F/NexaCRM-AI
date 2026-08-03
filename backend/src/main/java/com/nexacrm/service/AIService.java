@@ -98,6 +98,11 @@ public class AIService {
               "nextAction": "<single clear action>"
             }
 
+            Scoring rules for expected close timeline (if provided):
+            - DAYS_1_3 (1-3 days) = HOT, scoreValue 85-95
+            - DAYS_7_10 (7-10 days) = WARM, scoreValue 55-75
+            - DAYS_10_15_PLUS (10-15+ days) = COLD, scoreValue 20-40
+
             Lead:
             %s
             """.formatted(buildLeadPromptData(lead));
@@ -577,6 +582,23 @@ public class AIService {
     }
 
     private Map<String, Object> buildFallbackLeadScore(Lead lead) {
+        if (lead.getExpectedCloseTimeline() != null) {
+            return switch (lead.getExpectedCloseTimeline()) {
+                case DAYS_1_3 -> Map.of(
+                    "score", "HOT", "scoreValue", 90,
+                    "reasoning", "Lead expects to close within 1-3 days — high urgency.",
+                    "nextAction", "Schedule a closing call immediately.");
+                case DAYS_7_10 -> Map.of(
+                    "score", "WARM", "scoreValue", 65,
+                    "reasoning", "Lead expects to close within 7-10 days — moderate urgency.",
+                    "nextAction", "Send a follow-up proposal and schedule a check-in.");
+                case DAYS_10_15_PLUS -> Map.of(
+                    "score", "COLD", "scoreValue", 30,
+                    "reasoning", "Lead expects to close in 10-15+ days — low urgency.",
+                    "nextAction", "Nurture the lead and check back next week.");
+            };
+        }
+
         Lead.LeadScore score = lead.getScore() != null ? lead.getScore() : Lead.LeadScore.COLD;
         Lead.LeadStatus status = lead.getStatus() != null ? lead.getStatus() : Lead.LeadStatus.NEW;
 
@@ -857,6 +879,8 @@ public class AIService {
         data.put("source", String.valueOf(lead.getSource()));
         data.put("status", String.valueOf(lead.getStatus()));
         data.put("dealValue", lead.getDealValue());
+        data.put("expectedCloseTimeline", lead.getExpectedCloseTimeline() != null
+            ? lead.getExpectedCloseTimeline().name() : null);
         return data;
     }
 

@@ -195,7 +195,21 @@ public class CallAgentService {
                 lead.setLastContactedAt(LocalDateTime.now());
             }
 
-            if ("HOT".equals(hotSignal)) {
+            Lead.ExpectedCloseTimeline detectedTimeline = resolveTimelineFromPayload(payload, metadata, outcome);
+            if (detectedTimeline != null) {
+                lead.setExpectedCloseTimeline(detectedTimeline);
+                lead.setScore(switch (detectedTimeline) {
+                    case DAYS_1_3 -> Lead.LeadScore.HOT;
+                    case DAYS_7_10 -> Lead.LeadScore.WARM;
+                    case DAYS_10_15_PLUS -> Lead.LeadScore.COLD;
+                });
+                if (detectedTimeline == Lead.ExpectedCloseTimeline.DAYS_1_3) {
+                    if (lead.getStatus() == Lead.LeadStatus.NEW || lead.getStatus() == Lead.LeadStatus.CONTACTED) {
+                        lead.setStatus(Lead.LeadStatus.QUALIFIED);
+                    }
+                    assignedLead = assignIfUnassigned(lead);
+                }
+            } else if ("HOT".equals(hotSignal)) {
                 lead.setScore(Lead.LeadScore.HOT);
                 if (lead.getStatus() == Lead.LeadStatus.NEW || lead.getStatus() == Lead.LeadStatus.CONTACTED) {
                     lead.setStatus(Lead.LeadStatus.QUALIFIED);
@@ -596,6 +610,40 @@ public class CallAgentService {
         } catch (Exception ignored) {
             return "";
         }
+    }
+
+    private Lead.ExpectedCloseTimeline resolveTimelineFromPayload(Map<String, Object> payload, Map<String, Object> metadata, String outcome) {
+        String timelineRaw = firstNonBlank(
+            stringValue(payload.get("timeline")),
+            stringValue(payload.get("expected_timeline")),
+            stringValue(payload.get("expectedCloseTimeline")),
+            stringValue(metadata.get("timeline")),
+            stringValue(metadata.get("expected_timeline")),
+            stringValue(metadata.get("expectedCloseTimeline"))
+        ).toUpperCase(Locale.ROOT).replace("-", "_").replace(" ", "_");
+
+        if (timelineRaw.contains("1_3") || timelineRaw.contains("1_TO_3") || timelineRaw.contains("DAYS_1_3")) {
+            return Lead.ExpectedCloseTimeline.DAYS_1_3;
+        }
+        if (timelineRaw.contains("7_10") || timelineRaw.contains("7_TO_10") || timelineRaw.contains("DAYS_7_10")) {
+            return Lead.ExpectedCloseTimeline.DAYS_7_10;
+        }
+        if (timelineRaw.contains("10_15") || timelineRaw.contains("15") || timelineRaw.contains("LATER")
+            || timelineRaw.contains("DAYS_10_15") || timelineRaw.contains("MONTH")) {
+            return Lead.ExpectedCloseTimeline.DAYS_10_15_PLUS;
+        }
+
+        String callOutcome = firstNonBlank(
+            stringValue(payload.get("call_outcome")),
+            stringValue(metadata.get("call_outcome")),
+            outcome
+        ).toUpperCase(Locale.ROOT);
+
+        if (callOutcome.contains("HOT")) return Lead.ExpectedCloseTimeline.DAYS_1_3;
+        if (callOutcome.contains("WARM")) return Lead.ExpectedCloseTimeline.DAYS_7_10;
+        if (callOutcome.contains("COLD")) return Lead.ExpectedCloseTimeline.DAYS_10_15_PLUS;
+
+        return null;
     }
 
     private String resolveHotSignal(Map<String, Object> payload, Map<String, Object> metadata, String outcome) {

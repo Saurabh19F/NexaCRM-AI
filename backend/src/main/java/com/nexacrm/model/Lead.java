@@ -141,9 +141,17 @@ public class Lead extends BaseEntity {
     @Field("facebook_ad_id")
     private String facebookAdId;
 
+    @Field("expected_close_timeline")
+    private ExpectedCloseTimeline expectedCloseTimeline;
+
     // Enums
     public enum LeadSource { FACEBOOK, INSTAGRAM, LINKEDIN, WEBSITE, WHATSAPP, GOOGLE_ADS, META_ADS, REFERRAL, EMAIL, OTHER }
     public enum LeadStatus { NEW, CONTACTED, QUALIFIED, PROPOSAL, NEGOTIATION, WON, LOST }
     public enum LeadScore  { HOT, WARM, COLD }
     public enum LeadPriority { HIGH, MEDIUM, LOW }
+    public enum ExpectedCloseTimeline {
+        DAYS_1_3,   // 1-3 days → HOT
+        DAYS_7_10,  // 7-10 days → WARM
+        DAYS_10_15_PLUS // 10-15+ days → COLD
+    }
 }

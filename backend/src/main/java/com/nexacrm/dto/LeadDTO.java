@@ -53,6 +53,8 @@ public class LeadDTO {
     private String facebookFormId;
     private String facebookAdId;
 
+    private Lead.ExpectedCloseTimeline expectedCloseTimeline;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastContactedAt;
