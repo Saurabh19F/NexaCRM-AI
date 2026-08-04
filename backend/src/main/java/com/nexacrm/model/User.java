@@ -157,8 +157,14 @@ public class User extends BaseEntity implements UserDetails {
         return ROLE_PERMISSIONS.getOrDefault(effectiveRole, ROLE_PERMISSIONS.get(Role.SALES_EXEC));
     }
 
+    /** Returns true for company-level admin roles */
     public static boolean isAdminLike(Role role) {
-        return role == Role.PLATFORM_ADMIN || role == Role.COMPANY_ADMIN || role == Role.ADMIN;
+        return role == Role.COMPANY_ADMIN || role == Role.ADMIN;
+    }
+
+    /** Returns true for the SaaS platform operator (not part of any company) */
+    public static boolean isPlatformAdmin(Role role) {
+        return role == Role.PLATFORM_ADMIN;
     }
 
     public static boolean isSalesLike(Role role) {

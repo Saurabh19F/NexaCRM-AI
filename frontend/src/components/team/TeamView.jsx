@@ -8,8 +8,8 @@ import { PERMISSIONS as APP_PERMISSIONS, hasPermission } from '../../utils/permi
 import { buildTeamLeaderboard } from '../../utils/liveMetrics'
 import { fetchAllPages } from '../../utils/pagination'
 
+// Company-level roles only — PLATFORM_ADMIN is a separate SaaS-level role, not part of any company
 const ROLE_CONFIG = {
-  PLATFORM_ADMIN: { label: 'Platform Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
   COMPANY_ADMIN: { label: 'Company Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
   ADMIN: { label: 'Admin', icon: Crown, cls: 'badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400' },
   MANAGER: { label: 'Manager', icon: UserCheck, cls: 'badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400' },
@@ -18,7 +18,6 @@ const ROLE_CONFIG = {
 }
 
 const ROLE_PERFORMANCE_LABEL = {
-  PLATFORM_ADMIN: 'Platform admin account',
   COMPANY_ADMIN: 'Company admin account',
   ADMIN: 'Admin account',
   MANAGER: 'Manager account',
@@ -27,7 +26,6 @@ const ROLE_PERFORMANCE_LABEL = {
 }
 
 const ROLE_PERMISSION_LABELS = {
-  PLATFORM_ADMIN: ['View all data', 'Manage companies', 'Manage subscriptions', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   COMPANY_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   MANAGER: ['View all data', 'Manage assigned team', 'View reports', 'Create campaigns', 'Export data'],
@@ -70,8 +68,8 @@ export default function TeamPage() {
   const canDeactivate = hasPermission(user, APP_PERMISSIONS.TEAM_DEACTIVATE)
   const canConfigure = hasPermission(user, APP_PERMISSIONS.SETTINGS_UPDATE)
   const isManager = user?.role === 'MANAGER'
-  const isAdminLike = ['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(user?.role)
-  const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || !['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(roleKey))
+  const isAdminLike = ['COMPANY_ADMIN', 'ADMIN'].includes(user?.role) || user?.role === 'PLATFORM_ADMIN'
+  const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || !['COMPANY_ADMIN', 'ADMIN'].includes(roleKey))
 
   useEffect(() => {
     let mounted = true
@@ -129,8 +127,8 @@ export default function TeamPage() {
       toast.error('You do not have permission to edit members.')
       return
     }
-    if (isManager && ['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(member.role)) {
-      toast.error('Managers cannot edit elevated admin users.')
+    if (isManager && ['COMPANY_ADMIN', 'ADMIN'].includes(member.role)) {
+      toast.error('Managers cannot edit admin users.')
       return
     }
     setMemberForm({
@@ -144,7 +142,7 @@ export default function TeamPage() {
     setMemberModal({ mode: 'edit', memberId: member.id })
   }
 
-  const getAdminCount = () => team.filter((member) => ['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(member.role)).length
+  const getAdminCount = () => team.filter((member) => ['COMPANY_ADMIN', 'ADMIN'].includes(member.role)).length
 
   const validateMemberForm = () => {
     const name = memberForm.name.trim()
@@ -184,7 +182,7 @@ export default function TeamPage() {
       toast.error('Select a valid role.')
       return null
     }
-    if (isManager && ['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(memberForm.role)) {
+    if (isManager && ['COMPANY_ADMIN', 'ADMIN'].includes(memberForm.role)) {
       toast.error('Managers can invite only Manager or Sales Executive.')
       return null
     }
@@ -254,7 +252,7 @@ export default function TeamPage() {
       return
     }
 
-    if (['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(currentMember.role) && !['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(memberForm.role) && getAdminCount() <= 1) {
+    if (['COMPANY_ADMIN', 'ADMIN'].includes(currentMember.role) && !['COMPANY_ADMIN', 'ADMIN'].includes(memberForm.role) && getAdminCount() <= 1) {
       toast.error('At least one admin-like account is required.')
       return
     }
@@ -298,7 +296,7 @@ export default function TeamPage() {
       toast.error('You do not have permission to deactivate members.')
       return
     }
-    if (['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(member.role) && getAdminCount() <= 1) {
+    if (['COMPANY_ADMIN', 'ADMIN'].includes(member.role) && getAdminCount() <= 1) {
       toast.error('Cannot delete the last admin-like account.')
       return
     }

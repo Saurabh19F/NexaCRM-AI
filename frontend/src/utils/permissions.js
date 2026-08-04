@@ -69,7 +69,9 @@ export const PERMISSIONS = {
 const ALL = Object.values(PERMISSIONS)
 
 export const ROLE_PERMISSIONS = {
+  // SaaS-level role — not part of any company, manages the entire platform
   PLATFORM_ADMIN: ALL,
+  // Company-level roles
   COMPANY_ADMIN: ALL,
   ADMIN: ALL,
   MANAGER: [
