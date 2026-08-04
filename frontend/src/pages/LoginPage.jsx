@@ -30,6 +30,10 @@ export default function LoginPage() {
 
       setPersistenceMode(rememberMe ? 'local' : 'session')
       login(user, accessToken, refreshToken)
+      if (user.role === 'PLATFORM_ADMIN') {
+        throw new Error('Platform Admins must use the Platform Admin login page.')
+      }
+
       toast.success(`Welcome back, ${user?.name ?? 'User'}!`)
       navigate('/dashboard')
     } catch (err) {
@@ -118,10 +122,13 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="text-center text-xs text-slate-500">
+      <div className="text-center text-xs text-slate-500 space-y-2">
         <p>Use your assigned workspace credentials to sign in.</p>
-        <p className="mt-2">
+        <p>
           Need access? <Link to="/register" className="text-brand-400 hover:text-brand-300 font-semibold">Request an invite</Link>
+        </p>
+        <p>
+          Platform Admin? <Link to="/platform/login" className="text-brand-400 hover:text-brand-300 font-semibold">Sign in here</Link>
         </p>
       </div>
     </motion.div>

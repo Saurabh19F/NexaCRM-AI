@@ -40,8 +40,13 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const { user } = useAuthStore()
   const [avatarBroken, setAvatarBroken] = useState(false)
   const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
+  const isPlatformAdmin = user?.role === 'PLATFORM_ADMIN'
   const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (item.platformAdminOnly) return user?.role === 'PLATFORM_ADMIN'
+    if (isPlatformAdmin) {
+      // Platform Admin is a SaaS-level operator — only show platform-level nav items
+      return item.platformAdminOnly || item.path === '/profile' || item.path === '/settings'
+    }
+    if (item.platformAdminOnly) return false
     return hasPermission(user, item.permission)
   })
 

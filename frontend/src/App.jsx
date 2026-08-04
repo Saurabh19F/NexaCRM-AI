@@ -27,6 +27,7 @@ const pageImports = {
   '/profile': () => import('./pages/ProfilePage'),
   '/notifications': () => import('./pages/NotificationCenterPage'),
   '/admin/saas': () => import('./pages/SaaSAdminPage'),
+  '/platform/login': () => import('./pages/PlatformLoginPage'),
 }
 
 export const prefetchPage = (path) => {
@@ -52,6 +53,7 @@ const IntegrationsPage = lazy(pageImports['/integrations'])
 const ProfilePage = lazy(pageImports['/profile'])
 const NotificationCenterPage = lazy(pageImports['/notifications'])
 const SaaSAdminPage = lazy(pageImports['/admin/saas'])
+const PlatformLoginPage = lazy(pageImports['/platform/login'])
 
 function RouteFallback() {
   return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
@@ -141,6 +143,11 @@ function RoleRoute({ role, children }) {
   )
 }
 
+function PlatformAdminRedirect() {
+  const { user } = useAuthStore()
+  return <Navigate to={user?.role === 'PLATFORM_ADMIN' ? '/admin/saas' : '/dashboard'} replace />
+}
+
 export default function App() {
   const { theme } = useThemeStore()
   const { authBootstrapped, isAuthenticated, token, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
@@ -214,6 +221,8 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
           </Route>
+          {/* Platform Admin login — separate full-page layout */}
+          <Route path="/platform/login" element={<PlatformLoginPage />} />
 
           {/* App routes */}
           <Route
@@ -223,7 +232,7 @@ export default function App() {
               </PrivateRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<PlatformAdminRedirect />} />
             <Route path="/dashboard" element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><DashboardPage /></PermissionRoute>} />
             <Route path="/leads" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><LeadsPage /></PermissionRoute>} />
             <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.DEALS_READ}><KanbanPage /></PermissionRoute>} />
@@ -243,7 +252,7 @@ export default function App() {
           </Route>
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<PlatformAdminRedirect />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
