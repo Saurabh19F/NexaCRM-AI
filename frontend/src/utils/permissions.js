@@ -69,7 +69,7 @@ export const PERMISSIONS = {
 const ALL = Object.values(PERMISSIONS)
 
 export const ROLE_PERMISSIONS = {
-  SUPER_ADMIN: ALL,
+  PLATFORM_ADMIN: ALL,
   COMPANY_ADMIN: ALL,
   ADMIN: ALL,
   MANAGER: [

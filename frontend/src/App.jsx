@@ -125,7 +125,7 @@ function RoleRoute({ role, children }) {
     <div className="min-h-screen grid place-items-center bg-slate-50 dark:bg-slate-950 px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center shadow-lg">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500">Access denied</p>
-        <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">Super admin access required</h2>
+        <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">Platform Admin access required</h2>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           This section is reserved for platform operators.
         </p>
@@ -239,7 +239,7 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_READ}><IntegrationsPage /></PermissionRoute>} />
             <Route path="/settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><SettingsPage /></PermissionRoute>} />
-            <Route path="/admin/saas" element={<RoleRoute role="SUPER_ADMIN"><SaaSAdminPage /></RoleRoute>} />
+            <Route path="/admin/saas" element={<RoleRoute role="PLATFORM_ADMIN"><SaaSAdminPage /></RoleRoute>} />
           </Route>
 
           {/* Fallback */}

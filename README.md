@@ -84,7 +84,7 @@ NexaCRM AI/
 
 | Email | Password | Role |
 |-------|----------|------|
-| superadmin@nexacrm.com | demo1234 | Super Admin |
+| platformadmin@nexacrm.com | demo1234 | Platform Admin |
 | companyadmin@nexacrm.com | demo1234 | Company Admin |
 | saurabhke4@gmail.com | demo1234 | Admin |
 | priya@nexacrm.com | demo1234 | Manager |

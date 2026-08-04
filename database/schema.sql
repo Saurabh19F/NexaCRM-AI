@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
     name            VARCHAR(255) NOT NULL,
     email           VARCHAR(255) NOT NULL,
     password        VARCHAR(512) NOT NULL,
-    role            VARCHAR(30) NOT NULL CHECK (role IN ('SUPER_ADMIN','COMPANY_ADMIN','ADMIN','MANAGER','SALES_EXEC','NORMAL_USER')),
+    role            VARCHAR(30) NOT NULL CHECK (role IN ('PLATFORM_ADMIN','COMPANY_ADMIN','ADMIN','MANAGER','SALES_EXEC','NORMAL_USER')),
     phone           VARCHAR(20),
     avatar_url      TEXT,
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,

@@ -8,7 +8,7 @@ import { authAPI } from '../services/api'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ROLE_PERMISSIONS = {
-  SUPER_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
+  PLATFORM_ADMIN: ['View all data', 'Manage companies', 'Manage subscriptions', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   COMPANY_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
   MANAGER: ['View all data', 'Manage assigned team', 'View reports', 'Create campaigns', 'Export data'],
@@ -63,7 +63,7 @@ export default function ProfilePage() {
   const role = user?.role || 'SALES_EXEC'
   const status = user?.isActive === false ? 'Inactive' : 'Active'
   const permissions = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.SALES_EXEC
-  const assignedTeam = user?.assignedTeam || (['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(role) ? 'All Teams' : role === 'MANAGER' ? 'Sales Team' : 'Assigned Leads Queue')
+  const assignedTeam = user?.assignedTeam || (['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN'].includes(role) ? 'All Teams' : role === 'MANAGER' ? 'Sales Team' : 'Assigned Leads Queue')
 
   const leadsCreated = user?.activitySummary?.leadsCreated ?? (leads?.length ?? 0)
   const dealsClosed = user?.activitySummary?.dealsClosed ?? 0

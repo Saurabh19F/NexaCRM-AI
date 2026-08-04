@@ -181,7 +181,7 @@ const formatActivityTime = (value) => {
 
 export default function LeadConversionDashboard() {
   const { user } = useAuthStore()
-  const isFullAccess = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'ADMIN', 'MANAGER'].includes(user?.role)
+  const isFullAccess = ['PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN', 'MANAGER'].includes(user?.role)
   const dateFilterRef = useRef(null)
   const [filter, setFilter] = useState('thisMonth')
   const [dateMenuOpen, setDateMenuOpen] = useState(false)

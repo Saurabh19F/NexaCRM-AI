@@ -1,25 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import { BadgeDollarSign, Building2, CheckCircle2, CircleOff, RefreshCw, Shield, Sparkles, BarChart3, FileText, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import {
+  BadgeDollarSign, Building2, CheckCircle2, CircleOff, RefreshCw, Shield,
+  Sparkles, BarChart3, FileText, Pencil, Plus, Trash2, Users, Lock,
+  Activity, Eye, UserX, UserCheck, Crown, Search, ChevronDown, ToggleLeft,
+  ToggleRight, ShieldCheck, ShieldAlert, KeyRound, Globe, Server, Database,
+  Layers, Zap, Settings, X
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
-import { superAdminAPI } from '../services/api'
+import { platformAdminAPI } from '../services/api'
 
-const EMPTY_FORM = {
-  id: '',
-  name: '',
-  slug: '',
-  plan: 'TRIAL',
-  billingStatus: 'TRIAL',
-  isActive: true,
-  maxUsers: 5,
-  logoUrl: '',
-  trialEndsAt: '',
-  subscriptionStartedAt: '',
-  subscriptionEndsAt: '',
-  featureFlagsJson: '{}',
-  usageLimitsJson: '{}',
-}
-
+// ── Helpers ─────────────────────────────────────────────────────
 const formatDate = (value) => {
   if (!value) return '—'
   const date = new Date(value)
@@ -28,11 +19,7 @@ const formatDate = (value) => {
 }
 
 const stringifyJson = (value) => {
-  try {
-    return JSON.stringify(value ?? {}, null, 2)
-  } catch {
-    return '{}'
-  }
+  try { return JSON.stringify(value ?? {}, null, 2) } catch { return '{}' }
 }
 
 const parseJson = (value) => {
@@ -40,68 +27,782 @@ const parseJson = (value) => {
   return JSON.parse(value)
 }
 
+const EMPTY_FORM = {
+  id: '', name: '', slug: '', plan: 'TRIAL', billingStatus: 'TRIAL',
+  isActive: true, maxUsers: 5, logoUrl: '',
+  trialEndsAt: '', subscriptionStartedAt: '', subscriptionEndsAt: '',
+  featureFlagsJson: '{}', usageLimitsJson: '{}',
+}
+
+const TABS = [
+  { key: 'overview',      label: 'Overview',       icon: Activity },
+  { key: 'companies',     label: 'Companies',      icon: Building2 },
+  { key: 'users',         label: 'Users',          icon: Users },
+  { key: 'subscriptions', label: 'Subscriptions',  icon: BadgeDollarSign },
+  { key: 'security',      label: 'Security',       icon: Lock },
+  { key: 'features',      label: 'Feature Flags',  icon: Zap },
+  { key: 'audit',         label: 'Audit Logs',     icon: FileText },
+]
+
+const ROLE_LABELS = {
+  PLATFORM_ADMIN: 'Platform Admin',
+  COMPANY_ADMIN: 'Company Admin',
+  ADMIN: 'Admin',
+  MANAGER: 'Manager',
+  SALES_EXEC: 'Sales Exec',
+  NORMAL_USER: 'Normal User',
+}
+
+const ROLE_COLORS = {
+  PLATFORM_ADMIN: 'bg-purple-100 text-purple-800 dark:bg-purple-950/30 dark:text-purple-400',
+  COMPANY_ADMIN: 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400',
+  ADMIN: 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400',
+  MANAGER: 'bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400',
+  SALES_EXEC: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
+  NORMAL_USER: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
+}
+
+// ── Skeleton ────────────────────────────────────────────────────
+const Skeleton = ({ count = 4, h = 'h-24' }) => (
+  <div className="space-y-3">
+    {[...Array(count)].map((_, i) => (
+      <div key={i} className={`${h} animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60`} />
+    ))}
+  </div>
+)
+
+// ── KPI Card ────────────────────────────────────────────────────
+const KpiCard = ({ label, value, icon: Icon, color = 'text-brand-500', sub }) => (
+  <div className="kpi-card">
+    <div className="flex items-center justify-between">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
+      {Icon && <Icon className={`h-4.5 w-4.5 ${color}`} />}
+    </div>
+    <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
+    {sub && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{sub}</p>}
+  </div>
+)
+
+// ── Section Card ────────────────────────────────────────────────
+const SectionCard = ({ title, subtitle, icon: Icon, iconColor = 'text-brand-500', children, actions }) => (
+  <div className="glass-card p-4">
+    <div className="mb-4 flex items-center justify-between">
+      <div>
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
+        {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
+      </div>
+      <div className="flex items-center gap-2">
+        {actions}
+        {Icon && <Icon className={`h-5 w-5 ${iconColor}`} />}
+      </div>
+    </div>
+    {children}
+  </div>
+)
+
+// ═════════════════════════════════════════════════════════════════
+//  OVERVIEW TAB
+// ═════════════════════════════════════════════════════════════════
+function OverviewTab({ overview, billing, loading }) {
+  if (loading) return <Skeleton count={6} h="h-20" />
+
+  const o = overview || {}
+  const b = billing || {}
+
+  return (
+    <div className="space-y-6">
+      {/* Top KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Total Companies" value={o.totalCompanies ?? 0} icon={Building2} color="text-brand-500" sub={`${o.activeCompanies ?? 0} active`} />
+        <KpiCard label="Total Users" value={o.totalUsers ?? 0} icon={Users} color="text-cyan-500" sub={`${o.activeUsers ?? 0} active`} />
+        <KpiCard label="Total Leads" value={o.totalLeads ?? 0} icon={Layers} color="text-emerald-500" />
+        <KpiCard label="Total Deals" value={o.totalDeals ?? 0} icon={BadgeDollarSign} color="text-amber-500" />
+      </div>
+
+      {/* Second row */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Total Invoices" value={o.totalInvoices ?? 0} icon={FileText} color="text-rose-500" />
+        <KpiCard label="Workflows" value={o.totalWorkflows ?? 0} icon={Zap} color="text-violet-500" />
+        <KpiCard label="Integrations" value={o.totalIntegrations ?? 0} icon={Globe} color="text-teal-500" />
+        <KpiCard label="2FA Enabled" value={o.twoFaUsers ?? 0} icon={ShieldCheck} color="text-green-500" sub={`of ${o.totalUsers ?? 0} users`} />
+      </div>
+
+      {/* Breakdowns */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Users by Role" icon={Crown} iconColor="text-amber-500">
+          <div className="space-y-2">
+            {Object.entries(o.roleBreakdown || {}).map(([role, count]) => (
+              <div key={role} className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-2.5 dark:border-slate-800/70 dark:bg-slate-950/40">
+                <div className="flex items-center gap-2">
+                  <span className={`badge text-xs ${ROLE_COLORS[role] || 'bg-slate-100 text-slate-600'}`}>{ROLE_LABELS[role] || role}</span>
+                </div>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{count}</span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Companies by Plan" icon={BadgeDollarSign} iconColor="text-emerald-500">
+          <div className="space-y-2">
+            {Object.entries(o.planBreakdown || {}).map(([plan, count]) => (
+              <div key={plan} className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-2.5 dark:border-slate-800/70 dark:bg-slate-950/40">
+                <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-300 text-xs">{plan}</span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{count}</span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      {/* Billing summary */}
+      <SectionCard title="Billing Summary" subtitle="Subscription health across all companies" icon={BadgeDollarSign} iconColor="text-emerald-500">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200/70 bg-white/70 p-3 text-center dark:border-slate-800/70 dark:bg-slate-950/40">
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{b.totalTenants ?? 0}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/50 p-3 text-center dark:border-emerald-900/30 dark:bg-emerald-950/20">
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{b.activeTenants ?? 0}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-500">Active</p>
+          </div>
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/50 p-3 text-center dark:border-amber-900/30 dark:bg-amber-950/20">
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{b.trialTenants ?? 0}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-500">On Trial</p>
+          </div>
+          <div className="rounded-xl border border-rose-200/70 bg-rose-50/50 p-3 text-center dark:border-rose-900/30 dark:bg-rose-950/20">
+            <p className="text-2xl font-bold text-rose-700 dark:text-rose-400">{b.expiringSoon ?? 0}</p>
+            <p className="text-xs text-rose-600 dark:text-rose-500">Expiring Soon</p>
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  COMPANIES TAB
+// ═════════════════════════════════════════════════════════════════
+function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, updateForm, submitTenant, saving, toggleTenant, onNewTenant }) {
+  const [search, setSearch] = useState('')
+  const filtered = tenants.filter((t) =>
+    !search || t.name?.toLowerCase().includes(search.toLowerCase()) || t.slug?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      <div className="space-y-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text" placeholder="Search companies..." value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input pl-10"
+          />
+        </div>
+
+        <SectionCard title="Companies" subtitle={`${filtered.length} compan${filtered.length === 1 ? 'y' : 'ies'}`} icon={Building2} iconColor="text-brand-500"
+          actions={<button type="button" onClick={onNewTenant} className="btn-primary h-8 px-3 text-xs"><Plus className="h-3.5 w-3.5" />New</button>}
+        >
+          {loading ? <Skeleton /> : (
+            <div className="space-y-3 max-h-[36rem] overflow-y-auto custom-scrollbar">
+              {filtered.map((tenant) => {
+                const isSelected = selectedTenant?.id === tenant.id
+                return (
+                  <div key={tenant.id}
+                    className={`rounded-2xl border p-4 transition cursor-pointer ${
+                      isSelected
+                        ? 'border-brand-300 bg-brand-50/40 dark:border-brand-900/50 dark:bg-brand-950/20'
+                        : 'border-slate-200/70 bg-white/70 hover:border-slate-300 dark:border-slate-800/70 dark:bg-slate-950/40 dark:hover:border-slate-700'
+                    }`}
+                    onClick={() => onSelectTenant(tenant)}
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{tenant.name}</h3>
+                          <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-xs">{tenant.plan}</span>
+                          {tenant.isActive ? (
+                            <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-xs">
+                              <CheckCircle2 className="mr-1 h-3 w-3" />Active
+                            </span>
+                          ) : (
+                            <span className="badge bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 text-xs">
+                              <CircleOff className="mr-1 h-3 w-3" />Inactive
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                          {tenant.slug} · {tenant.billingStatus || 'TRIAL'} · Trial ends {formatDate(tenant.trialEndsAt)}
+                        </p>
+                        <div className="mt-2 grid gap-1.5 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-2">
+                          <span>Users: {tenant.userCount ?? 0}/{tenant.maxUsers ?? 0}</span>
+                          <span>Leads: {tenant.leadCount ?? 0}</span>
+                          <span>Deals: {tenant.dealCount ?? 0}</span>
+                          <span>Invoices: {tenant.invoiceCount ?? 0}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" onClick={() => onSelectTenant(tenant)} className="btn-ghost h-8 px-2.5 text-xs">
+                          <Pencil className="h-3.5 w-3.5" />Edit
+                        </button>
+                        {tenant.isActive ? (
+                          <button type="button" onClick={() => toggleTenant(tenant, false)} className="btn-ghost h-8 px-2.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                            <CircleOff className="h-3.5 w-3.5" />Deactivate
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => toggleTenant(tenant, true)} className="btn-secondary h-8 px-2.5 text-xs">
+                            <CheckCircle2 className="h-3.5 w-3.5" />Activate
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {filtered.length === 0 && (
+                <p className="text-center text-sm text-slate-400 py-8">No companies found</p>
+              )}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Edit / Create form */}
+      <SectionCard title={form.id ? 'Edit Company' : 'Create Company'} subtitle="Manage plan, limits, flags and lifecycle" icon={Sparkles} iconColor="text-brand-500">
+        <form onSubmit={submitTenant} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Company name</label>
+              <input name="name" value={form.name} onChange={updateForm} className="input" required />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Slug</label>
+              <input name="slug" value={form.slug} onChange={updateForm} className="input" placeholder="acme-crm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Plan</label>
+              <select name="plan" value={form.plan} onChange={updateForm} className="input">
+                {['TRIAL', 'STARTER', 'BUSINESS', 'ENTERPRISE'].map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Billing Status</label>
+              <input name="billingStatus" value={form.billingStatus} onChange={updateForm} className="input" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Max Users</label>
+              <input name="maxUsers" type="number" min="1" value={form.maxUsers} onChange={updateForm} className="input" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Logo URL</label>
+              <input name="logoUrl" value={form.logoUrl} onChange={updateForm} className="input" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Trial ends</label>
+              <input name="trialEndsAt" type="datetime-local" value={form.trialEndsAt} onChange={updateForm} className="input" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Subscription starts</label>
+              <input name="subscriptionStartedAt" type="datetime-local" value={form.subscriptionStartedAt} onChange={updateForm} className="input" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Subscription ends</label>
+              <input name="subscriptionEndsAt" type="datetime-local" value={form.subscriptionEndsAt} onChange={updateForm} className="input" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Feature flags JSON</label>
+              <textarea name="featureFlagsJson" rows={8} value={form.featureFlagsJson} onChange={updateForm} className="input font-mono text-xs" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Usage limits JSON</label>
+              <textarea name="usageLimitsJson" rows={8} value={form.usageLimitsJson} onChange={updateForm} className="input font-mono text-xs" />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input type="checkbox" name="isActive" checked={form.isActive} onChange={updateForm} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+            Active company
+          </label>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <button type="button" onClick={onNewTenant} className="btn-secondary flex-1">New blank</button>
+            <button type="submit" className="btn-primary flex-1" disabled={saving}>
+              {saving ? 'Saving...' : form.id ? 'Update company' : 'Create company'}
+            </button>
+          </div>
+        </form>
+      </SectionCard>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  USERS TAB
+// ═════════════════════════════════════════════════════════════════
+function UsersTab({ loading, refreshData }) {
+  const [users, setUsers] = useState([])
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [loadingUsers, setLoadingUsers] = useState(true)
+
+  const loadUsers = useCallback(async () => {
+    setLoadingUsers(true)
+    try {
+      const data = await platformAdminAPI.getAllUsers()
+      setUsers(Array.isArray(data) ? data : [])
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load users')
+    } finally {
+      setLoadingUsers(false)
+    }
+  }, [])
+
+  useEffect(() => { loadUsers() }, [loadUsers])
+
+  const filtered = users.filter((u) => {
+    if (roleFilter && u.role !== roleFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.tenantName?.toLowerCase().includes(q)
+    }
+    return true
+  })
+
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      await platformAdminAPI.changeUserRole(userId, newRole)
+      toast.success('Role updated')
+      await loadUsers()
+      refreshData()
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update role')
+    }
+  }
+
+  const handleToggleActive = async (user) => {
+    try {
+      if (user.isActive) {
+        await platformAdminAPI.deactivateUser(user.id)
+        toast.success('User deactivated')
+      } else {
+        await platformAdminAPI.activateUser(user.id)
+        toast.success('User activated')
+      }
+      await loadUsers()
+      refreshData()
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update user')
+    }
+  }
+
+  const activeCount = users.filter((u) => u.isActive).length
+  const inactiveCount = users.length - activeCount
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Total Users" value={users.length} icon={Users} color="text-brand-500" />
+        <KpiCard label="Active" value={activeCount} icon={UserCheck} color="text-emerald-500" />
+        <KpiCard label="Inactive" value={inactiveCount} icon={UserX} color="text-rose-500" />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input type="text" placeholder="Search by name, email, or company..." value={search}
+            onChange={(e) => setSearch(e.target.value)} className="input pl-10" />
+        </div>
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-auto min-w-[160px]">
+          <option value="">All roles</option>
+          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <button type="button" onClick={loadUsers} className="btn-secondary"><RefreshCw className="h-4 w-4" /></button>
+      </div>
+
+      {/* Users table */}
+      <SectionCard title="All Platform Users" subtitle={`${filtered.length} user${filtered.length === 1 ? '' : 's'} shown`} icon={Users} iconColor="text-cyan-500">
+        {loadingUsers ? <Skeleton count={6} h="h-14" /> : (
+          <div className="max-h-[32rem] overflow-y-auto custom-scrollbar">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-left">
+                    <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-slate-500">User</th>
+                    <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Company</th>
+                    <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Role</th>
+                    <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                    <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-slate-500">2FA</th>
+                    <th className="pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((u) => (
+                    <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                      <td className="py-3 pr-4">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{u.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{u.email}</p>
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-slate-600 dark:text-slate-400">{u.tenantName}</td>
+                      <td className="py-3 pr-4">
+                        <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                          className="input h-7 py-0 text-xs w-auto min-w-[130px]">
+                          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                      </td>
+                      <td className="py-3 pr-4">
+                        {u.isActive ? (
+                          <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-xs">Active</span>
+                        ) : (
+                          <span className="badge bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 text-xs">Inactive</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {u.twoFaEnabled ? (
+                          <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <ShieldAlert className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <button type="button" onClick={() => handleToggleActive(u)}
+                          className={`btn-ghost h-7 px-2 text-xs ${u.isActive ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}`}>
+                          {u.isActive ? <><UserX className="h-3.5 w-3.5" />Deactivate</> : <><UserCheck className="h-3.5 w-3.5" />Activate</>}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filtered.length === 0 && (
+                <p className="text-center text-sm text-slate-400 py-8">No users match your filters</p>
+              )}
+            </div>
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  SUBSCRIPTIONS TAB
+// ═════════════════════════════════════════════════════════════════
+function SubscriptionsTab({ plans, billing, tenants, loading }) {
+  if (loading) return <Skeleton count={4} h="h-32" />
+
+  const b = billing || {}
+  const planCounts = {}
+  tenants.forEach((t) => { const p = (t.plan || 'TRIAL').toUpperCase(); planCounts[p] = (planCounts[p] || 0) + 1 })
+
+  return (
+    <div className="space-y-6">
+      {/* Billing KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Total Companies" value={b.totalTenants ?? 0} icon={Building2} color="text-brand-500" />
+        <KpiCard label="Active Subscriptions" value={b.activeTenants ?? 0} icon={CheckCircle2} color="text-emerald-500" />
+        <KpiCard label="On Trial" value={b.trialTenants ?? 0} icon={Activity} color="text-amber-500" />
+        <KpiCard label="Expiring Soon" value={b.expiringSoon ?? 0} icon={ShieldAlert} color="text-rose-500" sub="Within 7 days" />
+      </div>
+
+      {/* Plans */}
+      <SectionCard title="Subscription Plans" subtitle="Pricing and limit presets" icon={BadgeDollarSign} iconColor="text-emerald-500">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {plans.map((plan) => (
+            <div key={plan.name} className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{plan.name}</p>
+                  <p className="mt-1 text-lg font-bold text-brand-600 dark:text-brand-400">₹{(plan.priceInRupees || 0).toLocaleString()}<span className="text-xs font-normal text-slate-500"> /month</span></p>
+                </div>
+                <div className="text-right">
+                  <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-300">{plan.maxUsers} users</span>
+                  <p className="mt-1 text-xs text-slate-500">{planCounts[plan.name] || 0} companies</p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{plan.features}</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">Trial {plan.trialDays} days</p>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Companies by subscription status */}
+      <SectionCard title="Company Subscriptions" subtitle="Status of all company subscriptions" icon={Layers} iconColor="text-violet-500">
+        <div className="max-h-[24rem] overflow-y-auto custom-scrollbar space-y-2">
+          {tenants.map((t) => (
+            <div key={t.id} className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-3 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t.billingStatus || 'TRIAL'} · Ends {formatDate(t.subscriptionEndsAt || t.trialEndsAt)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-xs">{t.plan}</span>
+                {t.isActive ? (
+                  <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-xs">Active</span>
+                ) : (
+                  <span className="badge bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 text-xs">Inactive</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  SECURITY TAB
+// ═════════════════════════════════════════════════════════════════
+function SecurityTab({ loading }) {
+  const [security, setSecurity] = useState(null)
+  const [loadingSec, setLoadingSec] = useState(true)
+
+  useEffect(() => {
+    (async () => {
+      setLoadingSec(true)
+      try {
+        const data = await platformAdminAPI.getSecurity()
+        setSecurity(data || null)
+      } catch (err) {
+        toast.error(err?.message || 'Failed to load security data')
+      } finally {
+        setLoadingSec(false)
+      }
+    })()
+  }, [])
+
+  if (loadingSec) return <Skeleton count={5} h="h-16" />
+  const s = security || {}
+
+  return (
+    <div className="space-y-6">
+      {/* Security KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Total Users" value={s.totalUsers ?? 0} icon={Users} color="text-brand-500" />
+        <KpiCard label="Active Users" value={s.activeUsers ?? 0} icon={UserCheck} color="text-emerald-500" />
+        <KpiCard label="2FA Enabled" value={s.twoFaEnabled ?? 0} icon={ShieldCheck} color="text-green-500" sub={`${s.twoFaPercent ?? 0}% adoption`} />
+        <KpiCard label="Platform Admins" value={s.platformAdmins ?? 0} icon={Crown} color="text-purple-500" />
+      </div>
+
+      {/* 2FA progress bar */}
+      <SectionCard title="Two-Factor Authentication Adoption" icon={KeyRound} iconColor="text-green-500">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600 dark:text-slate-400">{s.twoFaEnabled ?? 0} of {s.totalUsers ?? 0} users have 2FA enabled</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{s.twoFaPercent ?? 0}%</span>
+          </div>
+          <div className="h-3 w-full rounded-full bg-slate-200 dark:bg-slate-800">
+            <div className="h-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all" style={{ width: `${Math.min(s.twoFaPercent ?? 0, 100)}%` }} />
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Security policies */}
+      <SectionCard title="Security Policies" subtitle="Active platform security controls" icon={Shield} iconColor="text-brand-500">
+        <div className="space-y-2">
+          {(s.policies || []).map((policy, i) => (
+            <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-3 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{policy.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{policy.description}</p>
+              </div>
+              <span className={`badge text-xs ${
+                policy.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' :
+                'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
+              }`}>
+                {policy.status === 'ACTIVE' ? <CheckCircle2 className="mr-1 h-3 w-3" /> : <Activity className="mr-1 h-3 w-3" />}
+                {policy.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* Admin accounts */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SectionCard title="Access Control Summary" icon={Lock} iconColor="text-violet-500">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-2.5 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <span className="text-sm text-slate-600 dark:text-slate-400">Platform Admins</span>
+              <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">{s.platformAdmins ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-2.5 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <span className="text-sm text-slate-600 dark:text-slate-400">Company Admins</span>
+              <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{s.companyAdmins ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-2.5 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <span className="text-sm text-slate-600 dark:text-slate-400">Active Users</span>
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{s.activeUsers ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-4 py-2.5 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <span className="text-sm text-slate-600 dark:text-slate-400">Inactive Users</span>
+              <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">{s.inactiveUsers ?? 0}</span>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Data Isolation" icon={Database} iconColor="text-teal-500">
+          <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Multi-Tenant Isolation Active</p>
+              </div>
+              <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">Each company's data is isolated by tenant ID. Users can only access data belonging to their own company.</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Soft Delete Enabled</p>
+              </div>
+              <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">Records are soft-deleted (marked as deleted) for data recovery and audit compliance.</p>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  FEATURE FLAGS TAB
+// ═════════════════════════════════════════════════════════════════
+function FeatureFlagsTab({ featureFlags, loading }) {
+  if (loading) return <Skeleton count={5} h="h-16" />
+  return (
+    <SectionCard title="Platform Feature Flags" subtitle="Capabilities available across all companies" icon={Zap} iconColor="text-violet-500">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {featureFlags.map((flag) => (
+          <div key={flag.key} className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-800/70 dark:bg-slate-950/40">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{flag.label}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{flag.description}</p>
+              </div>
+              <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-xs">
+                <CheckCircle2 className="mr-1 h-3 w-3" />Enabled
+              </span>
+            </div>
+            <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-slate-400">{flag.key}</p>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  AUDIT LOGS TAB
+// ═════════════════════════════════════════════════════════════════
+function AuditLogsTab({ auditLogs, loading }) {
+  const [search, setSearch] = useState('')
+  const filtered = auditLogs.filter((log) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return log.userName?.toLowerCase().includes(q) || log.userEmail?.toLowerCase().includes(q) || log.action?.toLowerCase().includes(q)
+  })
+
+  if (loading) return <Skeleton count={6} h="h-14" />
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input type="text" placeholder="Search audit logs..." value={search}
+          onChange={(e) => setSearch(e.target.value)} className="input pl-10" />
+      </div>
+
+      <SectionCard title="Global Audit Trail" subtitle={`${filtered.length} recent events`} icon={FileText} iconColor="text-slate-500">
+        <div className="max-h-[36rem] overflow-y-auto custom-scrollbar space-y-2">
+          {filtered.map((log) => (
+            <div key={log.id} className="rounded-xl border border-slate-200/70 bg-white/70 p-3 dark:border-slate-800/70 dark:bg-slate-950/40">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{log.userName || 'Unknown'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{log.userEmail} · <span className={`${ROLE_COLORS[log.role]?.split(' ')[1] || 'text-slate-600'}`}>{ROLE_LABELS[log.role] || log.role}</span></p>
+                </div>
+                <div className="text-right">
+                  <span className={`badge text-xs ${log.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'}`}>
+                    {log.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  <p className="mt-1 text-[11px] text-slate-400">{formatDate(log.updatedAt)}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Tenant {log.tenantId || 'global'} · Created {formatDate(log.createdAt)}</p>
+            </div>
+          ))}
+          {filtered.length === 0 && <p className="text-center text-sm text-slate-400 py-8">No audit events found</p>}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  MAIN PAGE
+// ═════════════════════════════════════════════════════════════════
 export default function SaaSAdminPage() {
+  const [tab, setTab] = useState('overview')
   const [tenants, setTenants] = useState([])
   const [plans, setPlans] = useState([])
   const [featureFlags, setFeatureFlags] = useState([])
   const [billing, setBilling] = useState(null)
+  const [overview, setOverview] = useState(null)
   const [auditLogs, setAuditLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedTenant, setSelectedTenant] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [tenantRows, planRows, flagRows, billingSummary, auditRows] = await Promise.all([
-        superAdminAPI.getTenants(),
-        superAdminAPI.getPlans(),
-        superAdminAPI.getFeatureFlags(),
-        superAdminAPI.getBilling(),
-        superAdminAPI.getAuditLogs(),
+      const [tenantRows, planRows, flagRows, billingSummary, overviewData, auditRows] = await Promise.all([
+        platformAdminAPI.getTenants(),
+        platformAdminAPI.getPlans(),
+        platformAdminAPI.getFeatureFlags(),
+        platformAdminAPI.getBilling(),
+        platformAdminAPI.getOverview(),
+        platformAdminAPI.getAuditLogs(),
       ])
       setTenants(Array.isArray(tenantRows) ? tenantRows : [])
       setPlans(Array.isArray(planRows) ? planRows : [])
       setFeatureFlags(Array.isArray(flagRows) ? flagRows : [])
       setBilling(billingSummary || null)
+      setOverview(overviewData || null)
       setAuditLogs(Array.isArray(auditRows) ? auditRows : [])
-      if (!selectedTenant && Array.isArray(tenantRows) && tenantRows.length > 0) {
-        selectTenant(tenantRows[0])
-      }
     } catch (error) {
-      toast.error(error?.message || 'Unable to load SaaS admin data')
+      toast.error(error?.message || 'Unable to load platform data')
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    loadData()
   }, [])
+
+  useEffect(() => { loadData() }, [loadData])
 
   const selectTenant = (tenant) => {
     setSelectedTenant(tenant)
     setForm({
-      id: tenant?.id || '',
-      name: tenant?.name || '',
-      slug: tenant?.slug || '',
-      plan: tenant?.plan || 'TRIAL',
-      billingStatus: tenant?.billingStatus || 'TRIAL',
-      isActive: Boolean(tenant?.isActive),
-      maxUsers: tenant?.maxUsers ?? 5,
-      logoUrl: tenant?.logoUrl || '',
+      id: tenant?.id || '', name: tenant?.name || '', slug: tenant?.slug || '',
+      plan: tenant?.plan || 'TRIAL', billingStatus: tenant?.billingStatus || 'TRIAL',
+      isActive: Boolean(tenant?.isActive), maxUsers: tenant?.maxUsers ?? 5, logoUrl: tenant?.logoUrl || '',
       trialEndsAt: tenant?.trialEndsAt ? String(tenant.trialEndsAt).slice(0, 16) : '',
       subscriptionStartedAt: tenant?.subscriptionStartedAt ? String(tenant.subscriptionStartedAt).slice(0, 16) : '',
       subscriptionEndsAt: tenant?.subscriptionEndsAt ? String(tenant.subscriptionEndsAt).slice(0, 16) : '',
-      featureFlagsJson: stringifyJson(tenant?.featureFlags),
-      usageLimitsJson: stringifyJson(tenant?.usageLimits),
+      featureFlagsJson: stringifyJson(tenant?.featureFlags), usageLimitsJson: stringifyJson(tenant?.usageLimits),
     })
+    if (tenant) setTab('companies')
   }
 
   const updateForm = (event) => {
     const { name, value, type, checked } = event.target
-    setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }))
+    setForm((c) => ({ ...c, [name]: type === 'checkbox' ? checked : value }))
   }
 
   const submitTenant = async (event) => {
@@ -109,30 +810,25 @@ export default function SaaSAdminPage() {
     setSaving(true)
     try {
       const payload = {
-        name: form.name,
-        slug: form.slug,
-        plan: form.plan,
-        billingStatus: form.billingStatus,
-        isActive: form.isActive,
-        maxUsers: Number(form.maxUsers) || 5,
-        logoUrl: form.logoUrl || null,
+        name: form.name, slug: form.slug, plan: form.plan,
+        billingStatus: form.billingStatus, isActive: form.isActive,
+        maxUsers: Number(form.maxUsers) || 5, logoUrl: form.logoUrl || null,
         trialEndsAt: form.trialEndsAt || null,
         subscriptionStartedAt: form.subscriptionStartedAt || null,
         subscriptionEndsAt: form.subscriptionEndsAt || null,
         featureFlags: parseJson(form.featureFlagsJson),
         usageLimits: parseJson(form.usageLimitsJson),
       }
-
       if (form.id) {
-        await superAdminAPI.updateTenant(form.id, payload)
-        toast.success('Tenant updated')
+        await platformAdminAPI.updateTenant(form.id, payload)
+        toast.success('Company updated')
       } else {
-        await superAdminAPI.createTenant(payload)
-        toast.success('Tenant created')
+        await platformAdminAPI.createTenant(payload)
+        toast.success('Company created')
       }
       await loadData()
     } catch (error) {
-      toast.error(error?.message || 'Unable to save tenant')
+      toast.error(error?.message || 'Unable to save company')
     } finally {
       setSaving(false)
     }
@@ -140,289 +836,59 @@ export default function SaaSAdminPage() {
 
   const toggleTenant = async (tenant, active) => {
     try {
-      if (active) {
-        await superAdminAPI.activateTenant(tenant.id)
-      } else {
-        await superAdminAPI.deactivateTenant(tenant.id)
-      }
-      toast.success(active ? 'Tenant activated' : 'Tenant deactivated')
+      if (active) await platformAdminAPI.activateTenant(tenant.id)
+      else await platformAdminAPI.deactivateTenant(tenant.id)
+      toast.success(active ? 'Company activated' : 'Company deactivated')
       await loadData()
     } catch (error) {
-      toast.error(error?.message || 'Unable to update tenant state')
+      toast.error(error?.message || 'Unable to update company')
     }
   }
 
-  const billingCards = useMemo(() => [
-    { label: 'Total Tenants', value: billing?.totalTenants ?? 0 },
-    { label: 'Active', value: billing?.activeTenants ?? 0 },
-    { label: 'Trials', value: billing?.trialTenants ?? 0 },
-    { label: 'Expiring Soon', value: billing?.expiringSoon ?? 0 },
-  ], [billing])
-
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <PageHeading
-          title="SaaS Admin"
-          subtitle="Manage tenants, plans, feature flags, usage limits, and the global audit trail."
+          title="Platform Admin"
+          subtitle="Manage companies, users, subscriptions, security, and platform operations."
           icon={<Shield className="h-5 w-5" />}
         />
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={loadData} className="btn-secondary">
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-          <button type="button" onClick={() => selectTenant(null)} className="btn-primary">
-            <Plus className="h-4 w-4" />
-            New tenant
-          </button>
-        </div>
+        <button type="button" onClick={loadData} className="btn-secondary self-start">
+          <RefreshCw className="h-4 w-4" />Refresh
+        </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {billingCards.map((card) => (
-          <div key={card.label} className="kpi-card">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{card.label}</p>
-            <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{card.value}</h3>
-          </div>
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button key={key} type="button" onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-t-lg transition whitespace-nowrap ${
+              tab === key
+                ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 border border-b-0 border-slate-200 dark:border-slate-800 -mb-px'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'
+            }`}>
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <div className="space-y-6">
-          <div className="glass-card p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Tenants</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{tenants.length} tenant{tenants.length === 1 ? '' : 's'} total</p>
-              </div>
-              <Building2 className="h-5 w-5 text-brand-500" />
-            </div>
-
-            {loading ? (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, index) => (
-                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {tenants.map((tenant) => {
-                  const isSelected = selectedTenant?.id === tenant.id
-                  return (
-                    <div
-                      key={tenant.id}
-                      className={`rounded-2xl border p-4 transition ${
-                        isSelected
-                          ? 'border-brand-300 bg-brand-50/40 dark:border-brand-900/50 dark:bg-brand-950/20'
-                          : 'border-slate-200/70 bg-white/70 dark:border-slate-800/70 dark:bg-slate-950/40'
-                      }`}
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <button type="button" onClick={() => selectTenant(tenant)} className="min-w-0 flex-1 text-left">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{tenant.name}</h3>
-                            <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{tenant.plan}</span>
-                            {tenant.isActive ? (
-                              <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                                Active
-                              </span>
-                            ) : (
-                              <span className="badge bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400">
-                                <CircleOff className="mr-1 h-3.5 w-3.5" />
-                                Inactive
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            {tenant.slug} · {tenant.billingStatus || 'TRIAL'} · Trial ends {formatDate(tenant.trialEndsAt)}
-                          </p>
-                          <div className="mt-3 grid gap-2 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-2">
-                            <span>Users: {tenant.userCount ?? 0}/{tenant.maxUsers ?? 0}</span>
-                            <span>Leads: {tenant.leadCount ?? 0}</span>
-                            <span>Deals: {tenant.dealCount ?? 0}</span>
-                            <span>Invoices: {tenant.invoiceCount ?? 0}</span>
-                          </div>
-                        </button>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button type="button" onClick={() => selectTenant(tenant)} className="btn-ghost h-9 px-3 text-xs">
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </button>
-                          {tenant.isActive ? (
-                            <button type="button" onClick={() => toggleTenant(tenant, false)} className="btn-ghost h-9 px-3 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30">
-                              <Trash2 className="h-4 w-4" />
-                              Deactivate
-                            </button>
-                          ) : (
-                            <button type="button" onClick={() => toggleTenant(tenant, true)} className="btn-secondary h-9 px-3 text-xs">
-                              <CheckCircle2 className="h-4 w-4" />
-                              Activate
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="glass-card p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Subscription Plans</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Pricing and limit presets</p>
-              </div>
-              <BadgeDollarSign className="h-5 w-5 text-emerald-500" />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {plans.map((plan) => (
-                <div key={plan.name} className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-800/70 dark:bg-slate-950/40">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{plan.name}</p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">₹{plan.priceInRupees || 0} / month</p>
-                    </div>
-                    <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-300">{plan.maxUsers} users</span>
-                  </div>
-                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{plan.features}</p>
-                  <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">Trial {plan.trialDays} days</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="glass-card p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{form.id ? 'Edit tenant' : 'Create tenant'}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Manage plan, limits, flags and lifecycle</p>
-              </div>
-              <Sparkles className="h-5 w-5 text-brand-500" />
-            </div>
-
-            <form onSubmit={submitTenant} className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Tenant name</label>
-                  <input name="name" value={form.name} onChange={updateForm} className="input" required />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Slug</label>
-                  <input name="slug" value={form.slug} onChange={updateForm} className="input" placeholder="acme-crm" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Plan</label>
-                  <select name="plan" value={form.plan} onChange={updateForm} className="input">
-                    {['TRIAL', 'STARTER', 'BUSINESS', 'ENTERPRISE'].map((plan) => (
-                      <option key={plan} value={plan}>{plan}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Billing Status</label>
-                  <input name="billingStatus" value={form.billingStatus} onChange={updateForm} className="input" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Max Users</label>
-                  <input name="maxUsers" type="number" min="1" value={form.maxUsers} onChange={updateForm} className="input" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Logo URL</label>
-                  <input name="logoUrl" value={form.logoUrl} onChange={updateForm} className="input" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Trial ends</label>
-                  <input name="trialEndsAt" type="datetime-local" value={form.trialEndsAt} onChange={updateForm} className="input" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Subscription starts</label>
-                  <input name="subscriptionStartedAt" type="datetime-local" value={form.subscriptionStartedAt} onChange={updateForm} className="input" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Subscription ends</label>
-                  <input name="subscriptionEndsAt" type="datetime-local" value={form.subscriptionEndsAt} onChange={updateForm} className="input" />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Feature flags JSON</label>
-                  <textarea name="featureFlagsJson" rows={10} value={form.featureFlagsJson} onChange={updateForm} className="input font-mono text-xs" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Usage limits JSON</label>
-                  <textarea name="usageLimitsJson" rows={10} value={form.usageLimitsJson} onChange={updateForm} className="input font-mono text-xs" />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                <input type="checkbox" name="isActive" checked={form.isActive} onChange={updateForm} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-                Active tenant
-              </label>
-
-              <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                <button type="button" onClick={() => selectTenant(null)} className="btn-secondary flex-1">
-                  New blank tenant
-                </button>
-                <button type="submit" className="btn-primary flex-1" disabled={saving}>
-                  {saving ? 'Saving...' : form.id ? 'Update tenant' : 'Create tenant'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div className="glass-card p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Feature Flags</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Platform capabilities available to all tenants</p>
-              </div>
-              <BarChart3 className="h-5 w-5 text-cyan-500" />
-            </div>
-            <div className="space-y-3">
-              {featureFlags.map((flag) => (
-                <div key={flag.key} className="rounded-2xl border border-slate-200/70 bg-white/70 p-3 dark:border-slate-800/70 dark:bg-slate-950/40">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{flag.label}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{flag.description}</p>
-                  <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">{flag.key}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass-card p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Global Audit Logs</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Delete, export, admin and compliance events</p>
-              </div>
-              <FileText className="h-5 w-5 text-slate-500" />
-            </div>
-            <div className="max-h-[28rem] overflow-y-auto custom-scrollbar space-y-2">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="rounded-2xl border border-slate-200/70 bg-white/70 p-3 text-sm dark:border-slate-800/70 dark:bg-slate-950/40">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{log.action}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{log.entityType} · {log.entityId || 'n/a'}</p>
-                    </div>
-                    <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{formatDate(log.createdAt)}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Tenant {log.tenantId || 'global'} · User {log.userId || 'system'} · {log.ipAddress || 'unknown IP'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Tab content */}
+      {tab === 'overview' && <OverviewTab overview={overview} billing={billing} loading={loading} />}
+      {tab === 'companies' && (
+        <CompaniesTab
+          tenants={tenants} loading={loading} onSelectTenant={selectTenant}
+          selectedTenant={selectedTenant} form={form} updateForm={updateForm}
+          submitTenant={submitTenant} saving={saving} toggleTenant={toggleTenant}
+          onNewTenant={() => selectTenant(null)}
+        />
+      )}
+      {tab === 'users' && <UsersTab loading={loading} refreshData={loadData} />}
+      {tab === 'subscriptions' && <SubscriptionsTab plans={plans} billing={billing} tenants={tenants} loading={loading} />}
+      {tab === 'security' && <SecurityTab loading={loading} />}
+      {tab === 'features' && <FeatureFlagsTab featureFlags={featureFlags} loading={loading} />}
+      {tab === 'audit' && <AuditLogsTab auditLogs={auditLogs} loading={loading} />}
     </div>
   )
 }

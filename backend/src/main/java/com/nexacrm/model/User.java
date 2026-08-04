@@ -48,7 +48,7 @@ public class User extends BaseEntity implements UserDetails {
     private static final Map<Role, List<String>> ROLE_PERMISSIONS = new EnumMap<>(Role.class);
 
     static {
-        ROLE_PERMISSIONS.put(Role.SUPER_ADMIN, ALL_PERMISSIONS);
+        ROLE_PERMISSIONS.put(Role.PLATFORM_ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.COMPANY_ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.MANAGER, List.of(
@@ -158,7 +158,7 @@ public class User extends BaseEntity implements UserDetails {
     }
 
     public static boolean isAdminLike(Role role) {
-        return role == Role.SUPER_ADMIN || role == Role.COMPANY_ADMIN || role == Role.ADMIN;
+        return role == Role.PLATFORM_ADMIN || role == Role.COMPANY_ADMIN || role == Role.ADMIN;
     }
 
     public static boolean isSalesLike(Role role) {
@@ -170,7 +170,7 @@ public class User extends BaseEntity implements UserDetails {
             return "Sales Executive";
         }
         return switch (role) {
-            case SUPER_ADMIN -> "Super Admin";
+            case PLATFORM_ADMIN -> "Platform Admin";
             case COMPANY_ADMIN -> "Company Admin";
             case ADMIN -> "Admin";
             case MANAGER -> "Manager";
@@ -179,5 +179,5 @@ public class User extends BaseEntity implements UserDetails {
         };
     }
 
-    public enum Role { SUPER_ADMIN, COMPANY_ADMIN, ADMIN, MANAGER, SALES_EXEC, NORMAL_USER }
+    public enum Role { PLATFORM_ADMIN, COMPANY_ADMIN, ADMIN, MANAGER, SALES_EXEC, NORMAL_USER }
 }

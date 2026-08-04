@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { label: 'Profile',        icon: User,            path: '/profile' },
   { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
-  { label: 'Admin',          icon: ShieldCheck,     path: '/admin/saas', permission: null, superAdminOnly: true },
+  { label: 'Platform Admin',  icon: ShieldCheck,     path: '/admin/saas', permission: null, platformAdminOnly: true },
 ]
 
 const AVATAR_STYLE_CLASS = {
@@ -41,7 +41,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const [avatarBroken, setAvatarBroken] = useState(false)
   const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
   const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (item.superAdminOnly) return user?.role === 'SUPER_ADMIN'
+    if (item.platformAdminOnly) return user?.role === 'PLATFORM_ADMIN'
     return hasPermission(user, item.permission)
   })
 

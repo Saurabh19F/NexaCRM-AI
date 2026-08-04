@@ -315,18 +315,30 @@ export const settingsAPI = {
 }
 
 // ──────────────────────────────────────────
-//  Super Admin / SaaS
+//  Platform Admin
 // ──────────────────────────────────────────
-export const superAdminAPI = {
+export const platformAdminAPI = {
+  // Companies
   getTenants:       () => api.get('/admin/saas/tenants'),
   createTenant:     (data) => api.post('/admin/saas/tenants', data),
   updateTenant:     (id, data) => api.put(`/admin/saas/tenants/${id}`, data),
   activateTenant:   (id) => api.post(`/admin/saas/tenants/${id}/activate`),
   deactivateTenant: (id) => api.post(`/admin/saas/tenants/${id}/deactivate`),
+  // Subscriptions & Plans
   getPlans:         () => api.get('/admin/saas/plans'),
-  getFeatureFlags:  () => api.get('/admin/saas/feature-flags'),
   getBilling:       () => api.get('/admin/saas/billing'),
+  // Feature Flags
+  getFeatureFlags:  () => api.get('/admin/saas/feature-flags'),
+  // Users (cross-tenant)
+  getAllUsers:       () => api.get('/admin/saas/users'),
+  changeUserRole:   (id, role) => api.patch(`/admin/saas/users/${id}/role`, { role }),
+  activateUser:     (id) => api.patch(`/admin/saas/users/${id}/activate`),
+  deactivateUser:   (id) => api.patch(`/admin/saas/users/${id}/deactivate`),
+  // Platform overview
+  getOverview:      () => api.get('/admin/saas/overview'),
+  // Audit & Security
   getAuditLogs:     () => api.get('/admin/saas/audit-logs'),
+  getSecurity:      () => api.get('/admin/saas/security'),
 }
 
 // ──────────────────────────────────────────
