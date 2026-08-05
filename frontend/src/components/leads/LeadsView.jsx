@@ -315,7 +315,7 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
   )
 }
 
-/* ── Lead Detail Card (full-screen modal) ──────────────────────── */
+/* ── Lead Detail Card — flat, no-scroll, bg-matched ────────────── */
 function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, onCall, onWhatsApp, onHistory, onActivities, onAiScore, onConvert, canCall, canAiScore, canConvert, callingLeadId, lastCallOutcome, aging, ageMin }) {
   const scoreCfg  = SCORE_BADGE[lead.score]
   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
@@ -327,35 +327,77 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
         onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        className="relative glass-card w-full max-w-2xl p-0 z-10 overflow-hidden max-h-[90vh] flex flex-col">
+        className="relative w-full max-w-3xl z-10 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
 
-        {/* Header banner */}
-        <div className="bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-5 flex-shrink-0">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-white">{lead.name}</h2>
-              <p className="text-brand-200 text-sm mt-0.5">{lead.company || 'No company'}</p>
-              <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <span className={`${scoreCfg?.cls} text-xs`}>{ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}</span>
-                <span className={`${statusCfg.cls} text-xs`}>{statusCfg.label}</span>
-                {aging && <span className={`badge ${aging.badge} text-xs`}>{aging.label}</span>}
-                {lastCallOutcome && (
-                  <span className={`badge ${getCallOutcomeBadgeClass(lastCallOutcome)} text-xs`}>
-                    Last Call: {lastCallOutcome}
-                  </span>
-                )}
-              </div>
+        {/* Header — uses page background, not brand gradient */}
+        <div className="px-5 py-4 border-b border-slate-200/70 dark:border-slate-700/40 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 truncate">{lead.name}</h2>
+              <span className={`${scoreCfg?.cls} text-[11px] flex-shrink-0`}>{ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}</span>
+              <span className={`${statusCfg.cls} text-[11px] flex-shrink-0`}>{statusCfg.label}</span>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+              {lead.company && <span>{lead.company}</span>}
+              {aging && <span className={`badge ${aging.badge} text-[10px]`}>{aging.label}</span>}
+              {lastCallOutcome && (
+                <span className={`badge ${getCallOutcomeBadgeClass(lastCallOutcome)} text-[10px]`}>
+                  Last Call: {lastCallOutcome}
+                </span>
+              )}
+            </div>
           </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {/* Quick actions bar */}
-          <div className="px-6 py-3 border-b border-slate-200/70 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-900/40 flex flex-wrap gap-2">
+        {/* All content — single flat view, no scroll */}
+        <div className="px-5 py-4 space-y-4">
+
+          {/* Details — compact 5-column grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-2.5">
+            {[
+              { icon: AtSign,     label: 'Email',    value: lead.email },
+              { icon: Phone,      label: 'Phone',    value: lead.phone || '—' },
+              { icon: Building2,  label: 'Company',  value: lead.company || '—' },
+              { icon: Tag,        label: 'Service',  value: lead.service || '—' },
+              { icon: Tag,        label: 'Spec',     value: lead.specialization || '—' },
+              { icon: Tag,        label: 'Source',   value: lead.source },
+              { icon: DollarSign, label: 'Value',    value: lead.value ? `₹${(lead.value/1000).toFixed(0)}k` : '—' },
+              { icon: User,       label: 'Owner',    value: lead.assignedTo || 'Unassigned' },
+              { icon: TrendingUp, label: 'Score',    value: scoreCfg?.label },
+              { icon: Calendar,   label: 'Added',    value: lead.createdAt },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-center gap-2 min-w-0">
+                <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-none">{label}</p>
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate mt-0.5">{value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tags + Activity timer inline */}
+          {(lead.tags || (ageMin !== null && ageMin !== undefined)) && (
+            <div className="flex items-center gap-4 flex-wrap">
+              {ageMin !== null && ageMin !== undefined && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <History className="w-3 h-3 text-slate-400" />
+                  <span>{ageMin} min since activity</span>
+                </div>
+              )}
+              {lead.tags && String(lead.tags).split(',').map(t => t.trim()).filter(Boolean).map(tag => (
+                <span key={tag} className="px-2 py-0.5 rounded-full bg-brand-100 dark:bg-brand-950/40 text-brand-700 dark:text-brand-400 text-[11px] font-medium">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Quick actions — inline row */}
+          <div className="flex items-center gap-2 flex-wrap pt-1">
             {canCall && (
               <button
                 onClick={() => onCall?.(lead)}
@@ -366,106 +408,45 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
                 {callingLeadId === lead.id ? 'Calling…' : 'Call'}
               </button>
             )}
-            <button
-              onClick={() => onWhatsApp?.(lead)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors"
-            >
+            <button onClick={() => onWhatsApp?.(lead)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors">
               <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
             </button>
-            <button
-              onClick={() => onHistory?.(lead)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors"
-            >
+            <button onClick={() => onHistory?.(lead)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors">
               <Sparkles className="w-3.5 h-3.5" /> Intelligence
             </button>
-            <button
-              onClick={() => onActivities?.(lead)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
-            >
+            <button onClick={() => onActivities?.(lead)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
               <ClipboardList className="w-3.5 h-3.5" /> Activities
             </button>
             {canAiScore && (
-              <button
-                onClick={() => onAiScore?.(lead)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-colors"
-              >
+              <button onClick={() => onAiScore?.(lead)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-colors">
                 <TrendingUp className="w-3.5 h-3.5" /> AI Score
               </button>
             )}
             {canConvert && (
-              <button
-                onClick={() => onConvert?.(lead)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
-              >
+              <button onClick={() => onConvert?.(lead)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors">
                 <UserCheck className="w-3.5 h-3.5" /> Convert
               </button>
             )}
-          </div>
 
-          {/* Details grid */}
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { icon: AtSign,     label: 'Email',          value: lead.email },
-                { icon: Phone,      label: 'Phone',          value: lead.phone || '—' },
-                { icon: Building2,  label: 'Company',        value: lead.company || '—' },
-                { icon: Tag,        label: 'Service',        value: lead.service || '—' },
-                { icon: Tag,        label: 'Specialization', value: lead.specialization || '—' },
-                { icon: Tag,        label: 'Source',         value: lead.source },
-                { icon: DollarSign, label: 'Value',          value: lead.value ? `₹${(lead.value/1000).toFixed(0)}k` : '—' },
-                { icon: User,       label: 'Owner',          value: lead.assignedTo || 'Unassigned' },
-                { icon: TrendingUp, label: 'AI Score',       value: scoreCfg?.label },
-                { icon: Calendar,   label: 'Added',          value: lead.createdAt },
-              ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                  <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-0.5">{value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Activity / Aging info */}
-            {ageMin !== null && ageMin !== undefined && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                <History className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Activity Timer</p>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-0.5">{ageMin} min since last activity</p>
-                </div>
-              </div>
+            {/* Edit / Delete pushed to the right */}
+            <div className="flex-1" />
+            {canEdit && (
+              <button onClick={() => { onClose(); onEdit(lead) }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <Edit className="w-3.5 h-3.5" /> Edit
+              </button>
             )}
-
-            {lead.tags && (
-              <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Tags</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {String(lead.tags).split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-                    <span key={tag} className="px-2.5 py-1 rounded-full bg-brand-100 dark:bg-brand-950/40 text-brand-700 dark:text-brand-400 text-xs font-medium">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
+            {canDelete && (
+              <button onClick={() => { onDelete([lead.id]); onClose() }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-red-500 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
             )}
-
-            {/* Footer actions */}
-            <div className="flex gap-2 pt-1">
-              {canEdit && (
-                <button onClick={() => { onClose(); onEdit(lead) }}
-                  className="btn-secondary flex-1 justify-center gap-2 text-xs">
-                  <Edit className="w-3.5 h-3.5" /> Edit
-                </button>
-              )}
-              {canDelete && (
-                <button onClick={() => { onDelete([lead.id]); onClose() }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-red-500 text-xs font-semibold transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </motion.div>
