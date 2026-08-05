@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -6,7 +6,7 @@ import {
   Edit, ChevronUp, ChevronDown, Flame, Thermometer,
   Snowflake, ExternalLink, X, History,
   PhoneCall, Mail, MessageSquare, UserCheck,
-  FileText, DollarSign, AlertCircle, Building2, MoreVertical,
+  FileText, DollarSign, AlertCircle, Building2,
   Tag, Calendar, User, Phone, AtSign, TrendingUp, ClipboardList, MessageCircle, Sparkles, BadgeCheck, Brain
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -315,8 +315,8 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
   )
 }
 
-/* ── Lead Detail Modal ───────────────────────────────────────────── */
-function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete }) {
+/* ── Lead Detail Card (full-screen modal) ──────────────────────── */
+function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, onCall, onWhatsApp, onHistory, onActivities, onAiScore, onConvert, canCall, canAiScore, canConvert, callingLeadId, lastCallOutcome, aging, ageMin }) {
   const scoreCfg  = SCORE_BADGE[lead.score]
   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
   const ScoreIcon = scoreCfg?.icon
@@ -327,17 +327,23 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete }
         onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        className="relative glass-card w-full max-w-lg p-0 z-10 overflow-hidden">
+        className="relative glass-card w-full max-w-2xl p-0 z-10 overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* Header banner */}
-        <div className="bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-5">
+        <div className="bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-5 flex-shrink-0">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">{lead.name}</h2>
-              <p className="text-brand-200 text-sm mt-0.5">{lead.company}</p>
-              <div className="flex items-center gap-2 mt-3">
+              <p className="text-brand-200 text-sm mt-0.5">{lead.company || 'No company'}</p>
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
                 <span className={`${scoreCfg?.cls} text-xs`}>{ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}</span>
                 <span className={`${statusCfg.cls} text-xs`}>{statusCfg.label}</span>
+                {aging && <span className={`badge ${aging.badge} text-xs`}>{aging.label}</span>}
+                {lastCallOutcome && (
+                  <span className={`badge ${getCallOutcomeBadgeClass(lastCallOutcome)} text-xs`}>
+                    Last Call: {lastCallOutcome}
+                  </span>
+                )}
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors">
@@ -346,57 +352,120 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete }
           </div>
         </div>
 
-        {/* Details grid */}
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { icon: AtSign,    label: 'Email',    value: lead.email },
-              { icon: Phone,     label: 'Phone',    value: lead.phone || '—' },
-              { icon: Building2, label: 'Company',  value: lead.company },
-              { icon: Tag,       label: 'Service',  value: lead.service || '—' },
-              { icon: Tag,       label: 'Specialization', value: lead.specialization || '—' },
-              { icon: Tag,       label: 'Source',   value: lead.source },
-              { icon: DollarSign,label: 'Value',    value: `₹${(lead.value/1000).toFixed(0)}k` },
-              { icon: User,      label: 'Owner',    value: lead.assignedTo || 'Unassigned' },
-              { icon: TrendingUp,label: 'AI Score', value: scoreCfg?.label },
-              { icon: Calendar,  label: 'Added',    value: lead.createdAt },
-            ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-0.5">{value}</p>
-                </div>
-              </div>
-            ))}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {/* Quick actions bar */}
+          <div className="px-6 py-3 border-b border-slate-200/70 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-900/40 flex flex-wrap gap-2">
+            {canCall && (
+              <button
+                onClick={() => onCall?.(lead)}
+                disabled={callingLeadId === lead.id || !lead.phone}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
+                {callingLeadId === lead.id ? 'Calling…' : 'Call'}
+              </button>
+            )}
+            <button
+              onClick={() => onWhatsApp?.(lead)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+            </button>
+            <button
+              onClick={() => onHistory?.(lead)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Intelligence
+            </button>
+            <button
+              onClick={() => onActivities?.(lead)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+            >
+              <ClipboardList className="w-3.5 h-3.5" /> Activities
+            </button>
+            {canAiScore && (
+              <button
+                onClick={() => onAiScore?.(lead)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-colors"
+              >
+                <TrendingUp className="w-3.5 h-3.5" /> AI Score
+              </button>
+            )}
+            {canConvert && (
+              <button
+                onClick={() => onConvert?.(lead)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
+              >
+                <UserCheck className="w-3.5 h-3.5" /> Convert
+              </button>
+            )}
           </div>
 
-          {lead.tags && (
-            <div>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Tags</p>
-              <div className="flex flex-wrap gap-1.5">
-                {String(lead.tags).split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-                  <span key={tag} className="px-2.5 py-1 rounded-full bg-brand-100 dark:bg-brand-950/40 text-brand-700 dark:text-brand-400 text-xs font-medium">
-                    {tag}
-                  </span>
-                ))}
-              </div>
+          {/* Details grid */}
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { icon: AtSign,     label: 'Email',          value: lead.email },
+                { icon: Phone,      label: 'Phone',          value: lead.phone || '—' },
+                { icon: Building2,  label: 'Company',        value: lead.company || '—' },
+                { icon: Tag,        label: 'Service',        value: lead.service || '—' },
+                { icon: Tag,        label: 'Specialization', value: lead.specialization || '—' },
+                { icon: Tag,        label: 'Source',         value: lead.source },
+                { icon: DollarSign, label: 'Value',          value: lead.value ? `₹${(lead.value/1000).toFixed(0)}k` : '—' },
+                { icon: User,       label: 'Owner',          value: lead.assignedTo || 'Unassigned' },
+                { icon: TrendingUp, label: 'AI Score',       value: scoreCfg?.label },
+                { icon: Calendar,   label: 'Added',          value: lead.createdAt },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                  <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-0.5">{value}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
 
-          <div className="flex gap-2 pt-1">
-            {canEdit && (
-              <button onClick={() => { onClose(); onEdit(lead) }}
-                className="btn-secondary flex-1 justify-center gap-2 text-xs">
-                <Edit className="w-3.5 h-3.5" /> Edit
-              </button>
+            {/* Activity / Aging info */}
+            {ageMin !== null && ageMin !== undefined && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                <History className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Activity Timer</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mt-0.5">{ageMin} min since last activity</p>
+                </div>
+              </div>
             )}
-            {canDelete && (
-              <button onClick={() => { onDelete([lead.id]); onClose() }}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-red-500 text-xs font-semibold transition-colors">
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
+
+            {lead.tags && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {String(lead.tags).split(',').map(t => t.trim()).filter(Boolean).map(tag => (
+                    <span key={tag} className="px-2.5 py-1 rounded-full bg-brand-100 dark:bg-brand-950/40 text-brand-700 dark:text-brand-400 text-xs font-medium">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* Footer actions */}
+            <div className="flex gap-2 pt-1">
+              {canEdit && (
+                <button onClick={() => { onClose(); onEdit(lead) }}
+                  className="btn-secondary flex-1 justify-center gap-2 text-xs">
+                  <Edit className="w-3.5 h-3.5" /> Edit
+                </button>
+              )}
+              {canDelete && (
+                <button onClick={() => { onDelete([lead.id]); onClose() }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 text-red-500 text-xs font-semibold transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
@@ -1022,8 +1091,6 @@ export default function LeadsPage() {
   const [leadActivitiesByLeadId, setLeadActivitiesByLeadId] = useState({})
   const [callOutcomeByLeadId, setCallOutcomeByLeadId] = useState({})
   const [activityTabByLeadId, setActivityTabByLeadId] = useState({})
-  const [expandedLeadId, setExpandedLeadId] = useState(null)
-  const [openActionsLeadId, setOpenActionsLeadId] = useState(null)
   const [callingLeadId, setCallingLeadId] = useState(null)
   const [timeTick, setTimeTick]             = useState(Date.now())
   const importRef                           = useRef(null)
@@ -1072,8 +1139,6 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setSelected([])
-    setExpandedLeadId(null)
-    setOpenActionsLeadId(null)
   }, [currentPage, debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
 
   const reloadCurrentPage = async () => {
@@ -1103,22 +1168,10 @@ export default function LeadsPage() {
       })
   }, [canViewTeam])
 
-  useEffect(() => {
-    const handleOutside = (e) => {
-      if (e.target instanceof Element && e.target.closest('.lead-actions-dropdown')) return
-      setOpenActionsLeadId(null)
-    }
-    document.addEventListener('mousedown', handleOutside)
-    return () => document.removeEventListener('mousedown', handleOutside)
-  }, [])
 
   const handleSort = (field) => {
     if (sortField === field) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
     else { setSortField(field); setSortDir('asc') }
-  }
-
-  const toggleExpandedLead = (leadId) => {
-    setExpandedLeadId((prev) => (prev === leadId ? null : leadId))
   }
 
   const filtered = leads
@@ -1549,8 +1602,8 @@ export default function LeadsPage() {
         </select>
       </div>
 
-      {/* Mobile cards */}
-      <div className="sm:hidden space-y-3">
+      {/* Mobile cards – minimal: tap to open detail */}
+      <div className="sm:hidden space-y-2">
         {filtered.length === 0 ? (
           <div className="glass-card py-12 text-center text-slate-400">
             <p className="text-lg">No leads found</p>
@@ -1561,138 +1614,40 @@ export default function LeadsPage() {
             const scoreCfg = SCORE_BADGE[lead.score]
             const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
             const ScoreIcon = scoreCfg?.icon
-            const aging = getLeadAgingMeta(lead, timeTick)
-            const ageMin = getLeadAgeMinutes(lead, timeTick)
-            const lastCallOutcome = callOutcomeByLeadId[lead.id]
             return (
-              <div key={lead.id} className="glass-card p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{lead.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{lead.email}</p>
-                    <p className="text-xs text-slate-500 truncate">{lead.phone || 'No mobile'}</p>
-                    <p className="text-xs text-slate-500 mt-1 truncate">{lead.company}</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(lead.id)}
-                    onChange={() => toggleSelect(lead.id)}
-                    className="mt-1 rounded border-slate-300 text-brand-600"
-                  />
+              <div
+                key={lead.id}
+                onClick={() => setDetailLead(lead)}
+                className="glass-card px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/25 transition-colors active:scale-[0.99]"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(lead.id)}
+                  onChange={(e) => { e.stopPropagation(); toggleSelect(lead.id) }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded border-slate-300 text-brand-600 flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate">{lead.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{lead.company || lead.email}</p>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={scoreCfg?.cls}>
-                    {ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className={`${scoreCfg?.cls} !px-1.5 !py-0.5 text-[10px]`}>
+                    {ScoreIcon && <ScoreIcon className="w-2.5 h-2.5" />}
                   </span>
-                  <span className={statusCfg.cls}>{statusCfg.label}</span>
-                  <span className={`badge ${aging.badge}`}>{aging.label}</span>
-                  {lastCallOutcome && (
-                    <span className={`badge ${getCallOutcomeBadgeClass(lastCallOutcome)}`}>
-                      Last Call: {lastCallOutcome}
-                    </span>
-                  )}
+                  <span className={`${statusCfg.cls} !px-1.5 !py-0.5 text-[10px]`}>{statusCfg.label}</span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  <p><span className="text-slate-400">Source:</span> {lead.source}</p>
-                  <p><span className="text-slate-400">Value:</span> ₹{(lead.value / 1000).toFixed(0)}k</p>
-                  <p><span className="text-slate-400">Service:</span> {lead.service || '—'}</p>
-                  <p><span className="text-slate-400">Specialization:</span> {lead.specialization || '—'}</p>
-                  <p><span className="text-slate-400">Owner:</span> {lead.assignedTo || 'Unassigned'}</p>
-                  <p><span className="text-slate-400">Date:</span> {lead.createdAt}</p>
-                </div>
-
-                <p className="text-[11px] text-slate-400">
-                  {ageMin === null ? 'No activity timer' : `${ageMin} min since last activity`}
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {canUpdate && (
-                    <button
-                      onClick={() => setEditLead(lead)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                      title="Edit lead"
-                    >
-                      <Edit className="w-3.5 h-3.5" /> Edit
-                    </button>
-                  )}
-                  {canCall && (
-                    <button
-                      onClick={() => handleCallLead(lead)}
-                      disabled={callingLeadId === lead.id || !lead.phone}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={!lead.phone ? 'No phone number' : (callingLeadId === lead.id ? 'Calling…' : 'Call now')}
-                    >
-                      <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} /> Call
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setWaLead(lead)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    title="Send WhatsApp"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-                  </button>
-                  <button
-                    onClick={() => openHistoryLead(lead)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    title="Call Intelligence"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" /> Intelligence
-                  </button>
-                  <button
-                    onClick={() => openActivitiesLead(lead)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    title="Lead Activities"
-                  >
-                    <ClipboardList className="w-3.5 h-3.5" /> Activity
-                  </button>
-                  {canAiScore && (
-                    <button
-                      onClick={() => handleScoreLead(lead)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                      title="AI Score Lead"
-                    >
-                      <TrendingUp className="w-3.5 h-3.5" /> Score
-                    </button>
-                  )}
-                  {canConvert && (
-                    <button
-                      onClick={() => handleConvertLead(lead)}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                      title="Convert to Customer"
-                    >
-                      <UserCheck className="w-3.5 h-3.5" /> Convert
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setDetailLead(lead)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    title="View details"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" /> Details
-                  </button>
-                  {canDelete && (
-                    <button
-                      onClick={() => handleDelete([lead.id])}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/70 dark:bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                      title="Delete lead"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </button>
-                  )}
-                </div>
+                <ChevronDown className="w-4 h-4 text-slate-300 flex-shrink-0 -rotate-90" />
               </div>
             )
           })
         )}
       </div>
 
-      {/* Table */}
+      {/* Table – minimal: Name, Score, Status, Source, Date, Action */}
       <div className="hidden sm:block glass-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed text-sm">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200/70 dark:border-slate-700/40 bg-white/50 dark:bg-slate-900/20">
                 <th className="py-3 px-4 text-left w-10">
@@ -1700,22 +1655,18 @@ export default function LeadsPage() {
                     className="rounded border-slate-300 text-brand-600" />
                 </th>
                 {[
-                  { key: 'name',      label: 'Name', cls: 'w-[220px]' },
-                  { key: 'company',   label: 'Company', cls: 'w-[78px]' },
-                  { key: 'service',   label: 'Service', cls: 'w-[78px]' },
-                  { key: 'score',     label: 'AI Score', cls: 'w-[84px]' },
-                  { key: 'status',    label: 'Status', cls: 'w-[84px]' },
-                  { key: 'source',    label: 'Source', cls: 'w-[78px]' },
-                  { key: 'activity',  label: 'Activity', cls: 'w-[88px]' },
-                  { key: 'aging',     label: 'Aging', cls: 'w-[88px]' },
-                  { key: 'createdAt', label: 'Date', cls: 'w-[74px]' },
-                ].map(({ key, label, cls }) => (
-                  <th key={key} className={`py-2.5 px-1.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 ${cls}`}
+                  { key: 'name',      label: 'Name' },
+                  { key: 'score',     label: 'Score' },
+                  { key: 'status',    label: 'Status' },
+                  { key: 'source',    label: 'Source' },
+                  { key: 'createdAt', label: 'Date' },
+                ].map(({ key, label }) => (
+                  <th key={key} className="py-2.5 px-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200"
                     onClick={() => handleSort(key)}>
                     <span className="flex items-center gap-1">{label} <SortIcon field={key} /></span>
                   </th>
                 ))}
-                <th className="py-2.5 px-1 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 w-[54px]">Action</th>
+                <th className="py-2.5 px-3 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 w-[70px]">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/30">
@@ -1724,190 +1675,58 @@ export default function LeadsPage() {
                   const scoreCfg = SCORE_BADGE[lead.score]
                   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
                   const ScoreIcon = scoreCfg?.icon
-                  const aging = getLeadAgingMeta(lead, timeTick)
-                  const ageMin = getLeadAgeMinutes(lead, timeTick)
-                  const isExpandedRow = expandedLeadId === lead.id
-                  const lastCallOutcome = callOutcomeByLeadId[lead.id]
                   return (
-                    <Fragment key={lead.id}>
-                      <motion.tr
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/25 transition-colors
-                          ${selected.includes(lead.id) ? 'bg-brand-50/40 dark:bg-brand-950/10' : ''}`}
-                      >
-                        <td className="py-2.5 px-3 align-top">
-                          <input type="checkbox" checked={selected.includes(lead.id)} onChange={() => toggleSelect(lead.id)}
-                            className="rounded border-slate-300 text-brand-600" />
-                        </td>
-                        <td className="py-2.5 px-3 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <div className="max-w-[300px]">
-                            <p className="font-semibold text-[15px] leading-snug text-slate-800 dark:text-slate-200 break-words">{lead.name}</p>
-                            <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words whitespace-normal">{lead.email || 'N/A'}</p>
-                            <p className={`mt-1 text-xs leading-snug break-words whitespace-normal ${lead.phone ? 'text-slate-500' : 'text-slate-400 italic'}`}>
-                              {lead.phone || 'No mobile'}
-                            </p>
-                            {lastCallOutcome && (
-                              <span className={`mt-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${getCallOutcomeBadgeClass(lastCallOutcome)}`}>
-                                Last Call: {lastCallOutcome}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-2 max-w-[110px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <p className="truncate">
-                            {lead.company
-                              ? <span className="text-slate-600 dark:text-slate-400">{lead.company}</span>
-                              : <span className="text-slate-400 italic">—</span>}
-                          </p>
-                        </td>
-                        <td className="py-2.5 px-2 max-w-[110px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <p className="truncate">
-                            {lead.service
-                              ? <span className="text-slate-600 dark:text-slate-400">{lead.service}</span>
-                              : <span className="text-slate-400 italic">—</span>}
-                          </p>
-                        </td>
-                        <td className="py-2.5 px-2 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <span className={scoreCfg?.cls}>
-                            {ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-2 cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <span className={statusCfg.cls}>{statusCfg.label}</span>
-                        </td>
-                        <td className="py-2.5 px-2 max-w-[95px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <p className="truncate text-slate-600 dark:text-slate-400">{lead.source || '—'}</p>
-                        </td>
-                        <td className="py-2.5 px-2 max-w-[100px] cursor-pointer align-top" onClick={() => toggleExpandedLead(lead.id)}>
-                          <span className={`badge ${aging.badge}`}>
-                            {ageMin === null ? 'No timer' : `${ageMin} min`}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-2 align-top cursor-pointer" onClick={() => toggleExpandedLead(lead.id)}>
-                          <span className={`badge ${aging.badge}`}>{aging.label}</span>
-                        </td>
-                        <td className="py-2.5 px-1 text-slate-500 text-xs w-[74px] cursor-pointer truncate align-top" onClick={() => toggleExpandedLead(lead.id)}>{lead.createdAt}</td>
-                        <td className="py-2.5 px-1 align-top w-[54px]">
-                          <div className="relative flex items-start justify-end gap-1 lead-actions-dropdown">
-                            {canCall && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCallLead(lead)
-                                }}
-                                disabled={callingLeadId === lead.id || !lead.phone}
-                                className="p-1 rounded-md border border-transparent hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/20 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={!lead.phone ? 'No phone number' : (callingLeadId === lead.id ? 'Calling…' : 'Call now')}
-                              >
-                                <PhoneCall className={`w-4 h-4 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
-                              </button>
-                            )}
+                    <motion.tr
+                      key={lead.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setDetailLead(lead)}
+                      className={`cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/25 transition-colors
+                        ${selected.includes(lead.id) ? 'bg-brand-50/40 dark:bg-brand-950/10' : ''}`}
+                    >
+                      <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={selected.includes(lead.id)} onChange={() => toggleSelect(lead.id)}
+                          className="rounded border-slate-300 text-brand-600" />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div>
+                          <p className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[250px]">{lead.name}</p>
+                          <p className="text-xs text-slate-500 truncate max-w-[250px]">{lead.company || lead.email}</p>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={scoreCfg?.cls}>
+                          {ScoreIcon && <ScoreIcon className="w-3 h-3" />} {scoreCfg?.label}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={statusCfg.cls}>{statusCfg.label}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 text-xs">{lead.source || '—'}</td>
+                      <td className="py-2.5 px-3 text-slate-500 text-xs whitespace-nowrap">{lead.createdAt}</td>
+                      <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {canCall && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setOpenActionsLeadId((prev) => (prev === lead.id ? null : lead.id))
-                              }}
-                              className="p-1 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
-                              title="Actions"
+                              onClick={() => handleCallLead(lead)}
+                              disabled={callingLeadId === lead.id || !lead.phone}
+                              className="p-1 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/20 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={!lead.phone ? 'No phone number' : (callingLeadId === lead.id ? 'Calling…' : 'Call now')}
                             >
-                              <MoreVertical className="w-4 h-4" />
+                              <PhoneCall className={`w-4 h-4 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
                             </button>
-
-                            {openActionsLeadId === lead.id && (
-                              <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1">
-                                {canUpdate && (
-                                  <button onClick={() => { setEditLead(lead); setOpenActionsLeadId(null) }}
-                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                    <Edit className="w-3.5 h-3.5" /> Edit Lead
-                                  </button>
-                                )}
-                                <button onClick={() => { openHistoryLead(lead); setOpenActionsLeadId(null) }}
-                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                  <Sparkles className="w-3.5 h-3.5" /> Call Intelligence
-                                </button>
-                                <button onClick={() => { openActivitiesLead(lead); setOpenActionsLeadId(null) }}
-                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                  <ClipboardList className="w-3.5 h-3.5" /> Lead Activities
-                                </button>
-                                <button onClick={() => { setWaLead(lead); setOpenActionsLeadId(null) }}
-                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                  <MessageCircle className="w-3.5 h-3.5" /> Send WhatsApp
-                                </button>
-                                {canCall && (
-                                  <button
-                                    onClick={() => { handleCallLead(lead); setOpenActionsLeadId(null) }}
-                                    disabled={callingLeadId === lead.id || !lead.phone}
-                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
-                                    {callingLeadId === lead.id ? 'Calling…' : 'Call Now'}
-                                  </button>
-                                )}
-                                {canAiScore && (
-                                  <button onClick={() => { handleScoreLead(lead); setOpenActionsLeadId(null) }}
-                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                    <TrendingUp className="w-3.5 h-3.5" /> AI Score
-                                  </button>
-                                )}
-                                {canConvert && (
-                                  <button onClick={() => { handleConvertLead(lead); setOpenActionsLeadId(null) }}
-                                    className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                    <UserCheck className="w-3.5 h-3.5" /> Convert Lead
-                                  </button>
-                                )}
-                                <button onClick={() => { setDetailLead(lead); setOpenActionsLeadId(null) }}
-                                  className="w-full px-3 py-2 text-left text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2">
-                                  <ExternalLink className="w-3.5 h-3.5" /> View Details
-                                </button>
-                                {canDelete && (
-                                  <button onClick={() => { handleDelete([lead.id]); setOpenActionsLeadId(null) }}
-                                    className="w-full px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2">
-                                    <Trash2 className="w-3.5 h-3.5" /> Delete Lead
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </motion.tr>
-                      {isExpandedRow && (
-                        <motion.tr
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          className="bg-slate-50/60 dark:bg-slate-900/20"
-                        >
-                          <td colSpan={11} className="px-3 pb-3 pt-0">
-                            <div className="ml-9 rounded-lg border border-slate-200/70 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/30 px-3 py-2">
-                              <div className="grid grid-cols-[1fr_1.3fr_1fr_.8fr_1.1fr] gap-x-4 text-sm leading-snug text-slate-600 dark:text-slate-400">
-                                <p className="truncate">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Source:</span>{' '}
-                                  {lead.source || '—'}
-                                </p>
-                                <p className="truncate">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Activity:</span>{' '}
-                                  {ageMin === null ? 'No timer' : `${ageMin} min since activity`}
-                                </p>
-                                <p className="truncate">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Spec:</span>{' '}
-                                  {lead.specialization || '—'}
-                                </p>
-                                <p className="truncate">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Value:</span>{' '}
-                                  ₹{(lead.value / 1000).toFixed(0)}k
-                                </p>
-                                <p className="truncate">
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">Owner:</span>{' '}
-                                  {lead.assignedTo || 'Unassigned'}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                        </motion.tr>
-                      )}
-                    </Fragment>
+                          )}
+                          <button
+                            onClick={() => setDetailLead(lead)}
+                            className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
+                            title="View details"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
                   )
                 })}
               </AnimatePresence>
@@ -1971,7 +1790,7 @@ export default function LeadsPage() {
         )}
       </AnimatePresence>
 
-      {/* Lead Detail Modal */}
+      {/* Lead Detail Card */}
       <AnimatePresence>
         {detailLead && (
           <LeadDetailModal
@@ -1981,6 +1800,19 @@ export default function LeadsPage() {
             onDelete={handleDelete}
             canEdit={canUpdate}
             canDelete={canDelete}
+            onCall={handleCallLead}
+            onWhatsApp={(l) => { setDetailLead(null); setWaLead(l) }}
+            onHistory={(l) => { setDetailLead(null); openHistoryLead(l) }}
+            onActivities={(l) => { setDetailLead(null); openActivitiesLead(l) }}
+            onAiScore={handleScoreLead}
+            onConvert={handleConvertLead}
+            canCall={canCall}
+            canAiScore={canAiScore}
+            canConvert={canConvert}
+            callingLeadId={callingLeadId}
+            lastCallOutcome={callOutcomeByLeadId[detailLead.id]}
+            aging={getLeadAgingMeta(detailLead, timeTick)}
+            ageMin={getLeadAgeMinutes(detailLead, timeTick)}
           />
         )}
       </AnimatePresence>
