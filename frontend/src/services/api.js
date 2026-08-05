@@ -342,6 +342,29 @@ export const platformAdminAPI = {
 }
 
 // ──────────────────────────────────────────
+//  Tickets
+// ──────────────────────────────────────────
+export const ticketsAPI = {
+  getAll:     (params) => api.get('/tickets', { params }),
+  getById:    (id)     => api.get(`/tickets/${id}`),
+  create:     (data)   => api.post('/tickets', data),
+  update:     (id, d)  => api.put(`/tickets/${id}`, d),
+  delete:     (id)     => api.delete(`/tickets/${id}`),
+  resolve:    (id)     => api.patch(`/tickets/${id}/resolve`),
+  close:      (id)     => api.patch(`/tickets/${id}/close`),
+  reopen:     (id)     => api.patch(`/tickets/${id}/reopen`),
+  addComment: (id, d)  => api.post(`/tickets/${id}/comments`, d),
+  getStats:   ()       => api.get('/tickets/stats'),
+}
+
+// ──────────────────────────────────────────
+//  Subscription
+// ──────────────────────────────────────────
+export const subscriptionAPI = {
+  getCurrent: () => api.get('/subscription/current'),
+}
+
+// ──────────────────────────────────────────
 //  Dashboard / Lead Conversion
 // ──────────────────────────────────────────
 export const dashboardAPI = {

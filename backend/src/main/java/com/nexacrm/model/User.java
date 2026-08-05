@@ -42,7 +42,8 @@ public class User extends BaseEntity implements UserDetails {
         "integrations.read", "integrations.create", "integrations.update", "integrations.delete", "integrations.manage",
         "profile.update",
         "notifications.read",
-        "tasks.read", "tasks.create", "tasks.update", "tasks.delete", "tasks.assign", "tasks.complete"
+        "tasks.read", "tasks.create", "tasks.update", "tasks.delete", "tasks.assign", "tasks.complete",
+        "tickets.read", "tickets.create", "tickets.update", "tickets.delete", "tickets.assign"
     );
 
     private static final Map<Role, List<String>> ROLE_PERMISSIONS = new EnumMap<>(Role.class);
@@ -69,7 +70,8 @@ public class User extends BaseEntity implements UserDetails {
             "integrations.read", "integrations.update", "integrations.manage",
             "profile.update",
             "notifications.read",
-            "tasks.read", "tasks.create", "tasks.update", "tasks.assign", "tasks.complete"
+            "tasks.read", "tasks.create", "tasks.update", "tasks.assign", "tasks.complete",
+            "tickets.read", "tickets.create", "tickets.update", "tickets.assign"
         ));
         ROLE_PERMISSIONS.put(Role.SALES_EXEC, List.of(
             "dashboard.view",
@@ -83,7 +85,8 @@ public class User extends BaseEntity implements UserDetails {
             "reports.read",
             "profile.update",
             "notifications.read",
-            "tasks.read", "tasks.create", "tasks.update", "tasks.complete"
+            "tasks.read", "tasks.create", "tasks.update", "tasks.complete",
+            "tickets.read", "tickets.create", "tickets.update"
         ));
         ROLE_PERMISSIONS.put(Role.NORMAL_USER, ROLE_PERMISSIONS.get(Role.SALES_EXEC));
     }

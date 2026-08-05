@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
   Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
   X, ListTodo, Bell, ShieldCheck, Activity, Building2, BadgeDollarSign,
-  Lock, FileText
+  Lock, FileText, LifeBuoy, CreditCard
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
@@ -23,6 +23,8 @@ const NAV_ITEMS = [
   { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.REPORTS_READ },
   { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_READ },
   { label: 'Alerts',         icon: Bell,            path: '/notifications', permission: PERMISSIONS.NOTIFICATIONS_READ },
+  { label: 'Tickets',        icon: LifeBuoy,        path: '/tickets', permission: PERMISSIONS.TICKETS_READ },
+  { label: 'Subscription',  icon: CreditCard,      path: '/subscription' },
   { label: 'Profile',        icon: User,            path: '/profile' },
   { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },

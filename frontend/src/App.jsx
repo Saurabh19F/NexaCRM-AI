@@ -26,6 +26,8 @@ const pageImports = {
   '/integrations': () => import('./pages/IntegrationsPage'),
   '/profile': () => import('./pages/ProfilePage'),
   '/notifications': () => import('./pages/NotificationCenterPage'),
+  '/tickets': () => import('./pages/TicketsPage'),
+  '/subscription': () => import('./pages/SubscriptionPage'),
   '/admin/saas': () => import('./pages/SaaSAdminPage'),
   '/platform/login': () => import('./pages/PlatformLoginPage'),
 }
@@ -52,6 +54,8 @@ const SettingsPage = lazy(pageImports['/settings'])
 const IntegrationsPage = lazy(pageImports['/integrations'])
 const ProfilePage = lazy(pageImports['/profile'])
 const NotificationCenterPage = lazy(pageImports['/notifications'])
+const TicketsPage = lazy(pageImports['/tickets'])
+const SubscriptionPage = lazy(pageImports['/subscription'])
 const SaaSAdminPage = lazy(pageImports['/admin/saas'])
 const PlatformLoginPage = lazy(pageImports['/platform/login'])
 
@@ -244,6 +248,8 @@ export default function App() {
             <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><AnalyticsPage /></PermissionRoute>} />
             <Route path="/task-followup" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TaskFollowUpPage /></PermissionRoute>} />
             <Route path="/notifications" element={<PermissionRoute permission={PERMISSIONS.NOTIFICATIONS_READ}><NotificationCenterPage /></PermissionRoute>} />
+            <Route path="/tickets" element={<PermissionRoute permission={PERMISSIONS.TICKETS_READ}><TicketsPage /></PermissionRoute>} />
+            <Route path="/subscription" element={<SubscriptionPage />} />
             <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_READ}><TeamPage /></PermissionRoute>} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_READ}><IntegrationsPage /></PermissionRoute>} />
