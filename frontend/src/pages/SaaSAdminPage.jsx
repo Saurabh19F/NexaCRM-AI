@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   BadgeDollarSign, Building2, CheckCircle2, CircleOff, RefreshCw, Shield,
   Sparkles, BarChart3, FileText, Pencil, Plus, Trash2, Users, Lock,
@@ -748,7 +749,9 @@ function AuditLogsTab({ auditLogs, loading }) {
 //  MAIN PAGE
 // ═════════════════════════════════════════════════════════════════
 export default function SaaSAdminPage() {
-  const [tab, setTab] = useState('overview')
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const tab = searchParams.get('tab') || 'overview'
   const [tenants, setTenants] = useState([])
   const [plans, setPlans] = useState([])
   const [featureFlags, setFeatureFlags] = useState([])
@@ -797,7 +800,7 @@ export default function SaaSAdminPage() {
       subscriptionEndsAt: tenant?.subscriptionEndsAt ? String(tenant.subscriptionEndsAt).slice(0, 16) : '',
       featureFlagsJson: stringifyJson(tenant?.featureFlags), usageLimitsJson: stringifyJson(tenant?.usageLimits),
     })
-    if (tenant) setTab('companies')
+    if (tenant) navigate('/admin/saas?tab=companies', { replace: true })
   }
 
   const updateForm = (event) => {
@@ -857,21 +860,6 @@ export default function SaaSAdminPage() {
         <button type="button" onClick={loadData} className="btn-secondary self-start">
           <RefreshCw className="h-4 w-4" />Refresh
         </button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-px overflow-x-auto">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button key={key} type="button" onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-t-lg transition whitespace-nowrap ${
-              tab === key
-                ? 'bg-white dark:bg-slate-900 text-brand-600 dark:text-brand-400 border border-b-0 border-slate-200 dark:border-slate-800 -mb-px'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/50'
-            }`}>
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
       </div>
 
       {/* Tab content */}

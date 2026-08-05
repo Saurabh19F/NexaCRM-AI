@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation, useSearchParams } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
   Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
-  X, ListTodo, Bell, ShieldCheck
+  X, ListTodo, Bell, ShieldCheck, Activity, Building2, BadgeDollarSign,
+  Lock, FileText
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
@@ -25,7 +26,17 @@ const NAV_ITEMS = [
   { label: 'Profile',        icon: User,            path: '/profile' },
   { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
-  { label: 'Platform Admin',  icon: ShieldCheck,     path: '/admin/saas', permission: null, platformAdminOnly: true },
+]
+
+// Platform Admin sidebar tabs — shown instead of company nav items
+const PLATFORM_ADMIN_TABS = [
+  { label: 'Overview',       icon: Activity,        tabKey: 'overview' },
+  { label: 'Companies',      icon: Building2,       tabKey: 'companies' },
+  { label: 'Users',          icon: Users,           tabKey: 'users' },
+  { label: 'Subscriptions',  icon: BadgeDollarSign, tabKey: 'subscriptions' },
+  { label: 'Security',       icon: Lock,            tabKey: 'security' },
+  { label: 'Feature Flags',  icon: Zap,             tabKey: 'features' },
+  { label: 'Audit Logs',     icon: FileText,        tabKey: 'audit' },
 ]
 
 const AVATAR_STYLE_CLASS = {
@@ -39,16 +50,15 @@ const AVATAR_STYLE_CLASS = {
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const { user } = useAuthStore()
   const [avatarBroken, setAvatarBroken] = useState(false)
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
   const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
   const isPlatformAdmin = user?.role === 'PLATFORM_ADMIN'
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (isPlatformAdmin) {
-      // Platform Admin is a SaaS-level operator — only show platform-level nav items
-      return item.platformAdminOnly || item.path === '/profile' || item.path === '/settings'
-    }
-    if (item.platformAdminOnly) return false
-    return hasPermission(user, item.permission)
-  })
+  const activeTab = searchParams.get('tab') || 'overview'
+
+  const visibleNavItems = isPlatformAdmin
+    ? NAV_ITEMS.filter((item) => item.path === '/profile' || item.path === '/settings')
+    : NAV_ITEMS.filter((item) => !item.platformAdminOnly && hasPermission(user, item.permission))
 
   useEffect(() => {
     setAvatarBroken(false)
@@ -82,6 +92,32 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-2 space-y-1 overflow-y-auto custom-scrollbar">
+        {isPlatformAdmin && (
+          <>
+            {/* Platform Admin section label */}
+            {isMobile && (
+              <div className="px-3 pt-2 pb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Platform Admin</span>
+              </div>
+            )}
+            {PLATFORM_ADMIN_TABS.map(({ label, icon: Icon, tabKey }) => {
+              const isActive = location.pathname === '/admin/saas' && activeTab === tabKey
+              return (
+                <NavLink
+                  key={tabKey}
+                  to={`/admin/saas?tab=${tabKey}`}
+                  onClick={() => setMobileOpen(false)}
+                  className={`edu-nav-item ${isActive ? 'active' : ''} ${isMobile ? 'flex-row gap-3 px-3' : ''}`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className={`${isMobile ? 'text-sm' : 'text-[10px] leading-tight mt-0.5'} font-medium truncate`}>{label}</span>
+                </NavLink>
+              )
+            })}
+            {/* Divider before Profile/Settings */}
+            <div className="my-2 border-t border-white/10" />
+          </>
+        )}
         {visibleNavItems.map(({ label, icon: Icon, path }) => (
           <NavLink
             key={path}
