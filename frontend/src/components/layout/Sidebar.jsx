@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useLocation, useSearchParams } from 'react-router-dom'
+import { NavLink, Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
   Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
@@ -54,7 +54,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const location = useLocation()
   const avatarStyle = AVATAR_STYLE_CLASS[user?.avatarStyle] ?? AVATAR_STYLE_CLASS.brand
   const isPlatformAdmin = user?.role === 'PLATFORM_ADMIN'
-  const activeTab = searchParams.get('tab') || 'overview'
+  const rawTab = searchParams.get('tab') || 'overview'
+  const activeTab = PLATFORM_ADMIN_TABS.some(t => t.tabKey === rawTab) ? rawTab : 'overview'
 
   const visibleNavItems = isPlatformAdmin
     ? NAV_ITEMS.filter((item) => item.path === '/profile' || item.path === '/settings')
@@ -103,7 +104,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             {PLATFORM_ADMIN_TABS.map(({ label, icon: Icon, tabKey }) => {
               const isActive = location.pathname === '/admin/saas' && activeTab === tabKey
               return (
-                <NavLink
+                <Link
                   key={tabKey}
                   to={`/admin/saas?tab=${tabKey}`}
                   onClick={() => setMobileOpen(false)}
@@ -111,7 +112,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   <span className={`${isMobile ? 'text-sm' : 'text-[10px] leading-tight mt-0.5'} font-medium truncate`}>{label}</span>
-                </NavLink>
+                </Link>
               )
             })}
             {/* Divider before Profile/Settings */}

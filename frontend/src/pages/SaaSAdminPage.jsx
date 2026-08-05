@@ -35,15 +35,6 @@ const EMPTY_FORM = {
   featureFlagsJson: '{}', usageLimitsJson: '{}',
 }
 
-const TABS = [
-  { key: 'overview',      label: 'Overview',       icon: Activity },
-  { key: 'companies',     label: 'Companies',      icon: Building2 },
-  { key: 'users',         label: 'Users',          icon: Users },
-  { key: 'subscriptions', label: 'Subscriptions',  icon: BadgeDollarSign },
-  { key: 'security',      label: 'Security',       icon: Lock },
-  { key: 'features',      label: 'Feature Flags',  icon: Zap },
-  { key: 'audit',         label: 'Audit Logs',     icon: FileText },
-]
 
 const ROLE_LABELS = {
   PLATFORM_ADMIN: 'Platform Admin',
@@ -751,7 +742,9 @@ function AuditLogsTab({ auditLogs, loading }) {
 export default function SaaSAdminPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const tab = searchParams.get('tab') || 'overview'
+  const VALID_TABS = ['overview', 'companies', 'users', 'subscriptions', 'security', 'features', 'audit']
+  const rawTab = searchParams.get('tab') || 'overview'
+  const tab = VALID_TABS.includes(rawTab) ? rawTab : 'overview'
   const [tenants, setTenants] = useState([])
   const [plans, setPlans] = useState([])
   const [featureFlags, setFeatureFlags] = useState([])
