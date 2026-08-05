@@ -34,9 +34,10 @@ const formatDate = (value) => {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-const formatTicketNumber = (num) => {
-  if (!num) return 'TKT-0000'
-  return `TKT-${String(num).padStart(4, '0')}`
+const formatTicketNumber = (val) => {
+  if (!val) return 'TKT-0000'
+  if (String(val).startsWith('TKT-')) return val
+  return `TKT-${String(val).padStart(4, '0')}`
 }
 
 const truncate = (str, max = 120) => {
