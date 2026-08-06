@@ -218,7 +218,11 @@ function SortableLeadCard({
     disabled: !canMoveLead,
     data: { stage },
   })
-  const style = { transform: CSS.Transform.toString(transform), transition }
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    touchAction: 'none',
+  }
   return (
     <div
       ref={setNodeRef}
@@ -458,7 +462,6 @@ export default function KanbanPage() {
     leads,
     fetchLeads,
     createLead,
-    updateLead,
     deleteLead,
     patchLeadLocal,
   } = useLeadsStore()
@@ -569,13 +572,51 @@ export default function KanbanPage() {
     return null
   }, [leadsByStage])
 
+  /* ── Move lead status (shared by drag-drop and context menu) ── */
+  const moveLeadStatus = useCallback(async (leadId, targetStage) => {
+    if (!canUpdateLead) { toast.error('No permission to move leads.'); return }
+
+    const source = findLeadAndStage(leadId)
+    if (!source || source.stage === targetStage) return
+
+    const stageLabel = STAGES.find((s) => s.key === targetStage)?.label || targetStage
+
+    // Optimistic update — only patch local state, don't use store's updateLead
+    // (which sets loading:true and replaces the whole leads array, breaking DnD)
+    patchLeadLocal(source.lead.id, { status: targetStage })
+
+    try {
+      // Build the backend payload from the lead's current data + new status
+      const payload = {
+        name: source.lead.name || '',
+        email: source.lead.email || '',
+        phone: source.lead.phone || '',
+        company: source.lead.company || '',
+        service: source.lead.service || '',
+        specialization: source.lead.specialization || '',
+        source: String(source.lead.source || 'OTHER').toUpperCase().replace(/\s+/g, '_'),
+        score: String(source.lead.score || 'cold').toUpperCase(),
+        status: targetStage.toUpperCase(),
+        dealValue: Number(source.lead.value || 0),
+        assignedToId: source.lead.assignedToId || null,
+        tags: String(source.lead.tags || '').split(',').map((t) => t.trim()).filter(Boolean),
+        expectedCloseTimeline: source.lead.expectedCloseTimeline || null,
+      }
+      await leadsAPI.update(source.lead.id, payload)
+      toast.success(`${source.lead.name} → ${stageLabel}`)
+    } catch (err) {
+      // Revert on failure
+      patchLeadLocal(source.lead.id, { status: source.stage })
+      toast.error(err?.message || 'Failed to move lead')
+    }
+  }, [canUpdateLead, findLeadAndStage, patchLeadLocal])
+
   /* ── Drag & drop handlers ────────────────────────────────── */
   const handleDragStart = ({ active }) => setActiveId(active.id)
 
   const handleDragEnd = async ({ active, over }) => {
-    if (!canUpdateLead) return
     setActiveId(null)
-    if (!over || active.id === over.id) return
+    if (!canUpdateLead || !over || active.id === over.id) return
 
     const source = findLeadAndStage(active.id)
     if (!source) return
@@ -595,38 +636,15 @@ export default function KanbanPage() {
     )
     if (!targetStage || targetStage === source.stage) return
 
-    // Optimistic update
-    patchLeadLocal(source.lead.id, { status: targetStage })
-
-    try {
-      await updateLead(source.lead.id, { ...source.lead, status: targetStage })
-      toast.success(`${source.lead.name} → ${STAGES.find((s) => s.key === targetStage)?.label || targetStage}`)
-    } catch (err) {
-      // Revert on failure
-      patchLeadLocal(source.lead.id, { status: source.stage })
-      toast.error(err?.message || 'Failed to move lead')
-    }
+    moveLeadStatus(source.lead.id, targetStage)
   }
 
   const activeLead = activeId ? findLeadAndStage(activeId)?.lead : null
 
   /* ── Move via context menu ───────────────────────────────── */
   const moveLead = async (leadId, targetStage) => {
-    if (!canUpdateLead) { toast.error('No permission to move leads.'); return }
-
-    const source = findLeadAndStage(leadId)
-    if (!source || source.stage === targetStage) return
-
-    patchLeadLocal(leadId, { status: targetStage })
     setOpenMenuId(null)
-
-    try {
-      await updateLead(leadId, { ...source.lead, status: targetStage })
-      toast.success(`${source.lead.name} → ${STAGES.find((s) => s.key === targetStage)?.label || targetStage}`)
-    } catch (err) {
-      patchLeadLocal(leadId, { status: source.stage })
-      toast.error(err?.message || 'Failed to move lead')
-    }
+    moveLeadStatus(leadId, targetStage)
   }
 
   /* ── Delete ──────────────────────────────────────────────── */
