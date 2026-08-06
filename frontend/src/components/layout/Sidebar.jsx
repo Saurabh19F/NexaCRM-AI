@@ -13,7 +13,7 @@ import { prefetchPage } from '../../App'
 const NAV_ITEMS = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
   { label: 'Leads',          icon: Users,           path: '/leads', permission: PERMISSIONS.LEADS_READ },
-  { label: 'Pipeline',       icon: Kanban,          path: '/pipeline', permission: PERMISSIONS.DEALS_READ },
+  { label: 'Pipeline',       icon: Kanban,          path: '/pipeline', permission: PERMISSIONS.LEADS_READ },
   { label: 'Tasks',          icon: ListTodo,        path: '/task-followup', permission: PERMISSIONS.TASKS_READ },
   { label: 'Customers',      icon: UserCircle,      path: '/customers', permission: PERMISSIONS.CUSTOMERS_READ },
   { label: 'Messages',       icon: MessageSquare,   path: '/communication', permission: PERMISSIONS.COMMUNICATIONS_READ },

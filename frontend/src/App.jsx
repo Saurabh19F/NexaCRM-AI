@@ -239,7 +239,7 @@ export default function App() {
             <Route index element={<PlatformAdminRedirect />} />
             <Route path="/dashboard" element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><DashboardPage /></PermissionRoute>} />
             <Route path="/leads" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><LeadsPage /></PermissionRoute>} />
-            <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.DEALS_READ}><KanbanPage /></PermissionRoute>} />
+            <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><KanbanPage /></PermissionRoute>} />
             <Route path="/customers" element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_READ}><CustomersPage /></PermissionRoute>} />
             <Route path="/communication" element={<PermissionRoute permission={PERMISSIONS.COMMUNICATIONS_READ}><CommunicationPage /></PermissionRoute>} />
             <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />

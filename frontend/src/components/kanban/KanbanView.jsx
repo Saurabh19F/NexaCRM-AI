@@ -13,20 +13,22 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Filter, Search, IndianRupee, Calendar,
-  User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X, ExternalLink, PlayCircle, ChevronLeft, ChevronRight, RefreshCw
+  User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X,
+  ChevronLeft, ChevronRight, RefreshCw,
+  Phone, AtSign, Building2, Tag, PhoneCall, MessageCircle, Edit
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
-import { useNotificationStore } from '../../store/notificationStore'
 import { getLeadAgingMeta } from '../../utils/leadSla'
-import { dealsAPI } from '../../services/api'
+import { leadsAPI, teamAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 
+/* ── Pipeline stages — matches lead statuses ───────────────── */
 const STAGES = [
   { key: 'new',         label: 'New',         color: 'bg-slate-400' },
-  { key: 'contacted',   label: 'Contacted',   color: 'bg-brand-400' },
+  { key: 'contacted',   label: 'Contacted',   color: 'bg-sky-400' },
   { key: 'qualified',   label: 'Qualified',   color: 'bg-brand-400' },
   { key: 'proposal',    label: 'Proposal',    color: 'bg-amber-400' },
   { key: 'negotiation', label: 'Negotiation', color: 'bg-orange-400' },
@@ -34,86 +36,63 @@ const STAGES = [
   { key: 'lost',        label: 'Lost',        color: 'bg-red-400' },
 ]
 
-const PRIORITY_COLOR = {
-  high:   'text-red-600 dark:text-red-400',
-  medium: 'text-amber-600 dark:text-amber-400',
-  low:    'text-slate-400',
-}
-
 const SCORE_CONFIG = {
-  hot:  { icon: Flame,        color: 'text-red-500',  label: 'Hot' },
-  warm: { icon: Thermometer,  color: 'text-amber-500',label: 'Warm' },
-  cold: { icon: Snowflake,    color: 'text-sky-500',  label: 'Cold' },
+  hot:  { icon: Flame,        color: 'text-red-500',   label: 'Hot',  cls: 'badge-hot' },
+  warm: { icon: Thermometer,  color: 'text-amber-500', label: 'Warm', cls: 'badge-warm' },
+  cold: { icon: Snowflake,    color: 'text-sky-500',   label: 'Cold', cls: 'badge-cold' },
 }
 
-const EMPTY_STAGE_MAP = STAGES.reduce((acc, stage) => {
-  acc[stage.key] = []
-  return acc
-}, {})
+const LEAD_SOURCES = [
+  'Facebook', 'Instagram', 'LinkedIn', 'Website', 'WhatsApp',
+  'Google Ads', 'Meta Ads', 'Referral', 'Email', 'Other',
+]
+
 const STAGE_DROP_PREFIX = 'stage:'
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const parsePrefixedValue = (text, key) => {
-  const value = String(text || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .find((line) => line.toLowerCase().startsWith(`${key.toLowerCase()}:`))
-  return value ? value.slice(key.length + 1).trim() : ''
-}
-
-const mapDealFromApi = (deal) => ({
-  id: String(deal.id),
-  title: deal.title || 'Untitled Deal',
-  company: deal.company || parsePrefixedValue(deal.description, 'Company'),
-  value: Number(deal.dealValue || 0),
-  leadId: deal.leadId || null,
-  owner: deal.ownerName || parsePrefixedValue(deal.notes, 'Owner') || 'Unassigned',
-  dueDate: deal.expectedCloseDate || '',
-  priority: String(deal.priority || 'MEDIUM').toLowerCase(),
-  score: String(deal.aiScore || 'WARM').toLowerCase(),
-  stage: String(deal.stage || 'NEW').toLowerCase(),
-  activities: Number(deal.activitiesCount || 0),
-  latestCallRecordingUrl: deal.latestCallRecordingUrl || '',
-  latestCallSummary: deal.latestCallSummary || '',
-  latestCallAt: deal.latestCallAt || '',
-})
-
-function DealCard({
-  deal,
+/* ── Lead card (shown in Kanban column) ────────────────────── */
+function LeadCard({
+  lead,
   stage,
   isDragging,
   isMenuOpen,
   onToggleMenu,
-  onMoveDeal,
-  onDeleteDeal,
+  onMoveLead,
+  onDeleteLead,
   agingMeta,
-  canMoveDeal,
-  canDeleteDeal,
+  canMoveLead,
+  canDeleteLead,
+  onCall,
+  onWhatsApp,
+  callingLeadId,
 }) {
-  const ScoreIcon = SCORE_CONFIG[deal.score]?.icon ?? Flame
-  const scoreColor = SCORE_CONFIG[deal.score]?.color ?? 'text-slate-400'
+  const scoreCfg = SCORE_CONFIG[lead.score] || SCORE_CONFIG.warm
+  const ScoreIcon = scoreCfg.icon
 
   return (
     <div className={`deal-card select-none relative ${isDragging ? 'opacity-50 rotate-2 shadow-2xl' : ''}`}>
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight pr-2 line-clamp-2">
-          {deal.title}
-        </p>
-        {(canMoveDeal || canDeleteDeal) && (
+      {/* Name + menu */}
+      <div className="flex items-start justify-between mb-1.5">
+        <div className="min-w-0 flex-1 pr-2">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight line-clamp-1">
+            {lead.name}
+          </p>
+          {lead.company && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{lead.company}</p>
+          )}
+        </div>
+        {(canMoveLead || canDeleteLead) && (
           <button
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleMenu(deal.id)
-            }}
+            onClick={(e) => { e.stopPropagation(); onToggleMenu(lead.id) }}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0"
-            data-deal-menu
+            data-lead-menu
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
         )}
       </div>
 
+      {/* Context menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -124,106 +103,119 @@ function DealCard({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
             className="absolute right-2 top-8 z-40 w-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg overflow-hidden"
-            data-deal-menu
+            data-lead-menu
           >
-            {canMoveDeal && STAGES.filter((s) => s.key !== stage).map((s) => (
+            {canMoveLead && STAGES.filter((s) => s.key !== stage).map((s) => (
               <button
                 key={s.key}
-                onClick={() => onMoveDeal(deal.id, s.key)}
+                onClick={() => onMoveLead(lead.id, s.key)}
                 className="w-full px-3 py-2 text-left text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 Move to {s.label}
               </button>
             ))}
-            {canMoveDeal && canDeleteDeal && <div className="h-px bg-slate-200 dark:bg-slate-700" />}
-            {canDeleteDeal && (
+            {canMoveLead && canDeleteLead && <div className="h-px bg-slate-200 dark:bg-slate-700" />}
+            {canDeleteLead && (
               <button
-                onClick={() => onDeleteDeal(deal.id)}
+                onClick={() => onDeleteLead(lead.id)}
                 className="w-full px-3 py-2 text-left text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Delete Deal
+                Delete Lead
               </button>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">{deal.company}</p>
-
-      {agingMeta && (
-        <div className="mb-2">
-          <span className={`badge ${agingMeta.badge}`}>{agingMeta.label}</span>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between text-xs">
-        <span className="flex items-center gap-0.5 font-bold text-slate-700 dark:text-slate-300">
-          <IndianRupee className="w-3 h-3" />
-          {(deal.value / 1000).toFixed(0)}k
+      {/* Score badge + aging */}
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className={`${scoreCfg.cls} text-[10px]`}>
+          <ScoreIcon className="w-3 h-3" /> {scoreCfg.label}
         </span>
-        <ScoreIcon className={`w-3.5 h-3.5 ${scoreColor}`} />
+        {agingMeta && (
+          <span className={`badge ${agingMeta.badge} text-[10px]`}>{agingMeta.label}</span>
+        )}
       </div>
 
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/40">
-        <div className="flex items-center gap-1 text-[10px] text-slate-500">
-          <User className="w-3 h-3" /> {deal.owner}
-        </div>
-        <div className="flex items-center gap-1 text-[10px] text-slate-500">
-          <Calendar className="w-3 h-3" /> {deal.dueDate}
-        </div>
+      {/* Value + source */}
+      <div className="flex items-center justify-between text-xs mb-2">
+        {lead.value > 0 ? (
+          <span className="flex items-center gap-0.5 font-bold text-slate-700 dark:text-slate-300">
+            <IndianRupee className="w-3 h-3" />
+            {(lead.value / 1000).toFixed(0)}k
+          </span>
+        ) : (
+          <span className="text-slate-400 text-[11px]">No value</span>
+        )}
+        <span className="text-[11px] text-slate-500 dark:text-slate-400">{lead.source}</span>
       </div>
 
-      <div className={`mt-2 text-[10px] font-semibold ${PRIORITY_COLOR[deal.priority] ?? 'text-slate-400'}`}>
-        ● {deal.priority?.toUpperCase()} PRIORITY
-      </div>
-
-      {(deal.latestCallRecordingUrl || deal.latestCallSummary) && (
-        <div className="mt-2 rounded-xl border border-brand-200/80 dark:border-brand-800/50 bg-brand-50/80 dark:bg-brand-950/15 p-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold text-brand-700 dark:text-brand-300 uppercase tracking-wide">
-              Latest call
-            </p>
-            {deal.latestCallRecordingUrl && (
-              <a
-                href={deal.latestCallRecordingUrl}
-                target="_blank"
-                rel="noreferrer"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 dark:text-brand-300 hover:underline"
-                title="Open recording"
-              >
-                <PlayCircle className="w-3 h-3" /> Recording
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
+      {/* Contact info */}
+      <div className="space-y-1 mb-2">
+        {lead.email && (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
+            <AtSign className="w-3 h-3 flex-shrink-0" /> {lead.email}
           </div>
-          {deal.latestCallSummary && (
-            <p className="mt-1 text-[10px] text-brand-800/80 dark:text-brand-100/80 leading-relaxed line-clamp-2">
-              {deal.latestCallSummary}
-            </p>
-          )}
+        )}
+        {lead.phone && (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
+            <Phone className="w-3 h-3 flex-shrink-0" /> {lead.phone}
+          </div>
+        )}
+      </div>
+
+      {/* Owner + date */}
+      <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+          <User className="w-3 h-3" /> {lead.assignedTo || 'Unassigned'}
         </div>
-      )}
+        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+          <Calendar className="w-3 h-3" /> {lead.createdAt}
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+        {lead.phone && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onCall?.(lead) }}
+            disabled={callingLeadId === lead.id}
+            className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+            title={callingLeadId === lead.id ? 'Calling…' : 'Call'}
+          >
+            <PhoneCall className={`w-3.5 h-3.5 ${callingLeadId === lead.id ? 'animate-pulse' : ''}`} />
+          </button>
+        )}
+        {lead.phone && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onWhatsApp?.(lead) }}
+            className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-950/30 text-slate-400 hover:text-green-600 transition-colors"
+            title="WhatsApp"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {lead.service && (
+          <span className="ml-auto text-[10px] text-slate-400 truncate max-w-[80px]" title={lead.service}>
+            <Tag className="w-3 h-3 inline mr-0.5" />{lead.service}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
 
-function SortableDealCard({
-  deal,
-  stage,
-  isMenuOpen,
-  onToggleMenu,
-  onMoveDeal,
-  onDeleteDeal,
-  agingMeta,
-  canMoveDeal,
-  canDeleteDeal,
+/* ── Sortable wrapper for lead cards ───────────────────────── */
+function SortableLeadCard({
+  lead, stage, isMenuOpen, onToggleMenu, onMoveLead, onDeleteLead,
+  agingMeta, canMoveLead, canDeleteLead, onCall, onWhatsApp, callingLeadId,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: deal.id,
-    disabled: !canMoveDeal,
+    id: String(lead.id),
+    disabled: !canMoveLead,
     data: { stage },
   })
   const style = { transform: CSS.Transform.toString(transform), transition }
@@ -235,41 +227,38 @@ function SortableDealCard({
       {...attributes}
       {...listeners}
     >
-      <DealCard
-        deal={deal}
+      <LeadCard
+        lead={lead}
         stage={stage}
         isDragging={isDragging}
         isMenuOpen={isMenuOpen}
         onToggleMenu={onToggleMenu}
-        onMoveDeal={onMoveDeal}
-        onDeleteDeal={onDeleteDeal}
+        onMoveLead={onMoveLead}
+        onDeleteLead={onDeleteLead}
         agingMeta={agingMeta}
-        canMoveDeal={canMoveDeal}
-        canDeleteDeal={canDeleteDeal}
+        canMoveLead={canMoveLead}
+        canDeleteLead={canDeleteLead}
+        onCall={onCall}
+        onWhatsApp={onWhatsApp}
+        callingLeadId={callingLeadId}
       />
     </div>
   )
 }
 
+/* ── Kanban column ─────────────────────────────────────────── */
 function KanbanColumn({
-  stage,
-  deals,
-  onAddDeal,
-  openDealMenuId,
-  onToggleDealMenu,
-  onMoveDeal,
-  onDeleteDeal,
-  getAgingMetaForDeal,
-  canCreateDeal,
-  canMoveDeal,
-  canDeleteDeal,
+  stage, leads: columnLeads, onAddLead, openMenuId, onToggleMenu,
+  onMoveLead, onDeleteLead, canCreateLead, canMoveLead, canDeleteLead,
+  onCall, onWhatsApp, callingLeadId,
 }) {
-  const totalValue = deals.reduce((s, d) => s + d.value, 0)
+  const totalValue = columnLeads.reduce((s, l) => s + (l.value || 0), 0)
   const dropId = `${STAGE_DROP_PREFIX}${stage.key}`
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
     data: { stage: stage.key, type: 'stage' },
   })
+
   return (
     <div
       ref={setNodeRef}
@@ -281,12 +270,12 @@ function KanbanColumn({
           <span className={`w-2.5 h-2.5 rounded-full ${stage.color}`} />
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{stage.label}</span>
           <span className="badge bg-white/80 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400">
-            {deals.length}
+            {columnLeads.length}
           </span>
         </div>
-        {canCreateDeal && (
+        {canCreateLead && (
           <button
-            onClick={() => onAddDeal(stage.key)}
+            onClick={() => onAddLead(stage.key)}
             className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -301,71 +290,200 @@ function KanbanColumn({
         </div>
       )}
 
-      {/* Deal cards */}
-      <SortableContext id={stage.key} items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+      {/* Lead cards */}
+      <SortableContext id={stage.key} items={columnLeads.map((l) => String(l.id))} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 flex-1">
-          {deals.map((deal) => (
-            <SortableDealCard
-              key={deal.id}
-              deal={deal}
+          {columnLeads.map((lead) => (
+            <SortableLeadCard
+              key={lead.id}
+              lead={lead}
               stage={stage.key}
-              isMenuOpen={openDealMenuId === deal.id}
-              onToggleMenu={onToggleDealMenu}
-              onMoveDeal={onMoveDeal}
-              onDeleteDeal={onDeleteDeal}
-              agingMeta={getAgingMetaForDeal(deal)}
-              canMoveDeal={canMoveDeal}
-              canDeleteDeal={canDeleteDeal}
+              isMenuOpen={openMenuId === lead.id}
+              onToggleMenu={onToggleMenu}
+              onMoveLead={onMoveLead}
+              onDeleteLead={onDeleteLead}
+              agingMeta={getLeadAgingMeta(lead)}
+              canMoveLead={canMoveLead}
+              canDeleteLead={canDeleteLead}
+              onCall={onCall}
+              onWhatsApp={onWhatsApp}
+              callingLeadId={callingLeadId}
             />
           ))}
         </div>
       </SortableContext>
 
-      {deals.length === 0 && (
+      {columnLeads.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-xs text-slate-400 text-center py-8">Drop deals here</p>
+          <p className="text-xs text-slate-400 text-center py-8">Drop leads here</p>
         </div>
       )}
     </div>
   )
 }
 
+/* ── Add Lead Modal (compact, for pipeline) ────────────────── */
+function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
+  const [form, setForm] = useState({
+    name: '', email: '', phone: '', company: '', service: '', specialization: '',
+    source: 'Website', score: 'warm', status: initialStage || 'new',
+    assignedToId: '', value: '', tags: '', expectedCloseTimeline: ''
+  })
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'expectedCloseTimeline' && value) {
+      const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
+      setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }))
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onAdd({
+      ...form,
+      id: Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+      createdAtTs: new Date().toISOString(),
+      followUpSlaMinutes: 60,
+      value: Number(form.value) || 0,
+    })
+    onClose()
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-900/50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add lead"
+      onClick={onClose}
+    >
+      <motion.form
+        initial={{ scale: 0.96, opacity: 0, y: 8 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 8 }}
+        transition={{ duration: 0.15 }}
+        onSubmit={handleSubmit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5 space-y-3 max-h-[90vh] overflow-y-auto custom-scrollbar"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Add Lead</h2>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Full Name *</label>
+            <input name="name" value={form.name} onChange={handleChange} required className="input" placeholder="Ramesh Patel" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Company</label>
+            <input name="company" value={form.company} onChange={handleChange} className="input" placeholder="Tech Corp" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Email *</label>
+            <input name="email" type="email" value={form.email} onChange={handleChange} required className="input" placeholder="ramesh@techcorp.in" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Phone</label>
+            <input name="phone" value={form.phone} onChange={handleChange} className="input" placeholder="+91-98765-43210" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Service</label>
+            <input name="service" value={form.service} onChange={handleChange} className="input" placeholder="CRM Setup" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Deal Value (₹)</label>
+            <input name="value" type="number" value={form.value} onChange={handleChange} className="input" placeholder="100000" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Source</label>
+            <select name="source" value={form.source} onChange={handleChange} className="input">
+              {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">AI Score</label>
+            <select name="score" value={form.score} onChange={handleChange} className="input">
+              <option value="hot">🔥 Hot</option>
+              <option value="warm">🌡️ Warm</option>
+              <option value="cold">❄️ Cold</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Status</label>
+            <select name="status" value={form.status} onChange={handleChange} className="input">
+              {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Expected Close</label>
+            <select name="expectedCloseTimeline" value={form.expectedCloseTimeline} onChange={handleChange} className="input">
+              <option value="">Select timeline</option>
+              <option value="DAYS_1_3">1-3 Days (Hot)</option>
+              <option value="DAYS_7_10">7-10 Days (Warm)</option>
+              <option value="DAYS_10_15_PLUS">10-15+ Days (Cold)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>
+          <select name="assignedToId" value={form.assignedToId} onChange={handleChange} className="input">
+            <option value="">Unassigned</option>
+            {(teamMembers || []).map((member) => (
+              <option key={member.id} value={member.id}>{member.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary text-xs">Cancel</button>
+          <button type="submit" className="btn-primary text-xs">Create Lead</button>
+        </div>
+      </motion.form>
+    </motion.div>
+  )
+}
+
+/* ── Main Pipeline Page ────────────────────────────────────── */
 export default function KanbanPage() {
   const { user } = useAuthStore()
-  const { leads } = useLeadsStore()
-  const { notifications } = useNotificationStore()
+  const {
+    leads,
+    fetchLeads,
+    createLead,
+    updateLead,
+    deleteLead,
+    patchLeadLocal,
+  } = useLeadsStore()
   const [searchParams] = useSearchParams()
-  const [deals, setDeals] = useState(EMPTY_STAGE_MAP)
-  const [loadingDeals, setLoadingDeals] = useState(true)
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState(null)
   const [search, setSearch] = useState('')
-  const [openDealMenuId, setOpenDealMenuId] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
   const [showFilters, setShowFilters] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [filterPriority, setFilterPriority] = useState('all')
+  const [addStage, setAddStage] = useState('new')
   const [filterScore, setFilterScore] = useState('all')
+  const [filterSource, setFilterSource] = useState('all')
   const [filterOwner, setFilterOwner] = useState('all')
-  const [filterStage, setFilterStage] = useState('all')
-  const [newDeal, setNewDeal] = useState({
-    title: '',
-    company: '',
-    value: '',
-    owner: '',
-    dueDate: new Date().toISOString().slice(0, 10),
-    priority: 'medium',
-    score: 'warm',
-    stage: 'new',
-  })
-  const canCreateDeal = hasPermission(user, PERMISSIONS.DEALS_CREATE)
-  const canUpdateDeal = hasPermission(user, PERMISSIONS.DEALS_UPDATE)
-  const canMoveDeal = hasPermission(user, PERMISSIONS.DEALS_MOVE_STAGE)
-  const canDeleteDeal = hasPermission(user, PERMISSIONS.DEALS_DELETE)
+  const [teamMembers, setTeamMembers] = useState([])
+  const [callingLeadId, setCallingLeadId] = useState(null)
+
+  const canCreateLead = hasPermission(user, PERMISSIONS.LEADS_CREATE)
+  const canUpdateLead = hasPermission(user, PERMISSIONS.LEADS_UPDATE)
+  const canDeleteLead = hasPermission(user, PERMISSIONS.LEADS_DELETE)
+  const canCall = hasPermission(user, PERMISSIONS.COMMUNICATIONS_SEND)
+  const canViewTeam = hasPermission(user, PERMISSIONS.TEAM_VIEW)
+
   const filterRef = useRef(null)
   const boardScrollRef = useRef(null)
-  const mountedRef = useRef(true)
-  const loadSeqRef = useRef(0)
-  const lastNotificationIdRef = useRef(null)
   const routeSearch = searchParams.get('search') ?? ''
 
   const sensors = useSensors(
@@ -373,126 +491,95 @@ export default function KanbanPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  const owners = useMemo(() => {
-    const allOwners = Object.values(deals).flat().map((d) => d.owner)
-    return [...new Set(allOwners)]
-  }, [deals])
+  useEffect(() => { setSearch(routeSearch) }, [routeSearch])
+
+  /* Load all leads */
+  const loadLeads = useCallback(async () => {
+    try {
+      await fetchLeads({})
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load leads')
+    }
+  }, [fetchLeads])
 
   useEffect(() => {
-    setSearch(routeSearch)
-  }, [routeSearch])
+    setLoading(true)
+    loadLeads().finally(() => setLoading(false))
+  }, [loadLeads])
 
-  const leadByCompany = useMemo(() => {
-    const map = new Map()
-    for (const lead of leads ?? []) {
-      const key = String(lead.company ?? '').trim().toLowerCase()
-      if (key && !map.has(key)) map.set(key, lead)
+  /* Load team members */
+  useEffect(() => {
+    if (!canViewTeam) { setTeamMembers([]); return }
+    teamAPI.getAll()
+      .then((rows) => {
+        setTeamMembers((rows || [])
+          .filter((r) => r && r.id && r.name && r.isActive !== false)
+          .map((r) => ({ id: r.id, name: r.name })))
+      })
+      .catch(() => setTeamMembers([]))
+  }, [canViewTeam])
+
+  /* Close menus on outside click */
+  useEffect(() => {
+    const handler = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilters(false)
+      if (!e.target.closest('[data-lead-menu]')) setOpenMenuId(null)
     }
-    return map
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  /* Unique owners for filter */
+  const owners = useMemo(() => {
+    const all = leads.map((l) => l.assignedTo).filter(Boolean)
+    return [...new Set(all)]
   }, [leads])
 
-  const getAgingMetaForDeal = useCallback((deal) => {
-    const key = String(deal?.company ?? '').trim().toLowerCase()
-    const lead = leadByCompany.get(key)
-    return lead ? getLeadAgingMeta(lead) : null
-  }, [leadByCompany])
+  /* Group leads by status into pipeline columns */
+  const leadsByStage = useMemo(() => {
+    const q = search.toLowerCase()
+    const map = {}
+    for (const stage of STAGES) map[stage.key] = []
 
-  const loadBoard = useCallback(async ({ silent = false } = {}) => {
-    const requestId = loadSeqRef.current + 1
-    loadSeqRef.current = requestId
+    for (const lead of leads) {
+      const stageKey = lead.status || 'new'
+      if (!map[stageKey]) continue // skip unknown statuses
 
-    if (!silent && mountedRef.current) {
-      setLoadingDeals(true)
-    }
-
-    let lastError = null
-
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      try {
-        const board = await dealsAPI.getBoard()
-        if (!mountedRef.current || loadSeqRef.current !== requestId) return
-        const next = { ...EMPTY_STAGE_MAP }
-        for (const stage of STAGES) {
-          const rows = Array.isArray(board?.[stage.key]) ? board[stage.key] : []
-          next[stage.key] = rows.map(mapDealFromApi)
-        }
-        setDeals(next)
-        setLastRefreshedAt(new Date().toISOString())
-        return
-      } catch (err) {
-        lastError = err
-        if (err?.code !== 'ECONNABORTED' || attempt === 2) break
-        await wait(600)
+      // Apply filters
+      const matchesSearch = !search || lead.name?.toLowerCase().includes(q) || lead.company?.toLowerCase().includes(q) || lead.email?.toLowerCase().includes(q)
+      const matchesScore = filterScore === 'all' || lead.score === filterScore
+      const matchesSource = filterSource === 'all' || lead.source === filterSource
+      const matchesOwner = filterOwner === 'all' || lead.assignedTo === filterOwner
+      if (matchesSearch && matchesScore && matchesSource && matchesOwner) {
+        map[stageKey].push(lead)
       }
     }
+    return map
+  }, [leads, search, filterScore, filterSource, filterOwner])
 
-    if (mountedRef.current && !silent) {
-      const message = lastError?.code === 'ECONNABORTED'
-        ? 'Pipeline load timed out. Backend may be slow right now, please retry.'
-        : (lastError?.message || 'Failed to load pipeline')
-      toast.error(message)
-    }
-  }, [])
+  const totalLeads = Object.values(leadsByStage).reduce((s, arr) => s + arr.length, 0)
+  const totalValue = leads.reduce((s, l) => s + (l.value || 0), 0)
 
-  useEffect(() => {
-    const closeOnOutside = (e) => {
-      if (filterRef.current && !filterRef.current.contains(e.target)) {
-        setShowFilters(false)
-      }
-      if (!e.target.closest('[data-deal-menu]')) {
-        setOpenDealMenuId(null)
-      }
-    }
-    document.addEventListener('mousedown', closeOnOutside)
-    return () => document.removeEventListener('mousedown', closeOnOutside)
-  }, [])
-
-  useEffect(() => {
-    mountedRef.current = true
-    loadBoard().finally(() => {
-      if (mountedRef.current) setLoadingDeals(false)
-    })
-
-    const intervalId = window.setInterval(() => {
-      loadBoard({ silent: true })
-    }, 60 * 1000)
-
-    return () => {
-      mountedRef.current = false
-      window.clearInterval(intervalId)
-    }
-  }, [loadBoard])
-
-  useEffect(() => {
-    const latest = notifications?.[0]
-    if (!latest?.id || latest.id === lastNotificationIdRef.current) return
-    lastNotificationIdRef.current = latest.id
-
-    const type = String(latest.type || '').toLowerCase()
-    if (type === 'deal' || type === 'lead') {
-      loadBoard({ silent: true })
-    }
-  }, [notifications, loadBoard])
-
-  const findDealAndStage = useCallback((id) => {
-    for (const stage of Object.keys(deals)) {
-      const deal = deals[stage].find((d) => d.id === id)
-      if (deal) return { deal, stage }
+  /* Find a lead and its stage */
+  const findLeadAndStage = useCallback((id) => {
+    for (const stage of Object.keys(leadsByStage)) {
+      const lead = leadsByStage[stage].find((l) => String(l.id) === String(id))
+      if (lead) return { lead, stage }
     }
     return null
-  }, [deals])
+  }, [leadsByStage])
 
+  /* ── Drag & drop handlers ────────────────────────────────── */
   const handleDragStart = ({ active }) => setActiveId(active.id)
 
   const handleDragEnd = async ({ active, over }) => {
-    if (!canMoveDeal) return
+    if (!canUpdateLead) return
     setActiveId(null)
     if (!over || active.id === over.id) return
 
-    const source = findDealAndStage(active.id)
+    const source = findLeadAndStage(active.id)
     if (!source) return
 
-    // Resolve target stage from column drop zone id, then sortable metadata, then hovered deal id.
     const overId = over?.id
     const stageFromDropId =
       typeof overId === 'string' && overId.startsWith(STAGE_DROP_PREFIX)
@@ -503,187 +590,118 @@ export default function KanbanPage() {
     const targetStage = (
       stageFromDropId ||
       stageFromItem ||
-      (typeof stageFromSortable === 'string' && deals[stageFromSortable] ? stageFromSortable : null) ||
-      Object.keys(deals).find((s) => deals[s].some((d) => d.id === overId))
+      (typeof stageFromSortable === 'string' && leadsByStage[stageFromSortable] ? stageFromSortable : null) ||
+      Object.keys(leadsByStage).find((s) => leadsByStage[s].some((l) => String(l.id) === String(overId)))
     )
     if (!targetStage || targetStage === source.stage) return
 
+    // Optimistic update
+    patchLeadLocal(source.lead.id, { status: targetStage })
+
     try {
-      await dealsAPI.moveStage(active.id, targetStage.toUpperCase())
-      setDeals((prev) => {
-        const sourceDeals = prev[source.stage].filter((d) => d.id !== active.id)
-        const moved = { ...source.deal, stage: targetStage }
-        const targetDeals = [...prev[targetStage], moved]
-        return { ...prev, [source.stage]: sourceDeals, [targetStage]: targetDeals }
-      })
+      await updateLead(source.lead.id, { ...source.lead, status: targetStage })
+      toast.success(`${source.lead.name} → ${STAGES.find((s) => s.key === targetStage)?.label || targetStage}`)
     } catch (err) {
-      toast.error(err?.message || 'Failed to move deal')
+      // Revert on failure
+      patchLeadLocal(source.lead.id, { status: source.stage })
+      toast.error(err?.message || 'Failed to move lead')
     }
   }
 
-  const activeDeal = activeId ? findDealAndStage(activeId)?.deal : null
+  const activeLead = activeId ? findLeadAndStage(activeId)?.lead : null
 
-  const toggleDealMenu = (dealId) => {
-    setOpenDealMenuId((prev) => (prev === dealId ? null : dealId))
-  }
+  /* ── Move via context menu ───────────────────────────────── */
+  const moveLead = async (leadId, targetStage) => {
+    if (!canUpdateLead) { toast.error('No permission to move leads.'); return }
 
-  const moveDeal = async (dealId, targetStage) => {
-    if (!canMoveDeal) {
-      toast.error('You do not have permission to move deals.')
-      return
-    }
+    const source = findLeadAndStage(leadId)
+    if (!source || source.stage === targetStage) return
+
+    patchLeadLocal(leadId, { status: targetStage })
+    setOpenMenuId(null)
+
     try {
-      await dealsAPI.moveStage(dealId, targetStage.toUpperCase())
-      setDeals((prev) => {
-        let sourceStage = null
-        let dealToMove = null
-
-        for (const stage of Object.keys(prev)) {
-          const found = prev[stage].find((d) => d.id === dealId)
-          if (found) {
-            sourceStage = stage
-            dealToMove = found
-            break
-          }
-        }
-        if (!sourceStage || !dealToMove || sourceStage === targetStage) return prev
-
-        return {
-          ...prev,
-          [sourceStage]: prev[sourceStage].filter((d) => d.id !== dealId),
-          [targetStage]: [...prev[targetStage], { ...dealToMove, stage: targetStage }],
-        }
-      })
-      setOpenDealMenuId(null)
+      await updateLead(leadId, { ...source.lead, status: targetStage })
+      toast.success(`${source.lead.name} → ${STAGES.find((s) => s.key === targetStage)?.label || targetStage}`)
     } catch (err) {
-      toast.error(err?.message || 'Failed to move deal')
+      patchLeadLocal(leadId, { status: source.stage })
+      toast.error(err?.message || 'Failed to move lead')
     }
   }
 
-  const deleteDeal = async (dealId) => {
-    if (!canDeleteDeal) {
-      toast.error('You do not have permission to delete deals.')
-      return
-    }
+  /* ── Delete ──────────────────────────────────────────────── */
+  const handleDeleteLead = async (leadId) => {
+    if (!canDeleteLead) { toast.error('No permission to delete leads.'); return }
     try {
-      await dealsAPI.delete(dealId)
-      setDeals((prev) => {
-        const next = { ...prev }
-        for (const stage of Object.keys(next)) {
-          next[stage] = next[stage].filter((d) => d.id !== dealId)
-        }
-        return next
-      })
-      setOpenDealMenuId(null)
-      toast.success('Deal deleted')
+      await deleteLead(leadId)
+      setOpenMenuId(null)
+      toast.success('Lead deleted')
     } catch (err) {
-      toast.error(err?.message || 'Failed to delete deal')
+      toast.error(err?.message || 'Failed to delete lead')
     }
   }
 
-  const openAddDealModal = (stage = 'new') => {
-    if (!canCreateDeal) {
-      toast.error('You do not have permission to create deals.')
-      return
-    }
-    setNewDeal({
-      title: '',
-      company: '',
-      value: '',
-      owner: '',
-      dueDate: new Date().toISOString().slice(0, 10),
-      priority: 'medium',
-      score: 'warm',
-      stage,
-    })
+  /* ── Add lead ────────────────────────────────────────────── */
+  const openAddModal = (stage = 'new') => {
+    if (!canCreateLead) { toast.error('No permission to create leads.'); return }
+    setAddStage(stage)
     setShowAddModal(true)
   }
 
-  const createDeal = async (e) => {
-    e.preventDefault()
-    if (!canCreateDeal) {
-      toast.error('You do not have permission to create deals.')
-      return
-    }
-    const value = Number(newDeal.value)
-    if (!newDeal.title.trim() || !newDeal.company.trim() || !value) return
-
-    const matchedLead = (leads || []).find(
-      (lead) => String(lead.company || '').trim().toLowerCase() === newDeal.company.trim().toLowerCase()
-    )
-
-    const payload = {
-      title: newDeal.title.trim(),
-      description: `Company: ${newDeal.company.trim()}`,
-      stage: newDeal.stage.toUpperCase(),
-      priority: newDeal.priority.toUpperCase(),
-      dealValue: value,
-      expectedCloseDate: newDeal.dueDate,
-      aiScore: newDeal.score.toUpperCase(),
-      leadId: matchedLead?.id || null,
-      notes: newDeal.owner.trim() ? `Owner: ${newDeal.owner.trim()}` : null,
-    }
-
+  const handleAddLead = async (leadData) => {
+    if (!canCreateLead) { toast.error('No permission to create leads.'); return }
     try {
-      const created = await dealsAPI.create(payload)
-      const mapped = mapDealFromApi(created)
-      setDeals((prev) => ({
-        ...prev,
-        [newDeal.stage]: [...(prev[newDeal.stage] ?? []), { ...mapped, stage: newDeal.stage }],
-      }))
-      setShowAddModal(false)
-      toast.success('Deal created')
+      await createLead(leadData)
+      toast.success('Lead added to pipeline!')
     } catch (err) {
-      toast.error(err?.message || 'Failed to create deal')
+      toast.error(err?.message || 'Failed to add lead')
     }
   }
 
-  const filteredDeals = (stage) => {
-    if (filterStage !== 'all' && stage !== filterStage) return []
-
-    const q = search.toLowerCase()
-    return (deals[stage] ?? []).filter((d) => {
-      const matchesSearch = !search || d.title.toLowerCase().includes(q) || d.company.toLowerCase().includes(q)
-      const matchesPriority = filterPriority === 'all' || d.priority === filterPriority
-      const matchesScore = filterScore === 'all' || d.score === filterScore
-      const matchesOwner = filterOwner === 'all' || d.owner === filterOwner
-      return matchesSearch && matchesPriority && matchesScore && matchesOwner
-    })
+  /* ── Call ─────────────────────────────────────────────────── */
+  const handleCallLead = async (lead) => {
+    if (!canCall || !lead?.phone) return
+    try {
+      setCallingLeadId(lead.id)
+      await leadsAPI.callNow(lead.id, {})
+      toast.success('Call queued')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to place call')
+    } finally {
+      setCallingLeadId((prev) => (prev === lead.id ? null : prev))
+    }
   }
 
-  const totalPipelineValue = Object.values(deals).flat().reduce((s, d) => s + d.value, 0)
+  const handleWhatsApp = (lead) => {
+    if (!lead?.phone) { toast.error('No phone number'); return }
+    const phone = lead.phone.replace(/[^0-9+]/g, '')
+    window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank')
+  }
 
-  const scrollBoard = (direction) => {
-    const node = boardScrollRef.current
-    if (!node) return
-    const delta = direction === 'left' ? -420 : 420
-    node.scrollBy({ left: delta, behavior: 'smooth' })
+  /* ── Board scroll ────────────────────────────────────────── */
+  const scrollBoard = (dir) => {
+    boardScrollRef.current?.scrollBy({ left: dir === 'left' ? -420 : 420, behavior: 'smooth' })
   }
 
   return (
-    <div className="space-y-4" onClick={() => setOpenDealMenuId(null)}>
+    <div className="space-y-4" onClick={() => setOpenMenuId(null)}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <PageHeading
-          title="Sales Pipeline"
-          subtitle={loadingDeals
-            ? 'Loading deals...'
-            : `${Object.values(deals).flat().length} deals · ₹${(totalPipelineValue / 100000).toFixed(1)}L pipeline`}
+          title="Leads Pipeline"
+          subtitle={loading
+            ? 'Loading leads...'
+            : `${totalLeads} leads · ₹${(totalValue / 100000).toFixed(1)}L pipeline value`}
         />
         <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
-          {lastRefreshedAt && (
-            <span className="hidden sm:inline-flex text-[11px] text-slate-500 dark:text-slate-400">
-              Updated {new Date(lastRefreshedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            </span>
-          )}
           <button
             type="button"
-            onClick={() => loadBoard()}
-            disabled={loadingDeals}
+            onClick={() => { setLoading(true); loadLeads().finally(() => setLoading(false)) }}
+            disabled={loading}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             title="Refresh pipeline"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingDeals ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 w-full sm:w-auto">
@@ -691,17 +709,14 @@ export default function KanbanPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search deals…"
+              placeholder="Search leads…"
               className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none w-full sm:w-40"
             />
           </div>
 
           <div className="relative" ref={filterRef}>
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowFilters((prev) => !prev)
-              }}
+              onClick={(e) => { e.stopPropagation(); setShowFilters((p) => !p) }}
               className="btn-secondary gap-1.5 text-xs"
             >
               <Filter className="w-3.5 h-3.5" /> Filter
@@ -714,35 +729,24 @@ export default function KanbanPage() {
                   exit={{ opacity: 0, scale: 0.96, y: -6 }}
                   transition={{ duration: 0.12 }}
                   onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-10 z-30 w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3 space-y-2"
+                  className="absolute right-0 top-10 z-30 w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3 space-y-2"
                 >
-                  <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="input text-xs py-2">
-                    <option value="all">All stages</option>
-                    {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                  </select>
-                  <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="input text-xs py-2">
-                    <option value="all">All priorities</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
                   <select value={filterScore} onChange={(e) => setFilterScore(e.target.value)} className="input text-xs py-2">
                     <option value="all">All scores</option>
-                    <option value="hot">Hot</option>
-                    <option value="warm">Warm</option>
-                    <option value="cold">Cold</option>
+                    <option value="hot">🔥 Hot</option>
+                    <option value="warm">🌡️ Warm</option>
+                    <option value="cold">❄️ Cold</option>
+                  </select>
+                  <select value={filterSource} onChange={(e) => setFilterSource(e.target.value)} className="input text-xs py-2">
+                    <option value="all">All sources</option>
+                    {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <select value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} className="input text-xs py-2">
                     <option value="all">All owners</option>
-                    {owners.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+                    {owners.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                   <button
-                    onClick={() => {
-                      setFilterStage('all')
-                      setFilterPriority('all')
-                      setFilterScore('all')
-                      setFilterOwner('all')
-                    }}
+                    onClick={() => { setFilterScore('all'); setFilterSource('all'); setFilterOwner('all') }}
                     className="w-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 py-1"
                   >
                     Clear Filters
@@ -752,9 +756,9 @@ export default function KanbanPage() {
             </AnimatePresence>
           </div>
 
-          {canCreateDeal && (
-            <button onClick={() => openAddDealModal('new')} className="btn-primary gap-1.5 text-xs">
-              <Plus className="w-3.5 h-3.5" /> Add Deal
+          {canCreateLead && (
+            <button onClick={() => openAddModal('new')} className="btn-primary gap-1.5 text-xs">
+              <Plus className="w-3.5 h-3.5" /> Add Lead
             </button>
           )}
         </div>
@@ -773,145 +777,70 @@ export default function KanbanPage() {
             onClick={() => scrollBoard('left')}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             aria-label="Scroll board left"
-            title="Scroll left"
           >
-            <ChevronLeft className="w-4 h-4" />
-            Left
+            <ChevronLeft className="w-4 h-4" /> Left
           </button>
           <button
             type="button"
             onClick={() => scrollBoard('right')}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             aria-label="Scroll board right"
-            title="Scroll right"
           >
-            Right
-            <ChevronRight className="w-4 h-4" />
+            Right <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
-        <div
-          ref={boardScrollRef}
-          className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
-        >
+        <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar scroll-smooth">
           {STAGES.map((stage) => (
             <KanbanColumn
               key={stage.key}
               stage={stage}
-              deals={filteredDeals(stage.key)}
-              onAddDeal={openAddDealModal}
-              openDealMenuId={openDealMenuId}
-              onToggleDealMenu={toggleDealMenu}
-              onMoveDeal={canMoveDeal ? moveDeal : () => {}}
-              onDeleteDeal={canDeleteDeal ? deleteDeal : () => {}}
-              getAgingMetaForDeal={getAgingMetaForDeal}
-              canCreateDeal={canCreateDeal}
-              canMoveDeal={canMoveDeal}
-              canDeleteDeal={canDeleteDeal}
+              leads={leadsByStage[stage.key] || []}
+              onAddLead={openAddModal}
+              openMenuId={openMenuId}
+              onToggleMenu={(id) => setOpenMenuId((prev) => (prev === id ? null : id))}
+              onMoveLead={canUpdateLead ? moveLead : () => {}}
+              onDeleteLead={canDeleteLead ? handleDeleteLead : () => {}}
+              canCreateLead={canCreateLead}
+              canMoveLead={canUpdateLead}
+              canDeleteLead={canDeleteLead}
+              onCall={canCall ? handleCallLead : null}
+              onWhatsApp={handleWhatsApp}
+              callingLeadId={callingLeadId}
             />
           ))}
         </div>
 
         <DragOverlay>
-          {activeDeal ? (
-            <DealCard
-              deal={activeDeal}
-              stage={findDealAndStage(activeId)?.stage ?? 'new'}
+          {activeLead ? (
+            <LeadCard
+              lead={activeLead}
+              stage={findLeadAndStage(activeId)?.stage ?? 'new'}
               isDragging={false}
               isMenuOpen={false}
               onToggleMenu={() => {}}
-              onMoveDeal={() => {}}
-              onDeleteDeal={() => {}}
-              agingMeta={getAgingMetaForDeal(activeDeal)}
-              canMoveDeal={false}
-              canDeleteDeal={false}
+              onMoveLead={() => {}}
+              onDeleteLead={() => {}}
+              agingMeta={getLeadAgingMeta(activeLead)}
+              canMoveLead={false}
+              canDeleteLead={false}
+              onCall={() => {}}
+              onWhatsApp={() => {}}
+              callingLeadId={null}
             />
           ) : null}
         </DragOverlay>
       </DndContext>
 
+      {/* Add Lead Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <motion.div
-            className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-900/50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Add deal"
-            onClick={() => setShowAddModal(false)}
-          >
-            <motion.form
-              initial={{ scale: 0.96, opacity: 0, y: 8 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.96, opacity: 0, y: 8 }}
-              transition={{ duration: 0.15 }}
-              onSubmit={createDeal}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5 space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Add Deal</h2>
-                <button type="button" onClick={() => setShowAddModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <input
-                required
-                value={newDeal.title}
-                onChange={(e) => setNewDeal((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Deal title"
-                className="input"
-              />
-              <input
-                required
-                value={newDeal.company}
-                onChange={(e) => setNewDeal((prev) => ({ ...prev, company: e.target.value }))}
-                placeholder="Company"
-                className="input"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  value={newDeal.value}
-                  onChange={(e) => setNewDeal((prev) => ({ ...prev, value: e.target.value }))}
-                  placeholder="Value (₹)"
-                  className="input"
-                />
-                <input
-                  value={newDeal.owner}
-                  onChange={(e) => setNewDeal((prev) => ({ ...prev, owner: e.target.value }))}
-                  placeholder="Owner"
-                  className="input"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <select value={newDeal.stage} onChange={(e) => setNewDeal((prev) => ({ ...prev, stage: e.target.value }))} className="input">
-                  {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
-                <input type="date" value={newDeal.dueDate} onChange={(e) => setNewDeal((prev) => ({ ...prev, dueDate: e.target.value }))} className="input" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <select value={newDeal.priority} onChange={(e) => setNewDeal((prev) => ({ ...prev, priority: e.target.value }))} className="input">
-                  <option value="high">High Priority</option>
-                  <option value="medium">Medium Priority</option>
-                  <option value="low">Low Priority</option>
-                </select>
-                <select value={newDeal.score} onChange={(e) => setNewDeal((prev) => ({ ...prev, score: e.target.value }))} className="input">
-                  <option value="hot">Hot</option>
-                  <option value="warm">Warm</option>
-                  <option value="cold">Cold</option>
-                </select>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary text-xs">Cancel</button>
-                <button type="submit" className="btn-primary text-xs">Create Deal</button>
-              </div>
-            </motion.form>
-          </motion.div>
+          <AddLeadModal
+            onClose={() => setShowAddModal(false)}
+            onAdd={handleAddLead}
+            teamMembers={teamMembers}
+            initialStage={addStage}
+          />
         )}
       </AnimatePresence>
     </div>
