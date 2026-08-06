@@ -1183,7 +1183,20 @@ public class LeadService {
                     skipped++;
                     continue;
                 }
-                if (leadRepository.findByFacebookLeadIdAndTenantIdAndDeletedFalse(leadgenId, tenantId()).isPresent()) {
+                Optional<Lead> existingByFbId = leadRepository.findByFacebookLeadIdAndTenantIdAndDeletedFalse(leadgenId, tenantId());
+                if (existingByFbId.isPresent()) {
+                    // Backfill phone if it was missing from a previous sync
+                    Lead ex = existingByFbId.get();
+                    if (ex.getPhone() == null || ex.getPhone().isBlank()) {
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> fd = rawLead.get("field_data") instanceof List<?>
+                            ? (List<Map<String, Object>>) rawLead.get("field_data") : List.of();
+                        String ph = extractFieldValue(fd, "phone_number", "phone");
+                        if (ph != null && !ph.isBlank()) {
+                            ex.setPhone(normalizePhone(ph));
+                            leadRepository.save(ex);
+                        }
+                    }
                     skipped++;
                     continue;
                 }
@@ -1318,6 +1331,19 @@ public class LeadService {
             if (existing.getSource() == null || existing.getSource() == Lead.LeadSource.OTHER) {
                 existing.setSource(Lead.LeadSource.META_ADS);
             }
+            // Backfill phone, company, designation if missing
+            String phone = extractFieldValue(fieldData, "phone_number", "phone");
+            if (phone != null && !phone.isBlank() && (existing.getPhone() == null || existing.getPhone().isBlank())) {
+                existing.setPhone(normalizePhone(phone));
+            }
+            String company = extractFieldValue(fieldData, "company_name", "company");
+            if (company != null && !company.isBlank() && (existing.getCompany() == null || existing.getCompany().isBlank())) {
+                existing.setCompany(company);
+            }
+            String designation = extractFieldValue(fieldData, "job_title", "work_job_title");
+            if (designation != null && !designation.isBlank() && (existing.getDesignation() == null || existing.getDesignation().isBlank())) {
+                existing.setDesignation(designation);
+            }
             leadRepository.save(existing);
             return true;
         } catch (Exception ignored) {
@@ -1433,8 +1459,12 @@ public class LeadService {
     private String extractFieldValue(List<Map<String, Object>> fieldData, String... fieldNames) {
         if (fieldData == null) return null;
         for (String fieldName : fieldNames) {
+            String normalizedFieldName = fieldName.toLowerCase().replace("_", "").replace(" ", "");
             String value = fieldData.stream()
-                .filter(f -> fieldName.equals(f.get("name")))
+                .filter(f -> {
+                    String name = f.get("name") != null ? f.get("name").toString().toLowerCase().replace("_", "").replace(" ", "") : "";
+                    return normalizedFieldName.equals(name);
+                })
                 .findFirst()
                 .map(f -> {
                     List<String> values = (List<String>) f.get("values");
