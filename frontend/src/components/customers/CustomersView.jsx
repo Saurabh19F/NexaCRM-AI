@@ -5,7 +5,9 @@ import {
   UserCircle, Phone, Mail, Plus, X, Building2,
   TrendingUp, Calendar, Search, Star,
   ChevronLeft, ChevronRight, Globe, Users, IndianRupee,
-  Briefcase, Tag,
+  Briefcase, Tag, FileText, Facebook, ChevronDown, ChevronUp,
+  MessageSquare, GitMerge, RotateCcw, Sheet, Megaphone,
+  ClipboardList, StickyNote, Code2,
 } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -185,6 +187,257 @@ function AddCustomerModal({ onClose, onSave }) {
         </div>
       </motion.div>
     </motion.div>
+  )
+}
+
+/* ── Smart Notes Parser ────────────────────────────────────────── */
+function parseNotes(raw) {
+  if (!raw || typeof raw !== 'string') return []
+  const sections = []
+  const text = raw.trim()
+
+  // Split into blocks by known section markers
+  const blocks = text.split(/\n(?=\[(?:Merged Lead|Meta Sync Merge|Reopened Lead)\])/)
+
+  for (const block of blocks) {
+    const trimmed = block.trim()
+    if (!trimmed) continue
+
+    // Facebook Lead Ad notes
+    if (/^Facebook Lead\s*(Ad)?\s*\|/i.test(trimmed)) {
+      const metaLine = trimmed.split('\n')[0]
+      const pairs = metaLine.split('|').map((p) => p.trim()).filter(Boolean)
+      const meta = {}
+      for (const pair of pairs) {
+        if (pair.toLowerCase().startsWith('facebook lead')) continue
+        const colonIdx = pair.indexOf(':')
+        if (colonIdx > 0) {
+          const key = pair.slice(0, colonIdx).trim()
+          const val = pair.slice(colonIdx + 1).trim()
+          if (val) meta[key] = val
+        }
+      }
+
+      // Extract raw payload
+      const payloadMatch = trimmed.match(/Raw Payload:\s*\n([\s\S]*)/)
+      const payload = payloadMatch ? payloadMatch[1].trim() : null
+
+      sections.push({
+        type: 'facebook',
+        icon: Megaphone,
+        label: 'Facebook Lead Ad',
+        color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+        iconColor: 'text-blue-500',
+        meta,
+        payload,
+      })
+      continue
+    }
+
+    // Google Sheet import
+    if (/^Imported from Google Sheet/i.test(trimmed)) {
+      const pairs = trimmed.split('|').map((p) => p.trim()).filter(Boolean)
+      const meta = {}
+      for (const pair of pairs) {
+        if (pair.toLowerCase().startsWith('imported from')) continue
+        const colonIdx = pair.indexOf(':')
+        if (colonIdx > 0) {
+          const key = pair.slice(0, colonIdx).trim()
+          const val = pair.slice(colonIdx + 1).trim()
+          if (val) meta[key] = val
+        }
+      }
+      sections.push({
+        type: 'google-sheet',
+        icon: Sheet,
+        label: 'Imported from Google Sheet',
+        color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+        iconColor: 'text-green-500',
+        meta,
+        payload: null,
+      })
+      continue
+    }
+
+    // Merged lead
+    if (/^\[Merged Lead\]/i.test(trimmed)) {
+      const body = trimmed.replace(/^\[Merged Lead\]\s*/i, '').trim()
+      sections.push({
+        type: 'merge',
+        icon: GitMerge,
+        label: 'Merged Lead',
+        color: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',
+        iconColor: 'text-purple-500',
+        meta: {},
+        body,
+        payload: null,
+      })
+      continue
+    }
+
+    // Meta Sync Merge
+    if (/^\[Meta Sync Merge\]/i.test(trimmed)) {
+      const inner = trimmed.replace(/^\[Meta Sync Merge\]\s*/i, '').trim()
+      const metaLine = inner.split('\n')[0]
+      const pairs = metaLine.split('|').map((p) => p.trim()).filter(Boolean)
+      const meta = {}
+      for (const pair of pairs) {
+        if (pair.toLowerCase().startsWith('facebook lead')) continue
+        const colonIdx = pair.indexOf(':')
+        if (colonIdx > 0) {
+          const key = pair.slice(0, colonIdx).trim()
+          const val = pair.slice(colonIdx + 1).trim()
+          if (val) meta[key] = val
+        }
+      }
+      const payloadMatch = inner.match(/Raw Payload:\s*\n([\s\S]*)/)
+      const payload = payloadMatch ? payloadMatch[1].trim() : null
+      sections.push({
+        type: 'meta-merge',
+        icon: GitMerge,
+        label: 'Meta Sync Merge',
+        color: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800',
+        iconColor: 'text-indigo-500',
+        meta,
+        payload,
+      })
+      continue
+    }
+
+    // Reopened lead
+    if (/^\[Reopened Lead\]/i.test(trimmed)) {
+      const body = trimmed.replace(/^\[Reopened Lead\]\s*/i, '').trim()
+      sections.push({
+        type: 'reopen',
+        icon: RotateCcw,
+        label: 'Reopened',
+        color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+        iconColor: 'text-amber-500',
+        meta: {},
+        body,
+        payload: null,
+      })
+      continue
+    }
+
+    // Imported from file
+    if (/^Imported from file/i.test(trimmed)) {
+      sections.push({
+        type: 'import',
+        icon: ClipboardList,
+        label: 'File Import',
+        color: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800',
+        iconColor: 'text-cyan-500',
+        meta: {},
+        body: trimmed,
+        payload: null,
+      })
+      continue
+    }
+
+    // Plain / manual note
+    sections.push({
+      type: 'manual',
+      icon: StickyNote,
+      label: 'Note',
+      color: 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700',
+      iconColor: 'text-slate-500',
+      meta: {},
+      body: trimmed,
+      payload: null,
+    })
+  }
+
+  return sections
+}
+
+/* ── Collapsible JSON viewer ───────────────────────────────────── */
+function JsonPayload({ data }) {
+  const [open, setOpen] = useState(false)
+  if (!data) return null
+
+  let formatted = data
+  try {
+    const parsed = JSON.parse(data)
+    formatted = JSON.stringify(parsed, null, 2)
+  } catch {
+    // already a string, keep as-is
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+      >
+        <Code2 className="w-3 h-3" />
+        Raw Payload
+        {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+      </button>
+      {open && (
+        <pre className="mt-1.5 p-2.5 rounded-lg bg-slate-900 dark:bg-slate-950 text-green-400 text-[11px] leading-relaxed overflow-x-auto max-h-48 overflow-y-auto font-mono">
+          {formatted}
+        </pre>
+      )}
+    </div>
+  )
+}
+
+/* ── Note card component ───────────────────────────────────────── */
+function NoteCard({ section }) {
+  const Icon = section.icon
+  const metaEntries = Object.entries(section.meta || {})
+
+  return (
+    <div className={`rounded-xl border p-3 ${section.color}`}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon className={`w-3.5 h-3.5 ${section.iconColor} flex-shrink-0`} />
+        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+          {section.label}
+        </span>
+      </div>
+
+      {/* Structured key-value metadata */}
+      {metaEntries.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1.5">
+          {metaEntries.map(([key, val]) => (
+            <div key={key} className="text-xs">
+              <span className="font-semibold text-slate-500 dark:text-slate-400">{key}: </span>
+              <span className="text-slate-700 dark:text-slate-300">{val}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Body text (manual notes, merge info, reopen reason) */}
+      {section.body && (
+        <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-line leading-relaxed">
+          {section.body}
+        </p>
+      )}
+
+      {/* Collapsible raw payload */}
+      <JsonPayload data={section.payload} />
+    </div>
+  )
+}
+
+/* ── Notes Section ─────────────────────────────────────────────── */
+function NotesSection({ notes }) {
+  const sections = useMemo(() => parseNotes(notes), [notes])
+  if (!sections.length) return null
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+        <FileText className="w-3.5 h-3.5" /> Notes ({sections.length})
+      </p>
+      <div className="space-y-2">
+        {sections.map((section, i) => (
+          <NoteCard key={`${section.type}-${i}`} section={section} />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -607,15 +860,8 @@ export default function CustomersPage() {
                 )}
               </div>
 
-              {/* Notes */}
-              {selected.notes && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Notes</p>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-sm text-slate-600 dark:text-slate-400 whitespace-pre-line max-h-32 overflow-y-auto">
-                    {selected.notes}
-                  </div>
-                </div>
-              )}
+              {/* Notes — smart parsed */}
+              <NotesSection notes={selected.notes} />
 
               {/* Tags */}
               {selected.tags && (
