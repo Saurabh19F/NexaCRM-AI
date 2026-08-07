@@ -49,6 +49,8 @@ const LEAD_SOURCES = [
 
 const STAGE_DROP_PREFIX = 'stage:'
 
+const STAGE_KEYS = new Set(STAGES.map((s) => s.key))
+
 /* Custom collision detection: prefer stage column droppables (pointerWithin)
    so empty columns work, then fall back to rectIntersection for card-level drops */
 function kanbanCollision(args) {
@@ -57,6 +59,9 @@ function kanbanCollision(args) {
   // Prefer stage-level droppables (stage:xxx) over card-level sortables
   const stageHit = pointerHits.find((h) => String(h.id).startsWith(STAGE_DROP_PREFIX))
   if (stageHit) return [stageHit]
+  // Check SortableContext container droppables (bare stage keys like "qualified")
+  const contextHit = pointerHits.find((h) => STAGE_KEYS.has(String(h.id)))
+  if (contextHit) return [contextHit]
   // If pointer is over a card, use that
   if (pointerHits.length > 0) return pointerHits
   // Fallback: rectIntersection for edge cases
@@ -310,7 +315,7 @@ function KanbanColumn({
 
       {/* Lead cards */}
       <SortableContext id={stage.key} items={columnLeads.map((l) => String(l.id))} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2 flex-1">
+        <div className="space-y-2 flex-1 min-h-[120px]">
           {columnLeads.map((lead) => (
             <SortableLeadCard
               key={lead.id}
@@ -328,14 +333,13 @@ function KanbanColumn({
               callingLeadId={callingLeadId}
             />
           ))}
+          {columnLeads.length === 0 && (
+            <div className="flex-1 flex items-center justify-center min-h-[200px]">
+              <p className="text-xs text-slate-400 text-center py-8">Drop leads here</p>
+            </div>
+          )}
         </div>
       </SortableContext>
-
-      {columnLeads.length === 0 && (
-        <div className="flex-1 flex items-center justify-center min-h-[200px]">
-          <p className="text-xs text-slate-400 text-center py-8">Drop leads here</p>
-        </div>
-      )}
     </div>
   )
 }
@@ -646,6 +650,8 @@ export default function KanbanPage() {
       stageFromDropId ||
       stageFromItem ||
       (typeof stageFromSortable === 'string' && leadsByStage[stageFromSortable] ? stageFromSortable : null) ||
+      // Bare stage key from SortableContext container (e.g. "qualified", "proposal")
+      (typeof overId === 'string' && STAGE_KEYS.has(overId) ? overId : null) ||
       Object.keys(leadsByStage).find((s) => leadsByStage[s].some((l) => String(l.id) === String(overId)))
     )
     if (!targetStage || targetStage === source.stage) return
