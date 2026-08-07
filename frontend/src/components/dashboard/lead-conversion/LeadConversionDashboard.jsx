@@ -120,7 +120,7 @@ function MetricCard({ item, metric }) {
   const positive = change >= 0
   return (
     <div
-      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:-translate-y-0.5"
+      className="flex flex-col items-center justify-center rounded-xl px-3 py-4 h-[110px] transition-all duration-200 hover:-translate-y-0.5"
       style={{
         background: 'rgba(255,255,255,0.5)',
         backdropFilter: 'blur(16px) saturate(1.8)',
@@ -129,16 +129,14 @@ function MetricCard({ item, metric }) {
         boxShadow: '0 2px 12px rgba(14,165,233,0.04), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}
     >
-      <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-        <Icon className="h-3.5 w-3.5 text-white" />
+      <div className={`h-9 w-9 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center mb-2`}>
+        <Icon className="h-4 w-4 text-white" />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-lg font-bold leading-tight text-slate-900 dark:text-slate-50">
-          {metricValue(metric, { currency: item.currency, percent: item.percent })}
-        </p>
-        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.title}</p>
-      </div>
-      <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+      <p className="text-xl font-bold leading-tight text-slate-900 dark:text-slate-50">
+        {metricValue(metric, { currency: item.currency, percent: item.percent })}
+      </p>
+      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">{item.title}</p>
+      <span className={`text-[10px] font-semibold mt-0.5 ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
         {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
       </span>
     </div>
@@ -559,215 +557,129 @@ export default function LeadConversionDashboard() {
             </div>
           </div>
 
-          {/* ── #2: Employee Performance — compact leaderboard ── */}
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-12 xl:items-start">
-            <div className="glass-card p-3 sm:p-4 xl:col-span-7">
-              <SectionShell
-                title="Employee Performance"
-                icon={Users}
-                subtitle="Click a row to expand details."
-                action={(
-                  <div className="flex items-center gap-1.5">
-                    {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
-                      <button key={key} type="button" onClick={() => onSort(key)}
-                        className={`rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                      >{label}</button>
-                    ))}
-                  </div>
-                )}
-              />
-
-              {employees.length ? (
-                <div className="space-y-1.5">
-                  {employees.slice(0, 8).map((row, idx) => {
-                    const isExpanded = expandedEmployee === row.employeeId
-                    const maxAssigned = Math.max(1, ...employees.slice(0, 8).map((e) => Number(e.assignedLeads || 0)))
-                    const barWidth = Math.max(4, (Number(row.assignedLeads || 0) / maxAssigned) * 100)
-                    return (
-                      <div key={row.employeeId}>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedEmployee(isExpanded ? null : row.employeeId)}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                        >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                            {idx + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{row.employeeName}</p>
-                            <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800">
-                              <div className="h-full rounded-full bg-brand-500" style={{ width: `${barWidth}%` }} />
+          {/* ── #2: Lead Source Analytics ── */}
+          <div className="glass-card p-3 sm:p-4">
+            <SectionShell
+              title="Lead Source Analytics"
+              icon={Globe2}
+              subtitle="Conversion rates and revenue by source."
+            />
+            {sourcePieData.length > 1 ? (
+              <div className="flex items-center gap-4">
+                <div className="w-[160px] shrink-0">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={62} paddingAngle={2} strokeWidth={0}>
+                        {sourcePieData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const d = payload[0].payload
+                          return (
+                            <div className="glass-card px-3 py-2 text-xs shadow-xl">
+                              <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
+                              <p className="text-slate-500">{prettyNumber(d.value)} leads · {prettyPercent(d.rate)} conv.</p>
                             </div>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-3 text-xs tabular-nums">
-                            <span className="text-slate-600 dark:text-slate-400">{prettyNumber(row.assignedLeads)} assigned</span>
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{prettyPercent(row.conversionRate)}</span>
-                          </div>
-                          <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                        </button>
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="mx-3 mb-2 grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl bg-slate-50/80 px-4 py-3 text-xs dark:bg-slate-800/40 sm:grid-cols-4">
-                                {[
-                                  ['Contacted', row.contactedLeads, ''],
-                                  ['Converted', row.convertedLeads, 'text-emerald-600 dark:text-emerald-400'],
-                                  ['Lost', row.lostLeads, 'text-rose-600 dark:text-rose-400'],
-                                  ['Pending', row.pendingLeads, 'text-amber-600 dark:text-amber-400'],
-                                  ['Follow-ups', row.followUpsDone, ''],
-                                  ['Resp. Time', `${prettyNumber(row.averageResponseMinutes)} min`, ''],
-                                  ['Revenue', prettyCurrency(row.revenueGenerated), 'font-semibold'],
-                                  ['Conv. Rate', prettyPercent(row.conversionRate), 'font-semibold'],
-                                ].map(([label, val, cls]) => (
-                                  <div key={label} className="flex items-center justify-between py-0.5">
-                                    <span className="text-slate-500">{label}</span>
-                                    <span className={`font-medium text-slate-700 dark:text-slate-300 ${cls}`}>{typeof val === 'number' ? prettyNumber(val) : val}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                          )
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  {sourcePieData.map((row) => {
+                    const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
+                    const share = total > 0 ? (row.value / total) * 100 : 0
+                    return (
+                      <div key={row.name} className="flex items-center gap-2 text-xs">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
+                        <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
+                        <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
+                        <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
                       </div>
                     )
                   })}
                 </div>
-              ) : (
-                <ChartEmptyState label="No employee data yet." />
-              )}
-            </div>
-
-            {/* ── Source + Status (right column) ── */}
-            <div className="glass-card p-3 sm:p-4 xl:col-span-5 space-y-3">
-              <div>
-                <SectionShell
-                  title="Lead Source Analytics"
-                  icon={Globe2}
-                  subtitle="Conversion rates and revenue by source."
-                />
-                {sourcePieData.length > 1 ? (
-                  <div className="flex items-center gap-4">
-                    <div className="w-[160px] shrink-0">
-                      <ResponsiveContainer width="100%" height={160}>
-                        <PieChart>
-                          <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={62} paddingAngle={2} strokeWidth={0}>
-                            {sourcePieData.map((entry) => (
-                              <Cell key={entry.name} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            content={({ active, payload }) => {
-                              if (!active || !payload?.length) return null
-                              const d = payload[0].payload
-                              return (
-                                <div className="glass-card px-3 py-2 text-xs shadow-xl">
-                                  <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
-                                  <p className="text-slate-500">{prettyNumber(d.value)} leads · {prettyPercent(d.rate)} conv.</p>
-                                </div>
-                              )
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex-1 space-y-1.5">
-                      {sourcePieData.map((row) => {
-                        const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
-                        const share = total > 0 ? (row.value / total) * 100 : 0
-                        return (
-                          <div key={row.name} className="flex items-center gap-2 text-xs">
-                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
-                            <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
-                            <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
-                            <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ) : sourcePieData.length === 1 ? (
-                  <div className="flex items-center gap-5 py-3">
-                    <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
-                        <p className="text-[10px] text-slate-400">leads</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{sourcePieData[0].name}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">Only active source · {prettyPercent(sourcePieData[0].rate)} conversion</p>
-                      {sourcePieData[0].converted > 0 && (
-                        <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">{prettyNumber(sourcePieData[0].converted)} converted</p>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <ChartEmptyState label="No source analytics available." />
-                )}
               </div>
-
-              <div>
-                <SectionShell
-                  title="Status Donut"
-                  icon={Repeat2}
-                  subtitle="Current pipeline balance by status."
-                />
-                {(() => {
-                  const activeStatuses = statusDonutData.filter((row) => row.value > 0)
-                  const totalStatusLeads = activeStatuses.reduce((sum, r) => sum + r.value, 0)
-                  if (!activeStatuses.length) return <ChartEmptyState label="No status data available." />
-                  return (
-                    <div className="flex items-center gap-4">
-                      <div className="w-[140px] shrink-0">
-                        <ResponsiveContainer width="100%" height={140}>
-                          <PieChart>
-                            <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={36} outerRadius={55} paddingAngle={2} strokeWidth={0}>
-                              {activeStatuses.map((entry) => (
-                                <Cell key={entry.key} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              content={({ active, payload }) => {
-                                if (!active || !payload?.length) return null
-                                const d = payload[0].payload
-                                return (
-                                  <div className="glass-card px-3 py-2 text-xs shadow-xl">
-                                    <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
-                                    <p className="text-slate-500">{prettyNumber(d.value)} leads</p>
-                                  </div>
-                                )
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        {activeStatuses.map((row) => {
-                          const share = totalStatusLeads > 0 ? (row.value / totalStatusLeads) * 100 : 0
-                          return (
-                            <div key={row.key} className="flex items-center gap-2 text-xs">
-                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
-                              <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
-                              <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
-                              <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })()}
+            ) : sourcePieData.length === 1 ? (
+              <div className="flex items-center gap-5 py-3">
+                <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
+                    <p className="text-[10px] text-slate-400">leads</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{sourcePieData[0].name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Only active source · {prettyPercent(sourcePieData[0].rate)} conversion</p>
+                  {sourcePieData[0].converted > 0 && (
+                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">{prettyNumber(sourcePieData[0].converted)} converted</p>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <ChartEmptyState label="No source analytics available." />
+            )}
           </div>
 
-          {/* ── #3: Activity Timeline ── */}
+          {/* ── #3: Status Donut ── */}
+          <div className="glass-card p-3 sm:p-4">
+            <SectionShell
+              title="Status Donut"
+              icon={Repeat2}
+              subtitle="Current pipeline balance by status."
+            />
+            {(() => {
+              const activeStatuses = statusDonutData.filter((row) => row.value > 0)
+              const totalStatusLeads = activeStatuses.reduce((sum, r) => sum + r.value, 0)
+              if (!activeStatuses.length) return <ChartEmptyState label="No status data available." />
+              return (
+                <div className="flex items-center gap-4">
+                  <div className="w-[140px] shrink-0">
+                    <ResponsiveContainer width="100%" height={140}>
+                      <PieChart>
+                        <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={36} outerRadius={55} paddingAngle={2} strokeWidth={0}>
+                          {activeStatuses.map((entry) => (
+                            <Cell key={entry.key} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null
+                            const d = payload[0].payload
+                            return (
+                              <div className="glass-card px-3 py-2 text-xs shadow-xl">
+                                <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
+                                <p className="text-slate-500">{prettyNumber(d.value)} leads</p>
+                              </div>
+                            )
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    {activeStatuses.map((row) => {
+                      const share = totalStatusLeads > 0 ? (row.value / totalStatusLeads) * 100 : 0
+                      return (
+                        <div key={row.key} className="flex items-center gap-2 text-xs">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
+                          <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
+                          <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
+                          <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* ── #4: Activity Timeline — compact grid ── */}
           <div className="glass-card p-3 sm:p-4">
             <SectionShell
               title="Lead Activity Timeline"
@@ -775,39 +687,125 @@ export default function LeadConversionDashboard() {
               subtitle="Latest lifecycle events."
             />
             {activities.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                No recent activities for the selected filters.
+              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center dark:border-slate-700">
+                <CalendarDays className="h-8 w-8 mx-auto text-slate-300 dark:text-slate-600" />
+                <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">No recent activities</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Activities will appear here as leads move through the pipeline.</p>
               </div>
             ) : (
-              <div className="relative max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
-                <div className="absolute left-[15px] top-0 bottom-0 w-px bg-slate-200 dark:bg-slate-700" />
-                <div className="space-y-0.5">
-                  {activities.map((item) => {
-                    const stageColor = STAGE_COLORS[item.newStatus] || '#7c3aed'
-                    return (
-                      <div key={item.id} className="relative flex gap-3 py-2 pl-1">
-                        <div className="relative z-10 mt-1 flex h-[10px] w-[10px] shrink-0 items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900" style={{ backgroundColor: stageColor }} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{item.leadName || 'Unnamed lead'}</p>
-                            <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">
-                              {formatActivityTime(item.occurredAt)}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                            <span className="text-slate-500">{item.employeeName || 'Unassigned'}</span>
-                            <span className="text-slate-300 dark:text-slate-600">·</span>
-                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.oldStatus || '—'}</span>
-                            <span className="text-slate-400">→</span>
-                            <span className="rounded px-1.5 py-0.5 font-medium" style={{ backgroundColor: `${stageColor}14`, color: stageColor }}>{item.newStatus || '—'}</span>
-                          </div>
-                          {item.notes && <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">{item.notes}</p>}
-                        </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                {activities.map((item) => {
+                  const stageColor = STAGE_COLORS[item.newStatus] || '#7c3aed'
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-xl px-3 py-2.5 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                      style={{
+                        background: 'rgba(255,255,255,0.4)',
+                        border: '1px solid rgba(255,255,255,0.35)',
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stageColor }} />
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">{item.leadName || 'Unnamed lead'}</p>
                       </div>
-                    )
-                  })}
-                </div>
+                      <div className="flex items-center gap-1.5 text-[11px] mb-1">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.oldStatus || '—'}</span>
+                        <span className="text-slate-400">→</span>
+                        <span className="rounded px-1.5 py-0.5 font-medium" style={{ backgroundColor: `${stageColor}14`, color: stageColor }}>{item.newStatus || '—'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{item.employeeName || 'Unassigned'}</span>
+                        <span>{formatActivityTime(item.occurredAt)}</span>
+                      </div>
+                      {item.notes && <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400 line-clamp-2">{item.notes}</p>}
+                    </div>
+                  )
+                })}
               </div>
+            )}
+          </div>
+
+          {/* ── #5: Employee Performance — compact leaderboard ── */}
+          <div className="glass-card p-3 sm:p-4">
+            <SectionShell
+              title="Employee Performance"
+              icon={Users}
+              subtitle="Click a row to expand details."
+              action={(
+                <div className="flex items-center gap-1.5">
+                  {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
+                    <button key={key} type="button" onClick={() => onSort(key)}
+                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+            />
+
+            {employees.length ? (
+              <div className="space-y-1.5">
+                {employees.slice(0, 8).map((row, idx) => {
+                  const isExpanded = expandedEmployee === row.employeeId
+                  const maxAssigned = Math.max(1, ...employees.slice(0, 8).map((e) => Number(e.assignedLeads || 0)))
+                  const barWidth = Math.max(4, (Number(row.assignedLeads || 0) / maxAssigned) * 100)
+                  return (
+                    <div key={row.employeeId}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedEmployee(isExpanded ? null : row.employeeId)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      >
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{row.employeeName}</p>
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800">
+                            <div className="h-full rounded-full bg-brand-500" style={{ width: `${barWidth}%` }} />
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3 text-xs tabular-nums">
+                          <span className="text-slate-600 dark:text-slate-400">{prettyNumber(row.assignedLeads)} assigned</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{prettyPercent(row.conversionRate)}</span>
+                        </div>
+                        <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mx-3 mb-2 grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl bg-slate-50/80 px-4 py-3 text-xs dark:bg-slate-800/40 sm:grid-cols-4">
+                              {[
+                                ['Contacted', row.contactedLeads, ''],
+                                ['Converted', row.convertedLeads, 'text-emerald-600 dark:text-emerald-400'],
+                                ['Lost', row.lostLeads, 'text-rose-600 dark:text-rose-400'],
+                                ['Pending', row.pendingLeads, 'text-amber-600 dark:text-amber-400'],
+                                ['Follow-ups', row.followUpsDone, ''],
+                                ['Resp. Time', `${prettyNumber(row.averageResponseMinutes)} min`, ''],
+                                ['Revenue', prettyCurrency(row.revenueGenerated), 'font-semibold'],
+                                ['Conv. Rate', prettyPercent(row.conversionRate), 'font-semibold'],
+                              ].map(([label, val, cls]) => (
+                                <div key={label} className="flex items-center justify-between py-0.5">
+                                  <span className="text-slate-500">{label}</span>
+                                  <span className={`font-medium text-slate-700 dark:text-slate-300 ${cls}`}>{typeof val === 'number' ? prettyNumber(val) : val}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <ChartEmptyState label="No employee data yet." />
             )}
           </div>
         </>

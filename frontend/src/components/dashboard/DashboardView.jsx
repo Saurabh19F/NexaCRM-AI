@@ -26,6 +26,12 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const firstName = (user?.name || 'User').trim().split(/\s+/)[0]
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good Morning'
+    if (hour < 17) return 'Good Afternoon'
+    return 'Good Evening'
+  }
   const [liveInsights, setLiveInsights] = useState([])
   const [recentCallSnapshots, setRecentCallSnapshots] = useState([])
   const [extrasLoading, setExtrasLoading] = useState(true)
@@ -60,7 +66,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Welcome back, {firstName}
+          {getGreeting()}, {firstName} 👋
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}

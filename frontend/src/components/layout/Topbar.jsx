@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, Search, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle, Users, Building2, Kanban } from 'lucide-react'
+import { Menu, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
@@ -12,7 +12,7 @@ import NotificationDropdown from '../notifications/NotificationDropdown'
 import DelayAlertPanel from './DelayAlertPanel'
 import { getLeadAgeMinutes } from '../../utils/leadSla'
 import { connectWebSocket, disconnectWebSocket } from '../../services/websocket'
-import { authAPI, customersAPI, dealsAPI, leadsAPI } from '../../services/api'
+import { authAPI, leadsAPI } from '../../services/api'
 
 const AVATAR_STYLE_CLASS = {
   brand: 'from-brand-500 to-accent-500',
@@ -29,17 +29,11 @@ export default function Topbar({ onMenuClick, onRefresh }) {
   const isDark = theme === 'dark'
   const { unreadCount, addNotification, fetchNotifications } = useNotificationStore()
   const { leads, patchLeadLocal } = useLeadsStore()
-  const [searchFocused, setSearchFocused] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [showNotifications, setShowNotifications] = useState(false)
   const [showDelayAlerts, setShowDelayAlerts] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showSearchResults, setShowSearchResults] = useState(false)
-  const [searchResults, setSearchResults] = useState({ leads: [], customers: [], deals: [] })
-  const [searchLoading, setSearchLoading] = useState(false)
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [timeTick, setTimeTick] = useState(Date.now())
-  const searchRef = useRef(null)
   const notifRef = useRef(null)
   const delayRef = useRef(null)
   const userRef = useRef(null)
@@ -67,70 +61,10 @@ export default function Topbar({ onMenuClick, onRefresh }) {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifications(false)
       if (delayRef.current && !delayRef.current.contains(e.target)) setShowDelayAlerts(false)
       if (userRef.current && !userRef.current.contains(e.target)) setShowUserMenu(false)
-      if (searchRef.current && !searchRef.current.contains(e.target)) setShowSearchResults(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  useEffect(() => {
-    const query = searchQuery.trim()
-    if (query.length < 2) {
-      setSearchResults({ leads: [], customers: [], deals: [] })
-      setSearchLoading(false)
-      return undefined
-    }
-
-    let active = true
-    const timer = window.setTimeout(async () => {
-      setSearchLoading(true)
-      try {
-        const normalized = query.toLowerCase()
-        const [leadPage, customerPage, dealPage] = await Promise.all([
-          leadsAPI.getAll({ search: query, size: 5 }),
-          customersAPI.getAll({ search: query, size: 5 }),
-          dealsAPI.getAll({ page: 0, size: 100 }),
-        ])
-
-        if (!active) return
-
-        const leadRows = Array.isArray(leadPage?.content) ? leadPage.content : []
-        const customerRows = Array.isArray(customerPage?.content) ? customerPage.content : []
-        const dealRows = Array.isArray(dealPage?.content) ? dealPage.content : []
-
-        const filteredDeals = dealRows.filter((deal) => {
-          const haystack = [
-            deal?.title,
-            deal?.name,
-            deal?.company,
-            deal?.ownerName,
-            deal?.owner,
-            deal?.stage,
-          ].join(' ').toLowerCase()
-          return haystack.includes(normalized)
-        }).slice(0, 5)
-
-        setSearchResults({
-          leads: leadRows.slice(0, 5),
-          customers: customerRows.slice(0, 5),
-          deals: filteredDeals,
-        })
-        setShowSearchResults(true)
-      } catch {
-        if (active) {
-          setSearchResults({ leads: [], customers: [], deals: [] })
-          setShowSearchResults(true)
-        }
-      } finally {
-        if (active) setSearchLoading(false)
-      }
-    }, 250)
-
-    return () => {
-      active = false
-      window.clearTimeout(timer)
-    }
-  }, [searchQuery])
 
   useEffect(() => {
     const id = window.setInterval(() => setTimeTick(Date.now()), 60 * 1000)
@@ -260,20 +194,6 @@ export default function Topbar({ onMenuClick, onRefresh }) {
     navigate(0)
   }
 
-  const navigateToResult = (kind) => {
-    const query = searchQuery.trim()
-    if (!query) return
-
-    const targetPath =
-      kind === 'customer' ? `/customers?search=${encodeURIComponent(query)}` :
-      kind === 'deal' ? `/pipeline?search=${encodeURIComponent(query)}` :
-      `/leads?search=${encodeURIComponent(query)}`
-
-    setShowSearchResults(false)
-    setSearchQuery('')
-    navigate(targetPath)
-  }
-
   return (
     <header className="sticky top-0 z-40 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-5 py-2 sm:py-0 gap-2 sm:gap-4
                        border-b border-white/40 dark:border-white/[0.06]"
@@ -283,7 +203,6 @@ export default function Topbar({ onMenuClick, onRefresh }) {
         WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
         boxShadow: '0 4px 30px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6)',
       }}>
-      {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
         aria-label="Open navigation menu"
@@ -291,159 +210,20 @@ export default function Topbar({ onMenuClick, onRefresh }) {
       >
         <Menu className="w-5 h-5" />
       </button>
-
-      {/* Search */}
-      <div ref={searchRef} className="relative order-3 w-full sm:order-none sm:w-auto flex-1 sm:max-w-md">
+      <div className="hidden md:flex items-center gap-2.5 flex-1">
         <div
-          className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 transition-all duration-200 ${searchFocused ? 'ring-2 ring-brand-400/30' : ''}`}
+          className="w-8 h-8 rounded-xl flex items-center justify-center"
           style={{
-            background: searchFocused ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.4)',
-            backdropFilter: 'blur(12px) saturate(1.5)',
-            WebkitBackdropFilter: 'blur(12px) saturate(1.5)',
-            border: '1px solid rgba(255,255,255,0.45)',
-            boxShadow: searchFocused
-              ? '0 8px 24px rgba(14,165,233,0.08), inset 0 1px 0 rgba(255,255,255,0.6)'
-              : 'inset 0 1px 0 rgba(255,255,255,0.5)',
-          }}>
-          <Search className="w-4 h-4 text-brand-400 flex-shrink-0" />
-          <input
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value)
-              setShowSearchResults(true)
-            }}
-            onFocus={() => {
-              setSearchFocused(true)
-              if (searchQuery.trim().length >= 2) setShowSearchResults(true)
-            }}
-            onBlur={() => setSearchFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                const firstResult =
-                  searchResults.leads[0] ||
-                  searchResults.customers[0] ||
-                  searchResults.deals[0]
-                if (firstResult) {
-                  navigateToResult(
-                    searchResults.leads[0] ? 'lead' :
-                    searchResults.customers[0] ? 'customer' : 'deal'
-                  )
-                }
-              }
-              if (e.key === 'Escape') {
-                setShowSearchResults(false)
-              }
-            }}
-            placeholder="Search leads, customers, pipeline…"
-            className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 outline-none"
-          />
-          <kbd className="hidden sm:inline-flex items-center px-1.5 rounded-md text-[10px] font-mono text-slate-400 border border-slate-200/60 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-            /
-          </kbd>
+            background: 'linear-gradient(135deg, rgba(14,165,233,0.85), rgba(20,184,166,0.85))',
+            boxShadow: '0 4px 12px rgba(14,165,233,0.25)',
+          }}
+        >
+          <span className="text-white text-sm font-black tracking-tighter">N</span>
         </div>
-
-        <AnimatePresence>
-          {showSearchResults && searchQuery.trim().length >= 2 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.15 }}
-              className="absolute left-0 right-0 top-full mt-2 z-40 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl"
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Search results</p>
-                {searchLoading && <span className="text-[11px] text-slate-400">Searching…</span>}
-              </div>
-
-              <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                {(!searchLoading && !searchResults.leads.length && !searchResults.customers.length && !searchResults.deals.length) ? (
-                  <div className="px-4 py-6 text-sm text-slate-500">
-                    No matches for “{searchQuery.trim()}”.
-                  </div>
-                ) : (
-                  <>
-                    {searchResults.leads.length > 0 && (
-                      <div className="px-2 py-2">
-                        <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Leads</p>
-                        <div className="space-y-1">
-                          {searchResults.leads.map((lead) => (
-                            <button
-                              key={`lead-${lead.id}`}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => navigateToResult('lead')}
-                              className="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950/30 flex items-center justify-center text-brand-600 dark:text-brand-300 flex-shrink-0">
-                                <Users className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{lead.name || 'Untitled lead'}</p>
-                                <p className="text-xs text-slate-500 truncate">{lead.company || lead.email || 'Lead record'}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {searchResults.customers.length > 0 && (
-                      <div className="px-2 py-2 border-t border-slate-100 dark:border-slate-800">
-                        <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Customers</p>
-                        <div className="space-y-1">
-                          {searchResults.customers.map((customer) => (
-                            <button
-                              key={`customer-${customer.id}`}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => navigateToResult('customer')}
-                              className="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-accent-50 dark:bg-accent-950/30 flex items-center justify-center text-accent-600 dark:text-accent-300 flex-shrink-0">
-                                <Building2 className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{customer.name || 'Untitled customer'}</p>
-                                <p className="text-xs text-slate-500 truncate">{customer.company || customer.email || 'Customer record'}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {searchResults.deals.length > 0 && (
-                      <div className="px-2 py-2 border-t border-slate-100 dark:border-slate-800">
-                        <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Pipeline</p>
-                        <div className="space-y-1">
-                          {searchResults.deals.map((deal) => (
-                            <button
-                              key={`deal-${deal.id}`}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => navigateToResult('deal')}
-                              className="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 dark:text-emerald-300 flex-shrink-0">
-                                <Kanban className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{deal.title || 'Untitled deal'}</p>
-                                <p className="text-xs text-slate-500 truncate">{deal.company || deal.ownerName || deal.owner || 'Pipeline record'}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="flex items-baseline gap-0.5 leading-none">
+          <span className="text-lg font-extrabold tracking-tight text-slate-800 dark:text-white">Nexa</span>
+          <span className="text-lg font-extrabold tracking-wider text-brand-500 dark:text-brand-400">CRM</span>
+        </div>
       </div>
 
       <div className="order-2 ml-auto flex items-center gap-1">
