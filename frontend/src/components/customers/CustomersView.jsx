@@ -351,32 +351,134 @@ function parseNotes(raw) {
   return sections
 }
 
-/* ── Collapsible JSON viewer ───────────────────────────────────── */
-function JsonPayload({ data }) {
-  const [open, setOpen] = useState(false)
+/* ── Field-name prettifier ─────────────────────────────────────── */
+const FIELD_LABELS = {
+  full_name: 'Full Name', first_name: 'First Name', last_name: 'Last Name',
+  email: 'Email', phone_number: 'Phone', phone: 'Phone',
+  company_name: 'Company', company: 'Company', city: 'City', state: 'State',
+  country: 'Country', zip_code: 'Zip Code', street_address: 'Address',
+  job_title: 'Job Title', service: 'Service', service_name: 'Service',
+  specialization: 'Specialization', sub_service: 'Sub Service', subservice: 'Sub Service',
+  form_name: 'Form', form_id: 'Form ID', ad_id: 'Ad ID', ad_name: 'Ad Name',
+  campaign_id: 'Campaign ID', campaign_name: 'Campaign', adset_name: 'Ad Set',
+  created_time: 'Submitted At', id: 'Lead ID', leadgen_id: 'Leadgen ID',
+  page_id: 'Page ID', page_name: 'Page',
+}
+
+function prettifyFieldName(name) {
+  if (FIELD_LABELS[name]) return FIELD_LABELS[name]
+  return name
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatFieldValue(key, value) {
+  if (!value || value === 'null' || value === 'undefined') return null
+  if (key === 'created_time') {
+    const d = new Date(value)
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }
+  }
+  return String(value)
+}
+
+/* ── Smart payload details (replaces raw JSON viewer) ─────────── */
+function PayloadDetails({ data }) {
+  const [showRaw, setShowRaw] = useState(false)
   if (!data) return null
 
-  let formatted = data
-  try {
-    const parsed = JSON.parse(data)
-    formatted = JSON.stringify(parsed, null, 2)
-  } catch {
-    // already a string, keep as-is
+  let parsed = null
+  try { parsed = typeof data === 'string' ? JSON.parse(data) : data } catch { /* not JSON */ }
+
+  if (!parsed || typeof parsed !== 'object') return null
+
+  // Extract field_data entries → readable key-value pairs
+  const fieldEntries = []
+  if (Array.isArray(parsed.field_data)) {
+    for (const field of parsed.field_data) {
+      const name = field?.name
+      const values = Array.isArray(field?.values) ? field.values : []
+      const val = values.join(', ')
+      if (name && val) {
+        fieldEntries.push({ key: name, label: prettifyFieldName(name), value: val })
+      }
+    }
+  }
+
+  // Extract useful top-level fields (skip field_data, skip internal IDs if we already have them)
+  const TOP_KEYS = ['form_name', 'campaign_name', 'ad_name', 'adset_name', 'page_name', 'created_time', 'id', 'form_id', 'ad_id', 'campaign_id', 'page_id', 'leadgen_id']
+  const topEntries = []
+  for (const key of TOP_KEYS) {
+    const raw = parsed[key]
+    if (raw === undefined || raw === null || raw === '' || raw === 'null') continue
+    const formatted = formatFieldValue(key, raw)
+    if (formatted) {
+      topEntries.push({ key, label: prettifyFieldName(key), value: formatted })
+    }
+  }
+
+  const hasContent = fieldEntries.length > 0 || topEntries.length > 0
+
+  if (!hasContent) {
+    // Fallback: if we couldn't extract anything meaningful, show raw toggle only
+    return (
+      <div className="mt-2">
+        <button onClick={() => setShowRaw(!showRaw)}
+          className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+          <Code2 className="w-3 h-3" /> Raw Data
+          {showRaw ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+        {showRaw && (
+          <pre className="mt-1.5 p-2.5 rounded-lg bg-slate-900 dark:bg-slate-950 text-green-400 text-[11px] leading-relaxed overflow-x-auto max-h-48 overflow-y-auto font-mono">
+            {JSON.stringify(parsed, null, 2)}
+          </pre>
+        )}
+      </div>
+    )
   }
 
   return (
-    <div className="mt-2">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-      >
-        <Code2 className="w-3 h-3" />
-        Raw Payload
-        {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+    <div className="mt-2 space-y-2">
+      {/* Contact / form field details */}
+      {fieldEntries.length > 0 && (
+        <div className="rounded-lg bg-white/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 p-2.5">
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Form Details</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+            {fieldEntries.map(({ key, label, value }) => (
+              <div key={key} className="flex items-baseline gap-1.5 text-xs py-0.5">
+                <span className="font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">{label}:</span>
+                <span className="text-slate-700 dark:text-slate-300 break-all">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Campaign / ad metadata */}
+      {topEntries.length > 0 && (
+        <div className="rounded-lg bg-white/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 p-2.5">
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Ad & Campaign Info</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+            {topEntries.map(({ key, label, value }) => (
+              <div key={key} className="flex items-baseline gap-1.5 text-xs py-0.5">
+                <span className="font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">{label}:</span>
+                <span className="text-slate-700 dark:text-slate-300 break-all">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Raw toggle for debugging */}
+      <button onClick={() => setShowRaw(!showRaw)}
+        className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 transition-colors">
+        <Code2 className="w-3 h-3" /> {showRaw ? 'Hide' : 'Show'} raw data
+        {showRaw ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
-      {open && (
-        <pre className="mt-1.5 p-2.5 rounded-lg bg-slate-900 dark:bg-slate-950 text-green-400 text-[11px] leading-relaxed overflow-x-auto max-h-48 overflow-y-auto font-mono">
-          {formatted}
+      {showRaw && (
+        <pre className="p-2.5 rounded-lg bg-slate-900 dark:bg-slate-950 text-green-400 text-[11px] leading-relaxed overflow-x-auto max-h-40 overflow-y-auto font-mono">
+          {JSON.stringify(parsed, null, 2)}
         </pre>
       )}
     </div>
@@ -416,8 +518,8 @@ function NoteCard({ section }) {
         </p>
       )}
 
-      {/* Collapsible raw payload */}
-      <JsonPayload data={section.payload} />
+      {/* Smart payload details (parsed from JSON) */}
+      <PayloadDetails data={section.payload} />
     </div>
   )
 }
