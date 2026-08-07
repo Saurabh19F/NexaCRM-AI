@@ -444,11 +444,11 @@ function PayloadDetails({ data }) {
       {fieldEntries.length > 0 && (
         <div className="rounded-lg bg-white/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 p-2.5">
           <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Form Details</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          <div className="space-y-1">
             {fieldEntries.map(({ key, label, value }) => (
-              <div key={key} className="flex items-baseline gap-1.5 text-xs py-0.5">
-                <span className="font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">{label}:</span>
-                <span className="text-slate-700 dark:text-slate-300 break-all">{value}</span>
+              <div key={key} className="text-xs py-0.5">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">{label}: </span>
+                <span className="text-slate-700 dark:text-slate-300">{value}</span>
               </div>
             ))}
           </div>
@@ -459,11 +459,11 @@ function PayloadDetails({ data }) {
       {topEntries.length > 0 && (
         <div className="rounded-lg bg-white/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/40 p-2.5">
           <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">Ad & Campaign Info</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+          <div className="space-y-1">
             {topEntries.map(({ key, label, value }) => (
-              <div key={key} className="flex items-baseline gap-1.5 text-xs py-0.5">
-                <span className="font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">{label}:</span>
-                <span className="text-slate-700 dark:text-slate-300 break-all">{value}</span>
+              <div key={key} className="text-xs py-0.5">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">{label}: </span>
+                <span className="text-slate-700 dark:text-slate-300">{value}</span>
               </div>
             ))}
           </div>
