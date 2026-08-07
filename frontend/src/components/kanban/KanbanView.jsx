@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import {
-  DndContext, DragOverlay, closestCorners,
+  DndContext, DragOverlay, pointerWithin, rectIntersection,
   useDroppable,
   KeyboardSensor, PointerSensor, useSensor, useSensors
 } from '@dnd-kit/core'
@@ -48,6 +48,20 @@ const LEAD_SOURCES = [
 ]
 
 const STAGE_DROP_PREFIX = 'stage:'
+
+/* Custom collision detection: prefer stage column droppables (pointerWithin)
+   so empty columns work, then fall back to rectIntersection for card-level drops */
+function kanbanCollision(args) {
+  // First check if pointer is within any droppable (works for empty columns)
+  const pointerHits = pointerWithin(args)
+  // Prefer stage-level droppables (stage:xxx) over card-level sortables
+  const stageHit = pointerHits.find((h) => String(h.id).startsWith(STAGE_DROP_PREFIX))
+  if (stageHit) return [stageHit]
+  // If pointer is over a card, use that
+  if (pointerHits.length > 0) return pointerHits
+  // Fallback: rectIntersection for edge cases
+  return rectIntersection(args)
+}
 
 /* ── Lead card (shown in Kanban column) ────────────────────── */
 function LeadCard({
@@ -318,7 +332,7 @@ function KanbanColumn({
       </SortableContext>
 
       {columnLeads.length === 0 && (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center min-h-[200px]">
           <p className="text-xs text-slate-400 text-center py-8">Drop leads here</p>
         </div>
       )}
@@ -785,7 +799,7 @@ export default function KanbanPage() {
       {/* Kanban board */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={kanbanCollision}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
