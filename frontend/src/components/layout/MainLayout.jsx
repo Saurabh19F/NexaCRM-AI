@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Activity, Users, Clock, CheckCircle2 } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import Breadcrumb from './Breadcrumb'
 
 function StatusBar() {
   const [time, setTime] = useState(new Date())
@@ -75,6 +76,7 @@ export default function MainLayout() {
         />
         <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 lg:p-6">
           <div className="mx-auto w-full max-w-[1600px]" key={refreshKey}>
+            <Breadcrumb />
             <Outlet />
           </div>
         </main>
