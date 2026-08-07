@@ -23,11 +23,7 @@ const pageImports = {
   '/analytics': () => import('./pages/AnalyticsPage'),
   '/team': () => import('./pages/TeamPage'),
   '/settings': () => import('./pages/SettingsPage'),
-  '/integrations': () => import('./pages/IntegrationsPage'),
-  '/profile': () => import('./pages/ProfilePage'),
-  '/notifications': () => import('./pages/NotificationCenterPage'),
-  '/tickets': () => import('./pages/TicketsPage'),
-  '/subscription': () => import('./pages/SubscriptionPage'),
+  // These pages are now tabs inside Settings — kept for lazy imports by SettingsView
   '/admin/saas': () => import('./pages/SaaSAdminPage'),
   '/platform/login': () => import('./pages/PlatformLoginPage'),
 }
@@ -51,11 +47,6 @@ const InvoicesPage = lazy(pageImports['/invoices'])
 const AnalyticsPage = lazy(pageImports['/analytics'])
 const TeamPage = lazy(pageImports['/team'])
 const SettingsPage = lazy(pageImports['/settings'])
-const IntegrationsPage = lazy(pageImports['/integrations'])
-const ProfilePage = lazy(pageImports['/profile'])
-const NotificationCenterPage = lazy(pageImports['/notifications'])
-const TicketsPage = lazy(pageImports['/tickets'])
-const SubscriptionPage = lazy(pageImports['/subscription'])
 const SaaSAdminPage = lazy(pageImports['/admin/saas'])
 const PlatformLoginPage = lazy(pageImports['/platform/login'])
 
@@ -247,12 +238,12 @@ export default function App() {
             <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
             <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><AnalyticsPage /></PermissionRoute>} />
             <Route path="/task-followup" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TaskFollowUpPage /></PermissionRoute>} />
-            <Route path="/notifications" element={<PermissionRoute permission={PERMISSIONS.NOTIFICATIONS_READ}><NotificationCenterPage /></PermissionRoute>} />
-            <Route path="/tickets" element={<PermissionRoute permission={PERMISSIONS.TICKETS_READ}><TicketsPage /></PermissionRoute>} />
-            <Route path="/subscription" element={<SubscriptionPage />} />
+            <Route path="/notifications" element={<Navigate to="/settings?tab=alerts" replace />} />
+            <Route path="/tickets" element={<Navigate to="/settings?tab=tickets" replace />} />
+            <Route path="/subscription" element={<Navigate to="/settings?tab=subscription" replace />} />
             <Route path="/team" element={<PermissionRoute permission={PERMISSIONS.TEAM_READ}><TeamPage /></PermissionRoute>} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/integrations" element={<PermissionRoute permission={PERMISSIONS.INTEGRATIONS_READ}><IntegrationsPage /></PermissionRoute>} />
+            <Route path="/profile" element={<Navigate to="/settings?tab=profile" replace />} />
+            <Route path="/integrations" element={<Navigate to="/settings?tab=integrations" replace />} />
             <Route path="/settings" element={<PermissionRoute permission={PERMISSIONS.SETTINGS_VIEW}><SettingsPage /></PermissionRoute>} />
             <Route path="/admin/saas" element={<RoleRoute role="PLATFORM_ADMIN"><SaaSAdminPage /></RoleRoute>} />
           </Route>

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { NavLink, Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
-  Sparkles, Zap, Receipt, BarChart3, Shield, Settings, Link2, User,
-  X, ListTodo, Bell, ShieldCheck, Activity, Building2, BadgeDollarSign,
-  Lock, FileText, LifeBuoy, CreditCard
+  Sparkles, Zap, Receipt, BarChart3, Shield, Settings,
+  X, ListTodo, ShieldCheck, Activity, Building2, BadgeDollarSign,
+  Lock, FileText
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
@@ -22,11 +22,6 @@ const NAV_ITEMS = [
   { label: 'Invoices',       icon: Receipt,         path: '/invoices', permission: PERMISSIONS.INVOICES_READ },
   { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.REPORTS_READ },
   { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_READ },
-  { label: 'Alerts',         icon: Bell,            path: '/notifications', permission: PERMISSIONS.NOTIFICATIONS_READ },
-  { label: 'Tickets',        icon: LifeBuoy,        path: '/tickets', permission: PERMISSIONS.TICKETS_READ },
-  { label: 'Subscription',  icon: CreditCard,      path: '/subscription' },
-  { label: 'Profile',        icon: User,            path: '/profile' },
-  { label: 'Integrations',   icon: Link2,           path: '/integrations', permission: PERMISSIONS.INTEGRATIONS_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
 ]
 
@@ -60,7 +55,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const activeTab = PLATFORM_ADMIN_TABS.some(t => t.tabKey === rawTab) ? rawTab : 'overview'
 
   const visibleNavItems = isPlatformAdmin
-    ? NAV_ITEMS.filter((item) => item.path === '/profile' || item.path === '/settings')
+    ? NAV_ITEMS.filter((item) => item.path === '/settings')
     : NAV_ITEMS.filter((item) => !item.platformAdminOnly && hasPermission(user, item.permission))
 
   useEffect(() => {

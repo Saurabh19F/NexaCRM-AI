@@ -1,18 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Settings, Bell, Shield, Palette, Link, CreditCard, Save,
          ShieldCheck, ShieldOff, X, Smartphone, AlertTriangle,
-         Globe, Info, Clock, Activity } from 'lucide-react'
+         Globe, Info, Clock, Activity, LifeBuoy, User, Link2, RefreshCw } from 'lucide-react'
 import { useThemeStore } from '../../store/themeStore'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 
+const LazyAlerts       = lazy(() => import('../../pages/NotificationCenterPage'))
+const LazyTickets      = lazy(() => import('../../pages/TicketsPage'))
+const LazySubscription = lazy(() => import('../../pages/SubscriptionPage'))
+const LazyProfile      = lazy(() => import('../../pages/ProfilePage'))
+const LazyIntegrations = lazy(() => import('../../pages/IntegrationsPage'))
+
 const TABS = [
   { key: 'general',       label: 'General',       icon: Settings },
+  { key: 'profile',       label: 'Profile',       icon: User },
   { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'alerts',        label: 'Alerts',        icon: Bell },
+  { key: 'tickets',       label: 'Tickets',       icon: LifeBuoy },
   { key: 'security',      label: 'Security',      icon: Shield },
   { key: 'appearance',    label: 'Appearance',    icon: Palette },
-  { key: 'integrations',  label: 'Integrations',  icon: Link },
+  { key: 'integrations',  label: 'Integrations',  icon: Link2 },
+  { key: 'subscription',  label: 'Subscription',  icon: CreditCard },
   { key: 'billing',       label: 'Billing',       icon: CreditCard },
 ]
 const VALID_TAB_KEYS = new Set(TABS.map((tab) => tab.key))
@@ -581,28 +591,9 @@ export default function SettingsPage() {
           )}
 
           {tab === 'integrations' && (
-            <div className="space-y-5">
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Integrations</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {integrations.map(intg => (
-                  <div key={intg.name} className={`rounded-xl p-4 ${intg.color} flex items-center justify-between`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{intg.icon}</span>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{intg.name}</p>
-                        <p className={`text-xs font-medium ${intg.status === 'connected' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                          {intg.status === 'connected' ? '● Connected' : '◌ Pending'}
-                        </p>
-                      </div>
-                    </div>
-                    <button onClick={() => toggleIntegration(intg.name)}
-                      className={`text-xs font-semibold hover:underline transition-colors ${intg.status === 'connected' ? 'text-red-500 hover:text-red-600' : 'text-brand-600 dark:text-brand-400 hover:text-brand-700'}`}>
-                      {intg.status === 'connected' ? 'Disconnect' : 'Connect'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 animate-spin text-slate-400" /></div>}>
+              <LazyIntegrations />
+            </Suspense>
           )}
 
           {tab === 'security' && (
@@ -761,6 +752,30 @@ export default function SettingsPage() {
                 </AnimatePresence>
               </div>
             </div>
+          )}
+
+          {tab === 'alerts' && (
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 animate-spin text-slate-400" /></div>}>
+              <LazyAlerts />
+            </Suspense>
+          )}
+
+          {tab === 'tickets' && (
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 animate-spin text-slate-400" /></div>}>
+              <LazyTickets />
+            </Suspense>
+          )}
+
+          {tab === 'subscription' && (
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 animate-spin text-slate-400" /></div>}>
+              <LazySubscription />
+            </Suspense>
+          )}
+
+          {tab === 'profile' && (
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 animate-spin text-slate-400" /></div>}>
+              <LazyProfile />
+            </Suspense>
           )}
 
           {tab === 'billing' && (
