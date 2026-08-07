@@ -29,3 +29,4 @@ logs/
 livekit-agent/.venv/
 livekit-agent/__pycache__/
 *.pyc
+node_modules/
