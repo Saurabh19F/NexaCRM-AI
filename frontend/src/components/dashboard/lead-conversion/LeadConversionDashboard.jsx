@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import {
   Activity, CalendarDays, ChevronDown, ChevronRight, Clock3, Filter, FolderClock,
-  Globe2, Layers3, LineChart as LineChartIcon, Repeat2, Search, Sparkles,
+  Globe2, Layers3, LineChart as LineChartIcon, Repeat2, Sparkles,
   Target, TrendingDown, TrendingUp, Users, UserCheck
 } from 'lucide-react'
 import { dashboardAPI } from '../../../services/api'
