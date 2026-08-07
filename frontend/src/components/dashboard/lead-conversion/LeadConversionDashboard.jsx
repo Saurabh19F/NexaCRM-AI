@@ -119,24 +119,17 @@ function MetricCard({ item, metric }) {
   const change = Number(metric?.changePercent || 0)
   const positive = change >= 0
   return (
-    <div
-      className="flex flex-col items-center justify-center rounded-xl px-3 py-4 h-[110px] transition-all duration-200 hover:-translate-y-0.5"
-      style={{
-        background: 'rgba(255,255,255,0.5)',
-        backdropFilter: 'blur(16px) saturate(1.8)',
-        WebkitBackdropFilter: 'blur(16px) saturate(1.8)',
-        border: '1px solid rgba(255,255,255,0.4)',
-        boxShadow: '0 2px 12px rgba(14,165,233,0.04), inset 0 1px 0 rgba(255,255,255,0.5)',
-      }}
-    >
-      <div className={`h-9 w-9 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center mb-2`}>
-        <Icon className="h-4 w-4 text-white" />
+    <div className="kpi-card flex items-center gap-2.5">
+      <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+        <Icon className="h-3.5 w-3.5 text-white" />
       </div>
-      <p className="text-xl font-bold leading-tight text-slate-900 dark:text-slate-50">
-        {metricValue(metric, { currency: item.currency, percent: item.percent })}
-      </p>
-      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">{item.title}</p>
-      <span className={`text-[10px] font-semibold mt-0.5 ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.18em]">{item.title}</p>
+        <p className="text-2xl font-bold leading-tight text-slate-900 dark:text-slate-50">
+          {metricValue(metric, { currency: item.currency, percent: item.percent })}
+        </p>
+      </div>
+      <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
         {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
       </span>
     </div>

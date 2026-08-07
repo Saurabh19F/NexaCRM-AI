@@ -11,9 +11,9 @@ export default function OverdueTasksWidget({ tasks = [], onOpenTask }) {
     <div className="kpi-card flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Overdue</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Overdue</p>
           <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{overdue.length}</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Tasks require immediate follow-up</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Tasks require immediate follow-up</p>
         </div>
         <div className="rounded-2xl bg-rose-50 p-3 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400">
           <TriangleAlert className="h-5 w-5" />

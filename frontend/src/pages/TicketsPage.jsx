@@ -95,11 +95,11 @@ const Skeleton = ({ count = 4, h = 'h-24' }) => (
 const KpiCard = ({ label, value, icon: Icon, color = 'text-brand-500', sub }) => (
   <div className="kpi-card">
     <div className="flex items-center justify-between">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
-      {Icon && <Icon className={`h-4.5 w-4.5 ${color}`} />}
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</p>
+      {Icon && <Icon className={`h-4 w-4 ${color}`} />}
     </div>
-    <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
-    {sub && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{sub}</p>}
+    <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
+    {sub && <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{sub}</p>}
   </div>
 )
 

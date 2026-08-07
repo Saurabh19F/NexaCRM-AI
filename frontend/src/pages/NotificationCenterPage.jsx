@@ -74,18 +74,18 @@ export default function NotificationCenterPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Total</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{counts.total}</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{counts.total}</h3>
         </div>
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Unread</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{counts.unread}</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Unread</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{counts.unread}</h3>
         </div>
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Read</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{counts.read}</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Read</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{counts.read}</h3>
         </div>
       </div>
 

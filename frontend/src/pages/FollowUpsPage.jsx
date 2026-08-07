@@ -256,18 +256,18 @@ export default function FollowUpsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Open tasks</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{openTasks.length}</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Open tasks</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{openTasks.length}</h3>
         </div>
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Overdue</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{overdueTasks.length}</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Overdue</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{overdueTasks.length}</h3>
         </div>
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Activities</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{activities.length}</h3>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Activities</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{activities.length}</h3>
         </div>
       </div>
 

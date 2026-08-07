@@ -486,20 +486,20 @@ export default function InvoicesPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {[
           { label: 'Revenue Collected', value: totalRevenue, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/20' },
           { label: 'Pending',           value: totalPending, icon: Clock,       color: 'text-amber-500',   bg: 'bg-amber-50 dark:bg-amber-950/20' },
           { label: 'Overdue',           value: totalOverdue, icon: AlertCircle, color: 'text-red-500',     bg: 'bg-red-50 dark:bg-red-950/20' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="glass-card p-5 flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
-              <Icon className={`w-5 h-5 ${color}`} />
+          <div key={label} className="kpi-card flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center`}>
+              <Icon className={`w-4 h-4 ${color}`} />
             </div>
             <div>
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-0.5">
-                <IndianRupee className="w-4 h-4" />{(value / 100000).toFixed(1)}L
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</p>
+              <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-0.5">
+                <IndianRupee className="w-3.5 h-3.5" />{(value / 100000).toFixed(1)}L
               </p>
             </div>
           </div>

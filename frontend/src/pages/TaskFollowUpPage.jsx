@@ -413,17 +413,17 @@ export default function TaskFollowUpPage() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Pending Follow-ups</p>
-          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stats.pending}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Leads in progress</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pending Follow-ups</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.pending}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads in progress</p>
         </div>
         <div className="kpi-card">
           <div className="flex items-center gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">By Activity</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">By Activity</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {ACTIVITY_DEFS.map((def, i) => (
                   <span key={def.id} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${COLOR_MAP[def.color].badge}`}>
                     <def.icon className="h-3 w-3" />
@@ -434,20 +434,20 @@ export default function TaskFollowUpPage() {
             </div>
           </div>
           {stats.notStarted > 0 && (
-            <p className="mt-1.5 text-xs text-slate-400">{stats.notStarted} not started</p>
+            <p className="mt-1 text-[11px] text-slate-400">{stats.notStarted} not started</p>
           )}
         </div>
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Won</p>
-          <h3 className="mt-2 text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.won}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Won</p>
+          <h3 className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.won}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
             {stats.totalRevenue > 0 ? `₹${stats.totalRevenue.toLocaleString('en-IN')} revenue` : 'Completed leads'}
           </p>
         </div>
         <div className="kpi-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400">Lost</p>
-          <h3 className="mt-2 text-3xl font-bold text-rose-600 dark:text-rose-400">{stats.lost}</h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{stats.completed} total completed</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">Lost</p>
+          <h3 className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.lost}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{stats.completed} total completed</p>
         </div>
       </div>
 
