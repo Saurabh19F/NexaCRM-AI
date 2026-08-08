@@ -29,11 +29,11 @@ function PlatformAnimation() {
         <circle cx="88" cy="75" r="6" fill="#ef4444" opacity="0.7" />
         <circle cx="108" cy="75" r="6" fill="#f59e0b" opacity="0.7" />
         <circle cx="128" cy="75" r="6" fill="#22c55e" opacity="0.7" />
-        <text x="280" y="80" textAnchor="middle" fill="rgba(14,165,233,0.8)" fontSize="12" fontWeight="700" fontFamily="Inter, sans-serif">Platform Admin Console</text>
+        <text x="280" y="80" textAnchor="middle" fill="rgba(14,165,233,0.8)" fontSize="12" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">Platform Admin Console</text>
 
         {/* Company tiles grid */}
         <g transform="translate(85, 115)">
-          <text x="0" y="12" fill="#64748b" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Companies</text>
+          <text x="0" y="12" fill="#64748b" fontSize="10" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Companies</text>
           {[
             { x: 0, y: 22, label: 'Acme Corp', users: '24', color: '#0ea5e9', delay: '0s' },
             { x: 115, y: 22, label: 'TechFlow', users: '18', color: '#14b8a6', delay: '0.3s' },
@@ -49,18 +49,18 @@ function PlatformAnimation() {
               <circle cx={x + 18} cy={y + 21} r="10" fill={color} opacity="0.7">
                 <animate attributeName="opacity" values="0;0.7" dur="0.6s" begin={delay} fill="freeze" />
               </circle>
-              <text x={x + 18} y={y + 25} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Inter, sans-serif">
+              <text x={x + 18} y={y + 25} textAnchor="middle" fill="white" fontSize="9" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">
                 {label.charAt(0)}
               </text>
-              <text x={x + 38} y={y + 17} fill="#334155" fontSize="9" fontWeight="600" fontFamily="Inter, sans-serif">{label}</text>
-              <text x={x + 38} y={y + 30} fill="#94a3b8" fontSize="8" fontFamily="Inter, sans-serif">{users} users</text>
+              <text x={x + 38} y={y + 17} fill="#334155" fontSize="9" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">{label}</text>
+              <text x={x + 38} y={y + 30} fill="#94a3b8" fontSize="8" fontFamily="Noto Serif Khitan Small Script, sans-serif">{users} users</text>
             </g>
           ))}
         </g>
 
         {/* Subscription bars */}
         <g transform="translate(85, 250)">
-          <text x="0" y="12" fill="#64748b" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Subscription Health</text>
+          <text x="0" y="12" fill="#64748b" fontSize="10" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Subscription Health</text>
           {[
             { y: 22, w: 300, label: 'Enterprise', pct: '92%', color: '#0ea5e9', delay: '0.5s' },
             { y: 44, w: 240, label: 'Pro', pct: '74%', color: '#14b8a6', delay: '0.8s' },
@@ -71,8 +71,8 @@ function PlatformAnimation() {
               <rect x="0" y={y} width="0" height="18" rx="5" fill={color} opacity="0.6">
                 <animate attributeName="width" values={`0;${w}`} dur="1.2s" begin={delay} fill="freeze" />
               </rect>
-              <text x="6" y={y + 13} fill="#334155" fontSize="8" fontWeight="600" fontFamily="Inter, sans-serif">{label}</text>
-              <text x="320" y={y + 13} textAnchor="end" fill="#64748b" fontSize="8" fontWeight="600" fontFamily="Inter, sans-serif">{pct}</text>
+              <text x="6" y={y + 13} fill="#334155" fontSize="8" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">{label}</text>
+              <text x="320" y={y + 13} textAnchor="end" fill="#64748b" fontSize="8" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">{pct}</text>
             </g>
           ))}
         </g>
@@ -92,7 +92,7 @@ function PlatformAnimation() {
         <circle cx="410" cy="70" r="12" fill="#0ea5e9" opacity="0.9">
           <animate attributeName="r" values="12;14;12" dur="2s" repeatCount="indefinite" />
         </circle>
-        <text x="410" y="74" textAnchor="middle" fill="white" fontSize="10" fontWeight="700" fontFamily="Inter, sans-serif">3</text>
+        <text x="410" y="74" textAnchor="middle" fill="white" fontSize="10" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">3</text>
 
         {/* Data flow lines */}
         <line x1="200" y1="345" x2="300" y2="345" stroke="rgba(14,165,233,0.25)" strokeWidth="1.5" strokeDasharray="6,4">
@@ -102,10 +102,10 @@ function PlatformAnimation() {
         {/* Admin avatars at bottom */}
         <g transform="translate(130, 355)" opacity="0.85">
           <circle cx="0" cy="0" r="14" fill="#0ea5e9" />
-          <text x="0" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Inter, sans-serif">A</text>
+          <text x="0" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">A</text>
           <circle cx="32" cy="0" r="14" fill="#14b8a6" />
-          <text x="32" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Inter, sans-serif">P</text>
-          <text x="60" y="5" fill="#64748b" fontSize="10" fontFamily="Inter, sans-serif">2 Platform Admins</text>
+          <text x="32" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">P</text>
+          <text x="60" y="5" fill="#64748b" fontSize="10" fontFamily="Noto Serif Khitan Small Script, sans-serif">2 Platform Admins</text>
         </g>
       </svg>
 
