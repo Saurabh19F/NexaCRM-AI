@@ -29,33 +29,33 @@ function CRMAnimation() {
         <circle cx="78" cy="85" r="6" fill="#ef4444" opacity="0.7" />
         <circle cx="98" cy="85" r="6" fill="#f59e0b" opacity="0.7" />
         <circle cx="118" cy="85" r="6" fill="#22c55e" opacity="0.7" />
-        <text x="200" y="90" textAnchor="middle" fill="rgba(14,165,233,0.8)" fontSize="13" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">CRM Dashboard</text>
+        <text x="200" y="90" textAnchor="middle" fill="rgba(14,165,233,0.8)" fontSize="13" fontWeight="700" fontFamily="Roboto, sans-serif">CRM Dashboard</text>
 
         {/* KPI cards row */}
         <g opacity="0.9">
           <rect x="75" y="125" width="100" height="55" rx="12" fill="rgba(255,255,255,0.6)" stroke="rgba(14,165,233,0.2)" strokeWidth="1">
             <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite" />
           </rect>
-          <text x="125" y="148" textAnchor="middle" fill="#0ea5e9" fontSize="10" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Leads</text>
-          <text x="125" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Noto Serif Khitan Small Script, sans-serif">2,847</text>
+          <text x="125" y="148" textAnchor="middle" fill="#0ea5e9" fontSize="10" fontWeight="600" fontFamily="Roboto, sans-serif">Leads</text>
+          <text x="125" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Roboto, sans-serif">2,847</text>
 
           <rect x="195" y="125" width="100" height="55" rx="12" fill="rgba(255,255,255,0.6)" stroke="rgba(20,184,166,0.2)" strokeWidth="1">
             <animate attributeName="opacity" values="1;0.7;1" dur="3s" repeatCount="indefinite" />
           </rect>
-          <text x="245" y="148" textAnchor="middle" fill="#14b8a6" fontSize="10" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Deals</text>
-          <text x="245" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Noto Serif Khitan Small Script, sans-serif">₹42L</text>
+          <text x="245" y="148" textAnchor="middle" fill="#14b8a6" fontSize="10" fontWeight="600" fontFamily="Roboto, sans-serif">Deals</text>
+          <text x="245" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Roboto, sans-serif">₹42L</text>
 
           <rect x="315" y="125" width="100" height="55" rx="12" fill="rgba(255,255,255,0.6)" stroke="rgba(139,92,246,0.2)" strokeWidth="1">
             <animate attributeName="opacity" values="0.7;1;0.7" dur="3.5s" repeatCount="indefinite" />
           </rect>
-          <text x="365" y="148" textAnchor="middle" fill="#8b5cf6" fontSize="10" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Conv.</text>
-          <text x="365" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Noto Serif Khitan Small Script, sans-serif">68%</text>
+          <text x="365" y="148" textAnchor="middle" fill="#8b5cf6" fontSize="10" fontWeight="600" fontFamily="Roboto, sans-serif">Conv.</text>
+          <text x="365" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Roboto, sans-serif">68%</text>
         </g>
 
         {/* Animated chart */}
         <g transform="translate(75, 195)">
           <rect width="180" height="120" rx="12" fill="rgba(255,255,255,0.5)" stroke="rgba(14,165,233,0.15)" strokeWidth="1" />
-          <text x="90" y="18" textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Revenue Trend</text>
+          <text x="90" y="18" textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600" fontFamily="Roboto, sans-serif">Revenue Trend</text>
           {/* Chart bars */}
           {[
             { x: 15, h: 40, color: '#0ea5e9', delay: '0s' },
@@ -78,7 +78,7 @@ function CRMAnimation() {
         {/* Lead pipeline funnel */}
         <g transform="translate(275, 195)">
           <rect width="140" height="120" rx="12" fill="rgba(255,255,255,0.5)" stroke="rgba(20,184,166,0.15)" strokeWidth="1" />
-          <text x="70" y="18" textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">Pipeline</text>
+          <text x="70" y="18" textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600" fontFamily="Roboto, sans-serif">Pipeline</text>
           {/* Funnel stages */}
           {[
             { y: 30, w: 110, label: 'New', color: '#0ea5e9', delay: '0.3s' },
@@ -91,7 +91,7 @@ function CRMAnimation() {
                 <animate attributeName="width" values={`0;${w}`} dur="1s" begin={delay} fill="freeze" />
                 <animate attributeName="x" values={`70;${(140 - w) / 2}`} dur="1s" begin={delay} fill="freeze" />
               </rect>
-              <text x="70" y={y + 12} textAnchor="middle" fill="white" fontSize="8" fontWeight="600" fontFamily="Noto Serif Khitan Small Script, sans-serif">{label}</text>
+              <text x="70" y={y + 12} textAnchor="middle" fill="white" fontSize="8" fontWeight="600" fontFamily="Roboto, sans-serif">{label}</text>
             </g>
           ))}
         </g>
@@ -101,7 +101,7 @@ function CRMAnimation() {
           <circle cx="420" cy="80" r="14" fill="#0ea5e9" opacity="0.9">
             <animate attributeName="r" values="14;16;14" dur="2s" repeatCount="indefinite" />
           </circle>
-          <text x="420" y="85" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">5</text>
+          <text x="420" y="85" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">5</text>
         </g>
 
         {/* Animated connecting lines (data flow) */}
@@ -112,15 +112,15 @@ function CRMAnimation() {
         {/* User avatars */}
         <g transform="translate(100, 335)" opacity="0.8">
           <circle cx="0" cy="0" r="15" fill="#0ea5e9" opacity="0.8" />
-          <text x="0" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">S</text>
+          <text x="0" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">S</text>
           <circle cx="28" cy="0" r="15" fill="#14b8a6" opacity="0.8" />
-          <text x="28" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">A</text>
+          <text x="28" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">A</text>
           <circle cx="56" cy="0" r="15" fill="#8b5cf6" opacity="0.8" />
-          <text x="56" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Noto Serif Khitan Small Script, sans-serif">M</text>
+          <text x="56" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">M</text>
           <circle cx="84" cy="0" r="13" fill="rgba(14,165,233,0.2)" stroke="rgba(14,165,233,0.4)" strokeWidth="1.5" strokeDasharray="4,3">
             <animate attributeName="stroke-dashoffset" values="0;-14" dur="3s" repeatCount="indefinite" />
           </circle>
-          <text x="84" y="5" textAnchor="middle" fill="#0ea5e9" fontSize="14" fontWeight="400" fontFamily="Noto Serif Khitan Small Script, sans-serif">+</text>
+          <text x="84" y="5" textAnchor="middle" fill="#0ea5e9" fontSize="14" fontWeight="400" fontFamily="Roboto, sans-serif">+</text>
         </g>
       </svg>
 

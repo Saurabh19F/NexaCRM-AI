@@ -42,7 +42,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Noto Serif Khitan Small Script"', 'ui-sans-serif', 'system-ui'],
+        sans: ['Roboto', 'ui-sans-serif', 'system-ui'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
