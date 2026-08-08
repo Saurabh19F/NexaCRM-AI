@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
-import { Activity, Users, Clock, CheckCircle2 } from 'lucide-react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Activity, Users, Clock, CheckCircle2, Plus, UserPlus, MessageSquare, Sparkles, Receipt, Kanban } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import Breadcrumb from './Breadcrumb'
+import SpeedDial from '../ui/SpeedDial'
 
 function StatusBar() {
   const [time, setTime] = useState(new Date())
@@ -41,6 +42,15 @@ export default function MainLayout() {
   const [collapsed] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const navigate = useNavigate()
+
+  const speedDialActions = [
+    { label: 'New Lead', icon: <UserPlus className="w-5 h-5 text-brand-500" />, onClick: () => navigate('/leads'), color: 'bg-brand-50 dark:bg-brand-950/30' },
+    { label: 'Send Message', icon: <MessageSquare className="w-5 h-5 text-emerald-500" />, onClick: () => navigate('/communication'), color: 'bg-emerald-50 dark:bg-emerald-950/30' },
+    { label: 'AI Assistant', icon: <Sparkles className="w-5 h-5 text-violet-500" />, onClick: () => navigate('/ai-engine'), color: 'bg-violet-50 dark:bg-violet-950/30' },
+    { label: 'New Invoice', icon: <Receipt className="w-5 h-5 text-sky-500" />, onClick: () => navigate('/invoices'), color: 'bg-sky-50 dark:bg-sky-950/30' },
+    { label: 'Pipeline', icon: <Kanban className="w-5 h-5 text-amber-500" />, onClick: () => navigate('/pipeline'), color: 'bg-amber-50 dark:bg-amber-950/30' },
+  ]
 
   return (
     <div className="relative flex h-screen overflow-hidden" style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 25%, #f0f9ff 50%, #d1fae5 75%, #e0f2fe 100%)' }}>
@@ -82,6 +92,9 @@ export default function MainLayout() {
         </main>
         <StatusBar />
       </div>
+
+      {/* Floating Action Button — Quick Actions */}
+      <SpeedDial actions={speedDialActions} />
     </div>
   )
 }

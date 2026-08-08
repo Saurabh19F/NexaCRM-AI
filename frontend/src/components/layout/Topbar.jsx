@@ -292,17 +292,21 @@ export default function Topbar({ onMenuClick, onRefresh }) {
             aria-expanded={showUserMenu}
             className="flex items-center gap-2 pl-2 pr-1 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarStyle} flex items-center justify-center text-white text-xs font-bold overflow-hidden`}>
-              {user?.avatarUrl && !avatarBroken ? (
-                <img
-                  src={user.avatarUrl}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                  onError={() => setAvatarBroken(true)}
-                />
-              ) : (
-                user?.name?.charAt(0) ?? 'U'
-              )}
+            <div className="relative">
+              <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarStyle} flex items-center justify-center text-white text-xs font-bold overflow-hidden`}>
+                {user?.avatarUrl && !avatarBroken ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarBroken(true)}
+                  />
+                ) : (
+                  user?.name?.charAt(0) ?? 'U'
+                )}
+              </div>
+              {/* Online status badge */}
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-[1.5px] border-white dark:border-slate-900 shadow-sm" />
             </div>
             <span className="hidden sm:block text-sm font-medium text-slate-700 dark:text-slate-300">
               {user?.name?.split(' ')[0]}

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Sparkles, PlayCircle, ExternalLink, Mic, Phone,
+  Sparkles, PlayCircle, ExternalLink, Mic, Phone, TrendingUp, Users, Target, ArrowUpRight,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { analyticsAPI } from '../../services/api'
 import LeadConversionDashboard from './lead-conversion/LeadConversionDashboard'
+import Chip from '../ui/Chip'
+import Alert from '../ui/Alert'
+import { LinearProgress } from '../ui/Progress'
+import { Skeleton } from '../ui/Skeleton'
 
 const INSIGHT_ROUTES = {
   'Schedule Call':  '/communication',
@@ -64,13 +68,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          {getGreeting()}, {firstName} 👋
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {getGreeting()}, {firstName} 👋
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Chip label="Live" variant="filled" color="success" size="sm" icon={<span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />} />
+          <Chip label="Pro Plan" variant="soft" color="primary" size="sm" icon={<Sparkles className="w-3 h-3" />} />
+        </div>
       </div>
 
       {/* Lead Conversion Dashboard — main content */}
@@ -94,7 +104,16 @@ export default function DashboardPage() {
 
           {extrasLoading && (
             <div className="space-y-2">
-              {[1,2].map(i => <div key={i} className="h-14 rounded-xl bg-white/30 animate-pulse" />)}
+              {[1,2].map(i => (
+                <div key={i} className="rounded-xl bg-white/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton variant="circular" width={24} height={24} />
+                    <Skeleton width="60%" height={12} />
+                  </div>
+                  <Skeleton width="80%" height={10} />
+                  <Skeleton width="40%" height={8} />
+                </div>
+              ))}
             </div>
           )}
           {!extrasLoading && recentCallSnapshots.length === 0 && (
@@ -127,6 +146,9 @@ export default function DashboardPage() {
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mt-1.5 line-clamp-2">
                     {item.summary || 'No summary available.'}
                   </p>
+                  <div className="mt-2">
+                    <LinearProgress value={item.confidence} color={item.confidence >= 70 ? 'success' : item.confidence >= 40 ? 'warning' : 'error'} size="xs" />
+                  </div>
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <span className="text-[10px] text-slate-400">Score: {item.confidence}%</span>
                     {item.recordingUrl ? (
@@ -161,7 +183,13 @@ export default function DashboardPage() {
 
           {extrasLoading && (
             <div className="space-y-2">
-              {[1,2].map(i => <div key={i} className="h-14 rounded-xl bg-white/30 animate-pulse" />)}
+              {[1,2].map(i => (
+                <div key={i} className="rounded-xl bg-white/30 p-3 space-y-2">
+                  <Skeleton width="50%" height={12} />
+                  <Skeleton width="90%" height={10} />
+                  <Skeleton width="30%" height={8} />
+                </div>
+              ))}
             </div>
           )}
           {!extrasLoading && liveInsights.length === 0 && (
@@ -185,13 +213,22 @@ export default function DashboardPage() {
                     className={`rounded-xl border-l-[3px] px-3 py-2.5 ${colors[insight.type] || 'border-l-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/10'}`}
                     style={{ border: '1px solid rgba(255,255,255,0.3)', borderLeftWidth: '3px' }}
                   >
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
+                      <Chip
+                        label={insight.type}
+                        variant="soft"
+                        size="sm"
+                        color={insight.type === 'warning' ? 'warning' : insight.type === 'prediction' ? 'success' : 'primary'}
+                      />
+                    </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mt-0.5 line-clamp-2">{insight.body}</p>
                     <button
                       onClick={() => navigate(INSIGHT_ROUTES[insight.action] ?? '/dashboard')}
-                      className="mt-1 text-[10px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-600 dark:text-brand-400 hover:underline"
                     >
-                      {insight.action} →
+                      {insight.action}
+                      <ArrowUpRight className="w-3 h-3" />
                     </button>
                   </div>
                 )

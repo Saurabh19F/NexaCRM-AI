@@ -15,6 +15,10 @@ import { leadsAPI, customersAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import LoadingState from '../ui/LoadingState'
 import { fetchAllPages } from '../../utils/pagination'
+import Chip from '../ui/Chip'
+import Tooltip from '../ui/Tooltip'
+import { Timeline, TimelineItem } from '../ui/Timeline'
+import { LinearProgress } from '../ui/Progress'
 
 /* ── Constants ─────────────────────────────────────────────────── */
 const INDUSTRIES = ['Finance', 'IT', 'SaaS', 'Manufacturing', 'Healthcare', 'E-commerce', 'Retail', 'Education', 'Other']

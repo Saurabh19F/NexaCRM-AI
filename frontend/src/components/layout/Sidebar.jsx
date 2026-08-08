@@ -7,8 +7,10 @@ import {
   Lock, FileText
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import { useNotificationStore } from '../../store/notificationStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import { prefetchPage } from '../../App'
+import Tooltip from '../ui/Tooltip'
 
 const NAV_ITEMS = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
@@ -46,6 +48,7 @@ const AVATAR_STYLE_CLASS = {
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const { user } = useAuthStore()
+  const { unreadCount } = useNotificationStore()
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [searchParams] = useSearchParams()
   const location = useLocation()
@@ -53,6 +56,11 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
   const isPlatformAdmin = user?.role === 'PLATFORM_ADMIN'
   const rawTab = searchParams.get('tab') || 'overview'
   const activeTab = PLATFORM_ADMIN_TABS.some(t => t.tabKey === rawTab) ? rawTab : 'overview'
+
+  // Badge counts for sidebar nav items
+  const navBadges = {
+    '/communication': unreadCount,
+  }
 
   const visibleNavItems = isPlatformAdmin
     ? NAV_ITEMS.filter((item) => item.path === '/settings')
@@ -116,36 +124,61 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             <div className="my-2 border-t border-white/10" />
           </>
         )}
-        {visibleNavItems.map(({ label, icon: Icon, path }) => (
-          <NavLink
-            key={path}
-            to={path}
-            onClick={() => setMobileOpen(false)}
-            onMouseEnter={() => prefetchPage(path)}
-            className={({ isActive }) =>
-              `edu-nav-item ${isActive ? 'active' : ''} ${isMobile ? 'flex-row gap-3 px-3' : ''}`
-            }
-          >
-            <Icon className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isMobile ? 'text-sm' : 'text-[10px] leading-tight mt-0.5'} font-medium truncate`}>{label}</span>
-          </NavLink>
-        ))}
+        {visibleNavItems.map(({ label, icon: Icon, path }) => {
+          const badgeCount = navBadges[path] || 0
+          const navLink = (
+            <NavLink
+              key={path}
+              to={path}
+              onClick={() => setMobileOpen(false)}
+              onMouseEnter={() => prefetchPage(path)}
+              className={({ isActive }) =>
+                `edu-nav-item ${isActive ? 'active' : ''} ${isMobile ? 'flex-row gap-3 px-3' : ''} relative`
+              }
+            >
+              <div className="relative">
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {badgeCount > 0 && !isMobile && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm animate-pulse">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+              </div>
+              <span className={`${isMobile ? 'text-sm' : 'text-[10px] leading-tight mt-0.5'} font-medium truncate`}>{label}</span>
+              {badgeCount > 0 && isMobile && (
+                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              )}
+            </NavLink>
+          )
+          // Tooltip only on desktop (icon-only) sidebar
+          return isMobile ? navLink : (
+            <Tooltip key={path} title={label} placement="right" delay={200}>
+              {navLink}
+            </Tooltip>
+          )
+        })}
       </nav>
 
       {/* User */}
       <div className="p-3 border-t border-white/10">
         <div className={`flex items-center ${isMobile ? 'gap-3 px-1' : 'justify-center'}`}>
-          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarStyle} flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden ring-2 ring-white/20`}>
-            {user?.avatarUrl && !avatarBroken ? (
-              <img
-                src={user.avatarUrl}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-                onError={() => setAvatarBroken(true)}
-              />
-            ) : (
-              user?.name?.charAt(0) ?? 'U'
-            )}
+          <div className="relative flex-shrink-0">
+            <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarStyle} flex items-center justify-center text-white text-sm font-bold overflow-hidden ring-2 ring-white/20`}>
+              {user?.avatarUrl && !avatarBroken ? (
+                <img
+                  src={user.avatarUrl}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarBroken(true)}
+                />
+              ) : (
+                user?.name?.charAt(0) ?? 'U'
+              )}
+            </div>
+            {/* Online status badge */}
+            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900 shadow-sm" />
           </div>
           {isMobile && (
             <div className="overflow-hidden">

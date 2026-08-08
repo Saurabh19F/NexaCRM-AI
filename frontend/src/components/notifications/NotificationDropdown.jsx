@@ -114,7 +114,12 @@ export default function NotificationDropdown({ onClose }) {
                       <p className={`text-sm font-semibold leading-tight ${notification.read ? 'text-slate-600 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
                         {notification.title}
                       </p>
-                      {!notification.read && <span className="mt-1 h-2.5 w-2.5 rounded-full bg-brand-500" />}
+                      {!notification.read && (
+                        <span className="relative mt-1 flex-shrink-0">
+                          <span className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-brand-400 animate-ping opacity-75" />
+                          <span className="relative h-2.5 w-2.5 rounded-full bg-brand-500 block" />
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
                       {notification.message}

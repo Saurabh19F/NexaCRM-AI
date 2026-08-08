@@ -986,6 +986,8 @@ export default function CommunicationPage() {
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm">
                       {conv.name.charAt(0)}
                     </div>
+                    {/* Online status dot */}
+                    <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-[1.5px] border-white dark:border-slate-900 shadow-sm" />
                     <div className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full ${cfg?.bg} flex items-center justify-center border-2 border-white dark:border-slate-900`}>
                       {Icon && <Icon className={`w-2.5 h-2.5 ${cfg?.color}`} />}
                     </div>
@@ -1019,12 +1021,20 @@ export default function CommunicationPage() {
               <div className={`flex flex-wrap items-start justify-between gap-2 px-3 sm:px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/40
                 ${isWA ? 'bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-950/10 dark:to-slate-900' : ''}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm">
-                    {activeConv.name.charAt(0)}
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm">
+                      {activeConv.name.charAt(0)}
+                    </div>
+                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-900 shadow-sm" />
                   </div>
                   <div>
                     <p className="font-semibold text-slate-800 dark:text-slate-200">{activeConv.name}</p>
                     <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                        Online
+                      </span>
+                      <span className="text-slate-300 dark:text-slate-600">·</span>
                       <span className={`text-[10px] font-semibold ${CHANNEL_CONFIG[activeConv.channel]?.color}`}>
                         via {CHANNEL_CONFIG[activeConv.channel]?.label}
                       </span>

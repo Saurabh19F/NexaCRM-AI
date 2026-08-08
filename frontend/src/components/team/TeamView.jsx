@@ -7,6 +7,10 @@ import { useAuthStore } from '../../store/authStore'
 import { PERMISSIONS as APP_PERMISSIONS, hasPermission } from '../../utils/permissions'
 import { buildTeamLeaderboard } from '../../utils/liveMetrics'
 import { fetchAllPages } from '../../utils/pagination'
+import Chip from '../ui/Chip'
+import { LinearProgress } from '../ui/Progress'
+import AvatarGroup from '../ui/AvatarGroup'
+import Rating from '../ui/Rating'
 
 // Company-level roles only — PLATFORM_ADMIN is a separate SaaS-level role, not part of any company
 const ROLE_CONFIG = {
@@ -370,8 +374,11 @@ export default function TeamPage() {
                 <div key={member.id} className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        {member.avatar}
+                      <div className="relative flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold">
+                          {member.avatar}
+                        </div>
+                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm ${member.status === 'active' ? 'bg-emerald-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{member.name}</p>
@@ -451,8 +458,11 @@ export default function TeamPage() {
                   <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                          {member.avatar}
+                        <div className="relative flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-sm font-bold">
+                            {member.avatar}
+                          </div>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-[1.5px] border-white dark:border-slate-900 shadow-sm ${member.status === 'active' ? 'bg-emerald-400' : 'bg-slate-300 dark:bg-slate-600'}`} />
                         </div>
                         <div>
                           <p className="font-semibold text-slate-800 dark:text-slate-200">{member.name} {member.badge}</p>
@@ -552,22 +562,39 @@ export default function TeamPage() {
 
       {/* Leaderboard */}
       <div className="glass-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Trophy className="w-5 h-5 text-amber-500" />
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Monthly Leaderboard</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500" />
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Monthly Leaderboard</h2>
+          </div>
+          {team.length > 0 && (
+            <AvatarGroup users={team.slice(0, 6)} max={4} size="sm" showStatus />
+          )}
         </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {liveLeaderboard.map((member) => (
-            <div key={member.name} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 text-center">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {liveLeaderboard.map((member, idx) => (
+            <div key={member.name} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 text-center relative overflow-hidden">
+              {idx === 0 && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" />
+              )}
               <div className="text-4xl mb-2">{member.badge}</div>
               <p className="font-bold text-slate-800 dark:text-slate-200">{member.name}</p>
               <p className="text-2xl font-bold text-brand-600 dark:text-brand-400 mt-1">
                 ₹{(member.revenue / 100000).toFixed(1)}L
               </p>
-              <div className="flex justify-center gap-4 mt-2 text-xs text-slate-500">
-                <span>{member.leads} leads</span>
-                <span>{member.deals} deals</span>
-                <span>{member.convRate}%</span>
+              <div className="flex justify-center gap-2 mt-2">
+                <Chip label={`${member.leads} leads`} variant="soft" color="primary" size="sm" />
+                <Chip label={`${member.deals} deals`} variant="soft" color="success" size="sm" />
+              </div>
+              <div className="mt-3 px-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-slate-400">Conversion</span>
+                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">{member.convRate}%</span>
+                </div>
+                <LinearProgress value={Number(member.convRate)} color={Number(member.convRate) >= 50 ? 'success' : 'warning'} size="sm" />
+              </div>
+              <div className="mt-2">
+                <Rating value={Math.min(5, Math.round(Number(member.convRate) / 20))} readOnly size="sm" />
               </div>
             </div>
           ))}
