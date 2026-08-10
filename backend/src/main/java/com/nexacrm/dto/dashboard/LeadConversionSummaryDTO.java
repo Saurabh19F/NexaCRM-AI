@@ -1,5 +1,7 @@
 package com.nexacrm.dto.dashboard;
 
+import java.io.Serializable;
+
 import java.util.List;
 
 public record LeadConversionSummaryDTO(
@@ -18,4 +20,4 @@ public record LeadConversionSummaryDTO(
     String periodLabel,
     String previousPeriodLabel,
     List<LeadConversionStatusCountDTO> statusBreakdown
-) {}
+) implements Serializable {}

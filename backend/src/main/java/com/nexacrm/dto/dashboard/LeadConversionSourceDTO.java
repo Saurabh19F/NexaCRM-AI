@@ -1,5 +1,7 @@
 package com.nexacrm.dto.dashboard;
 
+import java.io.Serializable;
+
 public record LeadConversionSourceDTO(
     String sourceKey,
     String sourceLabel,
@@ -9,4 +11,4 @@ public record LeadConversionSourceDTO(
     double conversionRate,
     double revenueGenerated,
     boolean bestPerforming
-) {}
+) implements Serializable {}

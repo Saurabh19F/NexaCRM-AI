@@ -1,5 +1,7 @@
 package com.nexacrm.dto.dashboard;
 
+import java.io.Serializable;
+
 public record LeadConversionEmployeeDTO(
     String employeeId,
     String employeeName,
@@ -12,4 +14,4 @@ public record LeadConversionEmployeeDTO(
     double conversionRate,
     double averageResponseMinutes,
     double revenueGenerated
-) {}
+) implements Serializable {}

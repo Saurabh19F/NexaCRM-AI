@@ -1,5 +1,7 @@
 package com.nexacrm.dto.dashboard;
 
+import java.io.Serializable;
+
 import java.time.LocalDateTime;
 
 public record LeadConversionActivityDTO(
@@ -14,4 +16,4 @@ public record LeadConversionActivityDTO(
     String notes,
     String source,
     LocalDateTime occurredAt
-) {}
+) implements Serializable {}

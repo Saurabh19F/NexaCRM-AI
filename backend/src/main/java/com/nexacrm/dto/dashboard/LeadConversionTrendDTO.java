@@ -1,5 +1,7 @@
 package com.nexacrm.dto.dashboard;
 
+import java.io.Serializable;
+
 import java.time.LocalDateTime;
 
 public record LeadConversionTrendDTO(
@@ -12,4 +14,4 @@ public record LeadConversionTrendDTO(
     long convertedCount,
     long lostCount,
     double revenueGenerated
-) {}
+) implements Serializable {}
