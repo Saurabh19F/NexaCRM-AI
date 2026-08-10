@@ -155,6 +155,11 @@ public abstract class SeleniumBaseTest {
         waitForAnyVisible(By.tagName("aside"), By.tagName("nav"));
     }
 
+    /** Alias used by NexaCrmFullFlowTest — delegates to clearBrowserSession. */
+    protected void resetBrowserState() {
+        clearBrowserSession();
+    }
+
     /** Fully clear browser auth state between auth-boundary tests. */
     protected void clearBrowserSession() {
         driver.manage().deleteAllCookies();
