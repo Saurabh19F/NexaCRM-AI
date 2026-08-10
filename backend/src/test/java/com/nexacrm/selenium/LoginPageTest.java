@@ -2,6 +2,7 @@ package com.nexacrm.selenium;
 
 import org.junit.jupiter.api.*;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -67,6 +68,25 @@ class LoginPageTest extends SeleniumBaseTest {
 
     @Test
     @Order(4)
+    @DisplayName("Invalid email format is blocked by browser validation")
+    void invalidEmailFormatIsBlocked() {
+        WebElement emailInput = driver.findElement(By.cssSelector("input[type='email']"));
+        WebElement passwordInput = driver.findElement(By.cssSelector("input[type='password']"));
+
+        emailInput.sendKeys("not-an-email");
+        passwordInput.sendKeys("test123");
+
+        Boolean valid = (Boolean) ((JavascriptExecutor) driver)
+            .executeScript("return arguments[0].checkValidity();", emailInput);
+
+        assertFalse(valid, "Email input should reject invalid email format before submitting");
+
+        driver.findElement(By.cssSelector("button[type='submit']")).click();
+        assertTrue(driver.getCurrentUrl().contains("/login"));
+    }
+
+    @Test
+    @Order(5)
     @DisplayName("Password visibility toggle works")
     void passwordToggle() {
         WebElement passwordInput = driver.findElement(By.cssSelector("input[type='password']"));
@@ -94,7 +114,7 @@ class LoginPageTest extends SeleniumBaseTest {
     }
 
     @Test
-    @Order(5)
+    @Order(6)
     @DisplayName("Empty form submission doesn't navigate away")
     void emptySubmitStaysOnPage() {
         // Submit with empty fields (HTML5 validation should prevent)
@@ -106,7 +126,19 @@ class LoginPageTest extends SeleniumBaseTest {
     }
 
     @Test
-    @Order(6)
+    @Order(7)
+    @DisplayName("Forgot password explains reset process")
+    void forgotPasswordShowsResetGuidance() {
+        WebElement forgotPassword = driver.findElement(By.xpath("//button[contains(.,'Forgot password?')]"));
+        forgotPassword.click();
+
+        WebElement toast = waitForToastContaining("Password resets");
+        assertTrue(toast.isDisplayed());
+        assertTrue(driver.getCurrentUrl().contains("/login"));
+    }
+
+    @Test
+    @Order(8)
     @DisplayName("Register link navigates to /register")
     void registerLinkWorks() {
         WebElement registerLink = driver.findElement(By.cssSelector("a[href='/register']"));
@@ -116,7 +148,7 @@ class LoginPageTest extends SeleniumBaseTest {
     }
 
     @Test
-    @Order(7)
+    @Order(9)
     @DisplayName("Platform login link navigates to /platform/login")
     void platformLoginLinkWorks() {
         WebElement platformLink = driver.findElement(By.cssSelector("a[href='/platform/login']"));

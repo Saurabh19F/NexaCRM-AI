@@ -46,10 +46,10 @@ Set via environment variables or `-D` system properties:
 
 | Variable               | Default                  | Description              |
 |------------------------|--------------------------|--------------------------|
-| `NEXACRM_BASE_URL`    | `http://localhost:5173`  | Frontend URL             |
+| `NEXACRM_BASE_URL`    | `https://www.automationbysj.site` | Frontend URL             |
 | `NEXACRM_HEADLESS`    | `true`                   | Run Chrome headless      |
-| `NEXACRM_TEST_EMAIL`  | `admin@nexacrm.com`     | Login email for tests    |
-| `NEXACRM_TEST_PASSWORD`| `admin123`              | Login password for tests |
+| `NEXACRM_TEST_EMAIL`  | `saurabhke4@gmail.com`  | Login email for tests    |
+| `NEXACRM_TEST_PASSWORD`| `demo1234`              | Login password for tests |
 
 ### Run with browser visible (non-headless):
 ```bash
@@ -65,10 +65,10 @@ mvn test -Pselenium -DNEXACRM_BASE_URL=https://crm.example.com
 
 | Class              | What it tests                                      |
 |--------------------|----------------------------------------------------|
-| `LoginPageTest`    | Login form elements, validation, links, pwd toggle |
-| `AuthFlowTest`     | Login success/failure, redirects, session handling  |
-| `NavigationTest`   | Sidebar nav to all CRM pages after login           |
-| `ResponsiveTest`   | Layout on mobile, tablet, and desktop viewports    |
+| `LoginPageTest`    | Login form elements, HTML5 validation, forgot-password toast, links, pwd toggle |
+| `AuthFlowTest`     | Login success/failure, redirects, session handling, app shell readiness |
+| `NavigationTest`   | Protected CRM routes, redirect-backed routes, access-denied/loading guards |
+| `ResponsiveTest`   | Login layout on mobile, tablet, and desktop with horizontal overflow checks |
 
 ## Notes
 

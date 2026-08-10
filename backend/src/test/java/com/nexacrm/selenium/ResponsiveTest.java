@@ -3,6 +3,7 @@ package com.nexacrm.selenium;
 import org.junit.jupiter.api.*;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +26,7 @@ class ResponsiveTest extends SeleniumBaseTest {
 
         WebElement submitBtn = driver.findElement(By.cssSelector("button[type='submit']"));
         assertTrue(submitBtn.isDisplayed(), "Sign In button should be visible on mobile");
+        assertNoHorizontalOverflow();
 
         // The left CRM animation panel should be hidden on mobile (hidden lg:flex)
         // We can't easily check CSS display via Selenium, but the form should work
@@ -39,6 +41,7 @@ class ResponsiveTest extends SeleniumBaseTest {
 
         WebElement emailInput = waitForVisible(By.cssSelector("input[type='email']"));
         assertTrue(emailInput.isDisplayed());
+        assertNoHorizontalOverflow();
     }
 
     @Test
@@ -50,6 +53,7 @@ class ResponsiveTest extends SeleniumBaseTest {
 
         WebElement emailInput = waitForVisible(By.cssSelector("input[type='email']"));
         assertTrue(emailInput.isDisplayed());
+        assertNoHorizontalOverflow();
     }
 
     @AfterAll
@@ -57,5 +61,15 @@ class ResponsiveTest extends SeleniumBaseTest {
         if (driver != null) {
             driver.manage().window().setSize(new Dimension(1920, 1080));
         }
+    }
+
+    private void assertNoHorizontalOverflow() {
+        Long scrollWidth = (Long) ((JavascriptExecutor) driver)
+            .executeScript("return document.documentElement.scrollWidth;");
+        Long clientWidth = (Long) ((JavascriptExecutor) driver)
+            .executeScript("return document.documentElement.clientWidth;");
+
+        assertTrue(scrollWidth <= clientWidth + 1,
+            "Viewport should not have horizontal overflow. scrollWidth=" + scrollWidth + ", clientWidth=" + clientWidth);
     }
 }

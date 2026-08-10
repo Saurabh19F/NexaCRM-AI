@@ -2,9 +2,6 @@ package com.nexacrm.selenium;
 
 import org.junit.jupiter.api.*;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebElement;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,8 +16,6 @@ class NavigationTest extends SeleniumBaseTest {
     @BeforeEach
     void ensureLoggedIn() {
         if (!loggedIn) {
-            // Small delay to avoid rate-limiting from prior test class logins
-            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
             loginAsTestUser();
             loggedIn = true;
         }
@@ -41,101 +36,122 @@ class NavigationTest extends SeleniumBaseTest {
     @Order(2)
     @DisplayName("Navigate to Leads page")
     void navigateToLeads() {
-        navigateTo("/leads");
-        waitForUrlContains("/leads");
-        assertTrue(driver.getCurrentUrl().contains("/leads"));
+        assertRouteRenders("/leads", "/leads", "Leads");
     }
 
     @Test
     @Order(3)
     @DisplayName("Navigate to Pipeline/Kanban page")
     void navigateToPipeline() {
-        navigateTo("/pipeline");
-        waitForUrlContains("/pipeline");
-        assertTrue(driver.getCurrentUrl().contains("/pipeline"));
+        assertRouteRenders("/pipeline", "/pipeline", "Pipeline");
     }
 
     @Test
     @Order(4)
     @DisplayName("Navigate to Customers page")
     void navigateToCustomers() {
-        navigateTo("/customers");
-        waitForUrlContains("/customers");
-        assertTrue(driver.getCurrentUrl().contains("/customers"));
+        assertRouteRenders("/customers", "/customers", "Customers");
     }
 
     @Test
     @Order(5)
     @DisplayName("Navigate to Tasks page")
     void navigateToTasks() {
-        navigateTo("/task-followup");
-        waitForUrlContains("/task-followup");
-        assertTrue(driver.getCurrentUrl().contains("/task-followup"));
+        assertRouteRenders("/task-followup", "/task-followup", "Follow");
     }
 
     @Test
     @Order(6)
     @DisplayName("Navigate to Communication page")
     void navigateToCommunication() {
-        navigateTo("/communication");
-        waitForUrlContains("/communication");
-        assertTrue(driver.getCurrentUrl().contains("/communication"));
+        assertRouteRenders("/communication", "/communication", "Messages");
     }
 
     @Test
     @Order(7)
     @DisplayName("Navigate to Invoices page")
     void navigateToInvoices() {
-        navigateTo("/invoices");
-        waitForUrlContains("/invoices");
-        assertTrue(driver.getCurrentUrl().contains("/invoices"));
+        assertRouteRenders("/invoices", "/invoices", "Invoices");
     }
 
     @Test
     @Order(8)
     @DisplayName("Navigate to Analytics page")
     void navigateToAnalytics() {
-        navigateTo("/analytics");
-        waitForUrlContains("/analytics");
-        assertTrue(driver.getCurrentUrl().contains("/analytics"));
+        assertRouteRenders("/analytics", "/analytics", "Analytics");
     }
 
     @Test
     @Order(9)
     @DisplayName("Navigate to Settings page")
     void navigateToSettings() {
-        navigateTo("/settings");
-        waitForUrlContains("/settings");
-        assertTrue(driver.getCurrentUrl().contains("/settings"));
+        assertRouteRenders("/settings", "/settings", "Settings");
     }
 
     @Test
     @Order(10)
-    @DisplayName("Navigate to Tickets page")
-    void navigateToTickets() {
-        navigateTo("/tickets");
-        waitForUrlContains("/tickets");
-        assertTrue(driver.getCurrentUrl().contains("/tickets"));
+    @DisplayName("Navigate to AI Engine page")
+    void navigateToAiEngine() {
+        assertRouteRenders("/ai-engine", "/ai-engine", "AI");
     }
 
     @Test
     @Order(11)
-    @DisplayName("Navigate to Profile page")
-    void navigateToProfile() {
-        navigateTo("/profile");
-        waitForUrlContains("/profile");
-        assertTrue(driver.getCurrentUrl().contains("/profile"));
+    @DisplayName("Navigate to Automation page")
+    void navigateToAutomation() {
+        assertRouteRenders("/automation", "/automation", "Automation");
     }
 
     @Test
     @Order(12)
+    @DisplayName("Navigate to Team page")
+    void navigateToTeam() {
+        assertRouteRenders("/team", "/team", "Team");
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("Navigate to Tickets page")
+    void navigateToTickets() {
+        assertRouteRenders("/tickets", "/settings", "Tickets");
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("Navigate to Profile page")
+    void navigateToProfile() {
+        assertRouteRenders("/profile", "/settings", "Profile");
+    }
+
+    @Test
+    @Order(15)
+    @DisplayName("Navigate to Integrations page")
+    void navigateToIntegrations() {
+        assertRouteRenders("/integrations", "/settings", "Integrations");
+    }
+
+    @Test
+    @Order(16)
     @DisplayName("Unknown route redirects to dashboard or login")
     void unknownRouteRedirects() {
         navigateTo("/this-page-does-not-exist");
-        try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+        wait.until(driver -> !driver.getCurrentUrl().contains("/this-page-does-not-exist"));
 
         String url = driver.getCurrentUrl();
         assertTrue(url.contains("/dashboard") || url.contains("/login") || url.contains("/admin"),
             "Unknown route should redirect, got: " + url);
+    }
+
+    private void assertRouteRenders(String path, String expectedUrlPart, String expectedBodyText) {
+        navigateTo(path);
+        waitForUrlContains(expectedUrlPart);
+        waitForAppReady();
+        waitForBodyText(expectedBodyText);
+
+        String body = driver.findElement(By.tagName("body")).getText();
+        assertFalse(body.contains("Checking session..."), path + " should not stay in auth loading");
+        assertFalse(body.contains("Access denied"), path + " should be accessible to the Selenium test user");
+        assertTrue(driver.getCurrentUrl().contains(expectedUrlPart),
+            "Expected " + path + " to land on URL containing " + expectedUrlPart);
     }
 }

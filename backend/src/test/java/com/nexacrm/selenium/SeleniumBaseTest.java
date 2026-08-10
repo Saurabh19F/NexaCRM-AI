@@ -26,6 +26,7 @@ public abstract class SeleniumBaseTest {
     protected static String baseUrl;
     protected static String testEmail;
     protected static String testPassword;
+    private static final String ROUTE_LOADING_TEXT = "Checking session...";
 
     @BeforeAll
     static void setupDriver() {
@@ -49,7 +50,7 @@ public abstract class SeleniumBaseTest {
         );
 
         driver = new ChromeDriver(options);
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(5));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
         wait = new WebDriverWait(driver, Duration.ofSeconds(15));
     }
 
@@ -71,6 +72,20 @@ public abstract class SeleniumBaseTest {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
     }
 
+    /** Wait for one of several locators to become visible. */
+    protected WebElement waitForAnyVisible(By... locators) {
+        return wait.until(driver -> {
+            for (By locator : locators) {
+                for (WebElement element : driver.findElements(locator)) {
+                    if (element.isDisplayed()) {
+                        return element;
+                    }
+                }
+            }
+            return null;
+        });
+    }
+
     /** Wait for an element to be clickable and return it. */
     protected WebElement waitForClickable(By locator) {
         return wait.until(ExpectedConditions.elementToBeClickable(locator));
@@ -86,14 +101,31 @@ public abstract class SeleniumBaseTest {
         wait.until(ExpectedConditions.titleContains(text));
     }
 
+    /** Wait until the single page app has moved past route/session loading states. */
+    protected void waitForAppReady() {
+        wait.until(driver -> {
+            String bodyText = driver.findElement(By.tagName("body")).getText();
+            return !bodyText.contains(ROUTE_LOADING_TEXT) && !bodyText.equals("Loading...");
+        });
+    }
+
+    /** Wait for body text to contain the expected copy. */
+    protected void waitForBodyText(String text) {
+        wait.until(driver -> driver.findElement(By.tagName("body")).getText().contains(text));
+    }
+
+    /** Wait for a react-hot-toast notification containing the expected copy. */
+    protected WebElement waitForToastContaining(String text) {
+        return waitForAnyVisible(
+            By.xpath("//*[@role='status' and contains(.,'" + text + "')]"),
+            By.xpath("//*[contains(@class,'go') and contains(.,'" + text + "')]"),
+            By.xpath("//*[contains(.,'" + text + "') and (contains(@class,'toast') or @role='status')]")
+        );
+    }
+
     /** Check if an element exists on the page. */
     protected boolean elementExists(By locator) {
-        try {
-            driver.findElement(locator);
-            return true;
-        } catch (NoSuchElementException e) {
-            return false;
-        }
+        return !driver.findElements(locator).isEmpty();
     }
 
     /** Take a screenshot (useful for debugging failures). */
@@ -119,6 +151,16 @@ public abstract class SeleniumBaseTest {
 
         // Wait for redirect to dashboard
         waitForUrlContains("/dashboard");
+        waitForAppReady();
+        waitForAnyVisible(By.tagName("aside"), By.tagName("nav"));
+    }
+
+    /** Fully clear browser auth state between auth-boundary tests. */
+    protected void clearBrowserSession() {
+        driver.manage().deleteAllCookies();
+        navigateTo("/login");
+        ((JavascriptExecutor) driver).executeScript(
+            "window.localStorage.clear(); window.sessionStorage.clear();");
     }
 
     private static String env(String key, String fallback) {
