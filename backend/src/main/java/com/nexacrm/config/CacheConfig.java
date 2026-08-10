@@ -7,8 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,7 +33,19 @@ public class CacheConfig implements CachingConfigurer {
     private long dashboardTtlSeconds;
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        try {
+            // Verify Redis is reachable before building the Redis cache manager
+            connectionFactory.getConnection().close();
+            log.info("Redis is available — using RedisCacheManager");
+            return buildRedisCacheManager(connectionFactory);
+        } catch (Exception e) {
+            log.warn("Redis is not available ({}). Falling back to in-memory cache.", e.getMessage());
+            return new ConcurrentMapCacheManager();
+        }
+    }
+
+    private RedisCacheManager buildRedisCacheManager(RedisConnectionFactory connectionFactory) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
