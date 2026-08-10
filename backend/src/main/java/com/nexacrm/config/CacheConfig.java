@@ -49,10 +49,9 @@ public class CacheConfig implements CachingConfigurer {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        mapper.activateDefaultTyping(
-                mapper.getPolymorphicTypeValidator(),
-                ObjectMapper.DefaultTyping.NON_FINAL
-        );
+        // NOTE: activateDefaultTyping(NON_FINAL) removed — it wraps values in
+        // WRAPPER_ARRAY format that fails to deserialize Java records.  Dashboard
+        // caches store concrete DTO types so polymorphic type info is unnecessary.
 
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(mapper);
 
