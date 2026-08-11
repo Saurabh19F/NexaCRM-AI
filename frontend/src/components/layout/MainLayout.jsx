@@ -39,7 +39,7 @@ function StatusBar() {
 }
 
 export default function MainLayout() {
-  const [collapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const navigate = useNavigate()
@@ -75,7 +75,7 @@ export default function MainLayout() {
       />
       <Sidebar
         collapsed={collapsed}
-        setCollapsed={() => {}}
+        setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />
