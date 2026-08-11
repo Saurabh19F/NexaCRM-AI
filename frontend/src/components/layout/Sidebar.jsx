@@ -76,32 +76,8 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
     return (
       <div className="flex flex-col h-full">
-        {/* Logo */}
-        <div className={`flex items-center py-4 ${showLabel ? 'px-4 gap-3' : 'justify-center'}`}>
-          <div
-            className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, rgba(14,165,233,0.85), rgba(20,184,166,0.85))',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              boxShadow: '0 8px 24px rgba(14,165,233,0.3), inset 0 1px 0 rgba(255,255,255,0.3)',
-              border: '1px solid rgba(255,255,255,0.2)',
-            }}
-          >
-            <span className="text-white text-base font-black tracking-tighter">N</span>
-          </div>
-          {showLabel && (
-            <div className="overflow-hidden flex-shrink-0">
-              <div className="flex items-baseline gap-0.5 leading-none">
-                <span className="text-lg font-extrabold tracking-tight text-white">Nexa</span>
-                <span className="text-lg font-extrabold tracking-wider text-brand-300">CRM</span>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Navigation */}
-        <nav className={`flex-1 flex flex-col px-2 py-1 gap-0.5 overflow-y-auto custom-scrollbar ${showLabel ? '' : 'items-center'}`}>
+        <nav className={`flex-1 flex flex-col px-2 pt-3 pb-1 gap-0.5 overflow-y-auto custom-scrollbar ${showLabel ? '' : 'items-center'}`}>
           {isPlatformAdmin && (
             <>
               {showLabel && (
