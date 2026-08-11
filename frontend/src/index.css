@@ -35,19 +35,20 @@
   }
 
   .edu-nav-item {
-    @apply flex flex-col items-center justify-center gap-0 py-2.5 px-1 w-full rounded-xl
+    @apply flex flex-col items-center justify-center gap-0 py-2 px-1 w-full rounded-xl
            text-slate-400 cursor-pointer transition-all duration-200;
+  }
+  .edu-nav-item--expanded {
+    @apply flex-row items-center justify-start gap-3 py-2 px-3;
   }
   .edu-nav-item:hover {
     @apply text-white;
     background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
   }
   .edu-nav-item.active {
     @apply text-white;
     background: linear-gradient(135deg, rgba(14,165,233,0.3), rgba(20,184,166,0.22));
-    box-shadow: 0 0 24px rgba(14,165,233,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+    box-shadow: 0 0 20px rgba(14,165,233,0.15), inset 0 1px 0 rgba(255,255,255,0.12);
     border: 1px solid rgba(14,165,233,0.2);
   }
 

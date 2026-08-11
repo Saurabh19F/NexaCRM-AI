@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
@@ -22,7 +22,7 @@ const AVATAR_STYLE_CLASS = {
   steel: 'from-slate-500 to-slate-700',
 }
 
-export default function Topbar({ onMenuClick, onRefresh }) {
+export default function Topbar({ onMenuClick, onRefresh, sidebarCollapsed, onToggleSidebar }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
@@ -203,6 +203,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
         WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
         boxShadow: '0 4px 30px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6)',
       }}>
+      {/* Mobile hamburger */}
       <button
         onClick={onMenuClick}
         aria-label="Open navigation menu"
@@ -210,20 +211,15 @@ export default function Topbar({ onMenuClick, onRefresh }) {
       >
         <Menu className="w-5 h-5" />
       </button>
-      <div className="hidden md:flex items-center gap-2.5 flex-1">
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, rgba(14,165,233,0.85), rgba(20,184,166,0.85))',
-            boxShadow: '0 4px 12px rgba(14,165,233,0.25)',
-          }}
+      {/* Desktop sidebar toggle */}
+      <div className="hidden md:flex items-center gap-2 flex-1">
+        <button
+          onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
         >
-          <span className="text-white text-sm font-black tracking-tighter">N</span>
-        </div>
-        <div className="flex items-baseline gap-0.5 leading-none">
-          <span className="text-lg font-extrabold tracking-tight text-slate-800 dark:text-white">Nexa</span>
-          <span className="text-lg font-extrabold tracking-wider text-brand-500 dark:text-brand-400">CRM</span>
-        </div>
+          {sidebarCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+        </button>
       </div>
 
       <div className="order-2 ml-auto flex items-center gap-1">
