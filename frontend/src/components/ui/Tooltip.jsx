@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 
-export default function Tooltip({ children, title, placement = 'top', arrow = true, delay = 300 }) {
+export default function Tooltip({ children, title, placement = 'top', arrow = true, delay = 300, className = '', block = false }) {
   const [open, setOpen] = useState(false)
   const timerRef = useRef(null)
 
@@ -43,7 +43,7 @@ export default function Tooltip({ children, title, placement = 'top', arrow = tr
   if (!title) return children
 
   return (
-    <span className="relative inline-flex" onMouseEnter={handleEnter} onMouseLeave={handleLeave} onFocus={handleEnter} onBlur={handleLeave}>
+    <span className={`relative ${block ? 'flex' : 'inline-flex'} ${className}`} onMouseEnter={handleEnter} onMouseLeave={handleLeave} onFocus={handleEnter} onBlur={handleLeave}>
       {children}
       <AnimatePresence>
         {open && (

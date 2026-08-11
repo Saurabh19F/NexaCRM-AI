@@ -35,7 +35,7 @@
   }
 
   .edu-nav-item {
-    @apply flex flex-col items-center justify-center gap-0 py-2.5 px-1 rounded-xl
+    @apply flex flex-col items-center justify-center gap-0 py-2.5 px-1 w-full rounded-xl
            text-slate-400 cursor-pointer transition-all duration-200;
   }
   .edu-nav-item:hover {

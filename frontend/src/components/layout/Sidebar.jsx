@@ -97,7 +97,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-2 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 flex flex-col px-2 py-2 gap-1 overflow-y-auto custom-scrollbar">
         {isPlatformAdmin && (
           <>
             {/* Platform Admin section label */}
@@ -154,7 +154,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           )
           // Tooltip only on desktop (icon-only) sidebar
           return isMobile ? navLink : (
-            <Tooltip key={path} title={label} placement="right" delay={200}>
+            <Tooltip key={path} title={label} placement="right" delay={200} block>
               {navLink}
             </Tooltip>
           )
