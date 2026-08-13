@@ -305,7 +305,7 @@ public class DashboardAnalyticsService {
 
     private List<Map<String, Object>> safeDashboardInsights(List<LeadDTO> leads) {
         try {
-            return buildFastInsights(leads);
+            return buildLocalInsightsFromDTOs(leads);
         } catch (Exception ex) {
             return List.of(Map.of(
                 "id", "insights-fallback",
