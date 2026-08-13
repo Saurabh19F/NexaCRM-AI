@@ -29,7 +29,7 @@ public class FacebookLeadLiveSyncScheduler {
     private final AtomicLong expiredTokenCooldownUntilEpochMs = new AtomicLong(0L);
     private final AtomicBoolean cooldownNoticeLogged = new AtomicBoolean(false);
 
-    @Value("${nexacrm.facebook.live-sync.enabled:true}")
+    @Value("${nexacrm.facebook.live-sync.enabled:false}")
     private boolean enabled;
 
     @Value("${nexacrm.facebook.live-sync.include-archived:true}")

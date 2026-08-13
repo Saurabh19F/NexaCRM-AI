@@ -22,7 +22,7 @@ import java.util.List;
     @CompoundIndex(name = "lead_tenant_deleted_created_idx", def = "{'tenant_id': 1, 'deleted': 1, 'createdAt': -1}"),
     @CompoundIndex(name = "lead_tenant_deleted_assigned_idx", def = "{'tenant_id': 1, 'deleted': 1, 'assigned_to': 1, 'createdAt': -1}"),
     @CompoundIndex(name = "lead_tenant_deleted_followup_idx", def = "{'tenant_id': 1, 'deleted': 1, 'follow_up_date': 1}"),
-    @CompoundIndex(name = "lead_tenant_email_idx", def = "{'tenant_id': 1, 'email': 1}"),
+    @CompoundIndex(name = "lead_tenant_deleted_email_idx", def = "{'tenant_id': 1, 'deleted': 1, 'email': 1}"),
     @CompoundIndex(name = "lead_tenant_phone_idx", def = "{'tenant_id': 1, 'phone': 1}", partialFilter = "{ 'phone': { '$type': 'string', '$gt': '' } }")
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
