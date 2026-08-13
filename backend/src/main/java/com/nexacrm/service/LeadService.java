@@ -1947,7 +1947,6 @@ public class LeadService {
             .include("ai_next_action")
             .include("assigned_to")
             .include("tags")
-            .include("notes")
             .include("facebook_lead_id")
             .include("facebook_form_id")
             .include("facebook_ad_id")
