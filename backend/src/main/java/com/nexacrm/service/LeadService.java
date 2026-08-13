@@ -130,10 +130,12 @@ public class LeadService {
             query.addCriteria(Criteria.where("assigned_to.$id").is(assignedTo));
         }
 
-        long total = mongoTemplate.count(query, Lead.class);
         query.with(pageable);
         includeLeadListFields(query);
         List<org.bson.Document> leadDocs = mongoTemplate.find(query, org.bson.Document.class, "leads");
+        boolean hasMore = leadDocs.size() >= pageable.getPageSize();
+        long loadedThrough = pageable.getOffset() + leadDocs.size();
+        long total = loadedThrough + (hasMore ? 1 : 0);
         Set<String> assignedIds = leadDocs.stream()
             .map(this::assignedToIdFromDoc)
             .filter(id -> id != null && !id.isBlank())
@@ -157,7 +159,7 @@ public class LeadService {
             .total(total)
             .totalPages(pageable.getPageSize() <= 0 ? 1 : (int) Math.ceil((double) total / pageable.getPageSize()))
             .first(pageable.getPageNumber() == 0)
-            .last((pageable.getOffset() + leadDocs.size()) >= total)
+            .last(!hasMore)
             .build();
     }
 
