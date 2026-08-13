@@ -85,9 +85,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        String[] origins = splitCsv(allowedOrigins).toArray(String[]::new);
+        JwtHandshakeInterceptor jwtInterceptor = new JwtHandshakeInterceptor(jwtService, userDetailsService);
+
+        // Native WebSocket endpoint (used by @stomp/stompjs)
         registry.addEndpoint("/ws")
-                .addInterceptors(new JwtHandshakeInterceptor(jwtService, userDetailsService))
-                .setAllowedOriginPatterns(splitCsv(allowedOrigins).toArray(String[]::new))
+                .addInterceptors(jwtInterceptor)
+                .setAllowedOriginPatterns(origins);
+
+        // SockJS fallback endpoint for legacy clients
+        registry.addEndpoint("/ws-sockjs")
+                .addInterceptors(jwtInterceptor)
+                .setAllowedOriginPatterns(origins)
                 .withSockJS();
     }
 

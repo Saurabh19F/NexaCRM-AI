@@ -1,32 +1,12 @@
 /**
- * WebSocket service using STOMP over SockJS
- * Connects to Spring Boot WebSocket endpoint for real-time notifications
+ * WebSocket service using @stomp/stompjs over native WebSocket.
+ * Connects to Spring Boot STOMP endpoint for real-time notifications.
  */
-import SockJS from 'sockjs-client'
-import StompModule from 'stompjs/lib/stomp.js'
+import { Client } from '@stomp/stompjs'
 import { useAuthStore } from '../store/authStore'
 
-const Stomp = StompModule?.Stomp ?? StompModule
-let reconnectAttempts = 0
-
-function normalizeSockJsUrl(input) {
-  const raw = String(input ?? '').trim()
-  if (!raw) return ''
-
-  const normalizedPrefix = raw
-    .replace(/^wss:/i, 'https:')
-    .replace(/^ws:/i, 'http:')
-
-  try {
-    const base = typeof window !== 'undefined' ? window.location.href : 'http://localhost'
-    const url = new URL(normalizedPrefix, base)
-    if (url.protocol === 'ws:') url.protocol = 'http:'
-    if (url.protocol === 'wss:') url.protocol = 'https:'
-    return url.toString().replace(/\/$/, '')
-  } catch {
-    return normalizedPrefix
-  }
-}
+let stompClient = null
+let destroyed = false
 
 const normalizeJwtToken = (token) => {
   if (typeof token !== 'string') return null
@@ -37,93 +17,85 @@ const normalizeJwtToken = (token) => {
   return null
 }
 
-let stompClient = null
-const subscriptions = new Map()
-let reconnectTimer = null
-let destroyed = false
-
 function resolveWebSocketUrl() {
   const explicit = String(import.meta.env.VITE_WS_URL ?? '').trim()
   const fromApiBase = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
 
-  let url = explicit
-  if (!url && fromApiBase) {
-    url = `${fromApiBase.replace(/\/api\/?$/, '')}/ws`
+  let base = explicit
+  if (!base && fromApiBase) {
+    base = `${fromApiBase.replace(/\/api\/?$/, '')}/ws`
   }
-  if (!url) {
-    url = '/ws'
+  if (!base) {
+    base = `${window.location.origin}/ws`
   }
 
-  url = normalizeSockJsUrl(url)
+  base = base
+    .replace(/^https:/i, 'wss:')
+    .replace(/^http:/i, 'ws:')
 
-  // Browsers block insecure SockJS from HTTPS pages.
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
-    url = `https://${url.slice('http://'.length)}`
+  if (window.location.protocol === 'https:' && base.startsWith('ws://')) {
+    base = `wss://${base.slice('ws://'.length)}`
   }
 
   const token = normalizeJwtToken(useAuthStore.getState().token)
   if (token) {
-    const joiner = url.includes('?') ? '&' : '?'
-    url = `${url}${joiner}access_token=${encodeURIComponent(token)}`
+    const joiner = base.includes('?') ? '&' : '?'
+    base = `${base}${joiner}access_token=${encodeURIComponent(token)}`
   }
-  return url
+  return base
 }
 
 export function connectWebSocket(onNotification) {
   destroyed = false
-  try {
-    const socket = new SockJS(resolveWebSocketUrl())
-    stompClient = Stomp.over(socket)
 
-    // Silence STOMP debug logs in production
-    stompClient.debug = import.meta.env.DEV ? console.log : () => {}
+  const token = useAuthStore.getState().token
+  const jwt = normalizeJwtToken(token)
+  const connectHeaders = jwt ? { Authorization: `Bearer ${jwt}` } : {}
 
-    const token = useAuthStore.getState().token
-    const jwt = normalizeJwtToken(token)
-    const connectHeaders = jwt ? { Authorization: `Bearer ${jwt}` } : {}
+  stompClient = new Client({
+    brokerURL: resolveWebSocketUrl(),
+    connectHeaders,
+    debug: import.meta.env.DEV ? (msg) => console.log(msg) : () => {},
+    reconnectDelay: 5000,
+    heartbeatIncoming: 10000,
+    heartbeatOutgoing: 10000,
 
-    stompClient.connect(
-      connectHeaders,
-      () => {
-        reconnectAttempts = 0
-        if (import.meta.env.DEV) console.info('WebSocket connected')
+    onConnect: () => {
+      if (import.meta.env.DEV) console.info('WebSocket connected')
 
-        const sub1 = stompClient.subscribe('/user/queue/notifications', (msg) => {
-          const notification = JSON.parse(msg.body)
-          onNotification(notification)
-        })
+      stompClient.subscribe('/user/queue/notifications', (msg) => {
+        try {
+          onNotification(JSON.parse(msg.body))
+        } catch { /* ignore malformed */ }
+      })
 
-        const sub2 = stompClient.subscribe('/topic/notifications', (msg) => {
-          const notification = JSON.parse(msg.body)
-          onNotification(notification)
-        })
+      stompClient.subscribe('/topic/notifications', (msg) => {
+        try {
+          onNotification(JSON.parse(msg.body))
+        } catch { /* ignore malformed */ }
+      })
+    },
 
-        subscriptions.set('notifications', sub1)
-        subscriptions.set('broadcast', sub2)
-      },
-      (error) => {
-        console.error('WebSocket error:', error)
-        if (!destroyed) {
-          const delay = Math.min(30000, 5000 * (2 ** reconnectAttempts))
-          reconnectAttempts = Math.min(reconnectAttempts + 1, 3)
-          reconnectTimer = setTimeout(() => connectWebSocket(onNotification), delay)
-        }
-      }
-    )
-  } catch (err) {
-    console.error('WebSocket connection failed:', err)
-  }
+    onStompError: (frame) => {
+      console.error('WebSocket STOMP error:', frame.headers?.message || frame)
+    },
+
+    onWebSocketError: (event) => {
+      console.error('WebSocket error:', event)
+    },
+
+    onDisconnect: () => {
+      if (import.meta.env.DEV) console.info('WebSocket disconnected')
+    },
+  })
+
+  stompClient.activate()
 }
 
 export function disconnectWebSocket() {
   destroyed = true
-  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
-  reconnectAttempts = 0
-  subscriptions.forEach((sub) => sub.unsubscribe())
-  subscriptions.clear()
-  if (stompClient?.connected) {
-    stompClient.disconnect(() => { if (import.meta.env.DEV) console.info('WebSocket disconnected') })
+  if (stompClient) {
+    stompClient.deactivate()
+    stompClient = null
   }
-  stompClient = null
 }
-
