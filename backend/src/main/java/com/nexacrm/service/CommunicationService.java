@@ -1244,7 +1244,7 @@ public class CommunicationService {
         if (!candidate.isBlank()) {
             return candidate;
         }
-        return "http://localhost:8080/api/calls/webhook";
+        return "";
     }
 
     private String resolveBolnaCallApiUrl(String value) {

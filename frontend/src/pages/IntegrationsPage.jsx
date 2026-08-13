@@ -109,7 +109,7 @@ const INTEGRATIONS = [
       { key: 'bolnaApiKey', label: 'Bolna API Key (for provider=bolna)', placeholder: 'sk_live_...', secret: true },
       { key: 'bolnaAgentId', label: 'Bolna Agent ID (for provider=bolna)', placeholder: '123e4567-e89b-12d3-a456-426655440000' },
       { key: 'bolnaVoiceId', label: 'Bolna Voice ID (optional)', placeholder: 'Sam', hint: 'Overrides default agent voice for this call' },
-      { key: 'callbackWebhookUrl', label: 'Callback Webhook URL (optional)', placeholder: 'https://your-backend.example.com/api/calls/webhook', hint: 'Where the AI worker should POST call outcomes (defaults to localhost)' },
+      { key: 'callbackWebhookUrl', label: 'Callback Webhook URL (optional)', placeholder: 'https://your-backend.example.com/api/calls/webhook', hint: 'Where the AI worker should POST call outcomes; leave empty to skip callbacks unless configured on the server' },
       { key: 'webhookUrl', label: 'Webhook URL (for provider=webhook)', placeholder: 'https://your-agent.example.com/outbound-call' },
       { key: 'apiKey', label: 'Provider API Key (optional)', placeholder: 'sk_live_...', secret: true },
       { key: 'webhookSecret', label: 'Webhook Secret (optional)', placeholder: 'super-secret', secret: true },
