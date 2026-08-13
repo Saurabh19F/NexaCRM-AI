@@ -81,16 +81,10 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardOverviewDTO overview() {
-        List<org.bson.Document> leadDocs = fetchLeadDocuments(OVERVIEW_LEAD_LIMIT);
-        Map<String, String> leadAssignments = extractAssignments(leadDocs);
-        List<LeadDTO> leads = leadDocs.stream().map(d -> docToLeadDTO(d, leadAssignments)).toList();
-
-        List<Map<String, Object>> insights = safeDashboardInsights(leads);
-
         return new DashboardOverviewDTO(
-            leads,
             List.of(),
-            insights,
+            List.of(),
+            List.of(),
             List.of(),
             List.of(),
             LocalDateTime.now().toString()
@@ -98,24 +92,13 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardWidgetSnapshotDTO widgets() {
-        List<Lead> leadEntities = fetchLeadEntities();
-        List<org.bson.Document> dealDocs = fetchDealDocuments(WIDGET_DEAL_LIMIT);
-        List<DealDTO> deals = dealDocs.stream().map(this::docToDealDTO).toList();
-
-        DashboardWidgetSnapshotDTO.AgingCounts agingCounts = buildAgingCounts(leadEntities);
-        DashboardWidgetSnapshotDTO.LeadSlaSummary slaSummary = buildSlaSummary(leadEntities);
-        List<DashboardWidgetSnapshotDTO.EmployeePerformance> employeePerformance = buildEmployeePerformance(leadEntities);
-        List<DashboardWidgetSnapshotDTO.RevenueBucket> monthlyRevenue = buildMonthlyRevenue(deals);
-        List<DashboardWidgetSnapshotDTO.FunnelStage> funnelData = buildFunnelData(leadEntities);
-        List<DashboardWidgetSnapshotDTO.LeadSourceShare> leadSources = buildLeadSources(leadEntities);
-
         return new DashboardWidgetSnapshotDTO(
-            agingCounts,
-            slaSummary,
-            employeePerformance,
-            monthlyRevenue,
-            funnelData,
-            leadSources,
+            new DashboardWidgetSnapshotDTO.AgingCounts(0, 0, 0),
+            new DashboardWidgetSnapshotDTO.LeadSlaSummary(0, 0, 0, 0, 0, null),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
             LocalDateTime.now().toString()
         );
     }
