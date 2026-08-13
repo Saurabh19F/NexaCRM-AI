@@ -20,8 +20,6 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -134,10 +132,10 @@ public class LeadService {
 
         long total = mongoTemplate.count(query, Lead.class);
         query.with(pageable);
-        List<Lead> leads = mongoTemplate.find(query, Lead.class);
-        Page<Lead> page = new PageImpl<>(leads, pageable, total);
-        Set<String> assignedIds = page.getContent().stream()
-            .map(lead -> lead.getAssignedTo() != null ? lead.getAssignedTo().getId() : null)
+        includeLeadListFields(query);
+        List<org.bson.Document> leadDocs = mongoTemplate.find(query, org.bson.Document.class, "leads");
+        Set<String> assignedIds = leadDocs.stream()
+            .map(this::assignedToIdFromDoc)
             .filter(id -> id != null && !id.isBlank())
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -151,15 +149,15 @@ public class LeadService {
                 ));
 
         return PageResponse.<LeadDTO>builder()
-            .content(page.getContent().stream()
-                .map(lead -> toDTO(lead, assignedNameById))
+            .content(leadDocs.stream()
+                .map(doc -> toListDTO(doc, assignedNameById))
                 .collect(Collectors.toList()))
-            .page(page.getNumber())
-            .size(page.getSize())
-            .total(page.getTotalElements())
-            .totalPages(page.getTotalPages())
-            .first(page.isFirst())
-            .last(page.isLast())
+            .page(pageable.getPageNumber())
+            .size(pageable.getPageSize())
+            .total(total)
+            .totalPages(pageable.getPageSize() <= 0 ? 1 : (int) Math.ceil((double) total / pageable.getPageSize()))
+            .first(pageable.getPageNumber() == 0)
+            .last((pageable.getOffset() + leadDocs.size()) >= total)
             .build();
     }
 
@@ -1924,6 +1922,143 @@ public class LeadService {
     }
 
     // ── Mapping helpers ──────────────────────────────────────────
+
+    private void includeLeadListFields(Query query) {
+        query.fields()
+            .include("name")
+            .include("email")
+            .include("phone")
+            .include("company")
+            .include("website")
+            .include("designation")
+            .include("service")
+            .include("specialization")
+            .include("source")
+            .include("status")
+            .include("score")
+            .include("priority")
+            .include("deal_value")
+            .include("utm_source")
+            .include("utm_medium")
+            .include("utm_campaign")
+            .include("ai_score_value")
+            .include("ai_next_action")
+            .include("assigned_to")
+            .include("tags")
+            .include("notes")
+            .include("facebook_lead_id")
+            .include("facebook_form_id")
+            .include("facebook_ad_id")
+            .include("expected_close_timeline")
+            .include("createdAt")
+            .include("updatedAt")
+            .include("last_contacted_at")
+            .include("converted_at")
+            .include("lost_reason")
+            .include("follow_up_date")
+            .include("reminder_15_sent_at")
+            .include("reminder_45_sent_at")
+            .include("reminder_60_sent_at")
+            .include("escalated_at")
+            .include("reassigned_at")
+            .include("revenue_value");
+    }
+
+    private LeadDTO toListDTO(org.bson.Document d, Map<String, String> assignedNameById) {
+        String assignedToId = assignedToIdFromDoc(d);
+        return LeadDTO.builder()
+            .id(objectIdString(d))
+            .name(d.getString("name"))
+            .email(d.getString("email"))
+            .phone(d.getString("phone"))
+            .company(d.getString("company"))
+            .website(d.getString("website"))
+            .designation(d.getString("designation"))
+            .service(d.getString("service"))
+            .specialization(d.getString("specialization"))
+            .source(enumOrNull(Lead.LeadSource.class, d.getString("source")))
+            .status(enumOrNull(Lead.LeadStatus.class, d.getString("status")))
+            .score(enumOrNull(Lead.LeadScore.class, d.getString("score")))
+            .priority(enumOrNull(Lead.LeadPriority.class, d.getString("priority")))
+            .dealValue(decimalOrNull(d.get("deal_value")))
+            .utmSource(d.getString("utm_source"))
+            .utmMedium(d.getString("utm_medium"))
+            .utmCampaign(d.getString("utm_campaign"))
+            .aiScoreValue(d.getInteger("ai_score_value"))
+            .aiNextAction(d.getString("ai_next_action"))
+            .assignedToId(assignedToId)
+            .assignedToName(assignedToId != null ? assignedNameById.get(assignedToId) : null)
+            .tags(d.getString("tags") != null && !d.getString("tags").isBlank()
+                ? Arrays.asList(d.getString("tags").split(",")) : null)
+            .notes(d.getString("notes"))
+            .facebookLeadId(d.getString("facebook_lead_id"))
+            .facebookFormId(d.getString("facebook_form_id"))
+            .facebookAdId(d.getString("facebook_ad_id"))
+            .expectedCloseTimeline(enumOrNull(Lead.ExpectedCloseTimeline.class, d.getString("expected_close_timeline")))
+            .createdAt(docDate(d, "createdAt"))
+            .updatedAt(docDate(d, "updatedAt"))
+            .lastContactedAt(docDate(d, "last_contacted_at"))
+            .convertedAt(docDate(d, "converted_at"))
+            .lostReason(d.getString("lost_reason"))
+            .followUpDate(docDate(d, "follow_up_date"))
+            .reminder15SentAt(docDate(d, "reminder_15_sent_at"))
+            .reminder45SentAt(docDate(d, "reminder_45_sent_at"))
+            .reminder60SentAt(docDate(d, "reminder_60_sent_at"))
+            .escalatedAt(docDate(d, "escalated_at"))
+            .reassignedAt(docDate(d, "reassigned_at"))
+            .revenueValue(decimalOrNull(d.get("revenue_value")))
+            .build();
+    }
+
+    private String assignedToIdFromDoc(org.bson.Document d) {
+        Object ref = d.get("assigned_to");
+        if (ref instanceof org.bson.Document refDoc) {
+            Object id = refDoc.get("$id");
+            return id != null ? id.toString() : null;
+        }
+        return null;
+    }
+
+    private String objectIdString(org.bson.Document d) {
+        Object id = d.get("_id");
+        return id != null ? id.toString() : null;
+    }
+
+    private LocalDateTime docDate(org.bson.Document d, String key) {
+        Object v = d.get(key);
+        if (v instanceof java.util.Date date) {
+            return date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        }
+        if (v instanceof LocalDateTime dateTime) {
+            return dateTime;
+        }
+        if (v instanceof String s && !s.isBlank()) {
+            try {
+                return LocalDateTime.parse(s);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private BigDecimal decimalOrNull(Object value) {
+        if (value == null) return null;
+        try {
+            return new BigDecimal(value.toString());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private <E extends Enum<E>> E enumOrNull(Class<E> cls, String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Enum.valueOf(cls, value);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
 
     private LeadDTO toDTO(Lead l, Map<String, String> assignedNameById) {
         String assignedToId = l.getAssignedTo() != null ? l.getAssignedTo().getId() : null;

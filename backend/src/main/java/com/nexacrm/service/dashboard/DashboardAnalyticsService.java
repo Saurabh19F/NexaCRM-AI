@@ -36,6 +36,10 @@ import java.util.stream.Collectors;
 public class DashboardAnalyticsService {
 
     private static final int PAGE_SIZE = 250;
+    private static final int OVERVIEW_LEAD_LIMIT = 150;
+    private static final int OVERVIEW_DEAL_LIMIT = 100;
+    private static final int WIDGET_LEAD_LIMIT = 500;
+    private static final int WIDGET_DEAL_LIMIT = 250;
     private static final int DASHBOARD_MONTHS = 6;
     private static final List<DashboardStage> DASHBOARD_STAGES = List.of(
         new DashboardStage("NEW", "New Leads", "#7c3aed"),
@@ -78,11 +82,11 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardOverviewDTO overview() {
-        List<org.bson.Document> leadDocs = fetchLeadDocuments();
+        List<org.bson.Document> leadDocs = fetchLeadDocuments(OVERVIEW_LEAD_LIMIT);
         Map<String, String> leadAssignments = extractAssignments(leadDocs);
         List<LeadDTO> leads = leadDocs.stream().map(d -> docToLeadDTO(d, leadAssignments)).toList();
 
-        List<org.bson.Document> dealDocs = fetchDealDocuments();
+        List<org.bson.Document> dealDocs = fetchDealDocuments(OVERVIEW_DEAL_LIMIT);
         List<DealDTO> deals = dealDocs.stream().map(this::docToDealDTO).toList();
 
         List<Map<String, Object>> insights = safeDashboardInsights(leads);
@@ -101,7 +105,7 @@ public class DashboardAnalyticsService {
 
     public DashboardWidgetSnapshotDTO widgets() {
         List<Lead> leadEntities = fetchLeadEntities();
-        List<org.bson.Document> dealDocs = fetchDealDocuments();
+        List<org.bson.Document> dealDocs = fetchDealDocuments(WIDGET_DEAL_LIMIT);
         List<DealDTO> deals = dealDocs.stream().map(this::docToDealDTO).toList();
 
         DashboardWidgetSnapshotDTO.AgingCounts agingCounts = buildAgingCounts(leadEntities);
@@ -122,20 +126,81 @@ public class DashboardAnalyticsService {
         );
     }
 
-    private List<org.bson.Document> fetchLeadDocuments() {
+    private List<org.bson.Document> fetchLeadDocuments(int limit) {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
         query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        query.limit(limit);
+        includeDashboardLeadFields(query);
         return mongoTemplate.find(query, org.bson.Document.class, "leads");
     }
 
-    private List<org.bson.Document> fetchDealDocuments() {
+    private List<org.bson.Document> fetchDealDocuments(int limit) {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
         query.with(Sort.by(Sort.Direction.DESC, "updatedAt"));
+        query.limit(limit);
+        includeDashboardDealFields(query);
         return mongoTemplate.find(query, org.bson.Document.class, "deals");
+    }
+
+    private void includeDashboardLeadFields(Query query) {
+        query.fields()
+            .include("name")
+            .include("email")
+            .include("phone")
+            .include("company")
+            .include("designation")
+            .include("service")
+            .include("specialization")
+            .include("source")
+            .include("status")
+            .include("score")
+            .include("priority")
+            .include("deal_value")
+            .include("utm_source")
+            .include("utm_medium")
+            .include("utm_campaign")
+            .include("ai_score_value")
+            .include("ai_next_action")
+            .include("assigned_to")
+            .include("tags")
+            .include("notes")
+            .include("converted_at")
+            .include("lost_reason")
+            .include("follow_up_date")
+            .include("revenue_value")
+            .include("facebook_lead_id")
+            .include("facebook_form_id")
+            .include("facebook_ad_id")
+            .include("reminder_15_sent_at")
+            .include("reminder_45_sent_at")
+            .include("reminder_60_sent_at")
+            .include("escalated_at")
+            .include("reassigned_at")
+            .include("createdAt")
+            .include("updatedAt")
+            .include("last_contacted_at");
+    }
+
+    private void includeDashboardDealFields(Query query) {
+        query.fields()
+            .include("title")
+            .include("description")
+            .include("stage")
+            .include("priority")
+            .include("deal_value")
+            .include("expected_close_date")
+            .include("actual_close_date")
+            .include("win_probability")
+            .include("pipeline_id")
+            .include("ai_score")
+            .include("tags")
+            .include("notes")
+            .include("createdAt")
+            .include("updatedAt");
     }
 
     private Map<String, String> extractAssignments(List<org.bson.Document> leadDocs) {
@@ -233,13 +298,14 @@ public class DashboardAnalyticsService {
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
         query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        query.limit(WIDGET_LEAD_LIMIT);
         query.fields().exclude("assigned_to");
         return mongoTemplate.find(query, Lead.class);
     }
 
     private List<Map<String, Object>> safeDashboardInsights(List<LeadDTO> leads) {
         try {
-            return buildLocalInsightsFromDTOs(leads);
+            return buildFastInsights(leads);
         } catch (Exception ex) {
             return List.of(Map.of(
                 "id", "insights-fallback",
@@ -249,6 +315,69 @@ public class DashboardAnalyticsService {
                 "action", "Dashboard"
             ));
         }
+    }
+
+    private List<Map<String, Object>> buildFastInsights(List<LeadDTO> fallbackLeads) {
+        long total = countLeads();
+        if (total <= 0 && fallbackLeads != null) {
+            return buildLocalInsightsFromDTOs(fallbackLeads);
+        }
+
+        long qualified = countLeads(Criteria.where("status").in(
+            Lead.LeadStatus.QUALIFIED,
+            Lead.LeadStatus.PROPOSAL,
+            Lead.LeadStatus.NEGOTIATION
+        ));
+        long won = countLeads(Criteria.where("status").is(Lead.LeadStatus.WON));
+        long stale = countStaleLeads();
+
+        Map.Entry<String, Long> topSource = topLeadSource();
+
+        List<Map<String, Object>> insights = new ArrayList<>();
+        insights.add(Map.of("id", 1, "type", "prediction", "title", "Qualified pipeline momentum",
+            "body", qualified + " of " + total + " leads are already qualified or beyond, and " + won + " have closed won.", "action", "View Profile"));
+        insights.add(Map.of("id", 2, "type", "warning", "title", "Stale follow-ups need attention",
+            "body", stale + " leads have not been touched recently and are at risk of cooling off.", "action", "Schedule Call"));
+        insights.add(Map.of("id", 3, "type", "opportunity", "title", "Strongest lead source",
+            "body", "Your most active source is " + topSource.getKey() + " with " + topSource.getValue() + " live leads.", "action", "Plan Campaign"));
+        insights.add(Map.of("id", 4, "type", "insight", "title", "Re-engagement opportunity",
+            "body", "Many active prospects still need a follow-up touch. A quick re-engagement sequence can recover momentum.", "action", "Send Follow-up"));
+        return insights;
+    }
+
+    private long countLeads(Criteria... extraCriteria) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").is(false));
+        for (Criteria criteria : extraCriteria) {
+            query.addCriteria(criteria);
+        }
+        return mongoTemplate.count(query, "leads");
+    }
+
+    private long countStaleLeads() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").is(false));
+        query.addCriteria(Criteria.where("status").nin(Lead.LeadStatus.WON, Lead.LeadStatus.LOST));
+        query.addCriteria(new Criteria().orOperator(
+            Criteria.where("last_contacted_at").lt(cutoff),
+            Criteria.where("last_contacted_at").is(null).and("updatedAt").lt(cutoff),
+            Criteria.where("last_contacted_at").exists(false).and("updatedAt").lt(cutoff)
+        ));
+        return mongoTemplate.count(query, "leads");
+    }
+
+    private Map.Entry<String, Long> topLeadSource() {
+        Map.Entry<String, Long> top = Map.entry("unknown", 0L);
+        for (Lead.LeadSource source : Lead.LeadSource.values()) {
+            long count = countLeads(Criteria.where("source").is(source));
+            if (count > top.getValue()) {
+                top = Map.entry(sourceLabel(source), count);
+            }
+        }
+        return top;
     }
 
     private List<Map<String, Object>> buildLocalInsightsFromDTOs(List<LeadDTO> leads) {
@@ -687,7 +816,17 @@ public class DashboardAnalyticsService {
         if (lead == null || lead.getSource() == null) {
             return "Manual Entry";
         }
-        return switch (lead.getSource()) {
+        if (lead.getSource() == Lead.LeadSource.OTHER) {
+            return inferOtherSource(lead);
+        }
+        return sourceLabel(lead.getSource());
+    }
+
+    private String sourceLabel(Lead.LeadSource source) {
+        if (source == null) {
+            return "Manual Entry";
+        }
+        return switch (source) {
             case FACEBOOK -> "Facebook";
             case INSTAGRAM -> "Instagram";
             case LINKEDIN -> "LinkedIn";
@@ -697,7 +836,7 @@ public class DashboardAnalyticsService {
             case META_ADS -> "Meta Ads";
             case REFERRAL -> "Referral";
             case EMAIL -> "Email";
-            case OTHER -> inferOtherSource(lead);
+            case OTHER -> "Other";
         };
     }
 
