@@ -36,10 +36,9 @@ import java.util.stream.Collectors;
 public class DashboardAnalyticsService {
 
     private static final int PAGE_SIZE = 250;
-    private static final int OVERVIEW_LEAD_LIMIT = 150;
-    private static final int OVERVIEW_DEAL_LIMIT = 100;
-    private static final int WIDGET_LEAD_LIMIT = 500;
-    private static final int WIDGET_DEAL_LIMIT = 250;
+    private static final int OVERVIEW_LEAD_LIMIT = 50;
+    private static final int WIDGET_LEAD_LIMIT = 250;
+    private static final int WIDGET_DEAL_LIMIT = 100;
     private static final int DASHBOARD_MONTHS = 6;
     private static final List<DashboardStage> DASHBOARD_STAGES = List.of(
         new DashboardStage("NEW", "New Leads", "#7c3aed"),
@@ -86,19 +85,14 @@ public class DashboardAnalyticsService {
         Map<String, String> leadAssignments = extractAssignments(leadDocs);
         List<LeadDTO> leads = leadDocs.stream().map(d -> docToLeadDTO(d, leadAssignments)).toList();
 
-        List<org.bson.Document> dealDocs = fetchDealDocuments(OVERVIEW_DEAL_LIMIT);
-        List<DealDTO> deals = dealDocs.stream().map(this::docToDealDTO).toList();
-
         List<Map<String, Object>> insights = safeDashboardInsights(leads);
-        List<Map<String, Object>> recentActivity = buildRecentActivity(leads);
-        List<Map<String, Object>> recentCallSnapshots = buildRecentCallSnapshots(leads);
 
         return new DashboardOverviewDTO(
             leads,
-            deals,
+            List.of(),
             insights,
-            recentActivity,
-            recentCallSnapshots,
+            List.of(),
+            List.of(),
             LocalDateTime.now().toString()
         );
     }
@@ -716,35 +710,7 @@ public class DashboardAnalyticsService {
     }
 
     private Map<String, LocalDateTime> fetchFirstResponseByLeadId(List<Lead> leads) {
-        if (leads == null || leads.isEmpty()) {
-            return Map.of();
-        }
-        Set<String> leadIds = leads.stream()
-            .map(Lead::getId)
-            .filter(id -> id != null && !id.isBlank())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (leadIds.isEmpty()) {
-            return Map.of();
-        }
-
-        Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
-        query.addCriteria(Criteria.where("deleted").is(false));
-        query.addCriteria(Criteria.where("lead_id").in(leadIds));
-        query.with(Sort.by(Sort.Direction.ASC, "savedAt"));
-        List<LeadActivity> activities = mongoTemplate.find(query, LeadActivity.class);
-
-        Map<String, LocalDateTime> firstResponse = new LinkedHashMap<>();
-        for (LeadActivity activity : activities) {
-            if (activity.getLeadId() == null || firstResponse.containsKey(activity.getLeadId())) {
-                continue;
-            }
-            LocalDateTime timestamp = activity.getSavedAt() != null ? activity.getSavedAt() : activity.getCreatedAt();
-            if (timestamp != null) {
-                firstResponse.put(activity.getLeadId(), timestamp);
-            }
-        }
-        return firstResponse;
+        return Map.of();
     }
 
     private Double responseMinutes(Lead lead, LocalDateTime firstResponseAt) {
