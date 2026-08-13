@@ -231,10 +231,25 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # WebSocket
+    # Native WebSocket
     # Spring Boot registers the STOMP endpoint at /ws (without trailing slash).
-    location /ws {
+    location = /ws {
         proxy_pass http://localhost:8080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Origin $http_origin;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+    }
+
+    # SockJS fallback for older/cached clients that request /ws/info and /ws/{server}/{session}/...
+    location /ws/ {
+        proxy_pass http://localhost:8080/ws-sockjs/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

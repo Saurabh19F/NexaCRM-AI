@@ -105,6 +105,7 @@ public class SecurityConfig {
                 "/api/leads/facebook",
                 "/api/leads/facebook/**",
                 "/ws/**",
+                "/ws-sockjs/**",
                 "/swagger-ui/**",
                 "/v3/api-docs/**",
                 "/actuator/health",
@@ -118,6 +119,7 @@ public class SecurityConfig {
                 "/api/leads/facebook",
                 "/api/leads/facebook/**",
                 "/ws/**",
+                "/ws-sockjs/**",
                 "/actuator/health",
                 "/actuator/health/**",
             };
