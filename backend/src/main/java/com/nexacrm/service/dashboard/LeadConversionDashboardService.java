@@ -49,6 +49,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class LeadConversionDashboardService {
 
+    private static final int DASHBOARD_LEAD_SAMPLE_LIMIT = 250;
+
     private static final List<StageDefinition> STAGES = List.of(
         new StageDefinition("NEW", "New Leads"),
         new StageDefinition("ASSIGNED", "Assigned Leads"),
@@ -417,6 +419,11 @@ public class LeadConversionDashboardService {
         if (scope.employeeId() != null) {
             query.addCriteria(Criteria.where("assigned_to.$id").is(scope.employeeId()));
         }
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
+        query.limit(DASHBOARD_LEAD_SAMPLE_LIMIT);
+        query.fields()
+            .exclude("notes")
+            .exclude("activity_logs");
         List<Lead> leads = mongoTemplate.find(query, Lead.class);
         if (StringUtils.hasText(statusFilter)) {
             String normalized = normalize(statusFilter);
@@ -428,17 +435,7 @@ public class LeadConversionDashboardService {
     }
 
     private List<LeadActivity> fetchActivities(TimeRange range, List<Lead> leads) {
-        if (leads.isEmpty()) return List.of();
-        List<String> leadIds = leads.stream().map(Lead::getId).filter(StringUtils::hasText).toList();
-        if (leadIds.isEmpty()) return List.of();
-
-        Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
-        query.addCriteria(Criteria.where("deleted").is(false));
-        query.addCriteria(Criteria.where("lead_id").in(leadIds));
-        query.addCriteria(Criteria.where("savedAt").gte(range.start()).lt(range.end()));
-        query.with(Sort.by(Sort.Direction.DESC, "savedAt"));
-        return mongoTemplate.find(query, LeadActivity.class);
+        return List.of();
     }
 
     private List<User> visibleUsers(ResolvedScope scope) {
