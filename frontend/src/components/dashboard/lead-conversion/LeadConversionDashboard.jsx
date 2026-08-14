@@ -882,19 +882,19 @@ export default function LeadConversionDashboard() {
                 </Link>
               )}
             />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
               {[
                 ['Today', followUpSnapshot.today.length, 'Due today', 'from-cyan-500 to-sky-600'],
                 ['Yesterday', followUpSnapshot.yesterday.length, 'Missed yesterday', 'from-amber-500 to-orange-600'],
                 ['This Week', followUpSnapshot.thisWeek.length, 'Due this week', 'from-emerald-500 to-teal-600'],
               ].map(([label, value, helper, color]) => (
-                <div key={label} className="rounded-xl border border-white/45 bg-white/35 px-3 py-2.5 dark:border-slate-700/45 dark:bg-slate-900/35">
+                <div key={label} className="rounded-lg border border-white/45 bg-white/35 px-2.5 py-1.5 dark:border-slate-700/45 dark:bg-slate-900/35">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{label}</p>
-                    <span className={`h-2 w-8 rounded-full bg-gradient-to-r ${color}`} />
+                    <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+                    <span className={`h-1.5 w-6 rounded-full bg-gradient-to-r ${color}`} />
                   </div>
-                  <p className="mt-1 text-2xl font-bold leading-none text-slate-900 dark:text-slate-50">{prettyNumber(value)}</p>
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{helper}</p>
+                  <p className="mt-0.5 text-xl font-bold leading-none text-slate-900 dark:text-slate-50">{prettyNumber(value)}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{helper}</p>
                 </div>
               ))}
             </div>
