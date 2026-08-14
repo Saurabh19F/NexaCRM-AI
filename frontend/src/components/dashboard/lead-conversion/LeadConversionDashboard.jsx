@@ -76,6 +76,8 @@ const KPI_CARDS = [
 
 const ACTIVITY_PAGE_SIZE = 8
 const ACTIVITY_FETCH_LIMIT = 32
+const EMPLOYEE_PAGE_SIZE = 6
+const FOLLOW_UP_PAGE_SIZE = 5
 
 const SPARKLINE_ACCESSORS = {
   totalLeads: (row) => Number(row.leadCount || 0),
@@ -279,6 +281,8 @@ export default function LeadConversionDashboard() {
   const [refreshTick, setRefreshTick] = useState(0)
   const [expandedEmployee, setExpandedEmployee] = useState(null)
   const [activityPage, setActivityPage] = useState(0)
+  const [employeePage, setEmployeePage] = useState(0)
+  const [followUpPage, setFollowUpPage] = useState(0)
 
   const trendGranularity = useMemo(() => getTrendGranularity(filter, startDate, endDate), [filter, startDate, endDate])
 
@@ -364,6 +368,8 @@ export default function LeadConversionDashboard() {
 
   useEffect(() => {
     setActivityPage(0)
+    setEmployeePage(0)
+    setExpandedEmployee(null)
   }, [filter, startDate, endDate, employeeId, status])
 
   const employeeOptions = useMemo(() => {
@@ -453,10 +459,29 @@ export default function LeadConversionDashboard() {
       const due = new Date(task.dueDate)
       return !Number.isNaN(due.getTime()) && due >= weekStart && due <= weekEnd
     })
-    const upcoming = [...today, ...thisWeek.filter((task) => toDateKey(task.dueDate) !== todayKey)].slice(0, 4)
+    const listById = new Map()
+    ;[...yesterdayRows, ...today, ...thisWeek].forEach((task) => {
+      if (task?.id && !listById.has(task.id)) listById.set(task.id, task)
+    })
+    const list = Array.from(listById.values())
+      .sort((a, b) => new Date(a.dueDate || 0) - new Date(b.dueDate || 0))
 
-    return { today, yesterday: yesterdayRows, thisWeek, upcoming }
+    return { today, yesterday: yesterdayRows, thisWeek, list }
   }, [followUpTasks])
+
+  const followUpTotalPages = Math.max(1, Math.ceil(followUpSnapshot.list.length / FOLLOW_UP_PAGE_SIZE))
+  const boundedFollowUpPage = Math.min(followUpPage, followUpTotalPages - 1)
+  const pagedFollowUps = followUpSnapshot.list.slice(
+    boundedFollowUpPage * FOLLOW_UP_PAGE_SIZE,
+    boundedFollowUpPage * FOLLOW_UP_PAGE_SIZE + FOLLOW_UP_PAGE_SIZE
+  )
+
+  const employeeTotalPages = Math.max(1, Math.ceil(employees.length / EMPLOYEE_PAGE_SIZE))
+  const boundedEmployeePage = Math.min(employeePage, employeeTotalPages - 1)
+  const pagedEmployees = employees.slice(
+    boundedEmployeePage * EMPLOYEE_PAGE_SIZE,
+    boundedEmployeePage * EMPLOYEE_PAGE_SIZE + EMPLOYEE_PAGE_SIZE
+  )
 
   const onSort = (key) => {
     setSortBy((prev) => {
@@ -878,9 +903,36 @@ export default function LeadConversionDashboard() {
                 icon={Clock3}
                 subtitle="Today, yesterday, and this week's open follow-ups."
                 action={(
-                  <Link to="/task-followup" className="text-[11px] font-semibold text-brand-600 hover:underline dark:text-brand-400">
-                    View all
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    {followUpSnapshot.list.length > FOLLOW_UP_PAGE_SIZE && (
+                      <>
+                        <span className="hidden text-[11px] text-slate-400 sm:inline">
+                          {boundedFollowUpPage + 1}/{followUpTotalPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFollowUpPage((page) => Math.max(0, page - 1))}
+                          disabled={boundedFollowUpPage === 0}
+                          aria-label="Previous follow-ups"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/50 bg-white/45 text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/50 dark:bg-slate-900/45 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFollowUpPage((page) => Math.min(followUpTotalPages - 1, page + 1))}
+                          disabled={boundedFollowUpPage >= followUpTotalPages - 1}
+                          aria-label="Next follow-ups"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/50 bg-white/45 text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/50 dark:bg-slate-900/45 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                    <Link to="/task-followup" className="text-[11px] font-semibold text-brand-600 hover:underline dark:text-brand-400">
+                      View all
+                    </Link>
+                  </div>
                 )}
               />
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
@@ -904,9 +956,9 @@ export default function LeadConversionDashboard() {
                 <div className="mt-2 rounded-xl border border-amber-200/70 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
                   Follow-up data unavailable: {followUpError}
                 </div>
-              ) : followUpSnapshot.upcoming.length ? (
+              ) : pagedFollowUps.length ? (
                 <div className="mt-2 grid grid-cols-1 gap-2 2xl:grid-cols-2">
-                  {followUpSnapshot.upcoming.map((task) => (
+                  {pagedFollowUps.map((task) => (
                     <Link
                       key={task.id}
                       to="/task-followup"
@@ -939,21 +991,54 @@ export default function LeadConversionDashboard() {
                 icon={Users}
                 subtitle="Click a row to expand details."
                 action={(
-                  <div className="flex items-center gap-1.5">
-                    {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
-                      <button key={key} type="button" onClick={() => onSort(key)}
-                        className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                      >{label}</button>
-                    ))}
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
+                        <button key={key} type="button" onClick={() => onSort(key)}
+                          className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                        >{label}</button>
+                      ))}
+                    </div>
+                    {employees.length > EMPLOYEE_PAGE_SIZE && (
+                      <div className="flex items-center gap-1">
+                        <span className="hidden text-[11px] text-slate-400 sm:inline">
+                          {boundedEmployeePage + 1}/{employeeTotalPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmployeePage((page) => Math.max(0, page - 1))
+                            setExpandedEmployee(null)
+                          }}
+                          disabled={boundedEmployeePage === 0}
+                          aria-label="Previous employees"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/50 bg-white/45 text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/50 dark:bg-slate-900/45 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmployeePage((page) => Math.min(employeeTotalPages - 1, page + 1))
+                            setExpandedEmployee(null)
+                          }}
+                          disabled={boundedEmployeePage >= employeeTotalPages - 1}
+                          aria-label="Next employees"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/50 bg-white/45 text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/50 dark:bg-slate-900/45 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               />
 
             {employees.length ? (
               <div className="space-y-1.5">
-                {employees.slice(0, 8).map((row, idx) => {
+                {pagedEmployees.map((row, idx) => {
                   const isExpanded = expandedEmployee === row.employeeId
-                  const maxAssigned = Math.max(1, ...employees.slice(0, 8).map((e) => Number(e.assignedLeads || 0)))
+                  const maxAssigned = Math.max(1, ...pagedEmployees.map((e) => Number(e.assignedLeads || 0)))
                   const barWidth = Math.max(4, (Number(row.assignedLeads || 0) / maxAssigned) * 100)
                   return (
                     <div key={row.employeeId}>
@@ -963,7 +1048,7 @@ export default function LeadConversionDashboard() {
                         className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                       >
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                          {idx + 1}
+                          {boundedEmployeePage * EMPLOYEE_PAGE_SIZE + idx + 1}
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{row.employeeName}</p>
