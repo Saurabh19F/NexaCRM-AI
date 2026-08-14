@@ -171,15 +171,23 @@ const formatLeadCreatedDateTime = (lead) => {
   }
 }
 
-const emptyActivityState = () => ({ data: [{}, {}, {}, {}], saved: [false, false, false, false] })
+const emptyActivityState = () => ({ data: [{}, {}, {}, {}], saved: [false, false, false, false], latestStage: null })
 
 const buildActivityModalState = (rows = []) => {
   const data = [{}, {}, {}, {}]
   const saved = [false, false, false, false]
   const seen = new Set()
+  let latestStage = null
 
-  for (const row of rows || []) {
+  const sortedRows = [...(rows || [])].sort((a, b) => {
+    const aTime = new Date(a?.savedAt || a?.createdAt || 0).getTime() || 0
+    const bTime = new Date(b?.savedAt || b?.createdAt || 0).getTime() || 0
+    return bTime - aTime
+  })
+
+  for (const row of sortedRows) {
     const idx = Number(row?.activityIndex)
+    if (!latestStage) latestStage = getWorkflowStageFromActivityRow(row)
     if (!(idx >= 0 && idx < 4) || seen.has(idx)) continue
     seen.add(idx)
     data[idx] = {
@@ -189,7 +197,7 @@ const buildActivityModalState = (rows = []) => {
     saved[idx] = true
   }
 
-  return { data, saved }
+  return { data, saved, latestStage }
 }
 
 const buildActivitySummary = ({ activityIndex, lead, values }) => {
@@ -215,7 +223,54 @@ const normalizeWorkflowStatus = (value) => String(value || '')
   .replace(/[-_]+/g, ' ')
   .replace(/\s+/g, ' ')
 
+const getWorkflowStageFromActivityRow = (row) => {
+  const idx = Number(row?.activityIndex)
+  const values = row?.values || {}
+  const status = normalizeWorkflowStatus(
+    values.status ||
+    values.outcome ||
+    values.meetingStatus ||
+    values.remarkStatus ||
+    values.connectionStatus ||
+    values.callOutcome
+  )
+
+  if (idx === 3) {
+    if (status.includes('won') || status.includes('win')) return 'outcome_won'
+    if (status.includes('lost')) return 'outcome_lost'
+    if (status.includes('hold') || status.includes('follow') || status.includes('no response')) return 'outcome_hold'
+    if (status.includes('pending')) return 'outcome_pending_review'
+    if (status.includes('negoti')) return 'outcome_negotiation'
+    return 'outcome_pending_review'
+  }
+
+  if (idx === 2) {
+    if (status.includes('success')) return 'allowed_successful'
+    if (status.includes('reschedule') || status.includes('fail')) return 'allowed_reschedule'
+    return 'allowed_reschedule'
+  }
+
+  if (idx === 1) {
+    if (status.includes('not interested')) return 'followup_not_interested'
+    if (status.includes('meeting')) return 'followup_meeting'
+    if (status.includes('follow')) return 'followup_follow_up'
+    return 'followup_follow_up'
+  }
+
+  if (idx === 0) {
+    if (status.includes('not connected') || status.includes('non connected') || status.includes('no answer') || status.includes('callback')) {
+      return 'welcome_not_connected'
+    }
+    if (status.includes('connect')) return 'welcome_connected'
+    return 'welcome_not_connected'
+  }
+
+  return null
+}
+
 const getWorkflowStageFromActivityState = (state) => {
+  if (state?.latestStage) return state.latestStage
+
   const data = state?.data || []
   const saved = state?.saved || []
 
