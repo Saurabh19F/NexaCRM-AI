@@ -13,7 +13,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -54,6 +56,7 @@ public class LeadActivityService {
         Map<String, Object> values = dto.getValues() != null ? new LinkedHashMap<>(dto.getValues()) : new LinkedHashMap<>();
         String assignedTo = resolveAssignedTo(lead, dto, values);
         applyActivityDefaults(lead, dto, values, savedAt, assignedTo);
+        applyLeadPipelineStatusFromActivity(lead, dto, values, savedAt);
         String summary = firstNonBlank(dto.getSummary(), buildSummary(values));
 
         LeadActivity activity = LeadActivity.builder()
@@ -82,6 +85,88 @@ public class LeadActivityService {
         leadRepository.save(lead);
 
         return toDTO(saved);
+    }
+
+    private void applyLeadPipelineStatusFromActivity(Lead lead, LeadActivityDTO dto, Map<String, Object> values, LocalDateTime savedAt) {
+        if (lead == null || dto == null || dto.getActivityIndex() == null) {
+            return;
+        }
+
+        Lead.LeadStatus nextStatus = resolveLeadStatusFromActivity(dto.getActivityIndex(), values);
+        if (nextStatus != null) {
+            lead.setStatus(nextStatus);
+            if (nextStatus == Lead.LeadStatus.WON) {
+                if (lead.getConvertedAt() == null) {
+                    lead.setConvertedAt(savedAt);
+                }
+                BigDecimal revenue = parseMoney(stringValue(values.get("revenueValue")));
+                BigDecimal finalPrice = parseMoney(stringValue(values.get("meetingPriceFinal")));
+                if (finalPrice != null) {
+                    lead.setDealValue(finalPrice);
+                }
+                if (revenue == null && isAffirmative(values.get("paymentReceived"))) {
+                    revenue = finalPrice != null ? finalPrice : lead.getDealValue();
+                }
+                if (revenue == null && stringValue(values.get("paymentReceived")).isBlank()) {
+                    revenue = lead.getRevenueValue() != null ? lead.getRevenueValue() : lead.getDealValue();
+                }
+                if (revenue != null) {
+                    lead.setRevenueValue(revenue);
+                }
+                lead.setLostReason(null);
+            } else if (nextStatus == Lead.LeadStatus.LOST) {
+                String lostReason = firstNonBlank(
+                    stringValue(values.get("lostCategory")),
+                    stringValue(values.get("remarkLost")),
+                    stringValue(values.get("remark")),
+                    stringValue(values.get("remarks")),
+                    stringValue(values.get("note"))
+                );
+                if (lostReason != null && !lostReason.isBlank()) {
+                    lead.setLostReason(lostReason);
+                }
+            }
+        }
+
+        parseFollowUpDate(firstNonBlank(
+            stringValue(values.get("nextFollowUpDate")),
+            stringValue(values.get("followUpDate")),
+            stringValue(values.get("callbackAt"))
+        )).ifPresent(lead::setFollowUpDate);
+    }
+
+    private Lead.LeadStatus resolveLeadStatusFromActivity(Integer activityIndex, Map<String, Object> values) {
+        String status = normalizeStatusText(firstNonBlank(
+            stringValue(values.get("status")),
+            stringValue(values.get("connectionStatus")),
+            stringValue(values.get("callOutcome")),
+            stringValue(values.get("meetingStatus")),
+            stringValue(values.get("outcome")),
+            stringValue(values.get("remarkStatus"))
+        ));
+
+        if (activityIndex == 0) {
+            if (containsAny(status, "not interested", "not_interested")) return Lead.LeadStatus.LOST;
+            if (containsAny(status, "connected", "non connected", "no answer", "callback", "busy", "wrong number", "done")) return Lead.LeadStatus.CONTACTED;
+            return null;
+        }
+        if (activityIndex == 1) {
+            if (containsAny(status, "not interested", "not_interested")) return Lead.LeadStatus.LOST;
+            if (containsAny(status, "meeting")) return Lead.LeadStatus.QUALIFIED;
+            if (containsAny(status, "follow")) return Lead.LeadStatus.CONTACTED;
+            return null;
+        }
+        if (activityIndex == 2) {
+            if (containsAny(status, "success")) return Lead.LeadStatus.PROPOSAL;
+            if (containsAny(status, "fail")) return Lead.LeadStatus.CONTACTED;
+            return null;
+        }
+        if (activityIndex == 3) {
+            if (containsAny(status, "won", "win", "closed won")) return Lead.LeadStatus.WON;
+            if (containsAny(status, "lost", "closed lost")) return Lead.LeadStatus.LOST;
+            if (containsAny(status, "negoti", "pending", "follow", "hold", "no response")) return Lead.LeadStatus.NEGOTIATION;
+        }
+        return null;
     }
 
     private Lead ensureLeadExists(String leadId) {
@@ -370,11 +455,58 @@ public class LeadActivityService {
     private String normalizeActivityFourStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
         if (normalized.contains("negoti")) return "Negotiation";
-        if (normalized.equals("pending")) return "Pending";
+        if (normalized.contains("pending")) return "Pending";
         if (normalized.contains("won") || normalized.contains("win")) return "Won";
         if (normalized.contains("lost")) return "Lost";
-        if (normalized.contains("hold") || normalized.contains("follow")) return "Hold";
+        if (normalized.contains("hold") || normalized.contains("follow") || normalized.contains("no response")) return "Hold";
         return "";
+    }
+
+    private Optional<LocalDateTime> parseFollowUpDate(String value) {
+        String raw = stringValue(value);
+        if (raw.isBlank()) return Optional.empty();
+        try {
+            if (raw.length() == 10) {
+                return Optional.of(LocalDate.parse(raw).atStartOfDay());
+            }
+            return Optional.of(LocalDateTime.parse(raw));
+        } catch (Exception ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private BigDecimal parseMoney(String value) {
+        String raw = stringValue(value).replace(",", "");
+        if (raw.isBlank()) return null;
+        try {
+            return new BigDecimal(raw);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private boolean isAffirmative(Object value) {
+        String normalized = normalizeStatusText(stringValue(value));
+        return normalized.equals("yes") || normalized.equals("true") || normalized.equals("paid") || normalized.equals("received");
+    }
+
+    private boolean containsAny(String normalized, String... needles) {
+        if (normalized == null || normalized.isBlank() || needles == null) return false;
+        for (String needle : needles) {
+            if (needle != null && !needle.isBlank() && normalized.contains(normalizeStatusText(needle))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeStatusText(String value) {
+        return stringValue(value)
+            .toLowerCase(Locale.ROOT)
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .replaceAll("\\s+", " ")
+            .trim();
     }
 
     private String computeActualDateStatus(LocalDateTime plannedDate, LocalDateTime actualDate) {

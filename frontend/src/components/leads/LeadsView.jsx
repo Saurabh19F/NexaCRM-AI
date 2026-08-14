@@ -1388,11 +1388,16 @@ export default function LeadsPage() {
     })
 
     const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
-    patchLeadLocal(lead.id, {
-      lastActivityAtTs: touchedAt,
-      lastContactedAtTs: touchedAt,
-      status: lead?.status === 'new' ? 'contacted' : lead?.status,
-    })
+    try {
+      const refreshedLead = await leadsAPI.getById(lead.id)
+      patchLeadLocal(lead.id, refreshedLead)
+    } catch {
+      patchLeadLocal(lead.id, {
+        lastActivityAtTs: touchedAt,
+        lastContactedAtTs: touchedAt,
+        status: lead?.status === 'new' ? 'contacted' : lead?.status,
+      })
+    }
   }
 
   const formatActivityTime = (value) => {
@@ -1523,11 +1528,16 @@ export default function LeadsPage() {
     }
 
     const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
-    patchLeadLocal(lead.id, {
-      lastActivityAtTs: touchedAt,
-      lastContactedAtTs: touchedAt,
-      status: lead?.status === 'new' ? 'contacted' : lead?.status,
-    })
+    try {
+      const refreshedLead = await leadsAPI.getById(lead.id)
+      patchLeadLocal(lead.id, refreshedLead)
+    } catch {
+      patchLeadLocal(lead.id, {
+        lastActivityAtTs: touchedAt,
+        lastContactedAtTs: touchedAt,
+        status: lead?.status === 'new' ? 'contacted' : lead?.status,
+      })
+    }
   }
 
   return (

@@ -131,10 +131,17 @@ const canonicalActivityFourStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'negotiation') return 'Negotiation'
-  if (normalized === 'pending') return 'Pending'
+  if (normalized === 'pending' || normalized === 'pending decision') return 'Pending'
   if (normalized === 'won' || normalized === 'win' || normalized === 'closed won') return 'Won'
   if (normalized === 'lost' || normalized === 'close lost' || normalized === 'closed lost') return 'Lost'
-  if (normalized === 'hold' || normalized === 'follow up' || normalized === 'follow-up') return 'Hold'
+  if (
+    normalized === 'hold' ||
+    normalized === 'follow up' ||
+    normalized === 'follow-up' ||
+    normalized === 'follow-up required' ||
+    normalized === 'follow up required' ||
+    normalized === 'no response'
+  ) return 'Hold'
   return ''
 }
 

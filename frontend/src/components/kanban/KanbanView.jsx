@@ -15,7 +15,7 @@ import {
   Plus, Filter, Search, IndianRupee, Calendar,
   User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X,
   ChevronLeft, ChevronRight, RefreshCw,
-  Phone, AtSign, Building2, Tag, PhoneCall, MessageCircle, Edit
+  Phone, AtSign, Tag, PhoneCall, MessageCircle, ClipboardList
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLeadsStore } from '../../store/leadsStore'
@@ -24,6 +24,7 @@ import { getLeadAgingMeta } from '../../utils/leadSla'
 import { leadsAPI, teamAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
+import LeadActivitiesModal from '../LeadActivitiesModal'
 
 /* ── Pipeline stages — matches lead statuses ───────────────── */
 const STAGES = [
@@ -77,6 +78,44 @@ const formatLeadCreatedDateTime = (lead) => {
   }
 }
 
+const emptyActivityState = () => ({ data: [{}, {}, {}, {}], saved: [false, false, false, false] })
+
+const buildActivityModalState = (rows = []) => {
+  const data = [{}, {}, {}, {}]
+  const saved = [false, false, false, false]
+  const seen = new Set()
+
+  for (const row of rows || []) {
+    const idx = Number(row?.activityIndex)
+    if (!(idx >= 0 && idx < 4) || seen.has(idx)) continue
+    seen.add(idx)
+    data[idx] = {
+      ...(row?.values || {}),
+      assignedTo: row?.assignedTo || row?.values?.assignedTo || '',
+    }
+    saved[idx] = true
+  }
+
+  return { data, saved }
+}
+
+const buildActivitySummary = ({ activityIndex, lead, values }) => {
+  if (activityIndex === 0) {
+    return [
+      values?.connectionStatus || values?.callOutcome || values?.status ? `Status: ${values.connectionStatus || values.callOutcome || values.status}` : null,
+      lead?.source ? `Source: ${lead.source}` : null,
+      lead?.service ? `Service: ${lead.service}` : lead?.specialization ? `Service: ${lead.specialization}` : null,
+      values?.nextFollowUpDate || values?.followUpDate ? `Next follow-up: ${values.nextFollowUpDate || values.followUpDate}` : null,
+      values?.remark || values?.remarks || values?.note ? `Remarks: ${values.remark || values.remarks || values.note}` : null,
+    ].filter(Boolean).join(' | ') || 'Lead activity recorded'
+  }
+
+  return Object.entries(values || {})
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(' | ') || 'Lead activity recorded'
+}
+
 /* Custom collision detection: prefer stage column droppables (pointerWithin)
    so empty columns work, then fall back to rectIntersection for card-level drops */
 function kanbanCollision(args) {
@@ -108,11 +147,15 @@ function LeadCard({
   canDeleteLead,
   onCall,
   onWhatsApp,
+  onActivities,
   callingLeadId,
 }) {
   const scoreCfg = SCORE_CONFIG[lead.score] || SCORE_CONFIG.warm
   const ScoreIcon = scoreCfg.icon
   const created = formatLeadCreatedDateTime(lead)
+  const latestActivity = Array.isArray(lead.activityLogs) && lead.activityLogs.length > 0
+    ? String(lead.activityLogs[0]).split(' | ').slice(1).join(' · ')
+    : ''
 
   return (
     <div className={`deal-card select-none relative ${isDragging ? 'opacity-50 rotate-2 shadow-2xl' : ''}`}>
@@ -225,8 +268,24 @@ function LeadCard({
         </div>
       </div>
 
+      {latestActivity && (
+        <div className="mt-2 rounded-lg bg-brand-50/70 dark:bg-brand-950/20 border border-brand-100/80 dark:border-brand-900/50 px-2 py-1.5 text-[10px] text-brand-700 dark:text-brand-300 line-clamp-2">
+          {latestActivity}
+        </div>
+      )}
+
       {/* Quick actions */}
       <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+        {canMoveLead && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onActivities?.(lead) }}
+            className="p-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-950/30 text-slate-400 hover:text-violet-600 transition-colors"
+            title="Open activities"
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+          </button>
+        )}
         {lead.phone && (
           <button
             onPointerDown={(e) => e.stopPropagation()}
@@ -261,7 +320,7 @@ function LeadCard({
 /* ── Sortable wrapper for lead cards ───────────────────────── */
 function SortableLeadCard({
   lead, stage, isMenuOpen, onToggleMenu, onMoveLead, onDeleteLead,
-  agingMeta, canMoveLead, canDeleteLead, onCall, onWhatsApp, callingLeadId,
+  agingMeta, canMoveLead, canDeleteLead, onCall, onWhatsApp, onActivities, callingLeadId,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(lead.id),
@@ -294,6 +353,7 @@ function SortableLeadCard({
         canDeleteLead={canDeleteLead}
         onCall={onCall}
         onWhatsApp={onWhatsApp}
+        onActivities={onActivities}
         callingLeadId={callingLeadId}
       />
     </div>
@@ -304,7 +364,7 @@ function SortableLeadCard({
 function KanbanColumn({
   stage, leads: columnLeads, onAddLead, openMenuId, onToggleMenu,
   onMoveLead, onDeleteLead, canCreateLead, canMoveLead, canDeleteLead,
-  onCall, onWhatsApp, callingLeadId,
+  onCall, onWhatsApp, onActivities, callingLeadId,
 }) {
   const totalValue = columnLeads.reduce((s, l) => s + (l.value || 0), 0)
   const dropId = `${STAGE_DROP_PREFIX}${stage.key}`
@@ -361,6 +421,7 @@ function KanbanColumn({
               canDeleteLead={canDeleteLead}
               onCall={onCall}
               onWhatsApp={onWhatsApp}
+              onActivities={onActivities}
               callingLeadId={callingLeadId}
             />
           ))}
@@ -527,6 +588,9 @@ export default function KanbanPage() {
   const [filterOwner, setFilterOwner] = useState('all')
   const [teamMembers, setTeamMembers] = useState([])
   const [callingLeadId, setCallingLeadId] = useState(null)
+  const [activitiesLead, setActivitiesLead] = useState(null)
+  const [activityStateByLeadId, setActivityStateByLeadId] = useState({})
+  const [activityTabByLeadId, setActivityTabByLeadId] = useState({})
 
   const canCreateLead = hasPermission(user, PERMISSIONS.LEADS_CREATE)
   const canUpdateLead = hasPermission(user, PERMISSIONS.LEADS_UPDATE)
@@ -747,6 +811,64 @@ export default function KanbanPage() {
     window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank')
   }
 
+  /* ── Activity workflow ───────────────────────────────────── */
+  const loadLeadActivityState = useCallback(async (leadId) => {
+    if (!leadId) return emptyActivityState()
+    const rows = await leadsAPI.getActivities(leadId)
+    const state = buildActivityModalState(rows || [])
+    setActivityStateByLeadId((prev) => ({ ...prev, [leadId]: state }))
+    return state
+  }, [])
+
+  const openActivitiesLead = async (lead) => {
+    if (!lead?.id) return
+    if (!canUpdateLead) { toast.error('No permission to update lead activities.'); return }
+    try {
+      await loadLeadActivityState(lead.id)
+      setActivitiesLead(lead)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load activities')
+    }
+  }
+
+  const handleActivityTabChange = (leadId, tabIndex) => {
+    if (!leadId && leadId !== 0) return
+    setActivityTabByLeadId((prev) => ({ ...prev, [leadId]: tabIndex }))
+  }
+
+  const getActivityState = (leadId) => activityStateByLeadId[leadId] || emptyActivityState()
+
+  const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
+    if (!canUpdateLead) {
+      throw new Error('You do not have permission to update lead activities.')
+    }
+
+    const payload = {
+      activityIndex,
+      activityId: activity?.id || null,
+      activityLabel: activity?.label || `Activity ${Number(activityIndex) + 1}`,
+      activityTitle: activity?.title || '',
+      assignedTo: values?.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || null,
+      values: values || {},
+      summary: buildActivitySummary({ activityIndex, lead, values }),
+    }
+
+    await leadsAPI.addActivity(lead.id, payload)
+    await loadLeadActivityState(lead.id)
+
+    try {
+      const refreshedLead = await leadsAPI.getById(lead.id)
+      patchLeadLocal(lead.id, refreshedLead)
+      setActivitiesLead((prev) => (prev?.id === lead.id ? { ...prev, ...refreshedLead } : prev))
+    } catch {
+      const touchedAt = new Date().toISOString()
+      patchLeadLocal(lead.id, {
+        lastActivityAtTs: touchedAt,
+        lastContactedAtTs: touchedAt,
+      })
+    }
+  }
+
   /* ── Board scroll ────────────────────────────────────────── */
   const scrollBoard = (dir) => {
     boardScrollRef.current?.scrollBy({ left: dir === 'left' ? -420 : 420, behavior: 'smooth' })
@@ -875,6 +997,7 @@ export default function KanbanPage() {
               canDeleteLead={canDeleteLead}
               onCall={canCall ? handleCallLead : null}
               onWhatsApp={handleWhatsApp}
+              onActivities={openActivitiesLead}
               callingLeadId={callingLeadId}
             />
           ))}
@@ -895,6 +1018,7 @@ export default function KanbanPage() {
               canDeleteLead={false}
               onCall={() => {}}
               onWhatsApp={() => {}}
+              onActivities={() => {}}
               callingLeadId={null}
             />
           ) : null}
@@ -909,6 +1033,24 @@ export default function KanbanPage() {
             onAdd={handleAddLead}
             teamMembers={teamMembers}
             initialStage={addStage}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activitiesLead && (
+          <LeadActivitiesModal
+            lead={activitiesLead}
+            onClose={() => {
+              const id = activitiesLead?.id
+              setActivitiesLead(null)
+              if (id) loadLeadActivityState(id).catch(() => {})
+            }}
+            onPersist={handlePersistActivity}
+            initialData={getActivityState(activitiesLead.id).data}
+            initialSaved={getActivityState(activitiesLead.id).saved}
+            initialActiveTab={activityTabByLeadId[activitiesLead.id] || 0}
+            onActiveTabChange={handleActivityTabChange}
           />
         )}
       </AnimatePresence>
