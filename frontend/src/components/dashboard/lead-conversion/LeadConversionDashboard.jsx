@@ -586,93 +586,22 @@ export default function LeadConversionDashboard() {
             </div>
           </div>
 
-          {/* ── #2: Lead Source Analytics ── */}
-          <div className="glass-card p-3 sm:p-4">
-            <SectionShell
-              title="Lead Source Analytics"
-              icon={Globe2}
-              subtitle="Conversion rates and revenue by source."
-            />
-            {sourcePieData.length > 1 ? (
-              <div className="flex items-center gap-4">
-                <div className="w-[160px] shrink-0">
-                  <ResponsiveContainer width="100%" height={160}>
-                    <PieChart>
-                      <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={62} paddingAngle={2} strokeWidth={0}>
-                        {sourcePieData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload?.length) return null
-                          const d = payload[0].payload
-                          return (
-                            <div className="glass-card px-3 py-2 text-xs shadow-xl">
-                              <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
-                              <p className="text-slate-500">{prettyNumber(d.value)} leads · {prettyPercent(d.rate)} conv.</p>
-                            </div>
-                          )
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-1.5">
-                  {sourcePieData.map((row) => {
-                    const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
-                    const share = total > 0 ? (row.value / total) * 100 : 0
-                    return (
-                      <div key={row.name} className="flex items-center gap-2 text-xs">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
-                        <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
-                        <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
-                        <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ) : sourcePieData.length === 1 ? (
-              <div className="flex items-center gap-5 py-3">
-                <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
-                    <p className="text-[10px] text-slate-400">leads</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{sourcePieData[0].name}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">Only active source · {prettyPercent(sourcePieData[0].rate)} conversion</p>
-                  {sourcePieData[0].converted > 0 && (
-                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">{prettyNumber(sourcePieData[0].converted)} converted</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <ChartEmptyState label="No source analytics available." />
-            )}
-          </div>
-
-          {/* ── #3: Status Donut ── */}
-          <div className="glass-card p-3 sm:p-4">
-            <SectionShell
-              title="Status Donut"
-              icon={Repeat2}
-              subtitle="Current pipeline balance by status."
-            />
-            {(() => {
-              const activeStatuses = statusDonutData.filter((row) => row.value > 0)
-              const totalStatusLeads = activeStatuses.reduce((sum, r) => sum + r.value, 0)
-              if (!activeStatuses.length) return <ChartEmptyState label="No status data available." />
-              return (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {/* ── #2: Lead Source Analytics ── */}
+            <div className="glass-card p-3 sm:p-4">
+              <SectionShell
+                title="Lead Source Analytics"
+                icon={Globe2}
+                subtitle="Conversion rates and revenue by source."
+              />
+              {sourcePieData.length > 1 ? (
                 <div className="flex items-center gap-4">
-                  <div className="w-[140px] shrink-0">
-                    <ResponsiveContainer width="100%" height={140}>
+                  <div className="w-[160px] shrink-0">
+                    <ResponsiveContainer width="100%" height={160}>
                       <PieChart>
-                        <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={36} outerRadius={55} paddingAngle={2} strokeWidth={0}>
-                          {activeStatuses.map((entry) => (
-                            <Cell key={entry.key} fill={entry.color} />
+                        <Pie data={sourcePieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={62} paddingAngle={2} strokeWidth={0}>
+                          {sourcePieData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
                         <Tooltip
@@ -682,7 +611,7 @@ export default function LeadConversionDashboard() {
                             return (
                               <div className="glass-card px-3 py-2 text-xs shadow-xl">
                                 <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
-                                <p className="text-slate-500">{prettyNumber(d.value)} leads</p>
+                                <p className="text-slate-500">{prettyNumber(d.value)} leads · {prettyPercent(d.rate)} conv.</p>
                               </div>
                             )
                           }}
@@ -691,10 +620,11 @@ export default function LeadConversionDashboard() {
                     </ResponsiveContainer>
                   </div>
                   <div className="flex-1 space-y-1.5">
-                    {activeStatuses.map((row) => {
-                      const share = totalStatusLeads > 0 ? (row.value / totalStatusLeads) * 100 : 0
+                    {sourcePieData.map((row) => {
+                      const total = sourcePieData.reduce((sum, r) => sum + r.value, 0)
+                      const share = total > 0 ? (row.value / total) * 100 : 0
                       return (
-                        <div key={row.key} className="flex items-center gap-2 text-xs">
+                        <div key={row.name} className="flex items-center gap-2 text-xs">
                           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
                           <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
                           <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
@@ -704,8 +634,80 @@ export default function LeadConversionDashboard() {
                     })}
                   </div>
                 </div>
-              )
-            })()}
+              ) : sourcePieData.length === 1 ? (
+                <div className="flex items-center gap-5 py-3">
+                  <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-full" style={{ background: `${sourcePieData[0].color}14`, border: `3px solid ${sourcePieData[0].color}` }}>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{prettyNumber(sourcePieData[0].value)}</p>
+                      <p className="text-[10px] text-slate-400">leads</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{sourcePieData[0].name}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Only active source · {prettyPercent(sourcePieData[0].rate)} conversion</p>
+                    {sourcePieData[0].converted > 0 && (
+                      <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">{prettyNumber(sourcePieData[0].converted)} converted</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <ChartEmptyState label="No source analytics available." />
+              )}
+            </div>
+
+            {/* ── #3: Status Donut ── */}
+            <div className="glass-card p-3 sm:p-4">
+              <SectionShell
+                title="Status Donut"
+                icon={Repeat2}
+                subtitle="Current pipeline balance by status."
+              />
+              {(() => {
+                const activeStatuses = statusDonutData.filter((row) => row.value > 0)
+                const totalStatusLeads = activeStatuses.reduce((sum, r) => sum + r.value, 0)
+                if (!activeStatuses.length) return <ChartEmptyState label="No status data available." />
+                return (
+                  <div className="flex items-center gap-4">
+                    <div className="w-[140px] shrink-0">
+                      <ResponsiveContainer width="100%" height={140}>
+                        <PieChart>
+                          <Pie data={activeStatuses} dataKey="value" cx="50%" cy="50%" innerRadius={36} outerRadius={55} paddingAngle={2} strokeWidth={0}>
+                            {activeStatuses.map((entry) => (
+                              <Cell key={entry.key} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null
+                              const d = payload[0].payload
+                              return (
+                                <div className="glass-card px-3 py-2 text-xs shadow-xl">
+                                  <p className="font-semibold text-slate-800 dark:text-slate-200">{d.name}</p>
+                                  <p className="text-slate-500">{prettyNumber(d.value)} leads</p>
+                                </div>
+                              )
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      {activeStatuses.map((row) => {
+                        const share = totalStatusLeads > 0 ? (row.value / totalStatusLeads) * 100 : 0
+                        return (
+                          <div key={row.key} className="flex items-center gap-2 text-xs">
+                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} />
+                            <span className="flex-1 truncate font-medium text-slate-700 dark:text-slate-300">{row.name}</span>
+                            <span className="tabular-nums text-slate-500">{prettyNumber(row.value)}</span>
+                            <span className="w-[42px] text-right tabular-nums text-slate-400">{prettyPercent(share)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
           </div>
 
           {/* ── #4: Activity Timeline — compact grid ── */}
