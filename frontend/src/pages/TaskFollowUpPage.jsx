@@ -40,6 +40,8 @@ const TABS = [
   { key: 'completed', label: 'Completed Leads' },
 ]
 
+const LEADS_PER_PAGE = 8
+
 const ACTIVITY_DEFS = [
   { idx: 0, id: 'act01', label: 'Activity 01', title: 'Welcome Call', icon: Phone, color: 'red' },
   { idx: 1, id: 'act02', label: 'Activity 02', title: 'Follow Up for Meeting', icon: Clock, color: 'blue' },
@@ -316,6 +318,7 @@ export default function TaskFollowUpPage() {
   const [activeTab, setActiveTab] = useState('pending')
   const [searchQuery, setSearchQuery] = useState('')
   const [stageFilter, setStageFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [historyLead, setHistoryLead] = useState(null)
   const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
@@ -429,6 +432,10 @@ export default function TaskFollowUpPage() {
   useEffect(() => {
     refresh()
   }, [])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchQuery, stageFilter])
 
   const ensureLeadActivities = useCallback(async (leadId) => {
     if (!leadId || leadActivities[leadId]) return
@@ -577,6 +584,14 @@ export default function TaskFollowUpPage() {
   }
 
   const displayLeads = activeTab === 'pending' ? pendingLeads : completedLeads
+  const totalPages = Math.max(1, Math.ceil(displayLeads.length / LEADS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pageStart = displayLeads.length ? (safeCurrentPage - 1) * LEADS_PER_PAGE + 1 : 0
+  const pageEnd = Math.min(safeCurrentPage * LEADS_PER_PAGE, displayLeads.length)
+  const paginatedLeads = useMemo(() => {
+    const start = (safeCurrentPage - 1) * LEADS_PER_PAGE
+    return displayLeads.slice(start, start + LEADS_PER_PAGE)
+  }, [displayLeads, safeCurrentPage])
   const historyLeadData = historyLead
     ? enrichedLeads.find((lead) => lead.id === historyLead.id) || historyLead
     : null
@@ -766,7 +781,7 @@ export default function TaskFollowUpPage() {
             >
               {activeTab === 'pending' ? (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {pendingLeads.map((lead) => (
+                  {paginatedLeads.map((lead) => (
                     <div
                       key={lead.id}
                       className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
@@ -869,7 +884,7 @@ export default function TaskFollowUpPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {completedLeads.map((lead) => {
+                  {paginatedLeads.map((lead) => {
                     const isWon = lead.outcome === 'Won'
                     return (
                       <div
@@ -993,9 +1008,34 @@ export default function TaskFollowUpPage() {
 
         {/* Footer count */}
         {!loading && displayLeads.length > 0 && (
-          <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-slate-800/50 dark:text-slate-400">
-            Showing {displayLeads.length} lead{displayLeads.length === 1 ? '' : 's'}
-            {loadingActivities ? ' · loading activity progress…' : ''}
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-slate-800/50 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Showing {pageStart}-{pageEnd} of {displayLeads.length} lead{displayLeads.length === 1 ? '' : 's'}
+              {loadingActivities ? ' · loading activity progress…' : ''}
+            </span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={safeCurrentPage <= 1}
+                  className="btn-secondary h-8 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {safeCurrentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={safeCurrentPage >= totalPages}
+                  className="btn-secondary h-8 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
