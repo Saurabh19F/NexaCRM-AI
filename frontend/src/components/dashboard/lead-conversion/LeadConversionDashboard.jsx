@@ -76,6 +76,24 @@ const SECONDARY_CARDS = [
   { key: 'pendingFollowUps', title: 'Pending Follow-ups', icon: Clock3, color: 'from-amber-500 to-orange-600' },
 ]
 
+const SPARKLINE_ACCESSORS = {
+  totalLeads: (row) => Number(row.leadCount || 0),
+  newLeads: (row) => Number(row.newCount || 0),
+  assignedLeads: (row) => Number(row.assignedCount || 0),
+  contactedLeads: (row) => Number(row.contactedCount || 0),
+  interestedLeads: (row) => Number(row.interestedCount || 0),
+  qualifiedLeads: (row) => Number(row.qualifiedCount || 0),
+  proposalSentLeads: (row) => Number(row.proposalSentCount || 0),
+  convertedLeads: (row) => Number(row.convertedCount || 0),
+  lostLeads: (row) => Number(row.lostCount || 0),
+  pendingFollowUps: (row) => Number(row.pendingFollowUpsCount || 0),
+  conversionRate: (row) => {
+    const total = Number(row.leadCount || 0)
+    return total > 0 ? (Number(row.convertedCount || 0) * 100) / total : 0
+  },
+  revenueFromConvertedLeads: (row) => Number(row.revenueGenerated || 0),
+}
+
 const prettyNumber = (value) => {
   const n = Number(value || 0)
   if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}k`
@@ -114,24 +132,50 @@ const metricValue = (metric, { currency = false, percent = false } = {}) => {
   return prettyNumber(metric.value)
 }
 
-function MetricCard({ item, metric }) {
+function MetricCard({ item, metric, sparkline = [] }) {
   const Icon = item.icon
   const change = Number(metric?.changePercent || 0)
   const positive = change >= 0
+  const hasSparkline = sparkline.some((point) => Number(point.value || 0) > 0)
+  const stroke = positive ? '#10b981' : '#f43f5e'
   return (
-    <div className="kpi-card flex items-center gap-2.5">
-      <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-        <Icon className="h-3.5 w-3.5 text-white" />
+    <div className="kpi-card flex min-h-[104px] flex-col gap-2 overflow-hidden">
+      <div className="flex items-start gap-2.5">
+        <div className={`h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+          <Icon className="h-3.5 w-3.5 text-white" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.18em]">{item.title}</p>
+          <p className="text-2xl font-bold leading-tight text-slate-900 dark:text-slate-50">
+            {metricValue(metric, { currency: item.currency, percent: item.percent })}
+          </p>
+        </div>
+        <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+          {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
+        </span>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-[0.18em]">{item.title}</p>
-        <p className="text-2xl font-bold leading-tight text-slate-900 dark:text-slate-50">
-          {metricValue(metric, { currency: item.currency, percent: item.percent })}
-        </p>
+      <div className="h-8 w-full">
+        {hasSparkline ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={sparkline} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={stroke}
+                strokeWidth={1.8}
+                fill={stroke}
+                fillOpacity={0.12}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center rounded-lg bg-slate-100/50 px-2 text-[10px] font-medium text-slate-400 dark:bg-slate-800/40 dark:text-slate-500">
+            Live trend starts when data appears
+          </div>
+        )}
       </div>
-      <span className={`shrink-0 text-[10px] font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
-        {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
-      </span>
     </div>
   )
 }
@@ -260,7 +304,7 @@ export default function LeadConversionDashboard() {
     }
 
     load()
-    const id = window.setInterval(() => load({ silent: true }), 60 * 1000)
+    const id = window.setInterval(() => load({ silent: true }), 15 * 1000)
 
     return () => {
       mounted = false
@@ -316,6 +360,19 @@ export default function LeadConversionDashboard() {
   const trendHasData = useMemo(() => trend.some((row) =>
     Number(row.leadCount || 0) > 0 || Number(row.convertedCount || 0) > 0 || Number(row.revenueGenerated || 0) > 0
   ), [trend])
+
+  const kpiSparklines = useMemo(() => {
+    const series = {}
+    const rows = Array.isArray(trend) ? trend : []
+    for (const item of [...PRIMARY_CARDS, ...SECONDARY_CARDS]) {
+      const accessor = SPARKLINE_ACCESSORS[item.key] || (() => 0)
+      series[item.key] = rows.map((row) => ({
+        label: row.label || row.bucketKey,
+        value: Number(accessor(row) || 0),
+      }))
+    }
+    return series
+  }, [trend])
 
   const onSort = (key) => {
     setSortBy((prev) => {
@@ -408,6 +465,16 @@ export default function LeadConversionDashboard() {
             />
           </>
         )}
+
+        <button
+          type="button"
+          onClick={() => setRefreshTick((tick) => tick + 1)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-xs font-semibold text-emerald-700 backdrop-blur-sm transition-colors hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/20 dark:text-emerald-300"
+          title={lastUpdated ? `Last refreshed ${formatActivityTime(lastUpdated)}` : 'Refresh live KPI data'}
+        >
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]" />
+          Live 15s
+        </button>
       </div>
 
       {error && (
@@ -422,12 +489,12 @@ export default function LeadConversionDashboard() {
         </div>
       )}
 
-      {!loading && (
+        {!loading && (
         <>
           {/* ── KPI Cards — uniform glass tiles ── */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {PRIMARY_CARDS.map((item) => (
-              <MetricCard key={item.key} item={item} metric={summary?.[item.key]} />
+              <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
             ))}
           </div>
 
@@ -451,7 +518,7 @@ export default function LeadConversionDashboard() {
               >
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                   {SECONDARY_CARDS.map((item) => (
-                    <MetricCard key={item.key} item={item} metric={summary?.[item.key]} />
+                    <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
                   ))}
                 </div>
               </motion.div>

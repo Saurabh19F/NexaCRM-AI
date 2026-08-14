@@ -22,7 +22,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -48,8 +47,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LeadConversionDashboardService {
-
-    private static final int DASHBOARD_LEAD_SAMPLE_LIMIT = 250;
 
     private static final List<StageDefinition> STAGES = List.of(
         new StageDefinition("NEW", "New Leads"),
@@ -86,7 +83,6 @@ public class LeadConversionDashboardService {
         return TenantContext.currentTenantId();
     }
 
-    @Cacheable(value = "dashboard-summary", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public LeadConversionSummaryDTO summary(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -100,10 +96,10 @@ public class LeadConversionDashboardService {
 
         long currentTotal = currentLeads.size();
         long previousTotal = previousLeads.size();
-        long currentNew = currentStageCounts.getOrDefault("NEW", 0L);
-        long previousNew = previousStageCounts.getOrDefault("NEW", 0L);
-        long currentAssigned = currentStageCounts.getOrDefault("ASSIGNED", 0L);
-        long previousAssigned = previousStageCounts.getOrDefault("ASSIGNED", 0L);
+        long currentNew = rawNewCount(currentLeads);
+        long previousNew = rawNewCount(previousLeads);
+        long currentAssigned = assignedCount(currentLeads);
+        long previousAssigned = assignedCount(previousLeads);
         long currentContacted = currentStageCounts.getOrDefault("CONTACTED", 0L);
         long previousContacted = previousStageCounts.getOrDefault("CONTACTED", 0L);
         long currentInterested = currentStageCounts.getOrDefault("INTERESTED", 0L);
@@ -149,7 +145,6 @@ public class LeadConversionDashboardService {
         );
     }
 
-    @Cacheable(value = "dashboard-funnel", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public List<LeadConversionFunnelDTO> funnel(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -171,7 +166,6 @@ public class LeadConversionDashboardService {
         return funnel;
     }
 
-    @Cacheable(value = "dashboard-employees", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #sortBy + ':' + #sortDir")
     public List<LeadConversionEmployeeDTO> employees(
         String filter,
         String startDate,
@@ -254,7 +248,6 @@ public class LeadConversionDashboardService {
         return rows;
     }
 
-    @Cacheable(value = "dashboard-sources", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public List<LeadConversionSourceDTO> sources(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -302,7 +295,6 @@ public class LeadConversionDashboardService {
             .toList();
     }
 
-    @Cacheable(value = "dashboard-activities", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #limit")
     public List<LeadConversionActivityDTO> activities(
         String filter,
         String startDate,
@@ -356,7 +348,6 @@ public class LeadConversionDashboardService {
             .toList();
     }
 
-    @Cacheable(value = "dashboard-trend", key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #granularity")
     public List<LeadConversionTrendDTO> trend(
         String filter,
         String startDate,
@@ -379,9 +370,14 @@ public class LeadConversionDashboardService {
             BucketAccumulator bucket = buckets.get(createdBucket);
             if (bucket != null) {
                 bucket.leadCount++;
+                if (isRawNew(lead)) bucket.newCount++;
+                if (isAssigned(lead)) bucket.assignedCount++;
                 if (isStage(lead, "CONTACTED")) bucket.contactedCount++;
+                if (isStage(lead, "INTERESTED")) bucket.interestedCount++;
                 if (isStage(lead, "QUALIFIED")) bucket.qualifiedCount++;
+                if (isStage(lead, "PROPOSAL_SENT")) bucket.proposalSentCount++;
                 if (isStage(lead, "LOST")) bucket.lostCount++;
+                if (isPendingFollowUp(lead)) bucket.pendingFollowUpsCount++;
             }
 
             if (lead.getConvertedAt() != null) {
@@ -402,10 +398,15 @@ public class LeadConversionDashboardService {
                 bucketLabel(entry.getKey(), finalBucketType),
                 entry.getKey(),
                 entry.getValue().leadCount,
+                entry.getValue().newCount,
+                entry.getValue().assignedCount,
                 entry.getValue().contactedCount,
+                entry.getValue().interestedCount,
                 entry.getValue().qualifiedCount,
+                entry.getValue().proposalSentCount,
                 entry.getValue().convertedCount,
                 entry.getValue().lostCount,
+                entry.getValue().pendingFollowUpsCount,
                 round(entry.getValue().revenueGenerated)
             ))
             .toList();
@@ -420,7 +421,6 @@ public class LeadConversionDashboardService {
             query.addCriteria(Criteria.where("assigned_to.$id").is(scope.employeeId()));
         }
         query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
-        query.limit(DASHBOARD_LEAD_SAMPLE_LIMIT);
         query.fields()
             .exclude("notes")
             .exclude("activity_logs");
@@ -526,10 +526,17 @@ public class LeadConversionDashboardService {
         return leads.stream().filter(lead -> key.equals(normalizeStage(lead))).count();
     }
 
+    private long rawNewCount(List<Lead> leads) {
+        return leads.stream().filter(this::isRawNew).count();
+    }
+
+    private long assignedCount(List<Lead> leads) {
+        return leads.stream().filter(this::isAssigned).count();
+    }
+
     private long pendingFollowUpsCount(List<Lead> leads) {
         return leads.stream()
-            .filter(lead -> lead.getFollowUpDate() != null)
-            .filter(lead -> !isFinalStage(normalizeStage(lead)))
+            .filter(this::isPendingFollowUp)
             .count();
     }
 
@@ -709,6 +716,20 @@ public class LeadConversionDashboardService {
         };
     }
 
+    private boolean isRawNew(Lead lead) {
+        return lead == null || lead.getStatus() == null || lead.getStatus() == Lead.LeadStatus.NEW;
+    }
+
+    private boolean isAssigned(Lead lead) {
+        return lead != null && lead.getAssignedTo() != null;
+    }
+
+    private boolean isPendingFollowUp(Lead lead) {
+        return lead != null
+            && lead.getFollowUpDate() != null
+            && !isFinalStage(normalizeStage(lead));
+    }
+
     private boolean matchesStatusFilter(Lead lead, String normalizedFilter) {
         if (!StringUtils.hasText(normalizedFilter)) {
             return true;
@@ -838,10 +859,15 @@ public class LeadConversionDashboardService {
 
     private static final class BucketAccumulator {
         long leadCount;
+        long newCount;
+        long assignedCount;
         long contactedCount;
+        long interestedCount;
         long qualifiedCount;
+        long proposalSentCount;
         long convertedCount;
         long lostCount;
+        long pendingFollowUpsCount;
         double revenueGenerated;
     }
 }
