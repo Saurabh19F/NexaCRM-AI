@@ -11,15 +11,18 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  X,
   ChevronRight,
   Building2,
   CalendarDays,
   AlertTriangle,
   Filter,
   Eye,
+  History,
   IndianRupee,
   Tag,
   ArrowUpRight,
+  FileText,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
@@ -201,6 +204,31 @@ const isCompletedTask = (task) => {
   return status === 'COMPLETED' || status === 'DONE' || status === 'CLOSED'
 }
 
+const formatDateTime = (value) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const taskStatusLabel = (task) => String(task?.status || 'PENDING').replace(/_/g, ' ')
+
+const activityNote = (activity) => {
+  if (activity?.summary) return activity.summary
+  const values = activity?.values || {}
+  return Object.entries(values)
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    .slice(0, 5)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(' | ') || 'Activity saved'
+}
+
 function ActivityStepper({ stageStatuses, currentStage }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -256,6 +284,8 @@ export default function TaskFollowUpPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [activitiesLead, setActivitiesLead] = useState(null)
+  const [historyLead, setHistoryLead] = useState(null)
+  const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
 
   const loadAllActivities = useCallback(async (leadRows) => {
     if (!leadRows.length) return
@@ -313,6 +343,19 @@ export default function TaskFollowUpPage() {
   useEffect(() => {
     refresh()
   }, [])
+
+  const ensureLeadActivities = useCallback(async (leadId) => {
+    if (!leadId || leadActivities[leadId]) return
+    setHistoryLoadingLeadId(leadId)
+    try {
+      const acts = await leadsAPI.getActivities(leadId)
+      setLeadActivities((prev) => ({ ...prev, [leadId]: unwrapList(acts) }))
+    } catch (err) {
+      toast.error(err?.message || 'Unable to load lead history')
+    } finally {
+      setHistoryLoadingLeadId(null)
+    }
+  }, [leadActivities])
 
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
@@ -447,6 +490,46 @@ export default function TaskFollowUpPage() {
   }
 
   const displayLeads = activeTab === 'pending' ? pendingLeads : completedLeads
+  const historyLeadData = historyLead
+    ? enrichedLeads.find((lead) => lead.id === historyLead.id) || historyLead
+    : null
+  const historyActivities = historyLeadData ? (leadActivities[historyLeadData.id] || []) : []
+  const historyTasks = historyLeadData?.tasks || []
+  const historyStats = {
+    totalTasks: historyTasks.length,
+    doneTasks: historyTasks.filter(isCompletedTask).length,
+    pendingTasks: historyTasks.filter((task) => !isCompletedTask(task)).length,
+    activities: historyActivities.length,
+  }
+  const historyEvents = [
+    ...historyTasks.map((task) => ({
+      id: `task-${task.id}`,
+      kind: 'task',
+      title: task.title || 'Follow-up task',
+      status: taskStatusLabel(task),
+      description: task.description || '',
+      owner: task.assignedToName || task.createdByName || historyLeadData?.assignedToName || 'Unassigned',
+      timestamp: task.completedAt || task.dueDate || task.updatedAt || task.createdAt,
+      completed: isCompletedTask(task),
+      priority: task.priority || 'MEDIUM',
+    })),
+    ...historyActivities.map((activity, index) => ({
+      id: `activity-${activity.id || index}`,
+      kind: 'activity',
+      title: activity.activityTitle || activity.activityLabel || 'Lead activity',
+      status: activity.activityLabel || `Activity ${Number(activity.activityIndex ?? index) + 1}`,
+      description: activityNote(activity),
+      owner: activity.assignedTo || historyLeadData?.assignedToName || 'Unassigned',
+      timestamp: activity.savedAt || activity.createdAt || activity.updatedAt,
+      completed: true,
+      priority: 'DONE',
+    })),
+  ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+
+  const openHistoryLead = (lead) => {
+    setHistoryLead(lead)
+    ensureLeadActivities(lead.id)
+  }
 
   return (
     <div className="space-y-6">
@@ -655,6 +738,14 @@ export default function TaskFollowUpPage() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
+                          onClick={() => openHistoryLead(lead)}
+                          className="btn-secondary h-9 px-3 text-xs"
+                        >
+                          <History className="h-3.5 w-3.5" />
+                          History
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setActivitiesLead(lead)}
                           className="btn-primary h-9 px-3 text-xs"
                         >
@@ -753,6 +844,14 @@ export default function TaskFollowUpPage() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
+                            onClick={() => openHistoryLead(lead)}
+                            className="btn-primary h-9 px-3 text-xs"
+                          >
+                            <History className="h-3.5 w-3.5" />
+                            History
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setActivitiesLead(lead)}
                             className="btn-secondary h-9 px-3 text-xs"
                           >
@@ -777,6 +876,123 @@ export default function TaskFollowUpPage() {
           </div>
         )}
       </div>
+
+      {/* Lead History Drawer */}
+      <AnimatePresence>
+        {historyLeadData && (
+          <motion.div
+            className="fixed inset-0 z-50 flex justify-end bg-slate-950/40 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ x: 420 }}
+              animate={{ x: 0 }}
+              exit={{ x: 420 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="h-full w-full max-w-xl overflow-y-auto border-l border-white/40 bg-white/90 p-5 shadow-2xl backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/95"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400">
+                    Lead History
+                  </p>
+                  <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
+                    {historyLeadData.name || 'Unnamed Lead'}
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {[historyLeadData.company, historyLeadData.email, historyLeadData.phone || historyLeadData.phoneNumber || historyLeadData.mobileNumber].filter(Boolean).join(' · ') || 'No contact details'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setHistoryLead(null)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  aria-label="Close history"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ['Tasks', historyStats.totalTasks, 'Total'],
+                  ['Done', historyStats.doneTasks, 'Completed'],
+                  ['Pending', historyStats.pendingTasks, 'Open'],
+                  ['Activities', historyStats.activities, 'Saved'],
+                ].map(([label, value, helper]) => (
+                  <div key={label} className="rounded-2xl border border-white/50 bg-white/55 p-3 dark:border-slate-800/70 dark:bg-slate-900/60">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{label}</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
+                    <p className="text-[10px] text-slate-400">{helper}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-200/70 bg-white/60 p-4 dark:border-slate-800/70 dark:bg-slate-900/50">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Timeline</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Tasks and saved lead activities, newest first.</p>
+                  </div>
+                  {historyLoadingLeadId === historyLeadData.id && (
+                    <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
+                  )}
+                </div>
+
+                {historyEvents.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400 dark:border-slate-800">
+                    No task or activity history found for this lead.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {historyEvents.map((event) => {
+                      const isTask = event.kind === 'task'
+                      return (
+                        <div key={event.id} className="flex gap-3 rounded-2xl border border-slate-200/70 bg-white/70 p-3 dark:border-slate-800/70 dark:bg-slate-950/40">
+                          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                            isTask
+                              ? event.completed
+                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                : 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400'
+                              : 'bg-brand-50 text-brand-600 dark:bg-brand-950/30 dark:text-brand-300'
+                          }`}>
+                            {isTask ? <ClipboardList className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{event.title}</p>
+                              <span className={`badge text-[10px] ${
+                                event.completed
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+                              }`}>
+                                {event.status}
+                              </span>
+                            </div>
+                            {event.description && (
+                              <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{event.description}</p>
+                            )}
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                              <span className="inline-flex items-center gap-1">
+                                <User className="h-3 w-3" /> {event.owner}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <CalendarDays className="h-3 w-3" /> {formatDateTime(event.timestamp)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Lead Activities Modal */}
       <AnimatePresence>
