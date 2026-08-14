@@ -103,6 +103,13 @@ const parseApiError = (err) => {
     }
     return 'Access denied (403). You may not have permission for this action.'
   }
+  if (data && typeof data === 'object' && data.fieldErrors && typeof data.fieldErrors === 'object') {
+    const details = Object.entries(data.fieldErrors)
+      .map(([field, message]) => `${field}: ${message}`)
+      .join(', ')
+    const msg = data.message || data.error || 'Validation failed'
+    return details ? `${msg} — ${details}` : String(msg)
+  }
   if (typeof data === 'string' && data.trim()) return data.trim()
   if (data && typeof data === 'object') {
     const msg = data.message || data.error

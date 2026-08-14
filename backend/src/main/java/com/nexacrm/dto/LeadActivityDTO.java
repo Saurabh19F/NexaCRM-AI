@@ -1,7 +1,6 @@
 package com.nexacrm.dto;
 
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 import lombok.AllArgsConstructor;
@@ -28,7 +27,6 @@ public class LeadActivityDTO {
     private String activityId;
     private String activityLabel;
     private String activityTitle;
-    @NotBlank(message = "Assigned To is required")
     private String assignedTo;
     private String summary;
     private Map<String, Object> values;
