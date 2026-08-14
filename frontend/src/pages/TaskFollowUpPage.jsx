@@ -43,7 +43,7 @@ const TABS = [
 const ACTIVITY_DEFS = [
   { idx: 0, id: 'act01', label: 'Activity 01', title: 'Welcome Call', icon: Phone, color: 'red' },
   { idx: 1, id: 'act02', label: 'Activity 02', title: 'Follow Up for Meeting', icon: Clock, color: 'blue' },
-  { idx: 2, id: 'act03', label: 'Activity 03', title: 'Meeting', icon: Users, color: 'sky' },
+  { idx: 2, id: 'act03', label: 'Activity 03', title: 'Allowed Person for Meeting', icon: Users, color: 'sky' },
   { idx: 3, id: 'act04', label: 'Activity 04', title: 'Meeting Outcome', icon: Trophy, color: 'green' },
 ]
 
@@ -71,33 +71,76 @@ const COLOR_MAP = {
 }
 
 const normalizeOutcome = (v) => String(v || '').trim().toLowerCase()
+const normalizeStatusText = (v) => normalizeOutcome(v).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+
+const activityTimestamp = (activity, fallback = 0) => {
+  const time = new Date(activity?.savedAt || activity?.createdAt || activity?.updatedAt || 0).getTime()
+  return Number.isNaN(time) ? fallback : time
+}
+
+const getActivityIndex = (activity) => {
+  const numeric = Number(activity?.activityIndex)
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 3) return numeric
+
+  const label = `${activity?.activityLabel || ''} ${activity?.activityTitle || ''} ${activity?.summary || ''}`.toLowerCase()
+  if (label.includes('01') || label.includes('welcome call') || label.includes('call outcome')) return 0
+  if (label.includes('02') || label.includes('follow up for meeting')) return 1
+  if (label.includes('03') || label.includes('allowed person')) return 2
+  if (label.includes('04') || label.includes('meeting outcome')) return 3
+  return -1
+}
+
+const getStageStatus = (stageIdx, values = {}) => {
+  const status = normalizeStatusText(values.status || values.connectionStatus || values.callOutcome || values.outcome || values.meetingStatus || '')
+  if (stageIdx === 0) {
+    if (status === 'connected') return 'connected'
+    if (status === 'not connected' || status === 'non connected' || status === 'no answer') return 'not_connected'
+    return 'done'
+  }
+  if (stageIdx === 1) {
+    if (status === 'meeting') return 'meeting'
+    if (status === 'follow up' || status === 'followup') return 'follow_up'
+    if (status === 'not interested') return 'not_interested'
+    return 'done'
+  }
+  if (stageIdx === 2) {
+    if (status === 'successful' || status === 'success') return 'successful'
+    if (status === 'reschedule' || status === 'rescheduled' || status === 'failed' || status === 'failure') return 'reschedule'
+    return 'done'
+  }
+  if (stageIdx === 3) {
+    if (status === 'won' || status === 'win' || status === 'closed won') return 'won'
+    if (status === 'lost' || status === 'close lost' || status === 'closed lost') return 'lost'
+    if (status === 'negotiation') return 'negotiation'
+    if (status === 'hold' || status === 'follow up' || status === 'followup') return 'hold'
+    if (status === 'pending' || status === 'pending review' || status === 'pending decision') return 'pending_review'
+    return 'done'
+  }
+  return 'done'
+}
 
 function parseLeadActivities(activities) {
   const stages = [null, null, null, null]
   const stageValues = [{}, {}, {}, {}]
+  let latestActivity = null
+  let currentStage = -1
 
   for (const act of activities) {
-    const label = (act.activityLabel || act.activityTitle || '').toLowerCase()
-    const summary = (act.summary || '').toLowerCase()
-    let idx = -1
-    if (label.includes('01') || label.includes('welcome call') || label.includes('call outcome')) idx = 0
-    else if (label.includes('02') || label.includes('follow up for meeting')) idx = 1
-    else if (label.includes('03') || label.includes('allowed person')) idx = 2
-    else if (label.includes('04') || label.includes('meeting outcome')) idx = 3
+    const idx = getActivityIndex(act)
 
     if (idx >= 0) {
-      const ts = new Date(act.savedAt || act.createdAt || 0).getTime()
+      const ts = activityTimestamp(act)
       const prev = stages[idx]
-      if (!prev || ts > new Date(prev.savedAt || prev.createdAt || 0).getTime()) {
+      if (!prev || ts > activityTimestamp(prev)) {
         stages[idx] = act
         stageValues[idx] = act.values || {}
       }
-    }
-  }
 
-  let currentStage = -1
-  for (let i = 3; i >= 0; i--) {
-    if (stages[i]) { currentStage = i; break }
+      if (!latestActivity || ts > activityTimestamp(latestActivity)) {
+        latestActivity = act
+        currentStage = idx
+      }
+    }
   }
 
   let isCompleted = false
@@ -106,61 +149,35 @@ function parseLeadActivities(activities) {
   let finalPrice = null
   let lostCategory = null
 
-  if (stages[3]) {
-    const v = stageValues[3]
-    const status = normalizeOutcome(v.status)
+  if (currentStage === 3 && latestActivity) {
+    const v = latestActivity.values || {}
+    const status = normalizeStatusText(v.status || v.outcome)
     if (status === 'won' || status === 'win' || status === 'closed won') {
       isCompleted = true
       outcome = 'Won'
-      completedAt = stages[3].savedAt || stages[3].createdAt
+      completedAt = latestActivity.savedAt || latestActivity.createdAt
       finalPrice = v.meetingPriceFinal || null
     } else if (status === 'lost' || status === 'close lost' || status === 'closed lost') {
       isCompleted = true
       outcome = 'Lost'
-      completedAt = stages[3].savedAt || stages[3].createdAt
+      completedAt = latestActivity.savedAt || latestActivity.createdAt
       lostCategory = v.lostCategory || null
     }
   }
 
   const stageStatuses = stages.map((s, i) => {
     if (!s) return 'not_started'
-    const v = stageValues[i]
-    const status = normalizeOutcome(v.status || v.connectionStatus || v.callOutcome || '')
-    if (i === 0) {
-      if (status === 'connected') return 'connected'
-      if (status === 'non connected') return 'non_connected'
-      return 'done'
-    }
-    if (i === 1) {
-      if (status === 'meeting') return 'meeting'
-      if (status === 'follow up' || status === 'follow-up' || status === 'followup') return 'follow_up'
-      if (status === 'not interested' || status === 'not_interested') return 'not_interested'
-      return 'done'
-    }
-    if (i === 2) {
-      if (status === 'successful' || status === 'success') return 'successful'
-      if (status === 'failed' || status === 'failure') return 'failed'
-      return 'done'
-    }
-    if (i === 3) {
-      if (status === 'won' || status === 'win' || status === 'closed won') return 'won'
-      if (status === 'lost' || status === 'close lost' || status === 'closed lost') return 'lost'
-      if (status === 'negotiation') return 'negotiation'
-      if (status === 'hold' || status === 'follow up' || status === 'follow-up') return 'hold'
-      if (status === 'pending') return 'pending'
-      return 'done'
-    }
-    return 'done'
+    return getStageStatus(i, stageValues[i])
   })
 
-  return { stages, stageValues, stageStatuses, currentStage, isCompleted, outcome, completedAt, finalPrice, lostCategory }
+  return { stages, stageValues, stageStatuses, currentStage, latestActivity, isCompleted, outcome, completedAt, finalPrice, lostCategory }
 }
 
 function getStatusLabel(stageIdx, status) {
   if (status === 'not_started') return 'Not Started'
   if (stageIdx === 0) {
     if (status === 'connected') return 'Connected'
-    if (status === 'non_connected') return 'Non Connected'
+    if (status === 'not_connected' || status === 'non_connected') return 'Not Connected'
   }
   if (stageIdx === 1) {
     if (status === 'meeting') return 'Meeting'
@@ -169,14 +186,14 @@ function getStatusLabel(stageIdx, status) {
   }
   if (stageIdx === 2) {
     if (status === 'successful') return 'Successful'
-    if (status === 'failed') return 'Failed'
+    if (status === 'reschedule' || status === 'failed') return 'Reschedule'
   }
   if (stageIdx === 3) {
     if (status === 'won') return 'Won'
     if (status === 'lost') return 'Lost'
     if (status === 'negotiation') return 'Negotiation'
     if (status === 'hold') return 'Hold'
-    if (status === 'pending') return 'Pending'
+    if (status === 'pending_review' || status === 'pending') return 'Pending Review'
   }
   return 'Done'
 }
@@ -185,9 +202,9 @@ function getStatusColor(status) {
   if (status === 'not_started') return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
   if (status === 'connected' || status === 'meeting' || status === 'successful' || status === 'won')
     return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-  if (status === 'non_connected' || status === 'not_interested' || status === 'failed' || status === 'lost')
+  if (status === 'not_connected' || status === 'non_connected' || status === 'not_interested' || status === 'reschedule' || status === 'failed' || status === 'lost')
     return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-  if (status === 'follow_up' || status === 'hold' || status === 'negotiation' || status === 'pending')
+  if (status === 'follow_up' || status === 'hold' || status === 'negotiation' || status === 'pending_review' || status === 'pending')
     return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
   return 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
 }
