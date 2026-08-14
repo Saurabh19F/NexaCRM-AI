@@ -309,7 +309,7 @@ export default function TasksPage() {
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Task Queue</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{tasks.length} task{tasks.length === 1 ? '' : 's'} matched</p>
               </div>
-              <Link to="/follow-ups" className="btn-secondary h-9 px-3 text-xs">
+              <Link to="/task-followup" className="btn-secondary h-9 px-3 text-xs">
                 Follow-up timeline
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -367,7 +367,7 @@ export default function TasksPage() {
 
                         <div className="flex flex-wrap items-center gap-2">
                           {task.leadId && (
-                            <Link to={`/follow-ups?leadId=${task.leadId}`} className="btn-secondary h-9 px-3 text-xs">
+                            <Link to="/task-followup" className="btn-secondary h-9 px-3 text-xs">
                               <ArrowRight className="h-4 w-4" />
                               Timeline
                             </Link>

@@ -24,7 +24,7 @@ import {
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import LeadActivitiesModal from '../components/LeadActivitiesModal'
-import { leadsAPI } from '../services/api'
+import { leadsAPI, tasksAPI } from '../services/api'
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -196,6 +196,11 @@ const formatDate = (value) => {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+const isCompletedTask = (task) => {
+  const status = String(task?.status || '').toUpperCase()
+  return status === 'COMPLETED' || status === 'DONE' || status === 'CLOSED'
+}
+
 function ActivityStepper({ stageStatuses, currentStage }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -243,6 +248,7 @@ function ActivityStepper({ stageStatuses, currentStage }) {
 
 export default function TaskFollowUpPage() {
   const [leads, setLeads] = useState([])
+  const [tasks, setTasks] = useState([])
   const [leadActivities, setLeadActivities] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadingActivities, setLoadingActivities] = useState(false)
@@ -250,21 +256,6 @@ export default function TaskFollowUpPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [activitiesLead, setActivitiesLead] = useState(null)
-
-  const loadLeads = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await leadsAPI.getAll({ page: 0, size: 500, sort: 'createdAt,desc' })
-      const rows = unwrapList(response)
-      setLeads(rows)
-      return rows
-    } catch (err) {
-      toast.error(err?.message || 'Unable to load leads')
-      return []
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
   const loadAllActivities = useCallback(async (leadRows) => {
     if (!leadRows.length) return
@@ -291,57 +282,119 @@ export default function TaskFollowUpPage() {
   }, [])
 
   const refresh = useCallback(async () => {
-    const rows = await loadLeads()
-    await loadAllActivities(rows)
-  }, [loadLeads, loadAllActivities])
+    setLoading(true)
+    try {
+      const [leadResponse, taskResponse] = await Promise.all([
+        leadsAPI.getAll({ page: 0, size: 500, sort: 'createdAt,desc' }),
+        tasksAPI.getAll({}),
+      ])
+      const leadRows = unwrapList(leadResponse)
+      const taskRows = unwrapList(taskResponse)
+      const leadById = new Map(leadRows.map((lead) => [lead.id, lead]))
+      const taskLeadRows = Array.from(
+        new Map(
+          taskRows
+            .map((task) => leadById.get(task.leadId))
+            .filter(Boolean)
+            .map((lead) => [lead.id, lead])
+        ).values()
+      )
+
+      setLeads(leadRows)
+      setTasks(taskRows)
+      loadAllActivities(taskLeadRows)
+    } catch (err) {
+      toast.error(err?.message || 'Unable to load task follow-up data')
+    } finally {
+      setLoading(false)
+    }
+  }, [loadAllActivities])
 
   useEffect(() => {
     refresh()
   }, [])
 
   const enrichedLeads = useMemo(() => {
-    return leads.map((lead) => {
+    const leadById = new Map(leads.map((lead) => [lead.id, lead]))
+    const tasksByLead = tasks.reduce((acc, task) => {
+      if (!task.leadId) return acc
+      if (!acc.has(task.leadId)) acc.set(task.leadId, [])
+      acc.get(task.leadId).push(task)
+      return acc
+    }, new Map())
+
+    const baseLeads = tasksByLead.size
+      ? Array.from(tasksByLead.keys()).map((leadId) => leadById.get(leadId) || { id: leadId, name: 'Lead follow-up' })
+      : leads
+
+    return baseLeads.map((lead) => {
       const activities = leadActivities[lead.id] || []
       const parsed = parseLeadActivities(activities)
-      return { ...lead, ...parsed, activityCount: activities.length }
+      const leadTasks = tasksByLead.get(lead.id) || []
+      const pendingTasks = leadTasks.filter((task) => !isCompletedTask(task))
+      const completedTasks = leadTasks.filter(isCompletedTask)
+      const nextTask = [...pendingTasks]
+        .sort((a, b) => new Date(a.dueDate || a.createdAt || 0) - new Date(b.dueDate || b.createdAt || 0))[0]
+      const latestTask = [...leadTasks]
+        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0]
+
+      return {
+        ...lead,
+        ...parsed,
+        activityCount: activities.length,
+        tasks: leadTasks,
+        pendingTaskCount: pendingTasks.length,
+        completedTaskCount: completedTasks.length,
+        nextTask,
+        latestTask,
+        taskDriven: leadTasks.length > 0,
+      }
     })
-  }, [leads, leadActivities])
+  }, [leads, leadActivities, tasks])
 
   const pendingLeads = useMemo(() => {
-    let filtered = enrichedLeads.filter((l) => !l.isCompleted)
+    let filtered = enrichedLeads.filter((l) => (tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted))
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter(
         (l) =>
           (l.name || '').toLowerCase().includes(q) ||
           (l.company || '').toLowerCase().includes(q) ||
-          (l.email || '').toLowerCase().includes(q)
+          (l.email || '').toLowerCase().includes(q) ||
+          (l.nextTask?.title || '').toLowerCase().includes(q)
       )
     }
     if (stageFilter) {
       const idx = Number(stageFilter)
       filtered = filtered.filter((l) => l.currentStage === idx)
     }
-    return filtered
-  }, [enrichedLeads, searchQuery, stageFilter])
+    return filtered.sort((a, b) => new Date(a.nextTask?.dueDate || a.followUpDate || a.createdAt || 0) - new Date(b.nextTask?.dueDate || b.followUpDate || b.createdAt || 0))
+  }, [enrichedLeads, searchQuery, stageFilter, tasks.length])
 
   const completedLeads = useMemo(() => {
-    let filtered = enrichedLeads.filter((l) => l.isCompleted)
+    let filtered = enrichedLeads.filter((l) => (
+      tasks.length
+        ? l.pendingTaskCount === 0 && (l.completedTaskCount > 0 || l.isCompleted)
+        : l.isCompleted
+    ))
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter(
         (l) =>
           (l.name || '').toLowerCase().includes(q) ||
           (l.company || '').toLowerCase().includes(q) ||
-          (l.email || '').toLowerCase().includes(q)
+          (l.email || '').toLowerCase().includes(q) ||
+          (l.latestTask?.title || '').toLowerCase().includes(q)
       )
     }
-    return filtered
-  }, [enrichedLeads, searchQuery])
+    return filtered.sort((a, b) => new Date(b.latestTask?.completedAt || b.completedAt || b.updatedAt || 0) - new Date(a.latestTask?.completedAt || a.completedAt || a.updatedAt || 0))
+  }, [enrichedLeads, searchQuery, tasks.length])
 
   const stats = useMemo(() => {
-    const pending = enrichedLeads.filter((l) => !l.isCompleted)
-    const completed = enrichedLeads.filter((l) => l.isCompleted)
+    const pending = tasks.length ? enrichedLeads.filter((l) => l.pendingTaskCount > 0) : enrichedLeads.filter((l) => !l.isCompleted)
+    const completed = tasks.length
+      ? enrichedLeads.filter((l) => l.pendingTaskCount === 0 && (l.completedTaskCount > 0 || l.isCompleted))
+      : enrichedLeads.filter((l) => l.isCompleted)
     const won = completed.filter((l) => l.outcome === 'Won')
     const lost = completed.filter((l) => l.outcome === 'Lost')
     const totalRevenue = won.reduce((sum, l) => sum + Number(l.finalPrice || 0), 0)
@@ -351,7 +404,7 @@ export default function TaskFollowUpPage() {
       if (l.currentStage >= 0) stageCount[l.currentStage]++
     })
     return { pending: pending.length, completed: completed.length, won: won.length, lost: lost.length, totalRevenue, stageCount, notStarted }
-  }, [enrichedLeads])
+  }, [enrichedLeads, tasks.length])
 
   const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
     const normalizedStatus = normalizeOutcome(values?.callOutcome || values?.connectionStatus || values?.status)
@@ -508,7 +561,7 @@ export default function TaskFollowUpPage() {
         </div>
 
         {/* Content */}
-        {loading || loadingActivities ? (
+        {loading ? (
           <div className="grid gap-3 p-4">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60" />
@@ -555,19 +608,29 @@ export default function TaskFollowUpPage() {
                           )}
                           {lead.currentStage === -1 && (
                             <span className="badge bg-slate-100 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                              Not Started
+                              {lead.taskDriven ? 'Task follow-up' : 'Not Started'}
+                            </span>
+                          )}
+                          {lead.pendingTaskCount > 0 && (
+                            <span className="badge bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                              {lead.pendingTaskCount} open task{lead.pendingTaskCount === 1 ? '' : 's'}
                             </span>
                           )}
                         </div>
+                        {lead.nextTask?.title && (
+                          <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                            {lead.nextTask.title}
+                          </p>
+                        )}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                           {lead.assignedToName && (
                             <span className="inline-flex items-center gap-1">
                               <User className="h-3 w-3" /> {lead.assignedToName}
                             </span>
                           )}
-                          {lead.followUpDate && (
+                          {(lead.nextTask?.dueDate || lead.followUpDate) && (
                             <span className="inline-flex items-center gap-1">
-                              <CalendarDays className="h-3 w-3" /> {formatDate(lead.followUpDate)}
+                              <CalendarDays className="h-3 w-3" /> {formatDate(lead.nextTask?.dueDate || lead.followUpDate)}
                             </span>
                           )}
                           {lead.email && (
@@ -631,18 +694,28 @@ export default function TaskFollowUpPage() {
                               }`}
                             >
                               {isWon ? <CheckCircle2 className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
-                              {lead.outcome}
+                              {lead.outcome || 'Completed'}
                             </span>
+                            {lead.completedTaskCount > 0 && (
+                              <span className="badge bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                                {lead.completedTaskCount} task{lead.completedTaskCount === 1 ? '' : 's'} done
+                              </span>
+                            )}
                           </div>
+                          {lead.latestTask?.title && (
+                            <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {lead.latestTask.title}
+                            </p>
+                          )}
                           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                             {lead.assignedToName && (
                               <span className="inline-flex items-center gap-1">
                                 <User className="h-3 w-3" /> {lead.assignedToName}
                               </span>
                             )}
-                            {lead.completedAt && (
+                            {(lead.latestTask?.completedAt || lead.completedAt) && (
                               <span className="inline-flex items-center gap-1">
-                                <CalendarDays className="h-3 w-3" /> {formatDate(lead.completedAt)}
+                                <CalendarDays className="h-3 w-3" /> {formatDate(lead.latestTask?.completedAt || lead.completedAt)}
                               </span>
                             )}
                             {lead.email && (
@@ -697,9 +770,10 @@ export default function TaskFollowUpPage() {
         )}
 
         {/* Footer count */}
-        {!loading && !loadingActivities && displayLeads.length > 0 && (
+        {!loading && displayLeads.length > 0 && (
           <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-slate-800/50 dark:text-slate-400">
             Showing {displayLeads.length} lead{displayLeads.length === 1 ? '' : 's'}
+            {loadingActivities ? ' · loading activity progress…' : ''}
           </div>
         )}
       </div>
