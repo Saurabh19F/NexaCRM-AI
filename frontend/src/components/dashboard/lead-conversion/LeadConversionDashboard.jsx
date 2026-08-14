@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Area, AreaChart, Bar, BarChart, Cell, ComposedChart, Legend, Line,
@@ -10,7 +11,7 @@ import {
   Globe2, Layers3, LineChart as LineChartIcon, Repeat2, Sparkles,
   Target, TrendingDown, TrendingUp, Users, UserCheck
 } from 'lucide-react'
-import { dashboardAPI } from '../../../services/api'
+import { dashboardAPI, tasksAPI } from '../../../services/api'
 import { useAuthStore } from '../../../store/authStore'
 
 const DATE_FILTERS = [
@@ -214,6 +215,44 @@ const formatActivityTime = (value) => {
   return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+const unwrapList = (payload) => {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.content)) return payload.content
+  return []
+}
+
+const toDateKey = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+const startOfLocalDay = (value = new Date()) => {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+const getLocalWeekRange = () => {
+  const start = startOfLocalDay()
+  const day = start.getDay()
+  const diffToMonday = day === 0 ? -6 : 1 - day
+  start.setDate(start.getDate() + diffToMonday)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+  return { start, end }
+}
+
+const isOpenFollowUpTask = (task) => {
+  const status = String(task?.status || '').toUpperCase()
+  if (status === 'COMPLETED' || status === 'DONE' || status === 'CLOSED') return false
+  const text = [task?.type, task?.title, task?.description].filter(Boolean).join(' ').toLowerCase()
+  return Boolean(task?.leadId) || text.includes('follow') || text.includes('callback')
+}
+
 export default function LeadConversionDashboard() {
   const { user } = useAuthStore()
   const isFullAccess = ['COMPANY_ADMIN', 'ADMIN', 'MANAGER'].includes(user?.role) || user?.role === 'PLATFORM_ADMIN'
@@ -232,6 +271,8 @@ export default function LeadConversionDashboard() {
   const [sources, setSources] = useState([])
   const [activities, setActivities] = useState([])
   const [trend, setTrend] = useState([])
+  const [followUpTasks, setFollowUpTasks] = useState([])
+  const [followUpError, setFollowUpError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -274,6 +315,9 @@ export default function LeadConversionDashboard() {
         setLoading(true)
         setError('')
       }
+      const followUpPromise = tasksAPI.getAll({ status: 'PENDING' })
+        .then((response) => ({ rows: unwrapList(response), error: '' }))
+        .catch((err) => ({ rows: [], error: err?.message || 'Unable to load follow-ups' }))
       try {
         const employeeParams = { ...requestParams, sortBy, sortDir }
         const [summaryRes, funnelRes, employeesRes, sourcesRes, activitiesRes, trendRes] = await Promise.all([
@@ -293,6 +337,11 @@ export default function LeadConversionDashboard() {
         setActivities(Array.isArray(activitiesRes) ? activitiesRes : [])
         setTrend(Array.isArray(trendRes) ? trendRes : [])
         setLastUpdated(new Date().toISOString())
+
+        const followUpResult = await followUpPromise
+        if (!mounted || controller.signal.aborted) return
+        setFollowUpTasks(followUpResult.rows)
+        setFollowUpError(followUpResult.error)
       } catch (err) {
         if (!mounted || controller.signal.aborted) return
         setError(err?.message || 'Failed to load lead conversion dashboard')
@@ -384,6 +433,30 @@ export default function LeadConversionDashboard() {
     boundedActivityPage * ACTIVITY_PAGE_SIZE,
     boundedActivityPage * ACTIVITY_PAGE_SIZE + ACTIVITY_PAGE_SIZE
   )
+
+  const followUpSnapshot = useMemo(() => {
+    const now = new Date()
+    const todayKey = toDateKey(now)
+    const yesterday = new Date(now)
+    yesterday.setDate(now.getDate() - 1)
+    const yesterdayKey = toDateKey(yesterday)
+    const { start: weekStart, end: weekEnd } = getLocalWeekRange()
+
+    const rows = followUpTasks
+      .filter(isOpenFollowUpTask)
+      .filter((task) => Boolean(task?.dueDate))
+      .sort((a, b) => new Date(a.dueDate || 0) - new Date(b.dueDate || 0))
+
+    const today = rows.filter((task) => toDateKey(task.dueDate) === todayKey)
+    const yesterdayRows = rows.filter((task) => toDateKey(task.dueDate) === yesterdayKey)
+    const thisWeek = rows.filter((task) => {
+      const due = new Date(task.dueDate)
+      return !Number.isNaN(due.getTime()) && due >= weekStart && due <= weekEnd
+    })
+    const upcoming = [...today, ...thisWeek.filter((task) => toDateKey(task.dueDate) !== todayKey)].slice(0, 4)
+
+    return { today, yesterday: yesterdayRows, thisWeek, upcoming }
+  }, [followUpTasks])
 
   const onSort = (key) => {
     setSortBy((prev) => {
@@ -797,7 +870,68 @@ export default function LeadConversionDashboard() {
             )}
           </div>
 
-          {/* ── #5: Employee Performance — compact leaderboard ── */}
+          {/* ── #5: Follow-up Snapshot ── */}
+          <div className="glass-card p-3 sm:p-4">
+            <SectionShell
+              title="Follow-up Snapshot"
+              icon={Clock3}
+              subtitle="Today, yesterday, and this week's open follow-ups."
+              action={(
+                <Link to="/task-followup" className="text-[11px] font-semibold text-brand-600 hover:underline dark:text-brand-400">
+                  View all
+                </Link>
+              )}
+            />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                ['Today', followUpSnapshot.today.length, 'Due today', 'from-cyan-500 to-sky-600'],
+                ['Yesterday', followUpSnapshot.yesterday.length, 'Missed yesterday', 'from-amber-500 to-orange-600'],
+                ['This Week', followUpSnapshot.thisWeek.length, 'Due this week', 'from-emerald-500 to-teal-600'],
+              ].map(([label, value, helper, color]) => (
+                <div key={label} className="rounded-xl border border-white/45 bg-white/35 px-3 py-2.5 dark:border-slate-700/45 dark:bg-slate-900/35">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{label}</p>
+                    <span className={`h-2 w-8 rounded-full bg-gradient-to-r ${color}`} />
+                  </div>
+                  <p className="mt-1 text-2xl font-bold leading-none text-slate-900 dark:text-slate-50">{prettyNumber(value)}</p>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{helper}</p>
+                </div>
+              ))}
+            </div>
+
+            {followUpError ? (
+              <div className="mt-2 rounded-xl border border-amber-200/70 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                Follow-up data unavailable: {followUpError}
+              </div>
+            ) : followUpSnapshot.upcoming.length ? (
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+                {followUpSnapshot.upcoming.map((task) => (
+                  <Link
+                    key={task.id}
+                    to="/task-followup"
+                    className="rounded-xl border border-white/40 bg-white/30 px-3 py-2 transition-colors hover:bg-white/55 dark:border-slate-700/40 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{task.title || 'Follow-up task'}</p>
+                      <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[9px] font-bold text-brand-700 dark:bg-brand-950/30 dark:text-brand-300">
+                        {task.priority || 'MEDIUM'}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                      <span className="truncate">{task.assignedToName || task.createdByName || 'Unassigned'}</span>
+                      <span className="shrink-0">{formatActivityTime(task.dueDate)}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-2 rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                No open follow-ups due today, yesterday, or this week.
+              </div>
+            )}
+          </div>
+
+          {/* ── #6: Employee Performance — compact leaderboard ── */}
           <div className="glass-card p-3 sm:p-4">
             <SectionShell
               title="Employee Performance"
