@@ -139,22 +139,22 @@ function MetricCard({ item, metric, sparkline = [] }) {
   const hasSparkline = sparkline.some((point) => Number(point.value || 0) > 0)
   const stroke = positive ? '#10b981' : '#f43f5e'
   return (
-    <div className="kpi-card flex min-h-[76px] flex-col gap-1 overflow-hidden px-2 py-1.5 sm:px-2.5 sm:py-2">
-      <div className="flex items-start gap-2">
-        <div className={`h-7 w-7 shrink-0 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-          <Icon className="h-3 w-3 text-white" />
+    <div className="kpi-card flex min-h-[112px] flex-col gap-2.5 overflow-hidden px-3 py-3 sm:px-4 sm:py-3.5">
+      <div className="flex items-start gap-3">
+        <div className={`h-12 w-12 shrink-0 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+          <Icon className="h-5 w-5 text-white" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{item.title}</p>
-          <p className="text-xl font-bold leading-none text-slate-900 dark:text-slate-50">
+          <p className="truncate text-[12px] font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{item.title}</p>
+          <p className="mt-1 text-4xl font-bold leading-none text-slate-900 dark:text-slate-50">
             {metricValue(metric, { currency: item.currency, percent: item.percent })}
           </p>
         </div>
-        <span className={`shrink-0 text-[9px] font-semibold leading-none ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+        <span className={`shrink-0 text-sm font-bold leading-none ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
           {positive ? '↗' : '↘'}{prettyPercent(Math.abs(change))}
         </span>
       </div>
-      <div className="h-5 w-full">
+      <div className="h-10 w-full">
         {hasSparkline ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={sparkline} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
@@ -162,7 +162,7 @@ function MetricCard({ item, metric, sparkline = [] }) {
                 type="monotone"
                 dataKey="value"
                 stroke={stroke}
-                strokeWidth={1.8}
+                strokeWidth={2.8}
                 fill={stroke}
                 fillOpacity={0.12}
                 dot={false}
@@ -171,7 +171,7 @@ function MetricCard({ item, metric, sparkline = [] }) {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center rounded-md bg-slate-100/50 px-1.5 text-[9px] font-medium text-slate-400 dark:bg-slate-800/40 dark:text-slate-500">
+          <div className="flex h-full items-center rounded-lg bg-slate-100/50 px-2 text-[10px] font-medium text-slate-400 dark:bg-slate-800/40 dark:text-slate-500">
             No trend yet
           </div>
         )}
@@ -196,7 +196,7 @@ function SectionShell({ title, icon: Icon, subtitle, action }) {
 }
 
 function LoadingCard() {
-  return <div className="h-[76px] w-full rounded-xl border border-white/40 bg-white/30 backdrop-blur-sm dark:border-slate-700/40 dark:bg-slate-800/30 animate-pulse" />
+  return <div className="h-[112px] w-full rounded-xl border border-white/40 bg-white/30 backdrop-blur-sm dark:border-slate-700/40 dark:bg-slate-800/30 animate-pulse" />
 }
 
 function ChartEmptyState({ label }) {
@@ -484,7 +484,7 @@ export default function LeadConversionDashboard() {
       )}
 
       {loading && (
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, index) => <LoadingCard key={index} />)}
         </div>
       )}
@@ -492,7 +492,7 @@ export default function LeadConversionDashboard() {
       {!loading && (
         <>
           {/* ── KPI Cards — uniform glass tiles ── */}
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {PRIMARY_CARDS.map((item) => (
               <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
             ))}
@@ -516,7 +516,7 @@ export default function LeadConversionDashboard() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                   {SECONDARY_CARDS.map((item) => (
                     <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
                   ))}
