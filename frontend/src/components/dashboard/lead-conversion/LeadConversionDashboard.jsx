@@ -58,22 +58,19 @@ const STAGE_COLORS = {
   LOST: '#ef4444',
 }
 
-const PRIMARY_CARDS = [
+const KPI_CARDS = [
   { key: 'totalLeads', title: 'Total Leads', icon: Users, color: 'from-brand-500 to-accent-500' },
   { key: 'newLeads', title: 'New Leads', icon: Sparkles, color: 'from-cyan-500 to-brand-500' },
-  { key: 'convertedLeads', title: 'Converted', icon: UserCheck, color: 'from-emerald-500 to-teal-600' },
-  { key: 'conversionRate', title: 'Conv. Rate', icon: TrendingUp, color: 'from-emerald-500 to-teal-600', percent: true },
-  { key: 'revenueFromConvertedLeads', title: 'Revenue', icon: FolderClock, color: 'from-cyan-500 to-blue-600', currency: true },
-]
-
-const SECONDARY_CARDS = [
   { key: 'assignedLeads', title: 'Assigned', icon: Repeat2, color: 'from-cyan-500 to-sky-600' },
   { key: 'contactedLeads', title: 'Contacted', icon: Activity, color: 'from-cyan-500 to-sky-600' },
   { key: 'interestedLeads', title: 'Interested', icon: Globe2, color: 'from-emerald-500 to-teal-600' },
   { key: 'qualifiedLeads', title: 'Qualified', icon: Target, color: 'from-emerald-500 to-green-600' },
   { key: 'proposalSentLeads', title: 'Proposal Sent', icon: LineChartIcon, color: 'from-orange-500 to-amber-600' },
+  { key: 'convertedLeads', title: 'Converted', icon: UserCheck, color: 'from-emerald-500 to-teal-600' },
   { key: 'lostLeads', title: 'Lost', icon: TrendingDown, color: 'from-rose-500 to-red-600' },
   { key: 'pendingFollowUps', title: 'Pending Follow-ups', icon: Clock3, color: 'from-amber-500 to-orange-600' },
+  { key: 'conversionRate', title: 'Conv. Rate', icon: TrendingUp, color: 'from-emerald-500 to-teal-600', percent: true },
+  { key: 'revenueFromConvertedLeads', title: 'Revenue', icon: FolderClock, color: 'from-cyan-500 to-blue-600', currency: true },
 ]
 
 const SPARKLINE_ACCESSORS = {
@@ -236,7 +233,6 @@ export default function LeadConversionDashboard() {
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
-  const [showSecondaryCards, setShowSecondaryCards] = useState(false)
   const [expandedEmployee, setExpandedEmployee] = useState(null)
 
   const trendGranularity = useMemo(() => getTrendGranularity(filter, startDate, endDate), [filter, startDate, endDate])
@@ -364,7 +360,7 @@ export default function LeadConversionDashboard() {
   const kpiSparklines = useMemo(() => {
     const series = {}
     const rows = Array.isArray(trend) ? trend : []
-    for (const item of [...PRIMARY_CARDS, ...SECONDARY_CARDS]) {
+    for (const item of KPI_CARDS) {
       const accessor = SPARKLINE_ACCESSORS[item.key] || (() => 0)
       series[item.key] = rows.map((row) => ({
         label: row.label || row.bucketKey,
@@ -484,46 +480,19 @@ export default function LeadConversionDashboard() {
       )}
 
       {loading && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => <LoadingCard key={index} />)}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, index) => <LoadingCard key={index} />)}
         </div>
       )}
 
       {!loading && (
         <>
-          {/* ── KPI Cards — uniform glass tiles ── */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {PRIMARY_CARDS.map((item) => (
+          {/* ── KPI Cards — all live tiles, 6 + 6 on desktop ── */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            {KPI_CARDS.map((item) => (
               <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
             ))}
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowSecondaryCards((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 transition-colors"
-          >
-            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showSecondaryCards ? 'rotate-90' : ''}`} />
-            {showSecondaryCards ? 'Hide' : 'Show'} pipeline breakdown ({SECONDARY_CARDS.length} metrics)
-          </button>
-
-          <AnimatePresence>
-            {showSecondaryCards && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="overflow-hidden"
-              >
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-                  {SECONDARY_CARDS.map((item) => (
-                    <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* ── Funnel + Trend ── */}
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
