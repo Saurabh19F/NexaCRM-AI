@@ -6,7 +6,7 @@ import {
   CartesianGrid, FunnelChart, Funnel, LabelList
 } from 'recharts'
 import {
-  Activity, CalendarDays, ChevronDown, ChevronRight, Clock3, Filter, FolderClock,
+  Activity, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, Filter, FolderClock,
   Globe2, Layers3, LineChart as LineChartIcon, Repeat2, Sparkles,
   Target, TrendingDown, TrendingUp, Users, UserCheck
 } from 'lucide-react'
@@ -72,6 +72,9 @@ const KPI_CARDS = [
   { key: 'conversionRate', title: 'Conv. Rate', icon: TrendingUp, color: 'from-emerald-500 to-teal-600', percent: true },
   { key: 'revenueFromConvertedLeads', title: 'Revenue', icon: FolderClock, color: 'from-cyan-500 to-blue-600', currency: true },
 ]
+
+const ACTIVITY_PAGE_SIZE = 8
+const ACTIVITY_FETCH_LIMIT = 32
 
 const SPARKLINE_ACCESSORS = {
   totalLeads: (row) => Number(row.leadCount || 0),
@@ -234,6 +237,7 @@ export default function LeadConversionDashboard() {
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const [expandedEmployee, setExpandedEmployee] = useState(null)
+  const [activityPage, setActivityPage] = useState(0)
 
   const trendGranularity = useMemo(() => getTrendGranularity(filter, startDate, endDate), [filter, startDate, endDate])
 
@@ -277,7 +281,7 @@ export default function LeadConversionDashboard() {
           dashboardAPI.getLeadConversionFunnel(requestParams),
           dashboardAPI.getLeadConversionEmployees(employeeParams),
           dashboardAPI.getLeadConversionSources(requestParams),
-          dashboardAPI.getLeadConversionActivities({ ...requestParams, limit: 12 }),
+          dashboardAPI.getLeadConversionActivities({ ...requestParams, limit: ACTIVITY_FETCH_LIMIT }),
           dashboardAPI.getLeadConversionTrend({ ...requestParams, granularity: trendGranularity }),
         ])
 
@@ -308,6 +312,10 @@ export default function LeadConversionDashboard() {
       window.clearInterval(id)
     }
   }, [requestParams, sortBy, sortDir, trendGranularity, refreshTick])
+
+  useEffect(() => {
+    setActivityPage(0)
+  }, [filter, startDate, endDate, employeeId, status])
 
   const employeeOptions = useMemo(() => {
     if (!isFullAccess) return []
@@ -369,6 +377,13 @@ export default function LeadConversionDashboard() {
     }
     return series
   }, [trend])
+
+  const activityTotalPages = Math.max(1, Math.ceil(activities.length / ACTIVITY_PAGE_SIZE))
+  const boundedActivityPage = Math.min(activityPage, activityTotalPages - 1)
+  const pagedActivities = activities.slice(
+    boundedActivityPage * ACTIVITY_PAGE_SIZE,
+    boundedActivityPage * ACTIVITY_PAGE_SIZE + ACTIVITY_PAGE_SIZE
+  )
 
   const onSort = (key) => {
     setSortBy((prev) => {
@@ -716,6 +731,31 @@ export default function LeadConversionDashboard() {
               title="Lead Activity Timeline"
               icon={CalendarDays}
               subtitle="Latest lifecycle events."
+              action={activities.length > ACTIVITY_PAGE_SIZE ? (
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="hidden text-slate-400 sm:inline">
+                    {boundedActivityPage + 1}/{activityTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActivityPage((page) => Math.max(0, page - 1))}
+                    disabled={boundedActivityPage === 0}
+                    aria-label="Previous activities"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/50 bg-white/45 text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/50 dark:bg-slate-900/45 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivityPage((page) => Math.min(activityTotalPages - 1, page + 1))}
+                    disabled={boundedActivityPage >= activityTotalPages - 1}
+                    aria-label="Next activities"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/50 bg-white/45 text-slate-500 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700/50 dark:bg-slate-900/45 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : null}
             />
             {activities.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center dark:border-slate-700">
@@ -724,8 +764,8 @@ export default function LeadConversionDashboard() {
                 <p className="text-xs text-slate-400 dark:text-slate-500">Activities will appear here as leads move through the pipeline.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                {activities.map((item) => {
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {pagedActivities.map((item) => {
                   const stageColor = STAGE_COLORS[item.newStatus] || '#7c3aed'
                   return (
                     <div
