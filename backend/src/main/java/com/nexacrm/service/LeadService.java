@@ -1185,17 +1185,33 @@ public class LeadService {
                 }
                 Optional<Lead> existingByFbId = leadRepository.findByFacebookLeadIdAndTenantIdAndDeletedFalse(leadgenId, tenantId());
                 if (existingByFbId.isPresent()) {
-                    // Backfill phone if it was missing from a previous sync
+                    // Backfill Facebook lead details that may be missing from a previous sync.
                     Lead ex = existingByFbId.get();
+                    boolean changed = false;
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> fd = rawLead.get("field_data") instanceof List<?>
+                        ? (List<Map<String, Object>>) rawLead.get("field_data") : List.of();
+
                     if (ex.getPhone() == null || ex.getPhone().isBlank()) {
-                        @SuppressWarnings("unchecked")
-                        List<Map<String, Object>> fd = rawLead.get("field_data") instanceof List<?>
-                            ? (List<Map<String, Object>>) rawLead.get("field_data") : List.of();
                         String ph = extractFieldValue(fd, "phone_number", "phone", "mobile_number", "mobile", "whatsapp_number");
                         if (ph != null && !ph.isBlank()) {
                             ex.setPhone(normalizePhone(ph));
-                            leadRepository.save(ex);
+                            changed = true;
                         }
+                    }
+
+                    if (ex.getNotes() == null || ex.getNotes().isBlank()) {
+                        String adId = trim(String.valueOf(rawLead.get("ad_id")));
+                        String responseFormId = trim(String.valueOf(rawLead.get("form_id")));
+                        String resolvedFormId = responseFormId != null && !responseFormId.isBlank() ? responseFormId : formId;
+                        Map<String, Object> enrichedPayload = new HashMap<>(rawLead);
+                        enrichedPayload.putIfAbsent("form_name", formName);
+                        ex.setNotes(buildFacebookWebhookNotes(resolvedFormId, adId, enrichedPayload));
+                        changed = true;
+                    }
+
+                    if (changed) {
+                        leadRepository.save(ex);
                     }
                     skipped++;
                     continue;
