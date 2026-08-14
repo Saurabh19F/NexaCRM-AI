@@ -34,8 +34,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class LeadActivityService {
-    private static final int BULK_ACTIVITIES_PER_LEAD = 8;
-
     private Long tenantId() {
         return TenantContext.currentTenantId();
     }
@@ -106,13 +104,16 @@ public class LeadActivityService {
                 .append("deleted", false)
                 .append("lead_id", new Document("$in", new ArrayList<>(visibleLeadIds)))),
             new Document("$sort", new Document("lead_id", 1)
+                .append("activity_index", 1)
                 .append("saved_at", -1)
                 .append("createdAt", -1)),
-            new Document("$group", new Document("_id", "$lead_id")
-                .append("activities", new Document("$push", "$$ROOT"))),
-            new Document("$project", new Document("activities", new Document("$slice", List.of("$activities", BULK_ACTIVITIES_PER_LEAD)))),
-            new Document("$unwind", "$activities"),
-            new Document("$replaceRoot", new Document("newRoot", "$activities"))
+            new Document("$group", new Document("_id", new Document("leadId", "$lead_id")
+                    .append("activityIndex", "$activity_index"))
+                .append("activity", new Document("$first", "$$ROOT"))),
+            new Document("$replaceRoot", new Document("newRoot", "$activity")),
+            new Document("$sort", new Document("lead_id", 1)
+                .append("saved_at", -1)
+                .append("createdAt", -1))
         );
 
         List<LeadActivity> activities = new ArrayList<>();

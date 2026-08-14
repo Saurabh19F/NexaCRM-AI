@@ -28,6 +28,17 @@ public class MongoIndexInitializer {
                 .named("lead_activity_tenant_deleted_lead_saved_idx")
         );
 
+        mongoTemplate.indexOps(LeadActivity.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("lead_id", Sort.Direction.ASC)
+                .on("activity_index", Sort.Direction.ASC)
+                .on("saved_at", Sort.Direction.DESC)
+                .background()
+                .named("lead_activity_bulk_stage_preview_idx")
+        );
+
         log.info("Mongo operational indexes verified");
     }
 }

@@ -328,11 +328,45 @@ export default function TaskFollowUpPage() {
     }
     setLoadingActivities(true)
     try {
-      const bulkResponse = await leadsAPI.getActivitiesBulk(leadIds)
       const results = leadIds.reduce((acc, leadId) => {
-        acc[leadId] = unwrapList(bulkResponse?.[leadId])
+        acc[leadId] = []
         return acc
       }, {})
+      const bulkBatchSize = 50
+      const bulkBatches = []
+      for (let i = 0; i < leadIds.length; i += bulkBatchSize) {
+        bulkBatches.push(leadIds.slice(i, i + bulkBatchSize))
+      }
+
+      const responses = await Promise.allSettled(
+        bulkBatches.map((batch) => leadsAPI.getActivitiesBulk(batch))
+      )
+      const failedLeadIds = []
+      responses.forEach((res, index) => {
+        const batch = bulkBatches[index]
+        if (res.status === 'fulfilled') {
+          const payload = res.value || {}
+          batch.forEach((leadId) => {
+            results[leadId] = unwrapList(payload[leadId])
+          })
+        } else {
+          failedLeadIds.push(...batch)
+        }
+      })
+
+      if (failedLeadIds.length) {
+        for (let i = 0; i < failedLeadIds.length; i += 10) {
+          const batch = failedLeadIds.slice(i, i + 10)
+          const fallbackResponses = await Promise.allSettled(
+            batch.map((leadId) => leadsAPI.getActivities(leadId))
+          )
+          fallbackResponses.forEach((res, j) => {
+            const leadId = batch[j]
+            results[leadId] = res.status === 'fulfilled' ? unwrapList(res.value) : []
+          })
+        }
+      }
+
       setLeadActivities(results)
     } catch (err) {
       const results = {}
