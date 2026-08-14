@@ -147,7 +147,7 @@ public class LeadActivityService {
 
         if (activityIndex == 0) {
             if (containsAny(status, "not interested", "not_interested")) return Lead.LeadStatus.LOST;
-            if (containsAny(status, "connected", "non connected", "no answer", "callback", "busy", "wrong number", "done")) return Lead.LeadStatus.CONTACTED;
+            if (containsAny(status, "connected", "not connected", "non connected", "no answer", "callback", "busy", "wrong number", "done")) return Lead.LeadStatus.CONTACTED;
             return null;
         }
         if (activityIndex == 1) {
@@ -158,13 +158,13 @@ public class LeadActivityService {
         }
         if (activityIndex == 2) {
             if (containsAny(status, "success")) return Lead.LeadStatus.PROPOSAL;
-            if (containsAny(status, "fail")) return Lead.LeadStatus.CONTACTED;
+            if (containsAny(status, "reschedule", "fail")) return Lead.LeadStatus.QUALIFIED;
             return null;
         }
         if (activityIndex == 3) {
             if (containsAny(status, "won", "win", "closed won")) return Lead.LeadStatus.WON;
             if (containsAny(status, "lost", "closed lost")) return Lead.LeadStatus.LOST;
-            if (containsAny(status, "negoti", "pending", "follow", "hold", "no response")) return Lead.LeadStatus.NEGOTIATION;
+            if (containsAny(status, "negoti", "pending", "pending review", "follow", "hold", "no response")) return Lead.LeadStatus.NEGOTIATION;
         }
         return null;
     }
@@ -432,7 +432,7 @@ public class LeadActivityService {
 
     private String normalizeConnectionStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
-        if (normalized.contains("non")) return "Non Connected";
+        if (normalized.contains("not") || normalized.contains("non")) return "Not Connected";
         if (normalized.contains("connect")) return "Connected";
         return "";
     }
@@ -448,14 +448,14 @@ public class LeadActivityService {
     private String normalizeActivityThreeStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
         if (normalized.contains("success")) return "Successful";
-        if (normalized.contains("fail")) return "Failed";
+        if (normalized.contains("reschedule") || normalized.contains("fail")) return "Reschedule";
         return "";
     }
 
     private String normalizeActivityFourStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
         if (normalized.contains("negoti")) return "Negotiation";
-        if (normalized.contains("pending")) return "Pending";
+        if (normalized.contains("pending")) return "Pending Review";
         if (normalized.contains("won") || normalized.contains("win")) return "Won";
         if (normalized.contains("lost")) return "Lost";
         if (normalized.contains("hold") || normalized.contains("follow") || normalized.contains("no response")) return "Hold";

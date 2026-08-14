@@ -26,16 +26,109 @@ import PageHeading from '../ui/PageHeading'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import LeadActivitiesModal from '../LeadActivitiesModal'
 
-/* ── Pipeline stages — matches lead statuses ───────────────── */
+/* ── Pipeline stages — exact activity workflow ──────────────── */
 const STAGES = [
-  { key: 'new',         label: 'New',         color: 'bg-slate-400' },
-  { key: 'contacted',   label: 'Contacted',   color: 'bg-sky-400' },
-  { key: 'qualified',   label: 'Qualified',   color: 'bg-brand-400' },
-  { key: 'proposal',    label: 'Proposal',    color: 'bg-amber-400' },
-  { key: 'negotiation', label: 'Negotiation', color: 'bg-orange-400' },
-  { key: 'won',         label: 'Won',         color: 'bg-emerald-400' },
-  { key: 'lost',        label: 'Lost',        color: 'bg-red-400' },
+  { key: 'new', label: 'New', group: 'Lead', color: 'bg-slate-400' },
+  { key: 'welcome_connected', label: 'Connected', group: 'Welcome Call', color: 'bg-sky-400' },
+  { key: 'welcome_not_connected', label: 'Not Connected', group: 'Welcome Call', color: 'bg-cyan-500' },
+  { key: 'followup_not_interested', label: 'Not Interested', group: 'Follow Up for Meeting', color: 'bg-red-400' },
+  { key: 'followup_meeting', label: 'Meeting', group: 'Follow Up for Meeting', color: 'bg-brand-400' },
+  { key: 'followup_follow_up', label: 'Follow Up', group: 'Follow Up for Meeting', color: 'bg-blue-400' },
+  { key: 'allowed_successful', label: 'Successful', group: 'Allowed Person for Meeting', color: 'bg-emerald-400' },
+  { key: 'allowed_reschedule', label: 'Reschedule', group: 'Allowed Person for Meeting', color: 'bg-amber-400' },
+  { key: 'outcome_negotiation', label: 'Negotiation', group: 'Meeting Outcome', color: 'bg-orange-400' },
+  { key: 'outcome_lost', label: 'Lost', group: 'Meeting Outcome', color: 'bg-red-500' },
+  { key: 'outcome_won', label: 'Won', group: 'Meeting Outcome', color: 'bg-emerald-500' },
+  { key: 'outcome_hold', label: 'Hold', group: 'Meeting Outcome', color: 'bg-indigo-400' },
+  { key: 'outcome_pending_review', label: 'Pending Review', group: 'Meeting Outcome', color: 'bg-slate-500' },
 ]
+
+const ACTIVITY_BY_WORKFLOW_STAGE = {
+  welcome_connected: {
+    activityIndex: 0,
+    activityId: 'act01',
+    activityLabel: 'Activity 01',
+    activityTitle: 'Welcome Call',
+    values: { status: 'Connected', connectionStatus: 'Connected', callOutcome: 'Connected' },
+  },
+  welcome_not_connected: {
+    activityIndex: 0,
+    activityId: 'act01',
+    activityLabel: 'Activity 01',
+    activityTitle: 'Welcome Call',
+    values: { status: 'Not Connected', connectionStatus: 'Not Connected', callOutcome: 'Not Connected' },
+  },
+  followup_not_interested: {
+    activityIndex: 1,
+    activityId: 'act02',
+    activityLabel: 'Activity 02',
+    activityTitle: 'Follow Up for Meeting',
+    values: { status: 'Not Interested' },
+  },
+  followup_meeting: {
+    activityIndex: 1,
+    activityId: 'act02',
+    activityLabel: 'Activity 02',
+    activityTitle: 'Follow Up for Meeting',
+    values: { status: 'Meeting' },
+  },
+  followup_follow_up: {
+    activityIndex: 1,
+    activityId: 'act02',
+    activityLabel: 'Activity 02',
+    activityTitle: 'Follow Up for Meeting',
+    values: { status: 'Follow Up' },
+  },
+  allowed_successful: {
+    activityIndex: 2,
+    activityId: 'act03',
+    activityLabel: 'Activity 03',
+    activityTitle: 'Allowed Person for Meeting',
+    values: { status: 'Successful' },
+  },
+  allowed_reschedule: {
+    activityIndex: 2,
+    activityId: 'act03',
+    activityLabel: 'Activity 03',
+    activityTitle: 'Allowed Person for Meeting',
+    values: { status: 'Reschedule' },
+  },
+  outcome_negotiation: {
+    activityIndex: 3,
+    activityId: 'act04',
+    activityLabel: 'Activity 04',
+    activityTitle: 'Meeting Outcome',
+    values: { status: 'Negotiation' },
+  },
+  outcome_lost: {
+    activityIndex: 3,
+    activityId: 'act04',
+    activityLabel: 'Activity 04',
+    activityTitle: 'Meeting Outcome',
+    values: { status: 'Lost' },
+  },
+  outcome_won: {
+    activityIndex: 3,
+    activityId: 'act04',
+    activityLabel: 'Activity 04',
+    activityTitle: 'Meeting Outcome',
+    values: { status: 'Won' },
+  },
+  outcome_hold: {
+    activityIndex: 3,
+    activityId: 'act04',
+    activityLabel: 'Activity 04',
+    activityTitle: 'Meeting Outcome',
+    values: { status: 'Hold' },
+  },
+  outcome_pending_review: {
+    activityIndex: 3,
+    activityId: 'act04',
+    activityLabel: 'Activity 04',
+    activityTitle: 'Meeting Outcome',
+    values: { status: 'Pending Review' },
+  },
+}
 
 const SCORE_CONFIG = {
   hot:  { icon: Flame,        color: 'text-red-500',   label: 'Hot',  cls: 'badge-hot' },
@@ -116,6 +209,98 @@ const buildActivitySummary = ({ activityIndex, lead, values }) => {
     .join(' | ') || 'Lead activity recorded'
 }
 
+const normalizeWorkflowStatus = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[-_]+/g, ' ')
+  .replace(/\s+/g, ' ')
+
+const getWorkflowStageFromActivityState = (state) => {
+  const data = state?.data || []
+  const saved = state?.saved || []
+
+  if (saved[3]) {
+    const status = normalizeWorkflowStatus(data[3]?.status || data[3]?.outcome)
+    if (status.includes('won') || status.includes('win')) return 'outcome_won'
+    if (status.includes('lost')) return 'outcome_lost'
+    if (status.includes('hold') || status.includes('follow') || status.includes('no response')) return 'outcome_hold'
+    if (status.includes('pending')) return 'outcome_pending_review'
+    if (status.includes('negoti')) return 'outcome_negotiation'
+    return 'outcome_pending_review'
+  }
+
+  if (saved[2]) {
+    const status = normalizeWorkflowStatus(data[2]?.status || data[2]?.meetingStatus)
+    if (status.includes('success')) return 'allowed_successful'
+    if (status.includes('reschedule') || status.includes('fail')) return 'allowed_reschedule'
+    return 'allowed_reschedule'
+  }
+
+  if (saved[1]) {
+    const status = normalizeWorkflowStatus(data[1]?.status || data[1]?.remarkStatus)
+    if (status.includes('not interested')) return 'followup_not_interested'
+    if (status.includes('meeting')) return 'followup_meeting'
+    if (status.includes('follow')) return 'followup_follow_up'
+    return 'followup_follow_up'
+  }
+
+  if (saved[0]) {
+    const status = normalizeWorkflowStatus(data[0]?.connectionStatus || data[0]?.callOutcome || data[0]?.status)
+    if (status.includes('not connected') || status.includes('non connected') || status.includes('no answer') || status.includes('callback')) {
+      return 'welcome_not_connected'
+    }
+    if (status.includes('connect')) return 'welcome_connected'
+    return 'welcome_not_connected'
+  }
+
+  return 'new'
+}
+
+const getWorkflowStageForLead = (lead, activityState) => {
+  const activityStage = getWorkflowStageFromActivityState(activityState)
+  if (activityStage !== 'new') return activityStage
+  if (lead?.status === 'won') return 'outcome_won'
+  if (lead?.status === 'lost') return 'outcome_lost'
+  if (lead?.status === 'negotiation') return 'outcome_negotiation'
+  return 'new'
+}
+
+const buildStageActivityPayload = (stageKey, lead) => {
+  const meta = ACTIVITY_BY_WORKFLOW_STAGE[stageKey]
+  if (!meta) return null
+
+  const values = {
+    ...(meta.values || {}),
+    assignedTo: lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || '',
+  }
+
+  return {
+    activityIndex: meta.activityIndex,
+    activityId: meta.activityId,
+    activityLabel: meta.activityLabel,
+    activityTitle: meta.activityTitle,
+    assignedTo: values.assignedTo || null,
+    values,
+    summary: buildActivitySummary({ activityIndex: meta.activityIndex, lead, values }),
+  }
+}
+
+const buildBackendLeadPayload = (lead, status) => ({
+  name: lead?.name || '',
+  email: lead?.email || '',
+  phone: lead?.phone || '',
+  company: lead?.company || '',
+  service: lead?.service || '',
+  specialization: lead?.specialization || '',
+  source: String(lead?.source || 'OTHER').toUpperCase().replace(/\s+/g, '_'),
+  score: String(lead?.score || 'cold').toUpperCase(),
+  status,
+  dealValue: Number(lead?.value || 0),
+  assignedToId: lead?.assignedToId || null,
+  tags: String(lead?.tags || '').split(',').map((t) => t.trim()).filter(Boolean),
+  expectedCloseTimeline: lead?.expectedCloseTimeline || null,
+})
+
 /* Custom collision detection: prefer stage column droppables (pointerWithin)
    so empty columns work, then fall back to rectIntersection for card-level drops */
 function kanbanCollision(args) {
@@ -124,7 +309,7 @@ function kanbanCollision(args) {
   // Prefer stage-level droppables (stage:xxx) over card-level sortables
   const stageHit = pointerHits.find((h) => String(h.id).startsWith(STAGE_DROP_PREFIX))
   if (stageHit) return [stageHit]
-  // Check SortableContext container droppables (bare stage keys like "qualified")
+  // Check SortableContext container droppables (bare stage keys like "followup_meeting")
   const contextHit = pointerHits.find((h) => STAGE_KEYS.has(String(h.id)))
   if (contextHit) return [contextHit]
   // If pointer is over a card, use that
@@ -382,7 +567,10 @@ function KanbanColumn({
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full ${stage.color}`} />
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{stage.label}</span>
+          <span className="min-w-0">
+            {stage.group && <span className="block text-[9px] uppercase tracking-wide text-slate-400 leading-none">{stage.group}</span>}
+            <span className="block text-sm font-semibold text-slate-700 dark:text-slate-300 leading-tight">{stage.label}</span>
+          </span>
           <span className="badge bg-white/80 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400">
             {columnLeads.length}
           </span>
@@ -612,7 +800,23 @@ export default function KanbanPage() {
   /* Load all leads */
   const loadLeads = useCallback(async () => {
     try {
-      await fetchLeads({})
+      const rows = await fetchLeads({})
+      const activityStates = {}
+      const batchSize = 8
+      for (let i = 0; i < (rows || []).length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize)
+        const results = await Promise.allSettled(
+          batch.map((lead) => leadsAPI.getActivities(lead.id))
+        )
+        results.forEach((result, index) => {
+          const leadId = batch[index]?.id
+          if (!leadId) return
+          activityStates[leadId] = result.status === 'fulfilled'
+            ? buildActivityModalState(result.value || [])
+            : emptyActivityState()
+        })
+      }
+      setActivityStateByLeadId(activityStates)
     } catch (err) {
       toast.error(err?.message || 'Failed to load leads')
     }
@@ -651,14 +855,14 @@ export default function KanbanPage() {
     return [...new Set(all)]
   }, [leads])
 
-  /* Group leads by status into pipeline columns */
+  /* Group leads by exact saved activity/status into pipeline columns */
   const leadsByStage = useMemo(() => {
     const q = search.toLowerCase()
     const map = {}
     for (const stage of STAGES) map[stage.key] = []
 
     for (const lead of leads) {
-      const stageKey = lead.status || 'new'
+      const stageKey = getWorkflowStageForLead(lead, activityStateByLeadId[lead.id])
       if (!map[stageKey]) continue // skip unknown statuses
 
       // Apply filters
@@ -671,7 +875,7 @@ export default function KanbanPage() {
       }
     }
     return map
-  }, [leads, search, filterScore, filterSource, filterOwner])
+  }, [leads, activityStateByLeadId, search, filterScore, filterSource, filterOwner])
 
   const totalLeads = Object.values(leadsByStage).reduce((s, arr) => s + arr.length, 0)
   const totalValue = leads.reduce((s, l) => s + (l.value || 0), 0)
@@ -694,35 +898,33 @@ export default function KanbanPage() {
 
     const stageLabel = STAGES.find((s) => s.key === targetStage)?.label || targetStage
 
-    // Optimistic update — only patch local state, don't use store's updateLead
-    // (which sets loading:true and replaces the whole leads array, breaking DnD)
-    patchLeadLocal(source.lead.id, { status: targetStage })
-
     try {
-      // Build the backend payload from the lead's current data + new status
-      const payload = {
-        name: source.lead.name || '',
-        email: source.lead.email || '',
-        phone: source.lead.phone || '',
-        company: source.lead.company || '',
-        service: source.lead.service || '',
-        specialization: source.lead.specialization || '',
-        source: String(source.lead.source || 'OTHER').toUpperCase().replace(/\s+/g, '_'),
-        score: String(source.lead.score || 'cold').toUpperCase(),
-        status: targetStage.toUpperCase(),
-        dealValue: Number(source.lead.value || 0),
-        assignedToId: source.lead.assignedToId || null,
-        tags: String(source.lead.tags || '').split(',').map((t) => t.trim()).filter(Boolean),
-        expectedCloseTimeline: source.lead.expectedCloseTimeline || null,
+      if (targetStage === 'new') {
+        const hasSavedActivity = (activityStateByLeadId[source.lead.id]?.saved || []).some(Boolean)
+        if (hasSavedActivity) {
+          toast.error('New is only for leads before activity starts.')
+          return
+        }
+        const updated = await leadsAPI.update(source.lead.id, buildBackendLeadPayload(source.lead, 'NEW'))
+        patchLeadLocal(source.lead.id, updated)
+      } else {
+        const activityPayload = buildStageActivityPayload(targetStage, source.lead)
+        if (!activityPayload) {
+          toast.error('This pipeline stage is not linked to an activity.')
+          return
+        }
+        await leadsAPI.addActivity(source.lead.id, activityPayload)
+        const rows = await leadsAPI.getActivities(source.lead.id)
+        setActivityStateByLeadId((prev) => ({ ...prev, [source.lead.id]: buildActivityModalState(rows || []) }))
+
+        const refreshedLead = await leadsAPI.getById(source.lead.id)
+        patchLeadLocal(source.lead.id, refreshedLead)
       }
-      await leadsAPI.update(source.lead.id, payload)
       toast.success(`${source.lead.name} → ${stageLabel}`)
     } catch (err) {
-      // Revert on failure
-      patchLeadLocal(source.lead.id, { status: source.stage })
       toast.error(err?.message || 'Failed to move lead')
     }
-  }, [canUpdateLead, findLeadAndStage, patchLeadLocal])
+  }, [activityStateByLeadId, canUpdateLead, findLeadAndStage, patchLeadLocal])
 
   /* ── Drag & drop handlers ────────────────────────────────── */
   const handleDragStart = ({ active }) => setActiveId(active.id)
@@ -745,7 +947,7 @@ export default function KanbanPage() {
       stageFromDropId ||
       stageFromItem ||
       (typeof stageFromSortable === 'string' && leadsByStage[stageFromSortable] ? stageFromSortable : null) ||
-      // Bare stage key from SortableContext container (e.g. "qualified", "proposal")
+      // Bare stage key from SortableContext container (e.g. "followup_meeting")
       (typeof overId === 'string' && STAGE_KEYS.has(overId) ? overId : null) ||
       Object.keys(leadsByStage).find((s) => leadsByStage[s].some((l) => String(l.id) === String(overId)))
     )
@@ -784,7 +986,18 @@ export default function KanbanPage() {
   const handleAddLead = async (leadData) => {
     if (!canCreateLead) { toast.error('No permission to create leads.'); return }
     try {
-      await createLead(leadData)
+      const workflowStage = leadData?.status || 'new'
+      const created = await createLead({ ...leadData, status: 'new' })
+      if (workflowStage !== 'new' && canUpdateLead) {
+        const activityPayload = buildStageActivityPayload(workflowStage, created)
+        if (activityPayload) {
+          await leadsAPI.addActivity(created.id, activityPayload)
+          const rows = await leadsAPI.getActivities(created.id)
+          setActivityStateByLeadId((prev) => ({ ...prev, [created.id]: buildActivityModalState(rows || []) }))
+          const refreshedLead = await leadsAPI.getById(created.id)
+          patchLeadLocal(created.id, refreshedLead)
+        }
+      }
       toast.success('Lead added to pipeline!')
     } catch (err) {
       toast.error(err?.message || 'Failed to add lead')

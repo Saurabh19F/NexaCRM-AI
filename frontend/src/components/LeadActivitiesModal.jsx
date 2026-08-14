@@ -22,7 +22,7 @@ const ACTIVITIES = [
       { key: 'plannedDate',        label: 'Planned / Click Date for Link', type: 'datetime-local' },
       { key: 'actual',             label: 'Actual Date',                 type: 'datetime-local' },
       { key: 'delay',              label: 'Delay (hrs)',                 type: 'number' },
-      { key: 'status',             label: 'Status',                      type: 'select', options: ['Pending','In Progress','Done','Not Interested','No Answer','Callback'] },
+      { key: 'status',             label: 'Status',                      type: 'select', options: ['Connected','Not Connected'] },
       { key: 'remark',             label: 'Remark if any',               type: 'textarea' },
       { key: 'actualDateStatus',   label: 'Actual Date Status',          type: 'select', options: ['On Time','Delayed','Early','Missed'] },
     ],
@@ -55,7 +55,7 @@ const ACTIVITIES = [
       { key: 'personDesignation',label: 'Designation',                   type: 'text' },
       { key: 'meetingDate',      label: 'Meeting Date',                 type: 'datetime-local' },
       { key: 'meetingMode',      label: 'Meeting Mode',                  type: 'select', options: ['In-Person','Video Call','Phone Call'] },
-      { key: 'status',           label: 'Meeting Status',               type: 'select', options: ['Successful', 'Failed'] },
+      { key: 'status',           label: 'Meeting Status',               type: 'select', options: ['Successful', 'Reschedule'] },
       { key: 'remark',           label: 'Remark',                        type: 'textarea' },
     ],
   },
@@ -71,7 +71,7 @@ const ACTIVITIES = [
       { key: 'plannedDate',      label: 'Planned / Click Date for Link', type: 'datetime-local' },
       { key: 'actual',           label: 'Actual Date',                   type: 'datetime-local' },
       { key: 'delay',            label: 'Delay (hrs)',                   type: 'number' },
-      { key: 'status',           label: 'Status',                        type: 'select', options: ['Won','Lost','Follow-Up Required','Pending Decision','No Response'] },
+      { key: 'status',           label: 'Status',                        type: 'select', options: ['Negotiation','Lost','Won','Hold','Pending Review'] },
       { key: 'followUpDate',     label: 'Follow-Up Date',                type: 'date' },
       { key: 'meetingPriceFinal',label: 'Meeting Price Final (₹)',        type: 'number' },
       { key: 'remarkFollowUp',   label: 'Remark of Follow-Up',           type: 'textarea' },
@@ -104,8 +104,8 @@ const canonicalConnectionStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'connected') return 'Connected'
-  if (['non connected', 'no answer', 'busy', 'callback requested', 'wrong number', 'not interested'].includes(normalized)) {
-    return 'Non Connected'
+  if (['not connected', 'non connected', 'no answer', 'busy', 'callback requested', 'wrong number', 'not interested'].includes(normalized)) {
+    return 'Not Connected'
   }
   return ''
 }
@@ -123,7 +123,7 @@ const canonicalActivityThreeStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'successful' || normalized === 'success') return 'Successful'
-  if (normalized === 'failed' || normalized === 'failure') return 'Failed'
+  if (normalized === 'reschedule' || normalized === 'rescheduled' || normalized === 'failed' || normalized === 'failure') return 'Reschedule'
   return ''
 }
 
@@ -131,7 +131,7 @@ const canonicalActivityFourStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'negotiation') return 'Negotiation'
-  if (normalized === 'pending' || normalized === 'pending decision') return 'Pending'
+  if (normalized === 'pending' || normalized === 'pending decision' || normalized === 'pending review') return 'Pending Review'
   if (normalized === 'won' || normalized === 'win' || normalized === 'closed won') return 'Won'
   if (normalized === 'lost' || normalized === 'close lost' || normalized === 'closed lost') return 'Lost'
   if (
@@ -219,7 +219,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const activityThreeStatus = canonicalActivityThreeStatus(activityThreeValues.status)
   const activityFourStatus = canonicalActivityFourStatus(activityFourValues.status)
   const isActivityOneConnected = activityOneStatus === 'connected'
-  const isActivityOneNonConnected = activityOneStatus === 'non connected'
+  const isActivityOneNonConnected = activityOneStatus === 'not connected'
   const leadSource = humanizeLabel(lead?.source || activityOneValues.source)
   const serviceRequirement = humanizeLabel(lead?.service || lead?.specialization || activityOneValues.serviceRequirement)
   const plannedDate = lead?.createdAt || activityOneValues.plannedDate || lead?.followUpDate || null
@@ -255,7 +255,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const handleSave = async () => {
     if (activeTab === 0) {
       if (!activityOneStatus) {
-        toast.error('Please select Connected or Non Connected.')
+        toast.error('Please select Connected or Not Connected.')
         return false
       }
       if (isActivityOneNonConnected && !String(activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || '').trim()) {
@@ -413,7 +413,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const activityThreeMeetingMode = activityThreeValues.meetingMode || ''
   const activityThreeRemark = activityThreeValues.remark || activityThreeValues.remarks || activityThreeValues.note || ''
   const isActivityThreeSuccessful = normalizeOutcome(activityThreeStatus) === 'successful'
-  const isActivityThreeFailed = normalizeOutcome(activityThreeStatus) === 'failed'
+  const isActivityThreeFailed = normalizeOutcome(activityThreeStatus) === 'reschedule'
   const activityFourPlannedDate = activityThreeValues.actualDate || activityThreeValues.actual || activityThreeValues.savedAt || activityThreeValues.plannedDate || lead?.createdAt || null
   const activityFourActualDate = new Date().toISOString()
   const activityFourDelayMeta = computeDelayMeta(activityFourPlannedDate, activityFourActualDate)
@@ -431,7 +431,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const isActivityFourLost = normalizeOutcome(activityFourStatus) === 'lost'
   const isActivityFourWon = normalizeOutcome(activityFourStatus) === 'won'
   const isActivityFourHold = normalizeOutcome(activityFourStatus) === 'hold'
-  const isActivityFourPending = normalizeOutcome(activityFourStatus) === 'pending'
+  const isActivityFourPending = normalizeOutcome(activityFourStatus) === 'pending review'
 
   const handleActivityThreeChange = (key, val) => {
     if (key === 'status') {
@@ -657,7 +657,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       >
                         <option value="">— Select status —</option>
                         <option value="Connected">Connected</option>
-                        <option value="Non Connected">Non Connected</option>
+                        <option value="Not Connected">Not Connected</option>
                       </select>
                     </div>
 
@@ -677,7 +677,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {isActivityOneConnected ? 'Remarks for Connected Lead' : 'Remarks for Non Connected Lead'}
+                        {isActivityOneConnected ? 'Remarks for Connected Lead' : 'Remarks for Not Connected Lead'}
                       </label>
                       <textarea
                         rows={3}
@@ -877,13 +877,13 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       >
                         <option value="">— Select status —</option>
                         <option value="Successful">Successful</option>
-                        <option value="Failed">Failed</option>
+                        <option value="Reschedule">Reschedule</option>
                       </select>
                     </div>
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {isActivityThreeSuccessful ? 'Successful Meeting Remarks' : 'Failed Meeting Remarks'}
+                        {isActivityThreeSuccessful ? 'Successful Meeting Remarks' : 'Reschedule Remarks'}
                       </label>
                       <textarea
                         rows={3}
@@ -892,7 +892,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         placeholder={
                           isActivityThreeSuccessful
                             ? 'Add meeting success notes or next step'
-                            : 'Add the reason the meeting failed and what to do next'
+                            : 'Add the reschedule reason and next step'
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
                       />
@@ -905,7 +905,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-300'
                   }`}>
                     {isActivityThreeSuccessful && 'Meeting successful. This lead can move to the next activity.'}
-                    {isActivityThreeFailed && 'Meeting failed. Saving this will send the flow back to Activity 02 follow up.'}
+                    {isActivityThreeFailed && 'Meeting rescheduled. Saving this will send the flow back to Activity 02 follow up.'}
                   </div>
                 </div>
               ) : activeTab === 3 ? (
@@ -940,7 +940,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         <option value="Lost">Lost</option>
                         <option value="Won">Won</option>
                         <option value="Hold">Hold</option>
-                        <option value="Pending">Pending Review</option>
+                        <option value="Pending Review">Pending Review</option>
                         </select>
                       </div>
 
