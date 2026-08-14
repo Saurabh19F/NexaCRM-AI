@@ -870,83 +870,84 @@ export default function LeadConversionDashboard() {
             )}
           </div>
 
-          {/* ── #5: Follow-up Snapshot ── */}
-          <div className="glass-card p-3 sm:p-4">
-            <SectionShell
-              title="Follow-up Snapshot"
-              icon={Clock3}
-              subtitle="Today, yesterday, and this week's open follow-ups."
-              action={(
-                <Link to="/task-followup" className="text-[11px] font-semibold text-brand-600 hover:underline dark:text-brand-400">
-                  View all
-                </Link>
-              )}
-            />
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-              {[
-                ['Today', followUpSnapshot.today.length, 'Due today', 'from-cyan-500 to-sky-600'],
-                ['Yesterday', followUpSnapshot.yesterday.length, 'Missed yesterday', 'from-amber-500 to-orange-600'],
-                ['This Week', followUpSnapshot.thisWeek.length, 'Due this week', 'from-emerald-500 to-teal-600'],
-              ].map(([label, value, helper, color]) => (
-                <div key={label} className="rounded-lg border border-white/45 bg-white/35 px-2.5 py-1.5 dark:border-slate-700/45 dark:bg-slate-900/35">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
-                    <span className={`h-1.5 w-6 rounded-full bg-gradient-to-r ${color}`} />
-                  </div>
-                  <p className="mt-0.5 text-xl font-bold leading-none text-slate-900 dark:text-slate-50">{prettyNumber(value)}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{helper}</p>
-                </div>
-              ))}
-            </div>
-
-            {followUpError ? (
-              <div className="mt-2 rounded-xl border border-amber-200/70 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
-                Follow-up data unavailable: {followUpError}
-              </div>
-            ) : followUpSnapshot.upcoming.length ? (
-              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-                {followUpSnapshot.upcoming.map((task) => (
-                  <Link
-                    key={task.id}
-                    to="/task-followup"
-                    className="rounded-xl border border-white/40 bg-white/30 px-3 py-2 transition-colors hover:bg-white/55 dark:border-slate-700/40 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{task.title || 'Follow-up task'}</p>
-                      <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[9px] font-bold text-brand-700 dark:bg-brand-950/30 dark:text-brand-300">
-                        {task.priority || 'MEDIUM'}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-400">
-                      <span className="truncate">{task.assignedToName || task.createdByName || 'Unassigned'}</span>
-                      <span className="shrink-0">{formatActivityTime(task.dueDate)}</span>
-                    </div>
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {/* ── #5: Follow-up Snapshot ── */}
+            <div className="glass-card p-3 sm:p-4">
+              <SectionShell
+                title="Follow-up Snapshot"
+                icon={Clock3}
+                subtitle="Today, yesterday, and this week's open follow-ups."
+                action={(
+                  <Link to="/task-followup" className="text-[11px] font-semibold text-brand-600 hover:underline dark:text-brand-400">
+                    View all
                   </Link>
+                )}
+              />
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                {[
+                  ['Today', followUpSnapshot.today.length, 'Due today', 'from-cyan-500 to-sky-600'],
+                  ['Yesterday', followUpSnapshot.yesterday.length, 'Missed yesterday', 'from-amber-500 to-orange-600'],
+                  ['This Week', followUpSnapshot.thisWeek.length, 'Due this week', 'from-emerald-500 to-teal-600'],
+                ].map(([label, value, helper, color]) => (
+                  <div key={label} className="rounded-lg border border-white/45 bg-white/35 px-2.5 py-1.5 dark:border-slate-700/45 dark:bg-slate-900/35">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+                      <span className={`h-1.5 w-6 rounded-full bg-gradient-to-r ${color}`} />
+                    </div>
+                    <p className="mt-0.5 text-xl font-bold leading-none text-slate-900 dark:text-slate-50">{prettyNumber(value)}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{helper}</p>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <div className="mt-2 rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                No open follow-ups due today, yesterday, or this week.
-              </div>
-            )}
-          </div>
 
-          {/* ── #6: Employee Performance — compact leaderboard ── */}
-          <div className="glass-card p-3 sm:p-4">
-            <SectionShell
-              title="Employee Performance"
-              icon={Users}
-              subtitle="Click a row to expand details."
-              action={(
-                <div className="flex items-center gap-1.5">
-                  {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
-                    <button key={key} type="button" onClick={() => onSort(key)}
-                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    >{label}</button>
+              {followUpError ? (
+                <div className="mt-2 rounded-xl border border-amber-200/70 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                  Follow-up data unavailable: {followUpError}
+                </div>
+              ) : followUpSnapshot.upcoming.length ? (
+                <div className="mt-2 grid grid-cols-1 gap-2 2xl:grid-cols-2">
+                  {followUpSnapshot.upcoming.map((task) => (
+                    <Link
+                      key={task.id}
+                      to="/task-followup"
+                      className="rounded-xl border border-white/40 bg-white/30 px-3 py-2 transition-colors hover:bg-white/55 dark:border-slate-700/40 dark:bg-slate-900/30 dark:hover:bg-slate-800/50"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{task.title || 'Follow-up task'}</p>
+                        <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[9px] font-bold text-brand-700 dark:bg-brand-950/30 dark:text-brand-300">
+                          {task.priority || 'MEDIUM'}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                        <span className="truncate">{task.assignedToName || task.createdByName || 'Unassigned'}</span>
+                        <span className="shrink-0">{formatActivityTime(task.dueDate)}</span>
+                      </div>
+                    </Link>
                   ))}
                 </div>
+              ) : (
+                <div className="mt-2 rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  No open follow-ups due today, yesterday, or this week.
+                </div>
               )}
-            />
+            </div>
+
+            {/* ── #6: Employee Performance — compact leaderboard ── */}
+            <div className="glass-card p-3 sm:p-4">
+              <SectionShell
+                title="Employee Performance"
+                icon={Users}
+                subtitle="Click a row to expand details."
+                action={(
+                  <div className="flex items-center gap-1.5">
+                    {[['conversion', 'Conv.'], ['pending', 'Pending'], ['revenue', 'Revenue']].map(([key, label]) => (
+                      <button key={key} type="button" onClick={() => onSort(key)}
+                        className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${sortBy === key ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                )}
+              />
 
             {employees.length ? (
               <div className="space-y-1.5">
@@ -1012,6 +1013,7 @@ export default function LeadConversionDashboard() {
             ) : (
               <ChartEmptyState label="No employee data yet." />
             )}
+            </div>
           </div>
         </>
       )}
