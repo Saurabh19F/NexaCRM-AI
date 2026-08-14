@@ -367,8 +367,13 @@ export default function TaskFollowUpPage() {
     }, new Map())
 
     const baseLeads = tasksByLead.size
-      ? Array.from(tasksByLead.keys()).map((leadId) => leadById.get(leadId) || { id: leadId, name: 'Lead follow-up' })
-      : leads
+      ? Array.from(tasksByLead.keys()).map((leadId) => {
+          const lead = leadById.get(leadId)
+          return lead
+            ? { ...lead, leadExists: true }
+            : { id: leadId, name: 'Lead follow-up', leadExists: false, missingLead: true }
+        })
+      : leads.map((lead) => ({ ...lead, leadExists: true }))
 
     return baseLeads.map((lead) => {
       const activities = leadActivities[lead.id] || []
@@ -528,7 +533,9 @@ export default function TaskFollowUpPage() {
 
   const openHistoryLead = (lead) => {
     setHistoryLead(lead)
-    ensureLeadActivities(lead.id)
+    if (lead.leadExists !== false) {
+      ensureLeadActivities(lead.id)
+    }
   }
 
   return (
@@ -694,6 +701,11 @@ export default function TaskFollowUpPage() {
                               {lead.taskDriven ? 'Task follow-up' : 'Not Started'}
                             </span>
                           )}
+                          {lead.missingLead && (
+                            <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                              Lead missing
+                            </span>
+                          )}
                           {lead.pendingTaskCount > 0 && (
                             <span className="badge bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
                               {lead.pendingTaskCount} open task{lead.pendingTaskCount === 1 ? '' : 's'}
@@ -703,6 +715,11 @@ export default function TaskFollowUpPage() {
                         {lead.nextTask?.title && (
                           <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
                             {lead.nextTask.title}
+                          </p>
+                        )}
+                        {lead.missingLead && (
+                          <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
+                            This is a real follow-up task, but its linked lead record is deleted or not accessible.
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
@@ -744,14 +761,16 @@ export default function TaskFollowUpPage() {
                           <History className="h-3.5 w-3.5" />
                           History
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setActivitiesLead(lead)}
-                          className="btn-primary h-9 px-3 text-xs"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Open Activities
-                        </button>
+                        {lead.leadExists !== false && (
+                          <button
+                            type="button"
+                            onClick={() => setActivitiesLead(lead)}
+                            className="btn-primary h-9 px-3 text-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Open Activities
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -777,6 +796,11 @@ export default function TaskFollowUpPage() {
                                 {lead.company}
                               </span>
                             )}
+                            {lead.missingLead && (
+                              <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                                Lead missing
+                              </span>
+                            )}
                             <span
                               className={`badge text-[10px] font-bold ${
                                 isWon
@@ -796,6 +820,11 @@ export default function TaskFollowUpPage() {
                           {lead.latestTask?.title && (
                             <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
                               {lead.latestTask.title}
+                            </p>
+                          )}
+                          {lead.missingLead && (
+                            <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
+                              This is a real completed task, but its linked lead record is deleted or not accessible.
                             </p>
                           )}
                           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
@@ -850,14 +879,16 @@ export default function TaskFollowUpPage() {
                             <History className="h-3.5 w-3.5" />
                             History
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setActivitiesLead(lead)}
-                            className="btn-secondary h-9 px-3 text-xs"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            View Details
-                          </button>
+                          {lead.leadExists !== false && (
+                            <button
+                              type="button"
+                              onClick={() => setActivitiesLead(lead)}
+                              className="btn-secondary h-9 px-3 text-xs"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              View Details
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
