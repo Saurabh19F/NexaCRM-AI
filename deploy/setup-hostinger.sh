@@ -37,11 +37,11 @@ JWT_SECRET=CHANGE_ME_TO_A_RANDOM_64_CHARACTER_SECRET_STRING_FOR_PRODUCTION_USE
 PORT=8080
 
 # CORS - Update with your actual frontend URL
-CORS_ORIGINS=http://187.127.149.196,http://187.127.149.196:80,http://187.127.149.196:3000
+CORS_ORIGINS=https://nexacrmai.com,https://www.nexacrmai.com
 
 # Cookie settings for HTTP (change to true when you add SSL)
-AUTH_COOKIE_SECURE=false
-AUTH_COOKIE_SAME_SITE=Lax
+AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAME_SITE=None
 
 # Redis (disable if not using Redis)
 REDIS_HOST=localhost

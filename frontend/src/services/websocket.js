@@ -8,6 +8,8 @@ import { useAuthStore } from '../store/authStore'
 let stompClient = null
 let destroyed = false
 
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1']
+
 const normalizeJwtToken = (token) => {
   if (typeof token !== 'string') return null
   const trimmed = token.trim()
@@ -26,6 +28,17 @@ function resolveWebSocketUrl() {
     base = `${fromApiBase.replace(/\/api\/?$/, '')}/ws`
   }
   if (!base) {
+    base = `${window.location.origin}/ws`
+  }
+
+  try {
+    const url = new URL(base, window.location.origin)
+    const currentHost = window.location.hostname
+    const isLocal = LOCAL_HOSTS.includes(currentHost)
+    if (!isLocal && (url.hostname !== currentHost || url.port)) {
+      base = `${window.location.origin}/ws`
+    }
+  } catch {
     base = `${window.location.origin}/ws`
   }
 

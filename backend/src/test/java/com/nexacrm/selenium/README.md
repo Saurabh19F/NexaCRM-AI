@@ -46,7 +46,7 @@ Set via environment variables or `-D` system properties:
 
 | Variable               | Default                  | Description              |
 |------------------------|--------------------------|--------------------------|
-| `NEXACRM_BASE_URL`    | `https://www.automationbysj.site` | Frontend URL             |
+| `NEXACRM_BASE_URL`    | `https://nexacrmai.com` | Frontend URL             |
 | `NEXACRM_HEADLESS`    | `true`                   | Run Chrome headless      |
 | `NEXACRM_TEST_EMAIL`  | `saurabhke4@gmail.com`  | Login email for tests    |
 | `NEXACRM_TEST_PASSWORD`| `demo1234`              | Login password for tests |

@@ -1,7 +1,7 @@
 import http from 'k6/http'
 import { check, group, sleep, Trend, Rate } from 'k6'
 
-const baseUrl = (__ENV.NEXACRM_BASE_URL || 'http://187.127.149.196:8888').replace(/\/$/, '')
+const baseUrl = (__ENV.NEXACRM_BASE_URL || 'https://nexacrmai.com').replace(/\/$/, '')
 
 const companyEmail = __ENV.NEXACRM_COMPANY_EMAIL || 'demo@gmail.com'
 const companyPassword = __ENV.NEXACRM_COMPANY_PASSWORD || 'demo1234'

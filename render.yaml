@@ -22,7 +22,7 @@ services:
 
       # ── CORS (frontend origin + credentialed requests) ─
       - key: CORS_ORIGINS
-        value: "https://nexacrm-frontend.onrender.com,https://automationbysj.site,https://www.automationbysj.site"
+        value: "https://nexacrmai.com,https://www.nexacrmai.com"
       - key: CORS_ALLOW_CREDENTIALS
         value: "true"
 
@@ -64,9 +64,7 @@ services:
 
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://nexacrm-backend-477u.onrender.com/api
-      - key: VITE_WS_URL
-        value: https://nexacrm-backend-477u.onrender.com/ws
+        value: /api
       - key: VITE_API_TIMEOUT_MS
         value: "45000"
       - key: VITE_LOGIN_TIMEOUT_MS

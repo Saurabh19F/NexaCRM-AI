@@ -43,7 +43,7 @@ Platform flow:
 
 ```bash
 k6 run ^
-  -e NEXACRM_BASE_URL=http://187.127.149.196:8888 ^
+  -e NEXACRM_BASE_URL=https://nexacrmai.com ^
   -e NEXACRM_COMPANY_EMAIL=demo@gmail.com ^
   -e NEXACRM_COMPANY_PASSWORD=demo1234 ^
   -e NEXACRM_PLATFORM_EMAIL=saurabhke4@gmail.com ^
@@ -67,7 +67,7 @@ Example soak run:
 
 ```bash
 k6 run ^
-  -e NEXACRM_BASE_URL=http://187.127.149.196:8888 ^
+  -e NEXACRM_BASE_URL=https://nexacrmai.com ^
   -e NEXACRM_COMPANY_EMAIL=demo@gmail.com ^
   -e NEXACRM_COMPANY_PASSWORD=demo1234 ^
   -e NEXACRM_PLATFORM_EMAIL=saurabhke4@gmail.com ^

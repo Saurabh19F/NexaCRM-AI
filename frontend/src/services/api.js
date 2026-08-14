@@ -1,7 +1,27 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1']
+
+const resolveApiBaseUrl = () => {
+  const configured = String(import.meta.env.VITE_API_BASE_URL || '').trim()
+  if (!configured) return '/api'
+
+  try {
+    const url = new URL(configured, window.location.origin)
+    const currentHost = window.location.hostname
+    const isLocal = LOCAL_HOSTS.includes(currentHost)
+    if (!isLocal && (url.hostname !== currentHost || url.port)) {
+      return '/api'
+    }
+  } catch {
+    // Keep relative paths such as /api.
+  }
+
+  return configured
+}
+
+const BASE_URL = resolveApiBaseUrl()
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 45000)
 const LOGIN_TIMEOUT_MS = Number(import.meta.env.VITE_LOGIN_TIMEOUT_MS || 60000)
 
