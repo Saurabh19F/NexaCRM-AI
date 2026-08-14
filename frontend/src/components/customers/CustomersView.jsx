@@ -656,6 +656,31 @@ export default function CustomersPage() {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    if (!selected?.id || selected.notesLoaded || selected.notes) return
+
+    let cancelled = false
+    leadsAPI.getById(selected.id)
+      .then((lead) => {
+        if (cancelled || !lead) return
+        const fullRow = { ...mapLeadToCustomer(lead), notesLoaded: true }
+        setCustomers((prev) => prev.map((customer) => (
+          customer.id === fullRow.id ? { ...customer, ...fullRow } : customer
+        )))
+        setSelected((prev) => (
+          prev?.id === fullRow.id ? { ...prev, ...fullRow } : prev
+        ))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSelected((prev) => (
+          prev?.id === selected.id ? { ...prev, notesLoaded: true } : prev
+        ))
+      })
+
+    return () => { cancelled = true }
+  }, [selected?.id, selected?.notes, selected?.notesLoaded])
+
   /* ── Filtering + pagination ──────────────────────────────────── */
   const filtered = useMemo(() => {
     let rows = customers
