@@ -51,6 +51,32 @@ const STAGE_DROP_PREFIX = 'stage:'
 
 const STAGE_KEYS = new Set(STAGES.map((s) => s.key))
 
+const formatLeadCreatedDateTime = (lead) => {
+  const raw = lead?.createdAtTs || lead?.createdAt
+  if (!raw) return { date: '—', time: '' }
+  const normalized = typeof raw === 'string' && raw.includes('T') && !raw.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(raw)
+    ? `${raw}Z`
+    : raw
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return { date: lead?.createdAt || '—', time: '' }
+
+  return {
+    date: date.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }),
+    time: date.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    }),
+  }
+}
+
 /* Custom collision detection: prefer stage column droppables (pointerWithin)
    so empty columns work, then fall back to rectIntersection for card-level drops */
 function kanbanCollision(args) {
@@ -86,6 +112,7 @@ function LeadCard({
 }) {
   const scoreCfg = SCORE_CONFIG[lead.score] || SCORE_CONFIG.warm
   const ScoreIcon = scoreCfg.icon
+  const created = formatLeadCreatedDateTime(lead)
 
   return (
     <div className={`deal-card select-none relative ${isDragging ? 'opacity-50 rotate-2 shadow-2xl' : ''}`}>
@@ -189,8 +216,12 @@ function LeadCard({
         <div className="flex items-center gap-1 text-[10px] text-slate-500">
           <User className="w-3 h-3" /> {lead.assignedTo || 'Unassigned'}
         </div>
-        <div className="flex items-center gap-1 text-[10px] text-slate-500">
-          <Calendar className="w-3 h-3" /> {lead.createdAt}
+        <div className="flex items-center gap-1 text-[10px] text-slate-500 text-right">
+          <Calendar className="w-3 h-3 flex-shrink-0" />
+          <span className="leading-tight">
+            <span className="block">{created.date}</span>
+            {created.time && <span className="block text-[9px] text-slate-400">{created.time}</span>}
+          </span>
         </div>
       </div>
 

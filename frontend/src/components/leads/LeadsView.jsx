@@ -39,6 +39,32 @@ const LEAD_SOURCES = [
   'Google Ads', 'Meta Ads', 'Referral', 'Email', 'Other',
 ]
 
+const formatLeadCreatedDateTime = (lead) => {
+  const raw = lead?.createdAtTs || lead?.createdAt
+  if (!raw) return { date: '—', time: '' }
+  const normalized = typeof raw === 'string' && raw.includes('T') && !raw.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(raw)
+    ? `${raw}Z`
+    : raw
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return { date: lead?.createdAt || '—', time: '' }
+
+  return {
+    date: date.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }),
+    time: date.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    }),
+  }
+}
+
 function AddLeadModal({ onClose, onAdd, teamMembers }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '', service: '', specialization: '',
@@ -320,6 +346,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
   const scoreCfg  = SCORE_BADGE[lead.score]
   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
   const ScoreIcon = scoreCfg?.icon
+  const created = formatLeadCreatedDateTime(lead)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Lead details">
@@ -367,7 +394,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
               { icon: DollarSign, label: 'Value',    value: lead.value ? `₹${(lead.value/1000).toFixed(0)}k` : '—' },
               { icon: User,       label: 'Owner',    value: lead.assignedTo || 'Unassigned' },
               { icon: TrendingUp, label: 'Score',    value: scoreCfg?.label },
-              { icon: Calendar,   label: 'Added',    value: lead.createdAt },
+              { icon: Calendar,   label: 'Added',    value: created.time ? `${created.date} · ${created.time}` : created.date },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-center gap-2 min-w-0">
                 <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
@@ -1640,7 +1667,7 @@ export default function LeadsPage() {
                   { key: 'score',     label: 'Score' },
                   { key: 'status',    label: 'Status' },
                   { key: 'source',    label: 'Source' },
-                  { key: 'createdAt', label: 'Date' },
+                  { key: 'createdAt', label: 'Created' },
                 ].map(({ key, label }) => (
                   <th key={key} className="py-2.5 px-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200"
                     onClick={() => handleSort(key)}>
@@ -1656,6 +1683,7 @@ export default function LeadsPage() {
                   const scoreCfg = SCORE_BADGE[lead.score]
                   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
                   const ScoreIcon = scoreCfg?.icon
+                  const created = formatLeadCreatedDateTime(lead)
                   return (
                     <motion.tr
                       key={lead.id}
@@ -1685,7 +1713,10 @@ export default function LeadsPage() {
                         <span className={statusCfg.cls}>{statusCfg.label}</span>
                       </td>
                       <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 text-xs">{lead.source || '—'}</td>
-                      <td className="py-2.5 px-3 text-slate-500 text-xs whitespace-nowrap">{lead.createdAt}</td>
+                      <td className="py-2.5 px-3 text-slate-500 text-xs whitespace-nowrap">
+                        <div className="font-medium text-slate-600 dark:text-slate-300">{created.date}</div>
+                        {created.time && <div className="text-[11px] text-slate-400">{created.time}</div>}
+                      </td>
                       <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           {canCall && (
