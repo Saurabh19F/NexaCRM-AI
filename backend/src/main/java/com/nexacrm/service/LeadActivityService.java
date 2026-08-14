@@ -9,7 +9,9 @@ import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.bson.Document;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class LeadActivityService {
+    private static final int BULK_ACTIVITIES_PER_LEAD = 8;
 
     private Long tenantId() {
         return TenantContext.currentTenantId();
@@ -40,6 +43,7 @@ public class LeadActivityService {
     private final LeadActivityRepository leadActivityRepository;
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
+    private final MongoTemplate mongoTemplate;
 
     @Transactional(readOnly = true)
     public List<LeadActivityDTO> listByLeadId(String leadId) {
@@ -86,7 +90,7 @@ public class LeadActivityService {
             return grouped;
         }
 
-        leadActivityRepository.findByLeadIdInAndTenantIdAndDeletedFalseOrderBySavedAtDesc(visibleLeadIds, tenantId())
+        fetchBulkActivityPreview(visibleLeadIds)
             .forEach(activity -> {
                 if (activity.getLeadId() != null && grouped.containsKey(activity.getLeadId())) {
                     grouped.get(activity.getLeadId()).add(toDTO(activity));
@@ -94,6 +98,29 @@ public class LeadActivityService {
             });
 
         return grouped;
+    }
+
+    private List<LeadActivity> fetchBulkActivityPreview(Set<String> visibleLeadIds) {
+        List<Document> pipeline = List.of(
+            new Document("$match", new Document("tenant_id", tenantId())
+                .append("deleted", false)
+                .append("lead_id", new Document("$in", new ArrayList<>(visibleLeadIds)))),
+            new Document("$sort", new Document("lead_id", 1)
+                .append("saved_at", -1)
+                .append("createdAt", -1)),
+            new Document("$group", new Document("_id", "$lead_id")
+                .append("activities", new Document("$push", "$$ROOT"))),
+            new Document("$project", new Document("activities", new Document("$slice", List.of("$activities", BULK_ACTIVITIES_PER_LEAD)))),
+            new Document("$unwind", "$activities"),
+            new Document("$replaceRoot", new Document("newRoot", "$activities"))
+        );
+
+        List<LeadActivity> activities = new ArrayList<>();
+        mongoTemplate.getCollection("lead_activities")
+            .aggregate(pipeline)
+            .allowDiskUse(true)
+            .forEach(doc -> activities.add(mongoTemplate.getConverter().read(LeadActivity.class, doc)));
+        return activities;
     }
 
     public LeadActivityDTO create(String leadId, LeadActivityDTO dto) {

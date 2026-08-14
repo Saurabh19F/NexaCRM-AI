@@ -335,7 +335,6 @@ export default function TaskFollowUpPage() {
       }, {})
       setLeadActivities(results)
     } catch (err) {
-      console.warn('Bulk activity load failed; falling back to per-lead activity loading.', err)
       const results = {}
       let failedCount = 0
       const batchSize = 10
