@@ -1048,7 +1048,7 @@ public class LeadService {
             List<Map<String, Object>> fieldData = (List<Map<String, Object>>) response.get("field_data");
             String name        = extractFieldValue(fieldData, "full_name", "first_name");
             String email       = extractFieldValue(fieldData, "email");
-            String phone       = extractFieldValue(fieldData, "phone_number", "phone");
+            String phone       = extractFieldValue(fieldData, "phone_number", "phone", "mobile_number", "mobile", "whatsapp_number");
             String company     = extractFieldValue(fieldData, "company_name", "company");
             String designation = extractFieldValue(fieldData, "job_title", "work_job_title");
 
@@ -1191,7 +1191,7 @@ public class LeadService {
                         @SuppressWarnings("unchecked")
                         List<Map<String, Object>> fd = rawLead.get("field_data") instanceof List<?>
                             ? (List<Map<String, Object>>) rawLead.get("field_data") : List.of();
-                        String ph = extractFieldValue(fd, "phone_number", "phone");
+                        String ph = extractFieldValue(fd, "phone_number", "phone", "mobile_number", "mobile", "whatsapp_number");
                         if (ph != null && !ph.isBlank()) {
                             ex.setPhone(normalizePhone(ph));
                             leadRepository.save(ex);
@@ -1208,7 +1208,7 @@ public class LeadService {
 
                     String name = extractFieldValue(fieldData, "full_name", "first_name");
                     String email = extractFieldValue(fieldData, "email");
-                    String phone = extractFieldValue(fieldData, "phone_number", "phone");
+                    String phone = extractFieldValue(fieldData, "phone_number", "phone", "mobile_number", "mobile", "whatsapp_number");
                     String company = extractFieldValue(fieldData, "company_name", "company");
                     String designation = extractFieldValue(fieldData, "job_title", "work_job_title");
                     String service = extractFieldValue(fieldData, "service", "service_name");
@@ -1332,7 +1332,7 @@ public class LeadService {
                 existing.setSource(Lead.LeadSource.META_ADS);
             }
             // Backfill phone, company, designation if missing
-            String phone = extractFieldValue(fieldData, "phone_number", "phone");
+            String phone = extractFieldValue(fieldData, "phone_number", "phone", "mobile_number", "mobile", "whatsapp_number");
             if (phone != null && !phone.isBlank() && (existing.getPhone() == null || existing.getPhone().isBlank())) {
                 existing.setPhone(normalizePhone(phone));
             }
@@ -1455,25 +1455,46 @@ public class LeadService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private String extractFieldValue(List<Map<String, Object>> fieldData, String... fieldNames) {
         if (fieldData == null) return null;
         for (String fieldName : fieldNames) {
-            String normalizedFieldName = fieldName.toLowerCase().replace("_", "").replace(" ", "");
+            String normalizedFieldName = normalizeFacebookFieldName(fieldName);
             String value = fieldData.stream()
                 .filter(f -> {
-                    String name = f.get("name") != null ? f.get("name").toString().toLowerCase().replace("_", "").replace(" ", "") : "";
+                    String name = normalizeFacebookFieldName(f.get("name"));
                     return normalizedFieldName.equals(name);
                 })
                 .findFirst()
-                .map(f -> {
-                    List<String> values = (List<String>) f.get("values");
-                    return (values != null && !values.isEmpty()) ? values.get(0) : null;
-                })
+                .map(f -> firstFacebookFieldValue(f.get("values")))
                 .orElse(null);
             if (value != null && !value.isBlank()) return value;
         }
         return null;
+    }
+
+    private String normalizeFacebookFieldName(Object value) {
+        return value == null ? "" : value.toString().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private String firstFacebookFieldValue(Object values) {
+        if (values == null) return null;
+        if (values instanceof Iterable<?> iterable) {
+            for (Object value : iterable) {
+                String trimmed = trim(value == null ? null : String.valueOf(value));
+                if (trimmed != null && !trimmed.isBlank()) return trimmed;
+            }
+            return null;
+        }
+        if (values.getClass().isArray()) {
+            int length = java.lang.reflect.Array.getLength(values);
+            for (int i = 0; i < length; i++) {
+                Object value = java.lang.reflect.Array.get(values, i);
+                String trimmed = trim(value == null ? null : String.valueOf(value));
+                if (trimmed != null && !trimmed.isBlank()) return trimmed;
+            }
+            return null;
+        }
+        return trim(String.valueOf(values));
     }
 
     private Map<String, Integer> buildHeaderIndex(List<String> headers) {
