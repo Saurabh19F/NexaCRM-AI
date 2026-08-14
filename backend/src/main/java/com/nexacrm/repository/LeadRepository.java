@@ -3,6 +3,7 @@ package com.nexacrm.repository;
 import com.nexacrm.model.Lead;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,8 @@ public interface LeadRepository extends MongoRepository<Lead, String> {
     Optional<Lead> findByFacebookLeadIdAndTenantIdAndDeletedFalse(String facebookLeadId, Long tenantId);
 
     Optional<Lead> findByFacebookLeadIdAndDeletedFalse(String facebookLeadId);
+
+    List<Lead> findByIdInAndTenantIdAndDeletedFalse(Collection<String> ids, Long tenantId);
 
     List<Lead> findByAssignedTo_IdAndDeletedFalse(String userId);
 

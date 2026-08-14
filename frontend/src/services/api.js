@@ -204,6 +204,7 @@ export const leadsAPI = {
   convert:   (id, d)  => api.post(`/leads/${id}/convert`, d ?? {}),
   callNow:   (id, d)  => api.post(`/leads/${id}/call`, d ?? {}),
   getActivities:(id)   => api.get(`/leads/${id}/activities`),
+  getActivitiesBulk:(leadIds) => api.post('/leads/activities/bulk', { leadIds }),
   addActivity: (id, d) => api.post(`/leads/${id}/activities`, d),
 }
 

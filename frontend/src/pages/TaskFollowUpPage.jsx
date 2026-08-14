@@ -321,24 +321,34 @@ export default function TaskFollowUpPage() {
   const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
 
   const loadAllActivities = useCallback(async (leadRows) => {
-    if (!leadRows.length) return
+    const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
+    if (!leadIds.length) {
+      setLeadActivities({})
+      return
+    }
     setLoadingActivities(true)
     try {
+      const bulkResponse = await leadsAPI.getActivitiesBulk(leadIds)
+      const results = leadIds.reduce((acc, leadId) => {
+        acc[leadId] = unwrapList(bulkResponse?.[leadId])
+        return acc
+      }, {})
+      setLeadActivities(results)
+    } catch (err) {
       const results = {}
       const batchSize = 10
-      for (let i = 0; i < leadRows.length; i += batchSize) {
-        const batch = leadRows.slice(i, i + batchSize)
+      for (let i = 0; i < leadIds.length; i += batchSize) {
+        const batch = leadIds.slice(i, i + batchSize)
         const responses = await Promise.allSettled(
-          batch.map((lead) => leadsAPI.getActivities(lead.id))
+          batch.map((leadId) => leadsAPI.getActivities(leadId))
         )
         responses.forEach((res, j) => {
-          const leadId = batch[j].id
+          const leadId = batch[j]
           results[leadId] = res.status === 'fulfilled' ? unwrapList(res.value) : []
         })
       }
       setLeadActivities(results)
-    } catch (err) {
-      toast.error('Unable to load some activity data')
+      toast.error('Bulk activity load failed; used slower fallback')
     } finally {
       setLoadingActivities(false)
     }
@@ -366,7 +376,7 @@ export default function TaskFollowUpPage() {
 
       setLeads(leadRows)
       setTasks(visibleTaskRows)
-      loadAllActivities(taskLeadRows)
+      await loadAllActivities(taskLeadRows)
     } catch (err) {
       toast.error(err?.message || 'Unable to load task follow-up data')
     } finally {

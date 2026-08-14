@@ -18,11 +18,14 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +49,51 @@ public class LeadActivityService {
             .stream()
             .map(this::toDTO)
             .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<LeadActivityDTO>> listByLeadIds(Collection<String> requestedLeadIds) {
+        Set<String> leadIds = requestedLeadIds == null
+            ? Set.of()
+            : requestedLeadIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .map(String::trim)
+                .limit(500)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<String, List<LeadActivityDTO>> grouped = new LinkedHashMap<>();
+        leadIds.forEach(id -> grouped.put(id, new ArrayList<>()));
+        if (leadIds.isEmpty()) {
+            return grouped;
+        }
+
+        var current = currentUser();
+        boolean canSeeAll = current == null
+            || com.nexacrm.model.User.isAdminLike(current.getRole())
+            || current.getRole() == com.nexacrm.model.User.Role.MANAGER;
+        String currentUserId = current != null ? current.getId() : null;
+
+        Set<String> visibleLeadIds = leadRepository.findByIdInAndTenantIdAndDeletedFalse(leadIds, tenantId()).stream()
+            .filter(lead -> canSeeAll || (
+                currentUserId != null
+                    && lead.getAssignedTo() != null
+                    && currentUserId.equals(lead.getAssignedTo().getId())
+            ))
+            .map(Lead::getId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (visibleLeadIds.isEmpty()) {
+            return grouped;
+        }
+
+        leadActivityRepository.findByLeadIdInAndTenantIdAndDeletedFalseOrderBySavedAtDesc(visibleLeadIds, tenantId())
+            .forEach(activity -> {
+                if (activity.getLeadId() != null && grouped.containsKey(activity.getLeadId())) {
+                    grouped.get(activity.getLeadId()).add(toDTO(activity));
+                }
+            });
+
+        return grouped;
     }
 
     public LeadActivityDTO create(String leadId, LeadActivityDTO dto) {

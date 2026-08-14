@@ -53,6 +53,15 @@ public class LeadController {
         return ResponseEntity.ok(leadService.findAll(search, status, score, source, assignedTo, pageable));
     }
 
+    @PostMapping("/activities/bulk")
+    @PreAuthorize("hasAuthority('leads.read')")
+    @Operation(summary = "Get lead activities for multiple leads")
+    public ResponseEntity<Map<String, List<LeadActivityDTO>>> getLeadActivitiesBulk(
+            @RequestBody Map<String, List<String>> body) {
+        List<String> leadIds = body != null ? body.get("leadIds") : List.of();
+        return ResponseEntity.ok(leadActivityService.listByLeadIds(leadIds));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('leads.read')")
     @Operation(summary = "Get lead by ID")
