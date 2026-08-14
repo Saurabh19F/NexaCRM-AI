@@ -204,6 +204,22 @@ const isCompletedTask = (task) => {
   return status === 'COMPLETED' || status === 'DONE' || status === 'CLOSED'
 }
 
+const timestampMs = (value, fallback = Number.MAX_SAFE_INTEGER) => {
+  if (!value) return fallback
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? fallback : time
+}
+
+const sortTasksByUrgency = (rows = []) => [...rows].sort((a, b) => {
+  const aDone = isCompletedTask(a)
+  const bDone = isCompletedTask(b)
+  if (aDone !== bDone) return aDone ? 1 : -1
+  if (!aDone) {
+    return timestampMs(a.dueDate || a.createdAt) - timestampMs(b.dueDate || b.createdAt)
+  }
+  return timestampMs(b.completedAt || b.updatedAt || b.createdAt, 0) - timestampMs(a.completedAt || a.updatedAt || a.createdAt, 0)
+})
+
 const formatDateTime = (value) => {
   if (!value) return '—'
   const date = new Date(value)
@@ -321,9 +337,10 @@ export default function TaskFollowUpPage() {
       const leadRows = unwrapList(leadResponse)
       const taskRows = unwrapList(taskResponse)
       const leadById = new Map(leadRows.map((lead) => [lead.id, lead]))
+      const visibleTaskRows = taskRows.filter((task) => task.leadId && leadById.has(task.leadId))
       const taskLeadRows = Array.from(
         new Map(
-          taskRows
+          visibleTaskRows
             .map((task) => leadById.get(task.leadId))
             .filter(Boolean)
             .map((lead) => [lead.id, lead])
@@ -331,7 +348,7 @@ export default function TaskFollowUpPage() {
       )
 
       setLeads(leadRows)
-      setTasks(taskRows)
+      setTasks(visibleTaskRows)
       loadAllActivities(taskLeadRows)
     } catch (err) {
       toast.error(err?.message || 'Unable to load task follow-up data')
@@ -367,24 +384,20 @@ export default function TaskFollowUpPage() {
     }, new Map())
 
     const baseLeads = tasksByLead.size
-      ? Array.from(tasksByLead.keys()).map((leadId) => {
-          const lead = leadById.get(leadId)
-          return lead
-            ? { ...lead, leadExists: true }
-            : { id: leadId, name: 'Lead follow-up', leadExists: false, missingLead: true }
-        })
+      ? Array.from(tasksByLead.keys())
+          .map((leadId) => leadById.get(leadId))
+          .filter(Boolean)
+          .map((lead) => ({ ...lead, leadExists: true }))
       : leads.map((lead) => ({ ...lead, leadExists: true }))
 
     return baseLeads.map((lead) => {
       const activities = leadActivities[lead.id] || []
       const parsed = parseLeadActivities(activities)
-      const leadTasks = tasksByLead.get(lead.id) || []
+      const leadTasks = sortTasksByUrgency(tasksByLead.get(lead.id) || [])
       const pendingTasks = leadTasks.filter((task) => !isCompletedTask(task))
       const completedTasks = leadTasks.filter(isCompletedTask)
-      const nextTask = [...pendingTasks]
-        .sort((a, b) => new Date(a.dueDate || a.createdAt || 0) - new Date(b.dueDate || b.createdAt || 0))[0]
-      const latestTask = [...leadTasks]
-        .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0]
+      const nextTask = pendingTasks[0]
+      const latestTask = leadTasks[0]
 
       return {
         ...lead,
@@ -416,7 +429,7 @@ export default function TaskFollowUpPage() {
       const idx = Number(stageFilter)
       filtered = filtered.filter((l) => l.currentStage === idx)
     }
-    return filtered.sort((a, b) => new Date(a.nextTask?.dueDate || a.followUpDate || a.createdAt || 0) - new Date(b.nextTask?.dueDate || b.followUpDate || b.createdAt || 0))
+    return filtered.sort((a, b) => timestampMs(a.nextTask?.dueDate || a.followUpDate || a.createdAt) - timestampMs(b.nextTask?.dueDate || b.followUpDate || b.createdAt))
   }, [enrichedLeads, searchQuery, stageFilter, tasks.length])
 
   const completedLeads = useMemo(() => {
@@ -435,7 +448,7 @@ export default function TaskFollowUpPage() {
           (l.latestTask?.title || '').toLowerCase().includes(q)
       )
     }
-    return filtered.sort((a, b) => new Date(b.latestTask?.completedAt || b.completedAt || b.updatedAt || 0) - new Date(a.latestTask?.completedAt || a.completedAt || a.updatedAt || 0))
+    return filtered.sort((a, b) => timestampMs(b.latestTask?.completedAt || b.completedAt || b.updatedAt, 0) - timestampMs(a.latestTask?.completedAt || a.completedAt || a.updatedAt, 0))
   }, [enrichedLeads, searchQuery, tasks.length])
 
   const stats = useMemo(() => {
@@ -507,17 +520,25 @@ export default function TaskFollowUpPage() {
     activities: historyActivities.length,
   }
   const historyEvents = [
-    ...historyTasks.map((task) => ({
-      id: `task-${task.id}`,
-      kind: 'task',
-      title: task.title || 'Follow-up task',
-      status: taskStatusLabel(task),
-      description: task.description || '',
-      owner: task.assignedToName || task.createdByName || historyLeadData?.assignedToName || 'Unassigned',
-      timestamp: task.completedAt || task.dueDate || task.updatedAt || task.createdAt,
-      completed: isCompletedTask(task),
-      priority: task.priority || 'MEDIUM',
-    })),
+    ...historyTasks.map((task) => {
+      const completed = isCompletedTask(task)
+      const timestamp = completed
+        ? task.completedAt || task.updatedAt || task.createdAt
+        : task.dueDate || task.createdAt
+      return {
+        id: `task-${task.id}`,
+        kind: 'task',
+        title: task.title || 'Follow-up task',
+        status: taskStatusLabel(task),
+        description: task.description || '',
+        owner: task.assignedToName || task.createdByName || historyLeadData?.assignedToName || 'Unassigned',
+        timestamp,
+        sortGroup: completed ? 1 : 0,
+        sortTime: completed ? timestampMs(timestamp, 0) * -1 : timestampMs(timestamp),
+        completed,
+        priority: task.priority || 'MEDIUM',
+      }
+    }),
     ...historyActivities.map((activity, index) => ({
       id: `activity-${activity.id || index}`,
       kind: 'activity',
@@ -526,10 +547,12 @@ export default function TaskFollowUpPage() {
       description: activityNote(activity),
       owner: activity.assignedTo || historyLeadData?.assignedToName || 'Unassigned',
       timestamp: activity.savedAt || activity.createdAt || activity.updatedAt,
+      sortGroup: 2,
+      sortTime: timestampMs(activity.savedAt || activity.createdAt || activity.updatedAt, 0) * -1,
       completed: true,
       priority: 'DONE',
     })),
-  ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+  ].sort((a, b) => (a.sortGroup - b.sortGroup) || (a.sortTime - b.sortTime))
 
   const openHistoryLead = (lead) => {
     setHistoryLead(lead)
