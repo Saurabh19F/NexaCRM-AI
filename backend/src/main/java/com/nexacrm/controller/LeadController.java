@@ -54,7 +54,7 @@ public class LeadController {
     }
 
     @PostMapping("/activities/bulk")
-    @PreAuthorize("hasAuthority('leads.read')")
+    @PreAuthorize("hasAuthority('leads.read') or hasAuthority('tasks.read')")
     @Operation(summary = "Get lead activities for multiple leads")
     public ResponseEntity<Map<String, List<LeadActivityDTO>>> getLeadActivitiesBulk(
             @RequestBody Map<String, List<String>> body) {

@@ -335,7 +335,9 @@ export default function TaskFollowUpPage() {
       }, {})
       setLeadActivities(results)
     } catch (err) {
+      console.warn('Bulk activity load failed; falling back to per-lead activity loading.', err)
       const results = {}
+      let failedCount = 0
       const batchSize = 10
       for (let i = 0; i < leadIds.length; i += batchSize) {
         const batch = leadIds.slice(i, i + batchSize)
@@ -344,11 +346,18 @@ export default function TaskFollowUpPage() {
         )
         responses.forEach((res, j) => {
           const leadId = batch[j]
-          results[leadId] = res.status === 'fulfilled' ? unwrapList(res.value) : []
+          if (res.status === 'fulfilled') {
+            results[leadId] = unwrapList(res.value)
+          } else {
+            failedCount += 1
+            results[leadId] = []
+          }
         })
       }
       setLeadActivities(results)
-      toast.error('Bulk activity load failed; used slower fallback')
+      if (failedCount >= leadIds.length) {
+        toast.error('Unable to load activity data')
+      }
     } finally {
       setLoadingActivities(false)
     }
