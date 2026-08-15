@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Activity, Users, Clock, CheckCircle2, Plus, UserPlus, MessageSquare, Sparkles, Receipt, Kanban } from 'lucide-react'
 import Sidebar from './Sidebar'
@@ -47,6 +47,20 @@ export default function MainLayout() {
   const [refreshKey, setRefreshKey] = useState(0)
   const location = useLocation()
   const navigate = useNavigate()
+  const mainRef = useRef(null)
+
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.pathname, location.search])
 
   const speedDialActions = [
     { label: 'New Lead', icon: <UserPlus className="w-5 h-5 text-brand-500" />, onClick: () => navigate('/leads'), color: 'bg-brand-50 dark:bg-brand-950/30' },
@@ -71,7 +85,7 @@ export default function MainLayout() {
           onMenuClick={() => setMobileOpen(true)}
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
         />
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-2.5 sm:p-3 lg:p-3">
+        <main ref={mainRef} className="flex-1 overflow-y-auto custom-scrollbar p-2.5 sm:p-3 lg:p-3">
           <div className="nexa-page-transition mx-auto w-full max-w-[1680px]" key={`${location.pathname}-${refreshKey}`}>
             <Breadcrumb />
             <Outlet />
