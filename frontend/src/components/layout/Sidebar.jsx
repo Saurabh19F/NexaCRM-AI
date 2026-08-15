@@ -74,6 +74,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
   const SidebarContent = ({ isMobile = false }) => {
     const showLabel = isMobile || expanded
+    const navItemModeClass = showLabel ? 'edu-nav-item--expanded' : 'edu-nav-item--collapsed'
+    const iconWrapClass = showLabel ? 'edu-nav-icon edu-nav-icon--expanded' : 'edu-nav-icon edu-nav-icon--collapsed'
+    const iconClass = showLabel ? 'h-[18px] w-[18px]' : 'h-5 w-5'
 
     return (
       <div className="flex flex-col h-full">
@@ -120,11 +123,13 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                     key={tabKey}
                     to={`/admin/saas?tab=${tabKey}`}
                     onClick={() => setMobileOpen(false)}
-                    className={`edu-nav-item ${isActive ? 'active' : ''} ${showLabel ? 'edu-nav-item--expanded' : ''}`}
+                    className={`edu-nav-item ${isActive ? 'active' : ''} ${navItemModeClass}`}
                   >
-                    <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                    <span className={iconWrapClass}>
+                      <Icon className={iconClass} />
+                    </span>
                     {showLabel && <span className="text-[13px] font-medium truncate">{label}</span>}
-                    {!showLabel && <span className="text-[9px] leading-tight mt-0.5 font-medium truncate">{label}</span>}
+                    {!showLabel && <span className="edu-nav-label--collapsed">{label}</span>}
                   </Link>
                 )
               })}
@@ -140,19 +145,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 onClick={() => setMobileOpen(false)}
                 onMouseEnter={() => prefetchPage(path)}
                 className={({ isActive }) =>
-                  `edu-nav-item ${isActive ? 'active' : ''} ${showLabel ? 'edu-nav-item--expanded' : ''} relative`
+                  `edu-nav-item ${isActive ? 'active' : ''} ${navItemModeClass} relative`
                 }
               >
-                <div className="relative">
-                  <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                <div className={iconWrapClass}>
+                  <Icon className={iconClass} />
                   {badgeCount > 0 && !showLabel && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center shadow-sm animate-pulse">
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center shadow-sm">
                       {badgeCount > 9 ? '9+' : badgeCount}
                     </span>
                   )}
                 </div>
                 {showLabel && <span className="text-[13px] font-medium truncate">{label}</span>}
-                {!showLabel && <span className="text-[9px] leading-tight mt-0.5 font-medium truncate">{label}</span>}
+                {!showLabel && <span className="edu-nav-label--collapsed">{label}</span>}
                 {badgeCount > 0 && showLabel && (
                   <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
                     {badgeCount > 99 ? '99+' : badgeCount}

@@ -279,6 +279,48 @@
   }
   .edu-nav-item--expanded {
     @apply flex-row items-center justify-start gap-3 py-2 px-3;
+    min-height: 40px;
+  }
+  .edu-nav-item--collapsed {
+    width: 56px;
+    height: 58px;
+    flex: 0 0 58px;
+    gap: 4px;
+    padding: 6px 4px;
+  }
+  .edu-nav-icon {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+  }
+  .edu-nav-icon--expanded {
+    width: 20px;
+    height: 20px;
+  }
+  .edu-nav-icon--collapsed {
+    width: 24px;
+    height: 24px;
+  }
+  .edu-nav-icon svg {
+    flex-shrink: 0;
+    stroke-width: 2.35;
+  }
+  .edu-nav-label--collapsed {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    max-width: 52px;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.05;
   }
   .edu-nav-item:hover {
     @apply text-white;
@@ -311,6 +353,9 @@
   }
   .edu-nav-item.active::after {
     height: 46%;
+  }
+  .edu-nav-item--collapsed::after {
+    display: none;
   }
   .edu-nav-item.active {
     @apply text-white;
