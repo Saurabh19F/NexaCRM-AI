@@ -105,7 +105,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
         )}
 
         {/* Navigation */}
-        <nav className={`flex-1 flex flex-col px-2 pt-2 pb-1 gap-0.5 overflow-y-auto custom-scrollbar ${showLabel ? '' : 'items-center'}`}>
+        <nav className={`edu-sidebar-scroll flex-1 flex flex-col px-2 pt-2 pb-1 gap-0.5 overflow-y-auto ${showLabel ? '' : 'items-center'}`}>
           {isPlatformAdmin && (
             <>
               {showLabel && (

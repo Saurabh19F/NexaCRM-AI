@@ -162,6 +162,16 @@
   .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-brand-200 dark:bg-slate-700 rounded-full; }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover { @apply bg-brand-300 dark:bg-slate-600; }
 
+  .edu-sidebar-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
+  .edu-sidebar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
   /* ── EDUFLOW status bar (glass) ───────────────────────────────── */
   .edu-status-bar {
     @apply flex items-center justify-between px-5 py-2.5;
