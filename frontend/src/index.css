@@ -28,15 +28,15 @@
 @layer components {
   /* ── EDUFLOW Sidebar ─────────────────────────────────────────── */
   .edu-sidebar {
-    background: linear-gradient(180deg, rgba(15,27,45,0.92) 0%, rgba(22,34,54,0.95) 50%, rgba(15,27,45,0.92) 100%);
+    background: linear-gradient(180deg, rgba(15,27,45,0.98) 0%, rgba(22,34,54,0.98) 50%, rgba(15,27,45,0.98) 100%);
     backdrop-filter: blur(24px) saturate(1.6);
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
-    border-right: 1px solid rgba(255,255,255,0.08);
+    border-right: 1px solid rgba(255,255,255,0.12);
   }
 
   .edu-nav-item {
     @apply flex flex-col items-center justify-center gap-0 py-2 px-1 w-full rounded-xl
-           text-slate-400 cursor-pointer transition-all duration-200;
+           text-slate-300 cursor-pointer transition-all duration-200;
   }
   .edu-nav-item--expanded {
     @apply flex-row items-center justify-start gap-3 py-2 px-3;
@@ -54,18 +54,18 @@
 
   /* ── Glassmorphism card ─────────────────────────────────────── */
   .glass-card {
-    background: rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.9);
     backdrop-filter: blur(16px) saturate(1.8);
     -webkit-backdrop-filter: blur(16px) saturate(1.8);
-    border: 1px solid rgba(255,255,255,0.5);
-    box-shadow: 0 8px 32px rgba(14,165,233,0.06), 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.78);
+    box-shadow: 0 8px 32px rgba(14,165,233,0.08), 0 2px 8px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.7);
     @apply rounded-2xl;
   }
   .dark .glass-card {
-    background: rgba(15,23,42,0.55);
+    background: rgba(15,23,42,0.88);
     backdrop-filter: blur(16px) saturate(1.6);
     -webkit-backdrop-filter: blur(16px) saturate(1.6);
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(148,163,184,0.18);
     box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
   }
 
@@ -122,12 +122,12 @@
   }
   .btn-secondary {
     @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200
-           dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/80
+           dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700
            active:scale-95;
   }
   .btn-ghost {
     @apply btn text-slate-600 hover:bg-slate-100
-           dark:text-slate-400 dark:hover:bg-brand-950/20
+           dark:text-slate-300 dark:hover:bg-slate-800
            active:scale-95;
   }
   .btn-danger {
@@ -137,16 +137,16 @@
   /* ── Input ──────────────────────────────────────────────────── */
   .input {
     @apply block w-full rounded-xl border border-slate-200 dark:border-slate-700
-           bg-white dark:bg-slate-900/70 px-3.5 py-2.5 text-sm
+           bg-white dark:bg-slate-900 px-3.5 py-2.5 text-sm
            text-slate-900 dark:text-slate-100
-           placeholder:text-slate-400 dark:placeholder:text-slate-500
+           placeholder:text-slate-500 dark:placeholder:text-slate-400
            outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-400
            transition-all duration-150;
   }
 
   /* ── Kanban column ──────────────────────────────────────────── */
   .kanban-column {
-    @apply flex flex-col bg-slate-100/80 dark:bg-slate-900/60
+    @apply flex flex-col bg-slate-100 dark:bg-slate-900/85
            rounded-2xl p-3 min-h-[420px] sm:min-h-[500px] w-[85vw] sm:w-72 flex-shrink-0;
   }
 
@@ -165,16 +165,56 @@
   /* ── EDUFLOW status bar (glass) ───────────────────────────────── */
   .edu-status-bar {
     @apply flex items-center justify-between px-5 py-2.5;
-    background: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.92);
     backdrop-filter: blur(12px) saturate(1.5);
     -webkit-backdrop-filter: blur(12px) saturate(1.5);
-    border-top: 1px solid rgba(255,255,255,0.4);
+    border-top: 1px solid rgba(226,232,240,0.9);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
   }
   .dark .edu-status-bar {
-    background: rgba(15,23,42,0.5);
-    border-top: 1px solid rgba(255,255,255,0.06);
+    background: rgba(15,23,42,0.92);
+    border-top: 1px solid rgba(148,163,184,0.16);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-card,
+  .edu-status-bar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: #ffffff;
+  }
+
+  .dark .glass-card,
+  .dark .edu-status-bar {
+    background: #0f172a;
+  }
+
+  .edu-sidebar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: #0f1b2d;
+  }
+}
+
+@media (forced-colors: active) {
+  .glass-card,
+  .edu-status-bar,
+  .edu-sidebar,
+  .btn,
+  .input {
+    forced-color-adjust: auto;
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+
+  .btn-primary,
+  .btn-danger {
+    background: ButtonFace;
+    color: ButtonText;
   }
 }
 
