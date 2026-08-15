@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
   Sparkles, Zap, Receipt, BarChart3, Shield, Settings,
   X, ListTodo, ShieldCheck, Activity, Building2, BadgeDollarSign,
-  Lock, FileText
+  Lock, FileText, Menu
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useNotificationStore } from '../../store/notificationStore'
@@ -76,8 +76,21 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
     return (
       <div className="flex flex-col h-full">
+        {!isMobile && (
+          <div className={`flex h-14 flex-shrink-0 items-center border-b border-white/10 px-2.5 ${showLabel ? 'justify-end' : 'justify-center'}`}>
+            <button
+              type="button"
+              onClick={() => setCollapsed((value) => !value)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className={`flex-1 flex flex-col px-2 pt-3 pb-1 gap-0.5 overflow-y-auto custom-scrollbar ${showLabel ? '' : 'items-center'}`}>
+        <nav className={`flex-1 flex flex-col px-2 pt-2 pb-1 gap-0.5 overflow-y-auto custom-scrollbar ${showLabel ? '' : 'items-center'}`}>
           {isPlatformAdmin && (
             <>
               {showLabel && (

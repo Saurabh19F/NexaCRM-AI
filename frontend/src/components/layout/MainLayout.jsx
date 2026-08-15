@@ -83,8 +83,6 @@ export default function MainLayout() {
         <Topbar
           onMenuClick={() => setMobileOpen(true)}
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
-          sidebarCollapsed={collapsed}
-          onToggleSidebar={() => setCollapsed((c) => !c)}
         />
         <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 lg:p-6">
           <div className="mx-auto w-full max-w-[1600px]" key={refreshKey}>

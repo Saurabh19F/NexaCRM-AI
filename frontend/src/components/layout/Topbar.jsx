@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Menu, Sun, Moon, LogOut, User, ChevronDown, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
@@ -22,7 +22,7 @@ const AVATAR_STYLE_CLASS = {
   steel: 'from-slate-500 to-slate-700',
 }
 
-export default function Topbar({ onMenuClick, onRefresh, sidebarCollapsed, onToggleSidebar }) {
+export default function Topbar({ onMenuClick, onRefresh }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
@@ -213,17 +213,6 @@ export default function Topbar({ onMenuClick, onRefresh, sidebarCollapsed, onTog
       >
         <Menu className="w-5 h-5" />
       </button>
-      {/* Desktop sidebar toggle */}
-      <div className="hidden md:flex items-center gap-2 flex-1">
-        <button
-          onClick={onToggleSidebar}
-          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-        >
-          {sidebarCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
-        </button>
-      </div>
-
       <div className="order-2 ml-auto flex items-center gap-1">
         <button
           onClick={handleRefresh}
