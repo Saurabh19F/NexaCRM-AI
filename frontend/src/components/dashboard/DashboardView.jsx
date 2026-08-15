@@ -71,10 +71,10 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {getGreeting()}, {firstName} 👋
+            NexaCRM AI
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {getGreeting()}, {firstName} · {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-2">
