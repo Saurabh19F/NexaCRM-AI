@@ -57,7 +57,7 @@ export default function MainLayout() {
   ]
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+    <div className="nexa-compact relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       <Aurora className="absolute inset-0 z-0" />
       <ClickSpark />
       <Sidebar
@@ -71,7 +71,7 @@ export default function MainLayout() {
           onMenuClick={() => setMobileOpen(true)}
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
         />
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 lg:p-6">
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 lg:p-4">
           <div className="nexa-page-transition mx-auto w-full max-w-[1600px]" key={`${location.pathname}-${refreshKey}`}>
             <Breadcrumb />
             <Outlet />

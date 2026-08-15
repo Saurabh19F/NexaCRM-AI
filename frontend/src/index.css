@@ -569,6 +569,219 @@
   }
 }
 
+/* Compact authenticated app density */
+.nexa-compact {
+  --topbar-height: 56px;
+  font-size: 0.92rem;
+}
+
+.nexa-compact main {
+  background:
+    linear-gradient(180deg, rgba(248,250,252,0.86), rgba(241,245,249,0.78));
+}
+
+.dark .nexa-compact main {
+  background:
+    linear-gradient(180deg, rgba(2,6,23,0.72), rgba(15,23,42,0.7));
+}
+
+.nexa-compact header {
+  min-height: 56px !important;
+  padding-top: 0.375rem !important;
+  padding-bottom: 0.375rem !important;
+}
+
+.nexa-compact .edu-status-bar {
+  min-height: 30px;
+  padding: 0.375rem 1rem;
+}
+
+.nexa-compact .edu-status-bar > div:first-child {
+  gap: 1rem;
+}
+
+.nexa-compact nav[aria-label="Breadcrumb"] {
+  margin-bottom: 0.65rem !important;
+  font-size: 0.75rem !important;
+}
+
+.nexa-compact .glass-card {
+  border-radius: 0.5rem !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.035), 0 8px 20px rgba(15,23,42,0.025);
+}
+
+.nexa-compact .glass-card:hover {
+  transform: none !important;
+}
+
+.nexa-compact .kpi-card {
+  min-height: auto;
+  padding: 0.65rem 0.75rem !important;
+}
+
+.nexa-compact .btn,
+.nexa-compact .btn-primary,
+.nexa-compact .btn-secondary,
+.nexa-compact .btn-ghost,
+.nexa-compact .btn-danger {
+  min-height: 2.05rem;
+  gap: 0.4rem !important;
+  border-radius: 0.5rem !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.76rem !important;
+  line-height: 1.1;
+}
+
+.nexa-compact .input,
+.nexa-compact input,
+.nexa-compact select,
+.nexa-compact textarea {
+  border-radius: 0.5rem !important;
+  padding-top: 0.45rem !important;
+  padding-bottom: 0.45rem !important;
+  font-size: 0.8rem !important;
+}
+
+.nexa-compact textarea {
+  line-height: 1.35;
+}
+
+.nexa-compact table th,
+.nexa-compact table td {
+  padding-top: 0.55rem !important;
+  padding-bottom: 0.55rem !important;
+  font-size: 0.78rem;
+}
+
+.nexa-compact [class*="space-y-6"] > :not([hidden]) ~ :not([hidden]),
+.nexa-compact [class*="space-y-5"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.85rem !important;
+}
+
+.nexa-compact [class*="space-y-4"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.65rem !important;
+}
+
+.nexa-compact .gap-6,
+.nexa-compact .gap-5 {
+  gap: 0.9rem !important;
+}
+
+.nexa-compact .gap-4 {
+  gap: 0.7rem !important;
+}
+
+.nexa-compact .p-6,
+.nexa-compact .sm\:p-6 {
+  padding: 1rem !important;
+}
+
+.nexa-compact .p-5 {
+  padding: 0.85rem !important;
+}
+
+.nexa-compact .p-4 {
+  padding: 0.75rem !important;
+}
+
+.nexa-compact .px-5,
+.nexa-compact .px-6 {
+  padding-left: 0.9rem !important;
+  padding-right: 0.9rem !important;
+}
+
+.nexa-compact .py-6,
+.nexa-compact .py-5,
+.nexa-compact .py-4 {
+  padding-top: 0.8rem !important;
+  padding-bottom: 0.8rem !important;
+}
+
+.nexa-compact .rounded-2xl {
+  border-radius: 0.65rem !important;
+}
+
+.nexa-compact .rounded-xl {
+  border-radius: 0.5rem !important;
+}
+
+.nexa-compact .text-3xl {
+  font-size: 1.55rem !important;
+  line-height: 1.15 !important;
+}
+
+.nexa-compact .text-2xl {
+  font-size: 1.28rem !important;
+  line-height: 1.2 !important;
+}
+
+.nexa-compact .text-xl {
+  font-size: 1.05rem !important;
+  line-height: 1.25 !important;
+}
+
+.nexa-compact .text-lg {
+  font-size: 0.95rem !important;
+  line-height: 1.25 !important;
+}
+
+.nexa-compact .badge {
+  padding: 0.125rem 0.45rem !important;
+  font-size: 0.65rem !important;
+}
+
+.nexa-compact .nexa-command-hero {
+  padding: 0.9rem !important;
+}
+
+.nexa-compact .nexa-command-hero::after {
+  width: 190px;
+  height: 190px;
+  right: -58px;
+  top: -76px;
+}
+
+.nexa-compact .nexa-signal-pill {
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.62rem;
+}
+
+.nexa-compact .nexa-orbit-tile {
+  min-height: 56px;
+  padding: 0.6rem;
+  font-size: 0.68rem;
+}
+
+.nexa-compact .kanban-column {
+  min-height: 390px !important;
+  padding: 0.65rem !important;
+}
+
+.nexa-compact .deal-card {
+  padding: 0.7rem !important;
+}
+
+.nexa-compact .h-24 {
+  height: 4.5rem !important;
+}
+
+.nexa-compact .h-20 {
+  height: 4rem !important;
+}
+
+.nexa-compact .w-16 {
+  width: 3.25rem !important;
+}
+
+.nexa-compact .h-16 {
+  height: 3.25rem !important;
+}
+
+.nexa-compact .shadow-2xl {
+  box-shadow: 0 18px 42px rgba(15,23,42,0.18) !important;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-card,
   .edu-status-bar {
