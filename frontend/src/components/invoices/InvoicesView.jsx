@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Receipt, Plus, Download, Eye, Send, CheckCircle, Clock, AlertCircle, IndianRupee, X, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { customersAPI, invoicesAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import LoadingState from '../ui/LoadingState'
+import PaginatedSelect from '../ui/PaginatedSelect'
 
 const STATUS_CONFIG = {
   paid:    { label: 'Paid',    cls: 'badge-won',  icon: CheckCircle, iconColor: 'text-emerald-500' },
@@ -110,6 +111,14 @@ function downloadInvoice(inv) {
 function NewInvoiceModal({ onClose, onSave, customers }) {
   const [form, setForm] = useState({ ...EMPTY_FORM, date: new Date().toISOString().slice(0, 10), due: '' })
   const [errors, setErrors] = useState({})
+  const customerOptions = useMemo(() => [
+    { value: '', label: 'Select customer' },
+    ...customers.map((customer) => ({
+      value: customer.id,
+      label: customer.name || 'Untitled customer',
+      meta: customer.company || customer.email || customer.phone || '',
+    })),
+  ], [customers])
 
   const setField = (k, v) => setForm((p) => ({ ...p, [k]: v }))
   const setItem = (i, k, v) => {
@@ -178,20 +187,18 @@ function NewInvoiceModal({ onClose, onSave, customers }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer *</label>
-            <select
+            <PaginatedSelect
               value={form.customerId}
-              onChange={(e) => {
-                const selected = customers.find((c) => c.id === e.target.value)
-                setField('customerId', e.target.value)
+              onChange={(nextValue) => {
+                const selected = customers.find((c) => c.id === nextValue)
+                setField('customerId', nextValue)
                 setField('customer', selected?.name || '')
               }}
-              className={`input mt-1 w-full ${errors.customer ? 'ring-2 ring-red-400' : ''}`}
-            >
-              <option value="">Select customer</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+              options={customerOptions}
+              placeholder="Select customer"
+              searchPlaceholder="Search customers..."
+              className={`mt-1 ${errors.customer ? 'rounded-lg ring-2 ring-red-400' : ''}`}
+            />
             {errors.customer && <p className="text-xs text-red-500 mt-1">{errors.customer}</p>}
           </div>
           <div>

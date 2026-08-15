@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
+import PaginatedSelect from '../components/ui/PaginatedSelect'
 import { ticketsAPI, teamAPI } from '../services/api'
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -105,6 +106,15 @@ const KpiCard = ({ label, value, icon: Icon, color = 'text-brand-500', sub }) =>
 
 // ── Create / Edit Modal ─────────────────────────────────────────
 function TicketModal({ open, onClose, form, setForm, onSubmit, saving, teamMembers, isEdit }) {
+  const assigneeOptions = useMemo(() => [
+    { value: '', label: 'Unassigned' },
+    ...teamMembers.map((member) => ({
+      value: member.id,
+      label: member.name,
+      meta: member.role || '',
+    })),
+  ], [teamMembers])
+
   if (!open) return null
 
   const updateField = (e) => {
@@ -155,10 +165,13 @@ function TicketModal({ open, onClose, form, setForm, onSubmit, saving, teamMembe
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Assign to</label>
-            <select name="assignedTo" value={form.assignedTo} onChange={updateField} className="input">
-              <option value="">Unassigned</option>
-              {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
+            <PaginatedSelect
+              value={form.assignedTo}
+              onChange={(nextValue) => setForm((current) => ({ ...current, assignedTo: nextValue }))}
+              options={assigneeOptions}
+              placeholder="Unassigned"
+              searchPlaceholder="Search employees..."
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Tags</label>

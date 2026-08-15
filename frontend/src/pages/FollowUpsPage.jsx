@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import TaskEditorModal from '../components/tasks/TaskEditorModal'
+import PaginatedSelect from '../components/ui/PaginatedSelect'
 import { leadsAPI, tasksAPI } from '../services/api'
 
 const unwrapList = (payload) => {
@@ -58,6 +59,14 @@ export default function FollowUpsPage() {
     () => leads.find((lead) => lead.id === selectedLeadId) || null,
     [leads, selectedLeadId]
   )
+  const leadOptions = useMemo(() => [
+    { value: '', label: 'Choose a lead' },
+    ...leads.map((lead) => ({
+      value: lead.id,
+      label: lead.name || 'Untitled lead',
+      meta: lead.company || lead.email || '',
+    })),
+  ], [leads])
 
   const loadLeads = async () => {
     const leadResponse = await leadsAPI.getAll({ page: 0, size: 200, sort: 'createdAt,desc' })
@@ -215,22 +224,16 @@ export default function FollowUpsPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Select lead</label>
-            <select
+            <PaginatedSelect
               value={selectedLeadId}
-              onChange={(event) => {
-                const nextLeadId = event.target.value
+              onChange={(nextLeadId) => {
                 setSelectedLeadId(nextLeadId)
                 setSearchParams(nextLeadId ? { leadId: nextLeadId } : {})
               }}
-              className="input"
-            >
-              <option value="">Choose a lead</option>
-              {leads.map((lead) => (
-                <option key={lead.id} value={lead.id}>
-                  {lead.name} {lead.company ? `· ${lead.company}` : ''}
-                </option>
-              ))}
-            </select>
+              options={leadOptions}
+              placeholder="Choose a lead"
+              searchPlaceholder="Search leads..."
+            />
           </div>
 
           {selectedLead ? (

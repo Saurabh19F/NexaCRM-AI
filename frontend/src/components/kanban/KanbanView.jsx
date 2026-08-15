@@ -25,6 +25,7 @@ import { leadsAPI, teamAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import LeadActivitiesModal from '../LeadActivitiesModal'
+import PaginatedSelect from '../ui/PaginatedSelect'
 
 /* ── Pipeline stages — exact activity workflow ──────────────── */
 const STAGES = [
@@ -695,6 +696,14 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
   }
+  const assigneeOptions = useMemo(() => [
+    { value: '', label: 'Unassigned' },
+    ...(teamMembers || []).map((member) => ({
+      value: member.id,
+      label: member.name,
+      meta: member.role || '',
+    })),
+  ], [teamMembers])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -792,12 +801,13 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
         </div>
         <div>
           <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Assigned To</label>
-          <select name="assignedToId" value={form.assignedToId} onChange={handleChange} className="input">
-            <option value="">Unassigned</option>
-            {(teamMembers || []).map((member) => (
-              <option key={member.id} value={member.id}>{member.name}</option>
-            ))}
-          </select>
+          <PaginatedSelect
+            value={form.assignedToId}
+            onChange={(nextValue) => setForm((prev) => ({ ...prev, assignedToId: nextValue }))}
+            options={assigneeOptions}
+            placeholder="Unassigned"
+            searchPlaceholder="Search employees..."
+          />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="btn-secondary text-xs">Cancel</button>
@@ -909,6 +919,10 @@ export default function KanbanPage() {
     const all = leads.map((l) => l.assignedTo).filter(Boolean)
     return [...new Set(all)]
   }, [leads])
+  const ownerOptions = useMemo(() => [
+    { value: 'all', label: 'All owners' },
+    ...owners.map((owner) => ({ value: owner, label: owner })),
+  ], [owners])
 
   /* Group leads by exact saved activity/status into pipeline columns */
   const leadsByStage = useMemo(() => {
@@ -1200,10 +1214,14 @@ export default function KanbanPage() {
                     <option value="all">All sources</option>
                     {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <select value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} className="input text-xs py-2">
-                    <option value="all">All owners</option>
-                    {owners.map((o) => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <PaginatedSelect
+                    value={filterOwner}
+                    onChange={setFilterOwner}
+                    options={ownerOptions}
+                    placeholder="All owners"
+                    searchPlaceholder="Search owners..."
+                    pageSize={6}
+                  />
                   <button
                     onClick={() => { setFilterScore('all'); setFilterSource('all'); setFilterOwner('all') }}
                     className="w-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 py-1"

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
+import PaginatedSelect from '../ui/PaginatedSelect'
 
 const DEFAULT_FORM = {
   title: '',
@@ -40,6 +41,24 @@ export default function TaskEditorModal({
   }), [defaultAssigneeId, defaultLeadId])
 
   const [form, setForm] = useState(baseForm)
+
+  const assigneeOptions = useMemo(() => [
+    { value: '', label: 'Unassigned' },
+    ...employees.map((employee) => ({
+      value: employee.id,
+      label: employee.name,
+      meta: employee.role || '',
+    })),
+  ], [employees])
+
+  const leadOptions = useMemo(() => [
+    { value: '', label: 'No lead' },
+    ...leads.map((lead) => ({
+      value: lead.id,
+      label: lead.name || 'Untitled lead',
+      meta: lead.company || lead.email || '',
+    })),
+  ], [leads])
 
   useEffect(() => {
     if (!open) return
@@ -141,25 +160,23 @@ export default function TaskEditorModal({
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Assignee</label>
-              <select name="assignedToId" value={form.assignedToId || ''} onChange={handleChange} className="input">
-                <option value="">Unassigned</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} {employee.role ? `(${employee.role})` : ''}
-                  </option>
-                ))}
-              </select>
+              <PaginatedSelect
+                value={form.assignedToId || ''}
+                onChange={(nextValue) => setForm((current) => ({ ...current, assignedToId: nextValue }))}
+                options={assigneeOptions}
+                placeholder="Unassigned"
+                searchPlaceholder="Search employees..."
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Lead</label>
-              <select name="leadId" value={form.leadId || ''} onChange={handleChange} className="input">
-                <option value="">No lead</option>
-                {leads.map((lead) => (
-                  <option key={lead.id} value={lead.id}>
-                    {lead.name} {lead.company ? `· ${lead.company}` : ''}
-                  </option>
-                ))}
-              </select>
+              <PaginatedSelect
+                value={form.leadId || ''}
+                onChange={(nextValue) => setForm((current) => ({ ...current, leadId: nextValue }))}
+                options={leadOptions}
+                placeholder="No lead"
+                searchPlaceholder="Search leads..."
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Deal ID</label>

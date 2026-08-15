@@ -19,6 +19,7 @@ import TaskCalendar from '../components/tasks/TaskCalendar'
 import DueTodayWidget from '../components/tasks/DueTodayWidget'
 import OverdueTasksWidget from '../components/tasks/OverdueTasksWidget'
 import TaskEditorModal from '../components/tasks/TaskEditorModal'
+import PaginatedSelect from '../components/ui/PaginatedSelect'
 import { leadsAPI, tasksAPI, teamAPI } from '../services/api'
 
 const EMPTY_FILTERS = {
@@ -183,6 +184,24 @@ export default function TasksPage() {
 
   const clearFilters = () => setFilters(EMPTY_FILTERS)
 
+  const employeeOptions = useMemo(() => [
+    { value: '', label: 'All employees' },
+    ...employees.map((employee) => ({
+      value: employee.id,
+      label: employee.name,
+      meta: employee.role || '',
+    })),
+  ], [employees])
+
+  const leadOptions = useMemo(() => [
+    { value: '', label: 'All leads' },
+    ...leads.map((lead) => ({
+      value: lead.id,
+      label: lead.name || 'Untitled lead',
+      meta: lead.company || lead.email || '',
+    })),
+  ], [leads])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -270,33 +289,23 @@ export default function TasksPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Assignee</label>
-            <select
+            <PaginatedSelect
               value={filters.assignedTo}
-              onChange={(event) => setFilters((current) => ({ ...current, assignedTo: event.target.value }))}
-              className="input"
-            >
-              <option value="">All employees</option>
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
+              onChange={(nextValue) => setFilters((current) => ({ ...current, assignedTo: nextValue }))}
+              options={employeeOptions}
+              placeholder="All employees"
+              searchPlaceholder="Search employees..."
+            />
           </div>
           <div className="lg:col-span-2">
             <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Lead</label>
-            <select
+            <PaginatedSelect
               value={filters.leadId}
-              onChange={(event) => setFilters((current) => ({ ...current, leadId: event.target.value }))}
-              className="input"
-            >
-              <option value="">All leads</option>
-              {leads.map((lead) => (
-                <option key={lead.id} value={lead.id}>
-                  {lead.name} {lead.company ? `· ${lead.company}` : ''}
-                </option>
-              ))}
-            </select>
+              onChange={(nextValue) => setFilters((current) => ({ ...current, leadId: nextValue }))}
+              options={leadOptions}
+              placeholder="All leads"
+              searchPlaceholder="Search leads..."
+            />
           </div>
         </div>
       </div>

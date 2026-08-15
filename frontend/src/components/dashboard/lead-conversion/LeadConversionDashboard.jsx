@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { dashboardAPI, tasksAPI } from '../../../services/api'
 import { useAuthStore } from '../../../store/authStore'
+import PaginatedSelect from '../../ui/PaginatedSelect'
 
 const DATE_FILTERS = [
   { value: 'today', label: 'Today' },
@@ -374,7 +375,10 @@ export default function LeadConversionDashboard() {
 
   const employeeOptions = useMemo(() => {
     if (!isFullAccess) return []
-    return employees.map((row) => ({ value: row.employeeId, label: row.employeeName }))
+    return [
+      { value: '', label: 'All Employees' },
+      ...employees.map((row) => ({ value: row.employeeId, label: row.employeeName })),
+    ]
   }, [employees, isFullAccess])
 
   const funnelData = useMemo(() => {
@@ -536,16 +540,14 @@ export default function LeadConversionDashboard() {
         </div>
 
         {isFullAccess && (
-          <select
+          <PaginatedSelect
             value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-            className="rounded-xl border border-slate-200/70 bg-white/80 px-3 py-2 text-sm text-slate-700 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200"
-          >
-            <option value="">All Employees</option>
-            {employeeOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+            onChange={setEmployeeId}
+            options={employeeOptions}
+            placeholder="All Employees"
+            searchPlaceholder="Search employees..."
+            className="min-w-[160px]"
+          />
         )}
 
         <select
