@@ -184,38 +184,21 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex"
-      style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 25%, #f0f9ff 50%, #d1fae5 75%, #e0f2fe 100%)' }}
+      className="min-h-screen flex bg-slate-50"
     >
-      {/* Glassmorphism background orbs */}
-      <div className="pointer-events-none absolute inset-0" style={{
-        background: `
-          radial-gradient(ellipse 700px 500px at 15% 8%, rgba(14,165,233,0.15), transparent),
-          radial-gradient(ellipse 600px 400px at 85% 15%, rgba(20,184,166,0.12), transparent),
-          radial-gradient(ellipse 500px 400px at 50% 80%, rgba(139,92,246,0.08), transparent)
-        `,
-      }} />
-
       {/* Left panel — CRM Animation */}
       <div className="hidden lg:flex flex-col w-1/2 relative">
         <div className="absolute top-8 left-8 z-20">
           <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
         </div>
 
-        <CRMAnimation />
-
-        <div className="absolute bottom-8 left-8 right-8 z-20">
-          <div className="flex gap-6">
-            {[
-              { value: '10x', label: 'Lead Conversion' },
-              { value: '2.5h', label: 'Saved Daily' },
-              { value: '98%', label: 'Customer Satisfaction' },
-            ].map(({ value, label }) => (
-              <div key={label} className="backdrop-blur-md bg-white/40 rounded-xl px-4 py-3 border border-white/50">
-                <p className="text-xl font-bold text-slate-800">{value}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{label}</p>
-              </div>
-            ))}
+        <div className="flex h-full items-center px-8">
+          <div className="max-w-md space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Sales workspace</p>
+            <h1 className="text-4xl font-bold tracking-tight text-slate-950">A calmer CRM for focused teams.</h1>
+            <p className="text-sm leading-6 text-slate-600">
+              Manage leads, conversations, tasks, and invoices from one clean command center.
+            </p>
           </div>
         </div>
       </div>
@@ -233,16 +216,8 @@ export default function LoginPage() {
             <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
           </div>
 
-          {/* Glass card */}
           <div
-            className="rounded-3xl p-8 sm:p-10"
-            style={{
-              background: 'rgba(255,255,255,0.45)',
-              backdropFilter: 'blur(24px) saturate(1.8)',
-              WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
-              border: '1px solid rgba(255,255,255,0.6)',
-              boxShadow: '0 8px 32px rgba(14,165,233,0.08), 0 2px 8px rgba(0,0,0,0.04)',
-            }}
+            className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm sm:p-10"
           >
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
@@ -255,15 +230,7 @@ export default function LoginPage() {
                 <input
                   type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                   required autoComplete="email"
-                  className="w-full rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.6)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(14,165,233,0.15)',
-                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)',
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = 'rgba(14,165,233,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(14,165,233,0.1), inset 0 1px 2px rgba(0,0,0,0.04)' }}
-                  onBlur={(e) => { e.target.style.borderColor = 'rgba(14,165,233,0.15)'; e.target.style.boxShadow = 'inset 0 1px 2px rgba(0,0,0,0.04)' }}
+                  className="input"
                   placeholder="you@company.com"
                 />
               </div>
@@ -273,15 +240,7 @@ export default function LoginPage() {
                   <input
                     type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
                     required autoComplete="current-password"
-                    className="w-full rounded-xl px-4 py-3 pr-12 text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.6)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(14,165,233,0.15)',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)',
-                    }}
-                    onFocus={(e) => { e.target.style.borderColor = 'rgba(14,165,233,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(14,165,233,0.1), inset 0 1px 2px rgba(0,0,0,0.04)' }}
-                    onBlur={(e) => { e.target.style.borderColor = 'rgba(14,165,233,0.15)'; e.target.style.boxShadow = 'inset 0 1px 2px rgba(0,0,0,0.04)' }}
+                    className="input pr-12"
                     placeholder="••••••••"
                   />
                   <button type="button" onClick={() => setShowPwd(!showPwd)}
@@ -311,11 +270,7 @@ export default function LoginPage() {
               </div>
 
               <button type="submit" disabled={loading}
-                className="w-full py-3 text-base gap-2 disabled:opacity-70 flex items-center justify-center font-semibold rounded-xl text-white transition-all active:scale-[0.98]"
-                style={{
-                  background: 'linear-gradient(135deg, #0ea5e9, #14b8a6)',
-                  boxShadow: '0 4px 15px rgba(14,165,233,0.3), 0 2px 4px rgba(0,0,0,0.1)',
-                }}
+                className="btn-primary w-full py-3 text-base gap-2 disabled:opacity-70"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

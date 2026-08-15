@@ -53,26 +53,7 @@ export default function MainLayout() {
   ]
 
   return (
-    <div className="relative flex h-screen overflow-hidden" style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 25%, #f0f9ff 50%, #d1fae5 75%, #e0f2fe 100%)' }}>
-      {/* Dark mode background */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 hidden dark:block"
-        style={{ background: 'linear-gradient(135deg, #0c1222 0%, #0f172a 50%, #0c1222 100%)' }}
-      />
-      {/* Glassmorphism gradient orbs — gives color variation for glass to refract */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: `
-            radial-gradient(ellipse 700px 500px at 15% 8%, rgba(14,165,233,0.15), transparent),
-            radial-gradient(ellipse 600px 400px at 85% 15%, rgba(20,184,166,0.12), transparent),
-            radial-gradient(ellipse 500px 400px at 50% 80%, rgba(139,92,246,0.08), transparent),
-            radial-gradient(ellipse 400px 300px at 70% 60%, rgba(14,165,233,0.06), transparent)
-          `,
-        }}
-      />
+    <div className="relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}

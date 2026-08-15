@@ -21,21 +21,19 @@
   }
 
   .dark body {
-    @apply bg-[#0d0a1e] text-slate-100;
+    @apply bg-slate-950 text-slate-100;
   }
 }
 
 @layer components {
   /* ── EDUFLOW Sidebar ─────────────────────────────────────────── */
   .edu-sidebar {
-    background: linear-gradient(180deg, rgba(15,27,45,0.98) 0%, rgba(22,34,54,0.98) 50%, rgba(15,27,45,0.98) 100%);
-    backdrop-filter: blur(24px) saturate(1.6);
-    -webkit-backdrop-filter: blur(24px) saturate(1.6);
-    border-right: 1px solid rgba(255,255,255,0.12);
+    background: #111827;
+    border-right: 1px solid rgba(148,163,184,0.18);
   }
 
   .edu-nav-item {
-    @apply flex flex-col items-center justify-center gap-0 py-2 px-1 w-full rounded-xl
+    @apply flex flex-col items-center justify-center gap-0 py-2 px-1 w-full rounded-lg
            text-slate-300 cursor-pointer transition-all duration-200;
   }
   .edu-nav-item--expanded {
@@ -43,35 +41,35 @@
   }
   .edu-nav-item:hover {
     @apply text-white;
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.06);
   }
   .edu-nav-item.active {
     @apply text-white;
-    background: linear-gradient(135deg, rgba(14,165,233,0.3), rgba(20,184,166,0.22));
-    box-shadow: 0 0 20px rgba(14,165,233,0.15), inset 0 1px 0 rgba(255,255,255,0.12);
-    border: 1px solid rgba(14,165,233,0.2);
+    background: rgba(14,165,233,0.14);
+    box-shadow: none;
+    border: 1px solid rgba(14,165,233,0.22);
   }
 
   /* ── Glassmorphism card ─────────────────────────────────────── */
   .glass-card {
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(16px) saturate(1.8);
-    -webkit-backdrop-filter: blur(16px) saturate(1.8);
-    border: 1px solid rgba(255,255,255,0.78);
-    box-shadow: 0 8px 32px rgba(14,165,233,0.08), 0 2px 8px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.7);
-    @apply rounded-2xl;
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    @apply rounded-lg;
   }
   .dark .glass-card {
-    background: rgba(15,23,42,0.88);
-    backdrop-filter: blur(16px) saturate(1.6);
-    -webkit-backdrop-filter: blur(16px) saturate(1.6);
-    border: 1px solid rgba(148,163,184,0.18);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    background: #0f172a;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid rgba(148,163,184,0.22);
+    box-shadow: none;
   }
 
   /* Legacy nav-item for backward compat */
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
            text-slate-600 dark:text-slate-400
            hover:text-slate-900 dark:hover:text-slate-100
            hover:bg-slate-100 dark:hover:bg-brand-950/20
@@ -85,11 +83,10 @@
 
   /* ── KPI stat card (EDUFLOW glassmorphism) ───────────────────── */
   .kpi-card {
-    @apply glass-card px-3 py-2.5 sm:px-4 sm:py-3 transition-all duration-200;
+    @apply glass-card px-3 py-2.5 sm:px-4 sm:py-3 transition-colors duration-150;
   }
   .kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px rgba(14,165,233,0.08), 0 3px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.7);
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
   }
 
   /* ── Badge ──────────────────────────────────────────────────── */
@@ -108,21 +105,19 @@
   /* ── Button variants ────────────────────────────────────────── */
   .btn {
     @apply inline-flex items-center justify-center gap-2
-           rounded-xl px-4 py-2.5 text-sm font-semibold
+           rounded-lg px-4 py-2.5 text-sm font-semibold
            transition-all duration-150 outline-none
            focus-visible:ring-2 focus-visible:ring-brand-500;
   }
   .btn-primary {
-    @apply btn text-white shadow-sm active:scale-95;
-    background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+    @apply btn bg-slate-900 text-white shadow-none hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white active:scale-95;
   }
   .btn-primary:hover {
-    background: linear-gradient(135deg, #0284c7, #0f766e);
-    box-shadow: 0 4px 15px rgba(14,165,233,0.3);
+    box-shadow: none;
   }
   .btn-secondary {
-    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200
-           dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700
+    @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
+           dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800
            active:scale-95;
   }
   .btn-ghost {
@@ -131,12 +126,12 @@
            active:scale-95;
   }
   .btn-danger {
-    @apply btn bg-rose-600 text-white hover:bg-rose-700 shadow-sm active:scale-95;
+    @apply btn bg-rose-600 text-white hover:bg-rose-700 shadow-none active:scale-95;
   }
 
   /* ── Input ──────────────────────────────────────────────────── */
   .input {
-    @apply block w-full rounded-xl border border-slate-200 dark:border-slate-700
+    @apply block w-full rounded-lg border border-slate-200 dark:border-slate-700
            bg-white dark:bg-slate-900 px-3.5 py-2.5 text-sm
            text-slate-900 dark:text-slate-100
            placeholder:text-slate-500 dark:placeholder:text-slate-400
@@ -147,13 +142,13 @@
   /* ── Kanban column ──────────────────────────────────────────── */
   .kanban-column {
     @apply flex flex-col bg-slate-100 dark:bg-slate-900/85
-           rounded-2xl p-3 min-h-[420px] sm:min-h-[500px] w-[85vw] sm:w-72 flex-shrink-0;
+           rounded-lg p-3 min-h-[420px] sm:min-h-[500px] w-[85vw] sm:w-72 flex-shrink-0;
   }
 
   /* ── Deal card ──────────────────────────────────────────────── */
   .deal-card {
     @apply glass-card p-4 cursor-grab active:cursor-grabbing
-           hover:shadow-card-hover transition-all duration-150;
+           transition-colors duration-150;
   }
 
   /* ── Scrollbar ──────────────────────────────────────────────── */
@@ -175,16 +170,16 @@
   /* ── EDUFLOW status bar (glass) ───────────────────────────────── */
   .edu-status-bar {
     @apply flex items-center justify-between px-5 py-2.5;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(12px) saturate(1.5);
-    -webkit-backdrop-filter: blur(12px) saturate(1.5);
-    border-top: 1px solid rgba(226,232,240,0.9);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: none;
   }
   .dark .edu-status-bar {
-    background: rgba(15,23,42,0.92);
-    border-top: 1px solid rgba(148,163,184,0.16);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    background: #0f172a;
+    border-top: 1px solid rgba(148,163,184,0.2);
+    box-shadow: none;
   }
 }
 
@@ -676,6 +671,38 @@
 /* ═══════════════════════════════════════════════════════════════
    GLOBAL SURFACE OVERRIDES
    ═══════════════════════════════════════════════════════════════ */
+
+[class~="rounded-2xl"],
+[class~="rounded-3xl"] {
+  border-radius: 0.5rem !important;
+}
+
+[class~="shadow-lg"],
+[class~="shadow-xl"],
+[class~="shadow-2xl"] {
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06) !important;
+}
+
+[class~="drop-shadow-2xl"] {
+  filter: none !important;
+}
+
+[class~="backdrop-blur-sm"],
+[class~="backdrop-blur-md"],
+[class~="backdrop-blur-xl"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+thead th,
+thead td {
+  background-color: #f8fafc;
+}
+
+.dark thead th,
+.dark thead td {
+  background-color: #0f172a;
+}
 
 /* ── CORPORATE ───────────────────────────────────────────────── */
 [data-theme="corporate"] [class~="bg-slate-50"]          { background-color: #F8FAFC !important; }

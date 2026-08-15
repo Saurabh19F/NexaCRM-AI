@@ -197,14 +197,10 @@ export default function Topbar({ onMenuClick, onRefresh }) {
 
   return (
     <header className="sticky top-0 z-40 min-h-16 flex flex-wrap sm:flex-nowrap items-center px-3 sm:px-5 py-2 sm:py-0 gap-2 sm:gap-4
-                       border-b border-white/40 dark:border-white/[0.06]"
+                       border-b border-slate-200 dark:border-slate-800"
       style={{
-        background: isDark ? 'rgba(15,23,42,0.92)' : 'rgba(255,255,255,0.92)',
-        backdropFilter: 'blur(20px) saturate(1.8)',
-        WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
-        boxShadow: isDark
-          ? '0 4px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.06)'
-          : '0 4px 30px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.7)',
+        background: isDark ? '#0f172a' : '#ffffff',
+        boxShadow: 'none',
       }}>
       {/* Mobile hamburger */}
       <button
