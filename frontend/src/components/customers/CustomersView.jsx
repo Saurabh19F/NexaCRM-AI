@@ -780,26 +780,26 @@ export default function CustomersPage() {
       </div>
 
       {/* Search + Filters */}
-      <div className="glass-card p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl px-3 py-2">
-            <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
+      <div className="glass-card p-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-h-[34px] w-full max-w-sm items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 dark:bg-slate-800/60 sm:w-[280px]">
+            <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, company, email, phone, assigned to…"
-              className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none flex-1"
+              placeholder="Search customers..."
+              className="min-w-0 flex-1 bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-300"
             />
           </div>
           <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
-            className="input text-sm py-2 min-w-[130px]">
+            className="input min-w-[118px] py-1.5 text-xs">
             <option value="all">All Sources</option>
             {availableSources.map((s) => (
               <option key={s} value={s}>{SOURCE_LABELS[s] || s}</option>
             ))}
           </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="input text-sm py-2 min-w-[130px]">
+            className="input min-w-[118px] py-1.5 text-xs">
             <option value="all">All Status</option>
             {availableStatuses.map((s) => (
               <option key={s} value={s}>{STATUS_BADGES[s]?.label || s}</option>
