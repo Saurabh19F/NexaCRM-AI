@@ -759,20 +759,20 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <PageHeading
           title="Customers"
           subtitle={`${stats.total} total · ${stats.wonCount} converted · ${formatCurrency(stats.totalRevenue)} pipeline value`}
         />
-        <button onClick={() => setShowAdd(true)} className="btn-primary gap-1.5 text-sm">
+        <button onClick={() => setShowAdd(true)} className="btn-primary w-full justify-center gap-1.5 text-sm sm:w-auto">
           <Plus className="w-4 h-4" /> Add Customer
         </button>
       </div>
 
       {/* Stats from real data */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatCard icon={Users} label="Total Customers" value={stats.total} color="bg-brand-500" />
         <StatCard icon={IndianRupee} label="Pipeline Value" value={formatCurrency(stats.totalRevenue)} color="bg-emerald-500" />
         <StatCard icon={TrendingUp} label="Converted (Won)" value={stats.wonCount} color="bg-purple-500" />
@@ -791,24 +791,26 @@ export default function CustomersPage() {
               className="min-w-0 flex-1 bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-300"
             />
           </div>
-          <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
-            className="input !w-full min-w-[118px] py-1.5 text-xs sm:!w-[132px] sm:flex-none">
-            <option value="all">All Sources</option>
-            {availableSources.map((s) => (
-              <option key={s} value={s}>{SOURCE_LABELS[s] || s}</option>
-            ))}
-          </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="input !w-full min-w-[118px] py-1.5 text-xs sm:!w-[132px] sm:flex-none">
-            <option value="all">All Status</option>
-            {availableStatuses.map((s) => (
-              <option key={s} value={s}>{STATUS_BADGES[s]?.label || s}</option>
-            ))}
-          </select>
+          <div className="grid w-full grid-cols-2 gap-2 sm:contents">
+            <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
+              className="input !w-full min-w-0 py-1.5 text-xs sm:!w-[132px] sm:flex-none">
+              <option value="all">All Sources</option>
+              {availableSources.map((s) => (
+                <option key={s} value={s}>{SOURCE_LABELS[s] || s}</option>
+              ))}
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+              className="input !w-full min-w-0 py-1.5 text-xs sm:!w-[132px] sm:flex-none">
+              <option value="all">All Status</option>
+              {availableStatuses.map((s) => (
+                <option key={s} value={s}>{STATUS_BADGES[s]?.label || s}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
         {/* ── Customer List ───────────────────────────────────────── */}
         <div className="lg:col-span-1 space-y-2">
           {loading ? (
@@ -827,10 +829,10 @@ export default function CustomersPage() {
             const badge = STATUS_BADGES[c.status]
             return (
               <button key={c.id} onClick={() => setSelected(c)}
-                className={`w-full glass-card p-3.5 text-left hover:shadow-card-hover transition-all
+                className={`w-full glass-card p-3 text-left hover:shadow-card-hover transition-all sm:p-3.5
                   ${selected?.id === c.id ? 'ring-2 ring-brand-500/50' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                <div className="flex items-start gap-2.5 sm:items-center sm:gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 sm:h-10 sm:w-10">
                     {(c.name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -845,7 +847,7 @@ export default function CustomersPage() {
                     </span>
                   )}
                 </div>
-                <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500">
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 sm:justify-between">
                   <span className="flex items-center gap-1">
                     <IndianRupee className="w-3 h-3" />
                     {formatCurrency(c.dealValue)}
@@ -889,16 +891,16 @@ export default function CustomersPage() {
         </div>
 
         {/* ── Detail Panel ────────────────────────────────────────── */}
-        <div className="lg:col-span-2 glass-card p-6">
+        <div className="glass-card p-3.5 sm:p-5 lg:col-span-2 lg:p-6">
           {selected ? (
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               {/* Header */}
-              <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0 sm:h-14 sm:w-14 sm:text-xl">
                   {(selected.name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">{selected.name}</h2>
+                  <h2 className="truncate text-lg font-bold text-slate-800 dark:text-slate-200 sm:text-xl">{selected.name}</h2>
                   <p className="text-sm text-slate-500">
                     {selected.company && selected.company !== selected.name ? `${selected.company} · ` : ''}
                     Added {selected.since}
@@ -924,14 +926,14 @@ export default function CustomersPage() {
               </div>
 
               {/* Contact Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                 {[
                   { label: 'Email', value: selected.email || '—', icon: Mail },
                   { label: 'Phone', value: selected.phone || '—', icon: Phone },
                   { label: 'Company', value: selected.company || '—', icon: Building2 },
                   { label: 'Service', value: selected.service || '—', icon: Briefcase },
                 ].map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3">
+                  <div key={label} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2.5 sm:p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Icon className="w-3.5 h-3.5 text-slate-400" />
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
@@ -942,26 +944,26 @@ export default function CustomersPage() {
               </div>
 
               {/* Deal & Revenue Info */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 text-center">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-2.5 text-center sm:p-3">
                   <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Deal Value</p>
                   <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mt-1">
                     {formatCurrency(selected.dealValue)}
                   </p>
                 </div>
-                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
+                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-2.5 text-center sm:p-3">
                   <p className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">Source</p>
                   <p className="text-sm font-bold text-purple-700 dark:text-purple-300 mt-1.5">
                     {selected.sourceLabel || '—'}
                   </p>
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-2.5 text-center sm:p-3">
                   <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Score</p>
                   <p className="text-sm font-bold text-blue-700 dark:text-blue-300 mt-1.5 capitalize">
                     {selected.score || '—'}
                   </p>
                 </div>
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-2.5 text-center sm:p-3">
                   <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Status</p>
                   <p className="text-sm font-bold text-amber-700 dark:text-amber-300 mt-1.5 capitalize">
                     {selected.status || '—'}
@@ -970,9 +972,9 @@ export default function CustomersPage() {
               </div>
 
               {/* Assigned To + Specialization */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
                 {selected.assignedTo && (
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2.5 sm:p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <UserCircle className="w-3.5 h-3.5 text-slate-400" />
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Assigned To</p>
@@ -981,7 +983,7 @@ export default function CustomersPage() {
                   </div>
                 )}
                 {selected.specialization && (
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2.5 sm:p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Tag className="w-3.5 h-3.5 text-slate-400" />
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Specialization</p>
