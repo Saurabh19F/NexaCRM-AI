@@ -1066,7 +1066,7 @@ function CallOutcomeModal({ lead, user, onClose, onSave }) {
 }
 
 export default function LeadsPage() {
-  const PAGE_SIZE = 50
+  const PAGE_SIZE = 10
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   const {
@@ -1660,6 +1660,28 @@ export default function LeadsPage() {
             )
           })
         )}
+      </div>
+
+      <div className="sm:hidden flex flex-wrap items-center justify-between gap-2 glass-card px-3 py-2">
+        <p className="text-xs text-slate-500">
+          Page {currentPage + 1} / {totalPages} · {filtered.length} of {totalCount}
+        </p>
+        <div className="flex gap-1">
+          <button
+            disabled={currentPage <= 0}
+            onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+            className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            Prev
+          </button>
+          <button
+            disabled={currentPage + 1 >= totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+            className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {/* Table – minimal: Name, Score, Status, Source, Date, Action */}
