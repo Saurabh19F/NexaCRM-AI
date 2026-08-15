@@ -77,15 +77,37 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
     return (
       <div className="flex flex-col h-full">
         {!isMobile && (
-          <div className={`flex h-14 flex-shrink-0 items-center border-b border-white/10 px-2.5 ${showLabel ? 'justify-end' : 'justify-center'}`}>
-            <button
-              type="button"
-              onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
+          <div className={`flex h-16 flex-shrink-0 items-center border-b border-white/10 px-2.5 ${showLabel ? 'justify-between gap-2' : 'justify-center'}`}>
+            {showLabel ? (
+              <img
+                src="/brand/nexacrm-ai-wordmark-dark.png"
+                alt="NexaCRM AI"
+                className="h-9 min-w-0 flex-1 object-contain object-left"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCollapsed(false)}
+                aria-label="Expand sidebar"
+                className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-slate-950/40 ring-1 ring-white/10 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                <img
+                  src="/brand/nexacrm-ai-icon-dark.png"
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            )}
+            {showLabel && (
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                aria-label="Collapse sidebar"
+                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
           </div>
         )}
 
@@ -202,6 +224,13 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
           />
           <aside className="fixed left-0 top-0 bottom-0 w-60 edu-sidebar z-50 md:hidden">
+            <div className="flex h-16 items-center border-b border-white/10 px-3 pr-12">
+              <img
+                src="/brand/nexacrm-ai-wordmark-dark.png"
+                alt="NexaCRM AI"
+                className="h-10 w-full object-contain object-left"
+              />
+            </div>
             <button
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation"
