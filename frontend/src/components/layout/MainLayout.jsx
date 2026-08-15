@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import Breadcrumb from './Breadcrumb'
 import SpeedDial from '../ui/SpeedDial'
+import Aurora from '../reactbits/Aurora'
 
 function StatusBar() {
   const [time, setTime] = useState(new Date())
@@ -54,6 +55,7 @@ export default function MainLayout() {
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <Aurora className="absolute inset-0 z-0" />
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}

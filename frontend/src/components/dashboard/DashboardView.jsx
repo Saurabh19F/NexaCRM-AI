@@ -10,20 +10,14 @@ import Chip from '../ui/Chip'
 import Alert from '../ui/Alert'
 import { LinearProgress } from '../ui/Progress'
 import { Skeleton } from '../ui/Skeleton'
+import GradientText from '../reactbits/GradientText'
+import SpotlightCard from '../reactbits/SpotlightCard'
 
 const INSIGHT_ROUTES = {
   'Schedule Call':  '/communication',
   'Send Follow-up': '/communication',
   'View Profile':   '/customers',
   'Plan Campaign':  '/ai-engine',
-}
-
-const glassStyle = {
-  background: 'rgba(255,255,255,0.5)',
-  backdropFilter: 'blur(16px) saturate(1.8)',
-  WebkitBackdropFilter: 'blur(16px) saturate(1.8)',
-  border: '1px solid rgba(255,255,255,0.4)',
-  boxShadow: '0 4px 24px rgba(14,165,233,0.05), inset 0 1px 0 rgba(255,255,255,0.5)',
 }
 
 export default function DashboardPage() {
@@ -70,8 +64,8 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {getGreeting()}, {firstName} 👋
+          <h1 className="text-2xl font-bold leading-tight">
+            <GradientText>{getGreeting()}, {firstName}</GradientText>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -90,7 +84,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
         {/* Call Intelligence */}
-        <div className="rounded-2xl p-4" style={glassStyle}>
+        <SpotlightCard className="p-4" spotlightColor="rgba(14, 165, 233, 0.2)">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center">
               <Phone className="h-3.5 w-3.5 text-white" />
@@ -170,10 +164,10 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </div>
+        </SpotlightCard>
 
         {/* AI Insights */}
-        <div className="rounded-2xl p-4" style={glassStyle}>
+        <SpotlightCard className="p-4" spotlightColor="rgba(124, 58, 237, 0.2)">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
               <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -235,7 +229,7 @@ export default function DashboardPage() {
               })}
             </div>
           )}
-        </div>
+        </SpotlightCard>
       </div>
     </div>
   )

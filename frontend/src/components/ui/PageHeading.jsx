@@ -1,3 +1,5 @@
+import GradientText from '../reactbits/GradientText'
+
 export default function PageHeading({ title, subtitle, icon = null }) {
   return (
     <div className="space-y-1">
@@ -8,8 +10,8 @@ export default function PageHeading({ title, subtitle, icon = null }) {
           </div>
         ) : null}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
-            {title}
+          <h1 className="text-2xl font-bold leading-tight">
+            <GradientText>{title}</GradientText>
           </h1>
           {subtitle ? <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p> : null}
         </div>
