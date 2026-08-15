@@ -13,6 +13,7 @@ import DelayAlertPanel from './DelayAlertPanel'
 import { getLeadAgeMinutes } from '../../utils/leadSla'
 import { connectWebSocket, disconnectWebSocket } from '../../services/websocket'
 import { authAPI, leadsAPI } from '../../services/api'
+import BrandLogo from '../brand/BrandLogo'
 
 const AVATAR_STYLE_CLASS = {
   brand: 'from-brand-500 to-accent-500',
@@ -214,9 +215,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
         <Menu className="w-5 h-5" />
       </button>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-base font-bold text-slate-900 dark:text-slate-100">
-          NexaCRM AI
-        </p>
+        <BrandLogo variant="wordmark" size="sm" framed className="max-w-[190px] sm:max-w-[230px]" />
       </div>
       <div className="order-2 ml-auto flex items-center gap-1">
         <button

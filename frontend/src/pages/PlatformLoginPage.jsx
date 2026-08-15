@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ShieldCheck, Eye, EyeOff, LogIn } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { authAPI } from '../services/api'
+import BrandLogo from '../components/brand/BrandLogo'
 import toast from 'react-hot-toast'
 
 /* ── Animated Platform Admin illustration (left panel) ──────────── */
@@ -182,20 +183,8 @@ export default function PlatformLoginPage() {
 
       {/* Left panel — Platform Animation */}
       <div className="hidden lg:flex flex-col w-1/2 relative">
-        <div className="absolute top-8 left-8 z-20 flex items-center gap-3">
-          <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, rgba(14,165,233,0.85), rgba(20,184,166,0.85))',
-              boxShadow: '0 8px 24px rgba(14,165,233,0.3)',
-            }}
-          >
-            <ShieldCheck className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <p className="text-slate-800 font-bold text-lg leading-none">NexaCRM</p>
-            <p className="text-brand-500 text-xs font-semibold tracking-widest uppercase">Platform Control</p>
-          </div>
+        <div className="absolute top-8 left-8 z-20">
+          <BrandLogo variant="wordmark" size="md" framed className="max-w-[260px]" />
         </div>
 
         <PlatformAnimation />
@@ -225,20 +214,8 @@ export default function PlatformLoginPage() {
           className="w-full max-w-md"
         >
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, rgba(14,165,233,0.85), rgba(20,184,166,0.85))',
-                boxShadow: '0 8px 24px rgba(14,165,233,0.3)',
-              }}
-            >
-              <ShieldCheck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <p className="text-slate-800 font-bold text-lg leading-none">NexaCRM</p>
-              <p className="text-brand-500 text-xs font-semibold">Platform Control</p>
-            </div>
+          <div className="lg:hidden mb-8">
+            <BrandLogo variant="wordmark" size="md" framed className="max-w-[260px]" />
           </div>
 
           {/* Glass card */}

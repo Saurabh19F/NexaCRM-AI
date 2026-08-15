@@ -11,6 +11,7 @@ import { useNotificationStore } from '../../store/notificationStore'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import { prefetchPage } from '../../App'
 import Tooltip from '../ui/Tooltip'
+import BrandLogo from '../brand/BrandLogo'
 
 const NAV_ITEMS = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/dashboard', permission: PERMISSIONS.DASHBOARD_VIEW },
@@ -79,11 +80,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
         {!isMobile && (
           <div className={`flex h-16 flex-shrink-0 items-center border-b border-white/10 px-2.5 ${showLabel ? 'justify-between gap-2' : 'justify-center'}`}>
             {showLabel ? (
-              <img
-                src="/brand/nexacrm-ai-wordmark-dark.png"
-                alt="NexaCRM AI"
-                className="h-9 min-w-0 flex-1 object-contain object-left"
-              />
+              <BrandLogo variant="wordmark" size="sm" className="flex-1" imageClassName="h-9" />
             ) : (
               <button
                 type="button"
@@ -91,11 +88,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 aria-label="Expand sidebar"
                 className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-slate-950/40 ring-1 ring-white/10 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
               >
-                <img
-                  src="/brand/nexacrm-ai-icon-dark.png"
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
+                <BrandLogo variant="icon" size="md" className="h-full w-full p-1.5" />
               </button>
             )}
             {showLabel && (
@@ -225,11 +218,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           />
           <aside className="fixed left-0 top-0 bottom-0 w-60 edu-sidebar z-50 md:hidden">
             <div className="flex h-16 items-center border-b border-white/10 px-3 pr-12">
-              <img
-                src="/brand/nexacrm-ai-wordmark-dark.png"
-                alt="NexaCRM AI"
-                className="h-10 w-full object-contain object-left"
-              />
+              <BrandLogo variant="wordmark" size="md" className="w-full" />
             </div>
             <button
               onClick={() => setMobileOpen(false)}

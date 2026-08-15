@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Sparkles, ShieldAlert, ArrowLeft } from 'lucide-react'
+import { ShieldAlert, ArrowLeft } from 'lucide-react'
+import BrandLogo from '../components/brand/BrandLogo'
 
 export default function RegisterPage() {
   return (
@@ -10,14 +11,8 @@ export default function RegisterPage() {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      <div className="lg:hidden flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg">
-          <Sparkles className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <p className="text-white font-bold text-lg leading-none">NexaCRM AI</p>
-          <p className="text-brand-400 text-xs">Sales Intelligence Platform</p>
-        </div>
+      <div className="lg:hidden mb-6">
+        <BrandLogo variant="wordmark" size="md" className="max-w-[260px]" />
       </div>
 
       <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 text-amber-300 px-3 py-1 text-xs font-semibold">
