@@ -25,7 +25,7 @@ export default function SpeedDial({ actions = [], icon, position = 'bottom-right
   }
 
   return (
-    <div ref={ref} className={positionClass[position] || positionClass['bottom-right']}>
+    <div ref={ref} className={`nexa-speed-dial ${positionClass[position] || positionClass['bottom-right']}`}>
       {/* Action items */}
       <AnimatePresence>
         {open && (
@@ -37,17 +37,17 @@ export default function SpeedDial({ actions = [], icon, position = 'bottom-right
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.3, y: 20 }}
                 transition={{ duration: 0.15, delay: i * 0.04 }}
-                className="flex items-center gap-2"
+                className="nexa-speed-dial__item flex items-center gap-2"
               >
                 {/* Label */}
-                <span className="px-2.5 py-1 rounded-lg bg-slate-800 dark:bg-slate-200 text-[11px] font-medium text-white dark:text-slate-900 shadow-lg whitespace-nowrap">
+                <span className="nexa-speed-dial__label px-2.5 py-1 rounded-lg bg-slate-800 dark:bg-slate-200 text-[11px] font-medium text-white dark:text-slate-900 shadow-lg whitespace-nowrap">
                   {action.label}
                 </span>
                 {/* Mini FAB */}
                 <button
                   type="button"
                   onClick={() => { setOpen(false); action.onClick?.() }}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95
+                  className={`nexa-speed-dial__mini w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95
                     ${action.color || 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                   title={action.label}
                   aria-label={action.label}
@@ -66,7 +66,7 @@ export default function SpeedDial({ actions = [], icon, position = 'bottom-right
         onClick={() => setOpen((v) => !v)}
         animate={{ rotate: open ? 45 : 0 }}
         transition={{ duration: 0.2 }}
-        className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-white transition-all hover:shadow-2xl active:scale-95"
+        className="nexa-speed-dial__main w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-white transition-all hover:shadow-2xl active:scale-95"
         style={{
           background: 'linear-gradient(135deg, #0ea5e9, #14b8a6)',
           boxShadow: open

@@ -70,6 +70,16 @@
   .dark .reactbits-aurora__mesh {
     opacity: 0.28;
   }
+  .reactbits-aurora::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 76% 10%, rgba(99,102,241,0.12), transparent 24%),
+      radial-gradient(circle at 35% 86%, rgba(20,184,166,0.1), transparent 26%),
+      linear-gradient(90deg, transparent 0%, rgba(14,165,233,0.04) 50%, transparent 100%);
+    animation: reactbits-light-sweep 16s ease-in-out infinite alternate;
+  }
   .reactbits-gradient-text {
     display: inline-block;
     color: transparent;
@@ -143,16 +153,129 @@
   .nexa-page-transition {
     animation: reactbits-page-in 360ms ease-out both;
   }
+  .nexa-command-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(14,165,233,0.22);
+    padding: 1.25rem;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.92), rgba(240,249,255,0.78) 46%, rgba(240,253,250,0.82)),
+      radial-gradient(circle at 4% 0%, rgba(14,165,233,0.2), transparent 36%),
+      radial-gradient(circle at 88% 20%, rgba(99,102,241,0.18), transparent 34%);
+    box-shadow: 0 22px 55px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+  .dark .nexa-command-hero {
+    border-color: rgba(56,189,248,0.24);
+    background:
+      linear-gradient(135deg, rgba(15,23,42,0.9), rgba(2,6,23,0.86) 50%, rgba(8,47,73,0.58)),
+      radial-gradient(circle at 8% 0%, rgba(14,165,233,0.24), transparent 38%),
+      radial-gradient(circle at 88% 18%, rgba(124,58,237,0.22), transparent 34%);
+    box-shadow: 0 28px 60px rgba(2,6,23,0.46), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .nexa-command-hero::before,
+  .nexa-command-hero::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+  }
+  .nexa-command-hero::before {
+    inset: -1px;
+    background-image:
+      linear-gradient(rgba(14,165,233,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14,165,233,0.07) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 82%, transparent);
+    opacity: 0.72;
+  }
+  .nexa-command-hero::after {
+    width: 280px;
+    height: 280px;
+    right: -70px;
+    top: -105px;
+    border-radius: 9999px;
+    border: 1px solid rgba(14,165,233,0.24);
+    box-shadow:
+      0 0 0 28px rgba(14,165,233,0.04),
+      0 0 0 58px rgba(99,102,241,0.035),
+      inset 0 0 55px rgba(14,165,233,0.1);
+    animation: reactbits-orbit-pulse 6s ease-in-out infinite;
+  }
+  .nexa-command-hero__scan {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.28) 45%, transparent 58%);
+    transform: translateX(-110%);
+    animation: reactbits-hero-scan 7s ease-in-out infinite;
+  }
+  .nexa-signal-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    border-radius: 9999px;
+    border: 1px solid rgba(14,165,233,0.25);
+    background: rgba(255,255,255,0.72);
+    padding: 0.35rem 0.7rem;
+    color: #0369a1;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .dark .nexa-signal-pill {
+    background: rgba(15,23,42,0.64);
+    color: #67e8f9;
+  }
+  .nexa-orbit-tile {
+    position: relative;
+    display: flex;
+    min-height: 74px;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(148,163,184,0.2);
+    background: rgba(255,255,255,0.62);
+    padding: 0.85rem;
+    color: #0f172a;
+    font-size: 0.76rem;
+    font-weight: 750;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+  }
+  .dark .nexa-orbit-tile {
+    background: rgba(15,23,42,0.58);
+    color: #e2e8f0;
+  }
+  .nexa-orbit-tile::after {
+    content: '';
+    position: absolute;
+    right: -26px;
+    top: -26px;
+    width: 72px;
+    height: 72px;
+    border-radius: 9999px;
+    opacity: 0.55;
+    filter: blur(1px);
+  }
+  .nexa-orbit-tile--emerald::after { background: radial-gradient(circle, rgba(16,185,129,0.32), transparent 68%); }
+  .nexa-orbit-tile--cyan::after { background: radial-gradient(circle, rgba(14,165,233,0.34), transparent 68%); }
+  .nexa-orbit-tile--violet::after { background: radial-gradient(circle, rgba(124,58,237,0.28), transparent 68%); }
 
   /* ── EDUFLOW Sidebar ─────────────────────────────────────────── */
   .edu-sidebar {
-    background: #111827;
+    background:
+      linear-gradient(180deg, rgba(15,23,42,0.98), rgba(8,16,31,0.98)),
+      radial-gradient(circle at 50% 0%, rgba(14,165,233,0.15), transparent 34%);
     border-right: 1px solid rgba(148,163,184,0.18);
   }
 
   .edu-nav-item {
     @apply flex flex-col items-center justify-center gap-0 py-2 px-1 w-full rounded-lg
            text-slate-300 cursor-pointer transition-all duration-200;
+    position: relative;
+    overflow: hidden;
   }
   .edu-nav-item--expanded {
     @apply flex-row items-center justify-start gap-3 py-2 px-3;
@@ -161,11 +284,41 @@
     @apply text-white;
     background: rgba(255,255,255,0.06);
   }
+  .edu-nav-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 35%, rgba(255,255,255,0.14) 50%, transparent 66%);
+    transform: translateX(-120%);
+    transition: transform 420ms ease;
+  }
+  .edu-nav-item:hover::before,
+  .edu-nav-item.active::before {
+    transform: translateX(120%);
+  }
+  .edu-nav-item::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    width: 3px;
+    height: 0;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #67e8f9, #8b5cf6);
+    box-shadow: 0 0 18px rgba(34,211,238,0.55);
+    transform: translateY(-50%);
+    transition: height 220ms ease;
+  }
+  .edu-nav-item.active::after {
+    height: 46%;
+  }
   .edu-nav-item.active {
     @apply text-white;
-    background: rgba(14,165,233,0.14);
-    box-shadow: none;
-    border: 1px solid rgba(14,165,233,0.22);
+    background:
+      linear-gradient(135deg, rgba(14,165,233,0.23), rgba(99,102,241,0.15)),
+      rgba(255,255,255,0.06);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 32px rgba(14,165,233,0.12);
+    border: 1px solid rgba(103,232,249,0.28);
   }
 
   /* ── Glassmorphism card ─────────────────────────────────────── */
@@ -263,6 +416,11 @@
     @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
            dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800
            active:scale-95;
+    box-shadow: 0 10px 24px rgba(15,23,42,0.04);
+  }
+  .btn-secondary:hover {
+    border-color: rgba(14,165,233,0.3);
+    transform: translateY(-1px);
   }
   .btn-ghost {
     @apply btn text-slate-600 hover:bg-slate-100
@@ -281,6 +439,10 @@
            placeholder:text-slate-500 dark:placeholder:text-slate-400
            outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-400
            transition-all duration-150;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.48);
+  }
+  .input:hover {
+    border-color: rgba(14,165,233,0.3);
   }
 
   /* ── Kanban column ──────────────────────────────────────────── */
@@ -300,6 +462,41 @@
   .custom-scrollbar::-webkit-scrollbar-track { @apply bg-transparent; }
   .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-brand-200 dark:bg-slate-700 rounded-full; }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover { @apply bg-brand-300 dark:bg-slate-600; }
+  .nexa-speed-dial::before {
+    content: '';
+    position: absolute;
+    inset: -18px;
+    z-index: -1;
+    border-radius: 9999px;
+    background:
+      conic-gradient(from 180deg, rgba(14,165,233,0.16), rgba(20,184,166,0.06), rgba(124,58,237,0.14), rgba(14,165,233,0.16));
+    filter: blur(12px);
+    animation: reactbits-speed-orbit 5s linear infinite;
+  }
+  .nexa-speed-dial__main {
+    position: relative;
+    overflow: hidden;
+  }
+  .nexa-speed-dial__main::after {
+    content: '';
+    position: absolute;
+    inset: 7px;
+    border-radius: inherit;
+    border: 1px solid rgba(255,255,255,0.32);
+  }
+  .nexa-speed-dial__mini {
+    border: 1px solid rgba(255,255,255,0.7);
+  }
+  .dark .nexa-speed-dial__mini {
+    border-color: rgba(148,163,184,0.22);
+  }
+  .nexa-speed-dial__label {
+    background: rgba(15,23,42,0.9) !important;
+    box-shadow: 0 14px 30px rgba(15,23,42,0.16);
+  }
+  .dark .nexa-speed-dial__label {
+    background: rgba(241,245,249,0.92) !important;
+  }
 
   .edu-sidebar-scroll {
     scrollbar-width: none;
@@ -400,6 +597,22 @@
   0% { opacity: 0.75; transform: scale(0.2); }
   100% { opacity: 0; transform: scale(1.7); }
 }
+@keyframes reactbits-light-sweep {
+  0% { opacity: 0.48; transform: translate3d(-2%, -1%, 0); }
+  100% { opacity: 0.86; transform: translate3d(2%, 1%, 0); }
+}
+@keyframes reactbits-hero-scan {
+  0%, 22% { transform: translateX(-115%); }
+  55%, 100% { transform: translateX(115%); }
+}
+@keyframes reactbits-orbit-pulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.64; }
+  50% { transform: scale(1.04); opacity: 0.96; }
+}
+@keyframes reactbits-speed-orbit {
+  0% { transform: rotate(0deg) scale(0.96); }
+  100% { transform: rotate(360deg) scale(0.96); }
+}
 @keyframes reactbits-aurora-drift {
   0% { transform: translate3d(-4%, -2%, 0) rotate(0deg); opacity: 0.58; }
   100% { transform: translate3d(5%, 3%, 0) rotate(4deg); opacity: 0.82; }
@@ -414,6 +627,10 @@
   .nexa-page-transition,
   .reactbits-click-spark::before,
   .reactbits-click-spark::after,
+  .reactbits-aurora::after,
+  .nexa-command-hero::after,
+  .nexa-command-hero__scan,
+  .nexa-speed-dial::before,
   .reactbits-aurora__band--one,
   .reactbits-aurora__band--two {
     animation: none;
@@ -875,12 +1092,25 @@
 
 thead th,
 thead td {
-  background-color: #f8fafc;
+  background:
+    linear-gradient(180deg, rgba(248,250,252,0.98), rgba(241,245,249,0.92));
 }
 
 .dark thead th,
 .dark thead td {
-  background-color: #0f172a;
+  background:
+    linear-gradient(180deg, rgba(15,23,42,0.98), rgba(2,6,23,0.92));
+}
+tbody tr {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+tbody tr:hover td,
+tbody tr:hover th {
+  background-color: rgba(14,165,233,0.045);
+}
+.dark tbody tr:hover td,
+.dark tbody tr:hover th {
+  background-color: rgba(56,189,248,0.07);
 }
 
 /* ── CORPORATE ───────────────────────────────────────────────── */

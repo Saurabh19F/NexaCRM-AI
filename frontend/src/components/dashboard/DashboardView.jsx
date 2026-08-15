@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Sparkles, PlayCircle, ExternalLink, Mic, Phone, TrendingUp, Users, Target, ArrowUpRight,
+  Sparkles, PlayCircle, ExternalLink, Mic, Phone, ArrowUpRight, Radio, BrainCircuit, ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { analyticsAPI } from '../../services/api'
@@ -62,16 +62,35 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold leading-tight">
-            <GradientText>{getGreeting()}, {firstName}</GradientText>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
+      <div className="nexa-command-hero">
+        <div className="nexa-command-hero__scan" aria-hidden="true" />
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="nexa-signal-pill mb-3">
+              <Radio className="h-3.5 w-3.5" />
+              Live Command Center
+            </div>
+            <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
+              <GradientText>{getGreeting()}, {firstName}</GradientText>
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[460px]">
+            {[
+              { label: 'Live Signal', icon: Radio, tone: 'emerald' },
+              { label: 'AI Assist', icon: BrainCircuit, tone: 'cyan' },
+              { label: 'Secure CRM', icon: ShieldCheck, tone: 'violet' },
+            ].map(({ label, icon: Icon, tone }) => (
+              <div key={label} className={`nexa-orbit-tile nexa-orbit-tile--${tone}`}>
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative z-10 mt-5 flex flex-wrap items-center gap-2">
           <Chip label="Live" variant="filled" color="success" size="sm" icon={<span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />} />
           <Chip label="Pro Plan" variant="soft" color="primary" size="sm" icon={<Sparkles className="w-3 h-3" />} />
         </div>
