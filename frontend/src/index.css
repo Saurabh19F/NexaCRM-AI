@@ -82,6 +82,18 @@
   .dark .reactbits-gradient-text {
     background-image: linear-gradient(90deg, #f8fafc, #67e8f9, #818cf8, #22d3ee, #f8fafc);
   }
+  .reactbits-shiny-text {
+    display: inline-block;
+    color: transparent;
+    background-image: linear-gradient(110deg, #059669 0%, #059669 36%, #ffffff 50%, #0ea5e9 62%, #059669 100%);
+    background-size: 220% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    animation: reactbits-shine 3.4s ease-in-out infinite;
+  }
+  .dark .reactbits-shiny-text {
+    background-image: linear-gradient(110deg, #34d399 0%, #34d399 34%, #ffffff 50%, #67e8f9 64%, #34d399 100%);
+  }
   .reactbits-spotlight {
     position: relative;
     overflow: hidden;
@@ -102,6 +114,34 @@
     inset: 0;
     z-index: 0;
     transition: opacity 260ms ease;
+  }
+  .reactbits-click-sparks {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+  }
+  .reactbits-click-spark {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    transform: translate(-50%, -50%);
+  }
+  .reactbits-click-spark::before,
+  .reactbits-click-spark::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 9999px;
+    border: 1px solid rgba(14,165,233,0.6);
+    animation: reactbits-click-spark 680ms ease-out forwards;
+  }
+  .reactbits-click-spark::after {
+    border-color: rgba(20,184,166,0.45);
+    animation-delay: 80ms;
+  }
+  .nexa-page-transition {
+    animation: reactbits-page-in 360ms ease-out both;
   }
 
   /* ── EDUFLOW Sidebar ─────────────────────────────────────────── */
@@ -130,19 +170,29 @@
 
   /* ── Glassmorphism card ─────────────────────────────────────── */
   .glass-card {
-    background: #ffffff;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92)),
+      radial-gradient(circle at 12% 0%, rgba(14,165,233,0.08), transparent 34%);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 14px 38px rgba(15,23,42,0.035);
     @apply rounded-lg;
   }
   .dark .glass-card {
-    background: #0f172a;
+    background:
+      linear-gradient(145deg, rgba(15,23,42,0.98), rgba(2,6,23,0.9)),
+      radial-gradient(circle at 14% 0%, rgba(56,189,248,0.09), transparent 38%);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border: 1px solid rgba(148,163,184,0.22);
-    box-shadow: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+  }
+  .glass-card:hover {
+    border-color: rgba(14,165,233,0.28);
+  }
+  .dark .glass-card:hover {
+    border-color: rgba(56,189,248,0.3);
   }
 
   /* Legacy nav-item for backward compat */
@@ -161,10 +211,11 @@
 
   /* ── KPI stat card (EDUFLOW glassmorphism) ───────────────────── */
   .kpi-card {
-    @apply glass-card px-3 py-2.5 sm:px-4 sm:py-3 transition-colors duration-150;
+    @apply glass-card px-3 py-2.5 sm:px-4 sm:py-3 transition-all duration-150;
   }
   .kpi-card:hover {
-    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    box-shadow: 0 18px 34px rgba(15,23,42,0.08);
+    transform: translateY(-1px);
   }
 
   /* ── Badge ──────────────────────────────────────────────────── */
@@ -189,6 +240,21 @@
   }
   .btn-primary {
     @apply btn bg-slate-900 text-white shadow-none hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white active:scale-95;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: -120% -40%;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 36%, rgba(255,255,255,0.24) 48%, transparent 60%);
+    transform: translateX(-70%);
+    transition: transform 520ms ease;
+  }
+  .btn-primary:hover::before {
+    transform: translateX(70%);
   }
   .btn-primary:hover {
     box-shadow: none;
@@ -322,6 +388,18 @@
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
+@keyframes reactbits-shine {
+  0%, 18% { background-position: 160% center; }
+  72%, 100% { background-position: -60% center; }
+}
+@keyframes reactbits-page-in {
+  0% { opacity: 0; transform: translateY(8px); filter: blur(6px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes reactbits-click-spark {
+  0% { opacity: 0.75; transform: scale(0.2); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
 @keyframes reactbits-aurora-drift {
   0% { transform: translate3d(-4%, -2%, 0) rotate(0deg); opacity: 0.58; }
   100% { transform: translate3d(5%, 3%, 0) rotate(4deg); opacity: 0.82; }
@@ -332,6 +410,10 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .reactbits-gradient-text,
+  .reactbits-shiny-text,
+  .nexa-page-transition,
+  .reactbits-click-spark::before,
+  .reactbits-click-spark::after,
   .reactbits-aurora__band--one,
   .reactbits-aurora__band--two {
     animation: none;

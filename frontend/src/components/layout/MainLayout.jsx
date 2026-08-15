@@ -6,6 +6,8 @@ import Topbar from './Topbar'
 import Breadcrumb from './Breadcrumb'
 import SpeedDial from '../ui/SpeedDial'
 import Aurora from '../reactbits/Aurora'
+import ClickSpark from '../reactbits/ClickSpark'
+import ShinyText from '../reactbits/ShinyText'
 
 function StatusBar() {
   const [time, setTime] = useState(new Date())
@@ -33,7 +35,7 @@ function StatusBar() {
       </div>
       <div className="flex items-center gap-1.5">
         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="font-medium text-emerald-600 dark:text-emerald-400">System Status: All Good</span>
+        <ShinyText className="font-medium">System Status: All Good</ShinyText>
       </div>
     </div>
   )
@@ -43,6 +45,7 @@ export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const location = useLocation()
   const navigate = useNavigate()
 
   const speedDialActions = [
@@ -56,6 +59,7 @@ export default function MainLayout() {
   return (
     <div className="relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       <Aurora className="absolute inset-0 z-0" />
+      <ClickSpark />
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}
@@ -68,7 +72,7 @@ export default function MainLayout() {
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
         />
         <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-5 lg:p-6">
-          <div className="mx-auto w-full max-w-[1600px]" key={refreshKey}>
+          <div className="nexa-page-transition mx-auto w-full max-w-[1600px]" key={`${location.pathname}-${refreshKey}`}>
             <Breadcrumb />
             <Outlet />
           </div>
