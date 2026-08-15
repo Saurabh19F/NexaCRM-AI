@@ -184,7 +184,7 @@ export default function PlatformLoginPage() {
       {/* Left panel — Platform Animation */}
       <div className="hidden lg:flex flex-col w-1/2 relative">
         <div className="absolute top-8 left-8 z-20">
-          <BrandLogo variant="wordmark" size="md" framed className="max-w-[260px]" />
+          <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
         </div>
 
         <PlatformAnimation />
@@ -215,7 +215,7 @@ export default function PlatformLoginPage() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
-            <BrandLogo variant="wordmark" size="md" framed className="max-w-[260px]" />
+            <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
           </div>
 
           {/* Glass card */}

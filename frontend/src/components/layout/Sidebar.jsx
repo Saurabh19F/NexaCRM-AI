@@ -80,7 +80,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
         {!isMobile && (
           <div className={`flex h-16 flex-shrink-0 items-center border-b border-white/10 px-2.5 ${showLabel ? 'justify-between gap-2' : 'justify-center'}`}>
             {showLabel ? (
-              <BrandLogo variant="wordmark" size="sm" className="flex-1" imageClassName="h-9" />
+              <BrandLogo variant="wordmark" size="sm" tone="dark" className="flex-1" imageClassName="h-9" />
             ) : (
               <button
                 type="button"
@@ -218,7 +218,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           />
           <aside className="fixed left-0 top-0 bottom-0 w-60 edu-sidebar z-50 md:hidden">
             <div className="flex h-16 items-center border-b border-white/10 px-3 pr-12">
-              <BrandLogo variant="wordmark" size="md" className="w-full" />
+              <BrandLogo variant="wordmark" size="md" tone="dark" className="w-full" />
             </div>
             <button
               onClick={() => setMobileOpen(false)}

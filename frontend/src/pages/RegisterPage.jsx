@@ -12,7 +12,7 @@ export default function RegisterPage() {
       className="space-y-6"
     >
       <div className="lg:hidden mb-6">
-        <BrandLogo variant="wordmark" size="md" className="max-w-[260px]" />
+        <BrandLogo variant="wordmark" size="md" tone="dark" className="max-w-[260px]" />
       </div>
 
       <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 text-amber-300 px-3 py-1 text-xs font-semibold">

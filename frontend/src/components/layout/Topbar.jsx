@@ -215,7 +215,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
         <Menu className="w-5 h-5" />
       </button>
       <div className="min-w-0 flex-1">
-        <BrandLogo variant="wordmark" size="sm" framed className="max-w-[190px] sm:max-w-[230px]" />
+        <BrandLogo variant="wordmark" size="sm" className="max-w-[190px] sm:max-w-[230px]" />
       </div>
       <div className="order-2 ml-auto flex items-center gap-1">
         <button

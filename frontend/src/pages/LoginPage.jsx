@@ -199,7 +199,7 @@ export default function LoginPage() {
       {/* Left panel — CRM Animation */}
       <div className="hidden lg:flex flex-col w-1/2 relative">
         <div className="absolute top-8 left-8 z-20">
-          <BrandLogo variant="wordmark" size="md" framed className="max-w-[260px]" />
+          <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
         </div>
 
         <CRMAnimation />
@@ -230,7 +230,7 @@ export default function LoginPage() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
-            <BrandLogo variant="wordmark" size="md" framed className="max-w-[260px]" />
+            <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
           </div>
 
           {/* Glass card */}

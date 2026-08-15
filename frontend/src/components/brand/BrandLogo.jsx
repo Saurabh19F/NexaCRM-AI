@@ -1,5 +1,6 @@
 const LOGO_ICON_SRC = '/brand/nexacrm-ai-icon.png'
-const LOGO_WORDMARK_SRC = '/brand/nexacrm-ai-wordmark.png'
+const LOGO_WORDMARK_DARK_SRC = '/brand/nexacrm-ai-wordmark.png'
+const LOGO_WORDMARK_LIGHT_SRC = '/brand/nexacrm-ai-wordmark-light.png'
 
 const WORDMARK_HEIGHT = {
   sm: 'h-8',
@@ -16,7 +17,7 @@ const ICON_SIZE = {
 export default function BrandLogo({
   variant = 'wordmark',
   size = 'md',
-  framed = false,
+  tone = 'auto',
   className = '',
   imageClassName = '',
 }) {
@@ -30,21 +31,44 @@ export default function BrandLogo({
     )
   }
 
-  const content = (
-    <img
-      src={LOGO_WORDMARK_SRC}
-      alt="NexaCRM AI"
-      className={`${WORDMARK_HEIGHT[size] ?? WORDMARK_HEIGHT.md} w-auto max-w-full object-contain object-left ${imageClassName}`}
-    />
-  )
+  const baseImageClass = `${WORDMARK_HEIGHT[size] ?? WORDMARK_HEIGHT.md} w-auto max-w-full object-contain object-left ${imageClassName}`
 
-  if (!framed) {
-    return <div className={`min-w-0 ${className}`}>{content}</div>
+  if (tone === 'light') {
+    return (
+      <div className={`min-w-0 ${className}`}>
+        <img
+          src={LOGO_WORDMARK_LIGHT_SRC}
+          alt="NexaCRM AI"
+          className={baseImageClass}
+        />
+      </div>
+    )
+  }
+
+  if (tone === 'dark') {
+    return (
+      <div className={`min-w-0 ${className}`}>
+        <img
+          src={LOGO_WORDMARK_DARK_SRC}
+          alt="NexaCRM AI"
+          className={baseImageClass}
+        />
+      </div>
+    )
   }
 
   return (
-    <div className={`inline-flex min-w-0 items-center rounded-xl bg-slate-950/95 px-3 py-2 shadow-lg ring-1 ring-white/10 ${className}`}>
-      {content}
+    <div className={`min-w-0 ${className}`}>
+      <img
+        src={LOGO_WORDMARK_LIGHT_SRC}
+        alt="NexaCRM AI"
+        className={`${baseImageClass} dark:hidden`}
+      />
+      <img
+        src={LOGO_WORDMARK_DARK_SRC}
+        alt="NexaCRM AI"
+        className={`${baseImageClass} hidden dark:block`}
+      />
     </div>
   )
 }
