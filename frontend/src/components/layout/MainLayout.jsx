@@ -71,8 +71,8 @@ export default function MainLayout() {
           onMenuClick={() => setMobileOpen(true)}
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
         />
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 lg:p-4">
-          <div className="nexa-page-transition mx-auto w-full max-w-[1600px]" key={`${location.pathname}-${refreshKey}`}>
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-2.5 sm:p-3 lg:p-3">
+          <div className="nexa-page-transition mx-auto w-full max-w-[1680px]" key={`${location.pathname}-${refreshKey}`}>
             <Breadcrumb />
             <Outlet />
           </div>

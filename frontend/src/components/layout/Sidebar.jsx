@@ -209,7 +209,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
       {/* Desktop sidebar — collapsible */}
       <aside
         className="hidden md:flex flex-col h-screen edu-sidebar flex-shrink-0 relative z-30 transition-all duration-300 ease-in-out overflow-hidden"
-        style={{ width: collapsed ? 72 : 220 }}
+        style={{ width: collapsed ? 64 : 204 }}
       >
         <SidebarContent />
       </aside>
