@@ -780,9 +780,9 @@ export default function CustomersPage() {
       </div>
 
       {/* Search + Filters */}
-      <div className="glass-card p-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex min-h-[34px] w-full max-w-sm items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 dark:bg-slate-800/60 sm:w-[280px]">
+      <div className="glass-card w-full p-2.5 sm:inline-block sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+          <div className="flex min-h-[34px] w-full max-w-sm items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 dark:bg-slate-800/60 sm:w-[260px]">
             <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
             <input
               value={search}
@@ -792,14 +792,14 @@ export default function CustomersPage() {
             />
           </div>
           <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}
-            className="input min-w-[118px] py-1.5 text-xs">
+            className="input !w-full min-w-[118px] py-1.5 text-xs sm:!w-[132px] sm:flex-none">
             <option value="all">All Sources</option>
             {availableSources.map((s) => (
               <option key={s} value={s}>{SOURCE_LABELS[s] || s}</option>
             ))}
           </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-            className="input min-w-[118px] py-1.5 text-xs">
+            className="input !w-full min-w-[118px] py-1.5 text-xs sm:!w-[132px] sm:flex-none">
             <option value="all">All Status</option>
             {availableStatuses.map((s) => (
               <option key={s} value={s}>{STATUS_BADGES[s]?.label || s}</option>
