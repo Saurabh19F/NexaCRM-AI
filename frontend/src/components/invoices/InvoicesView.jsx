@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Receipt, Plus, Download, Eye, Send, CheckCircle, Clock, AlertCircle, IndianRupee, X, Trash2 } from 'lucide-react'
+import { Receipt, Plus, Download, Eye, Send, CheckCircle, Clock, AlertCircle, IndianRupee, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { customersAPI, invoicesAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
@@ -15,6 +15,7 @@ const STATUS_CONFIG = {
 }
 
 const EMPTY_FORM = { customerId: '', customer: '', status: 'draft', date: '', due: '', items: [{ desc: '', qty: 1, rate: '' }] }
+const INVOICE_PAGE_SIZE = 8
 
 function calcTotals(items) {
   const amount = items.reduce((s, it) => s + (Number(it.qty) * Number(it.rate) || 0), 0)
@@ -401,6 +402,7 @@ export default function InvoicesPage() {
   const [showNew, setShowNew] = useState(false)
   const [viewInv, setViewInv] = useState(null)
   const [reminderInv, setReminderInv] = useState(null)
+  const [invoicePage, setInvoicePage] = useState(0)
 
   const mapInvoiceFromApi = (invoice) => ({
     recordId: invoice.id,
@@ -478,6 +480,14 @@ export default function InvoicesPage() {
   const totalRevenue = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0)
   const totalPending = invoices.filter((i) => i.status === 'pending').reduce((s, i) => s + i.total, 0)
   const totalOverdue = invoices.filter((i) => i.status === 'overdue').reduce((s, i) => s + i.total, 0)
+  const invoiceTotalPages = Math.max(1, Math.ceil(invoices.length / INVOICE_PAGE_SIZE))
+  const safeInvoicePage = Math.min(invoicePage, invoiceTotalPages - 1)
+  const pagedInvoices = invoices.slice(
+    safeInvoicePage * INVOICE_PAGE_SIZE,
+    safeInvoicePage * INVOICE_PAGE_SIZE + INVOICE_PAGE_SIZE
+  )
+  const invoiceStart = invoices.length ? safeInvoicePage * INVOICE_PAGE_SIZE + 1 : 0
+  const invoiceEnd = Math.min(invoices.length, (safeInvoicePage + 1) * INVOICE_PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -515,7 +525,7 @@ export default function InvoicesPage() {
 
       {/* Mobile invoice cards */}
       <div className="grid gap-3 sm:hidden">
-        {invoices.map((inv) => {
+        {pagedInvoices.map((inv) => {
           const config = STATUS_CONFIG[inv.status]
           const Icon = config?.icon
           return (
@@ -580,7 +590,7 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 dark:divide-slate-700/40">
-              {invoices.map((inv) => {
+              {pagedInvoices.map((inv) => {
                 const config = STATUS_CONFIG[inv.status]
                 const Icon = config?.icon
                 return (
@@ -626,6 +636,33 @@ export default function InvoicesPage() {
           </table>
         </div>
       </div>
+
+      {!loading && invoices.length > INVOICE_PAGE_SIZE && (
+        <div className="flex flex-col gap-2 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>Showing {invoiceStart}-{invoiceEnd} of {invoices.length} invoices</p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setInvoicePage(Math.max(0, safeInvoicePage - 1))}
+              disabled={safeInvoicePage === 0}
+              className="btn-secondary h-8 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Prev
+            </button>
+            <span className="min-w-12 text-center">{safeInvoicePage + 1} / {invoiceTotalPages}</span>
+            <button
+              type="button"
+              onClick={() => setInvoicePage(Math.min(invoiceTotalPages - 1, safeInvoicePage + 1))}
+              disabled={safeInvoicePage >= invoiceTotalPages - 1}
+              className="btn-secondary h-8 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {showNew && <NewInvoiceModal onClose={() => setShowNew(false)} onSave={createInvoice} customers={customers} />}

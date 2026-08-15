@@ -12,6 +12,8 @@ import {
   Trash2,
   ArrowRight,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
@@ -31,6 +33,7 @@ const EMPTY_FILTERS = {
 }
 
 const TASK_STATUSES = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']
+const TASK_QUEUE_PAGE_SIZE = 6
 
 const formatDateTime = (value) => {
   if (!value) return 'No due date'
@@ -69,6 +72,7 @@ export default function TasksPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorMode, setEditorMode] = useState('create')
   const [activeTask, setActiveTask] = useState(null)
+  const [taskPage, setTaskPage] = useState(0)
 
   const selectedDateTasks = useMemo(() => {
     if (!selectedDate) return []
@@ -117,6 +121,10 @@ export default function TasksPage() {
 
   useEffect(() => {
     loadData()
+  }, [filters.status, filters.assignedTo, filters.due, filters.search, filters.leadId])
+
+  useEffect(() => {
+    setTaskPage(0)
   }, [filters.status, filters.assignedTo, filters.due, filters.search, filters.leadId])
 
   const openCreate = (prefill = {}) => {
@@ -201,6 +209,15 @@ export default function TasksPage() {
       meta: lead.company || lead.email || '',
     })),
   ], [leads])
+
+  const taskTotalPages = Math.max(1, Math.ceil(tasks.length / TASK_QUEUE_PAGE_SIZE))
+  const safeTaskPage = Math.min(taskPage, taskTotalPages - 1)
+  const pagedTasks = tasks.slice(
+    safeTaskPage * TASK_QUEUE_PAGE_SIZE,
+    safeTaskPage * TASK_QUEUE_PAGE_SIZE + TASK_QUEUE_PAGE_SIZE
+  )
+  const taskStart = tasks.length ? safeTaskPage * TASK_QUEUE_PAGE_SIZE + 1 : 0
+  const taskEnd = Math.min(tasks.length, (safeTaskPage + 1) * TASK_QUEUE_PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -336,7 +353,7 @@ export default function TasksPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {tasks.map((task) => {
+                {pagedTasks.map((task) => {
                   const lead = leads.find((item) => item.id === task.leadId)
                   const assignee = employees.find((item) => item.id === task.assignedToId)
                   const status = String(task.status || 'PENDING').replace('_', ' ')
@@ -404,6 +421,33 @@ export default function TasksPage() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+
+            {!loading && tasks.length > TASK_QUEUE_PAGE_SIZE && (
+              <div className="flex flex-col gap-2 border-t border-slate-200/70 px-4 py-3 text-xs text-slate-500 dark:border-slate-800/70 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                <span>Showing {taskStart}-{taskEnd} of {tasks.length} tasks</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTaskPage(Math.max(0, safeTaskPage - 1))}
+                    disabled={safeTaskPage === 0}
+                    className="btn-secondary h-8 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </button>
+                  <span className="min-w-12 text-center">{safeTaskPage + 1} / {taskTotalPages}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTaskPage(Math.min(taskTotalPages - 1, safeTaskPage + 1))}
+                    disabled={safeTaskPage >= taskTotalPages - 1}
+                    className="btn-secondary h-8 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>

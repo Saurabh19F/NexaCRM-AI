@@ -13,6 +13,7 @@ import {
   User,
   MessageSquare,
   Pencil,
+  ChevronLeft,
   ChevronRight,
   Filter,
   Hash,
@@ -50,6 +51,7 @@ const truncate = (str, max = 120) => {
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
 const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']
 const CATEGORY_OPTIONS = ['BUG', 'FEATURE_REQUEST', 'SUPPORT', 'BILLING', 'OTHER']
+const TICKET_PAGE_SIZE = 8
 
 const PRIORITY_COLORS = {
   URGENT: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400',
@@ -386,6 +388,7 @@ export default function TicketsPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
+  const [ticketPage, setTicketPage] = useState(0)
 
   // ── Data loading ────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -436,6 +439,19 @@ export default function TicketsPage() {
     if (categoryFilter) list = list.filter((t) => t.category === categoryFilter)
     return list
   }, [tickets, search, statusFilter, priorityFilter, categoryFilter])
+
+  useEffect(() => {
+    setTicketPage(0)
+  }, [search, statusFilter, priorityFilter, categoryFilter])
+
+  const ticketTotalPages = Math.max(1, Math.ceil(filtered.length / TICKET_PAGE_SIZE))
+  const safeTicketPage = Math.min(ticketPage, ticketTotalPages - 1)
+  const pagedTickets = filtered.slice(
+    safeTicketPage * TICKET_PAGE_SIZE,
+    safeTicketPage * TICKET_PAGE_SIZE + TICKET_PAGE_SIZE
+  )
+  const ticketStart = filtered.length ? safeTicketPage * TICKET_PAGE_SIZE + 1 : 0
+  const ticketEnd = Math.min(filtered.length, (safeTicketPage + 1) * TICKET_PAGE_SIZE)
 
   // ── Handlers ────────────────────────────────────────────────
   const openCreateModal = () => {
@@ -600,7 +616,7 @@ export default function TicketsPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {filtered.map((ticket) => (
+          {pagedTickets.map((ticket) => (
             <div
               key={ticket.id}
               onClick={() => selectTicket(ticket)}
@@ -645,9 +661,34 @@ export default function TicketsPage() {
 
       {/* Footer count */}
       {!loading && filtered.length > 0 && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Showing {filtered.length} ticket{filtered.length === 1 ? '' : 's'}
-        </p>
+        <div className="flex flex-col gap-2 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Showing {ticketStart}-{ticketEnd} of {filtered.length} ticket{filtered.length === 1 ? '' : 's'}
+          </p>
+          {filtered.length > TICKET_PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTicketPage(Math.max(0, safeTicketPage - 1))}
+                disabled={safeTicketPage === 0}
+                className="btn-secondary h-8 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Prev
+              </button>
+              <span className="min-w-12 text-center">{safeTicketPage + 1} / {ticketTotalPages}</span>
+              <button
+                type="button"
+                onClick={() => setTicketPage(Math.min(ticketTotalPages - 1, safeTicketPage + 1))}
+                disabled={safeTicketPage >= ticketTotalPages - 1}
+                className="btn-secondary h-8 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Create / Edit modal */}
