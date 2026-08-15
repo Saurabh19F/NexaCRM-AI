@@ -213,6 +213,11 @@ export default function Topbar({ onMenuClick, onRefresh }) {
       >
         <Menu className="w-5 h-5" />
       </button>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-base font-bold text-slate-900 dark:text-slate-100">
+          NexaCRM AI
+        </p>
+      </div>
       <div className="order-2 ml-auto flex items-center gap-1">
         <button
           onClick={handleRefresh}
