@@ -21,9 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,9 +52,10 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public List<TaskDTO> findAll(String status, String assignedTo, String dueFilter, String search, String leadId) {
-        List<Task> tasks = taskRepository.findByTenantIdAndDeletedFalseOrderByDueDateAsc(tenantId());
+        Long tenantId = tenantId();
+        List<Task> tasks = findCandidateTasks(tenantId, status, assignedTo, leadId);
         User current = currentUser();
-        return tasks.stream()
+        List<Task> visibleTasks = tasks.stream()
             .filter(task -> matchesStatus(task, status))
             .filter(task -> matchesAssignee(task, assignedTo))
             .filter(task -> matchesDueFilter(task, dueFilter))
@@ -60,7 +64,10 @@ public class TaskService {
             .filter(task -> matchesSearch(task, search))
             .sorted(Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(Task::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-            .map(this::toDTO)
+            .collect(Collectors.toList());
+        Map<String, String> userNames = userNamesById(tenantId, visibleTasks);
+        return visibleTasks.stream()
+            .map(task -> toDTO(task, userNames))
             .collect(Collectors.toList());
     }
 
@@ -75,6 +82,37 @@ public class TaskService {
     @Transactional(readOnly = true)
     public List<TaskDTO> findByLeadId(String leadId) {
         return findAll(null, null, null, null, leadId);
+    }
+
+    private List<Task> findCandidateTasks(Long tenantId, String status, String assignedTo, String leadId) {
+        String normalizedStatus = status == null || status.isBlank() ? null : normalizeStatus(status);
+        String normalizedAssignee = blankToNull(assignedTo);
+        String normalizedLeadId = blankToNull(leadId);
+
+        if (normalizedLeadId != null && normalizedStatus != null) {
+            return taskRepository.findByTenantIdAndLeadIdAndDeletedFalseAndStatusOrderByDueDateAsc(
+                tenantId,
+                normalizedLeadId,
+                normalizedStatus
+            );
+        }
+        if (normalizedLeadId != null) {
+            return taskRepository.findByTenantIdAndLeadIdAndDeletedFalseOrderByDueDateAsc(tenantId, normalizedLeadId);
+        }
+        if (normalizedAssignee != null && normalizedStatus != null) {
+            return taskRepository.findByTenantIdAndAssignedToIdAndDeletedFalseAndStatusOrderByDueDateAsc(
+                tenantId,
+                normalizedAssignee,
+                normalizedStatus
+            );
+        }
+        if (normalizedAssignee != null) {
+            return taskRepository.findByTenantIdAndAssignedToIdAndDeletedFalseOrderByDueDateAsc(tenantId, normalizedAssignee);
+        }
+        if (normalizedStatus != null) {
+            return taskRepository.findByTenantIdAndDeletedFalseAndStatusOrderByDueDateAsc(tenantId, normalizedStatus);
+        }
+        return taskRepository.findByTenantIdAndDeletedFalseOrderByDueDateAsc(tenantId);
     }
 
     public TaskDTO create(TaskDTO dto) {
@@ -299,17 +337,41 @@ public class TaskService {
         );
     }
 
+    private Map<String, String> userNamesById(Long tenantId, List<Task> tasks) {
+        Set<String> neededUserIds = tasks.stream()
+            .flatMap(task -> java.util.stream.Stream.of(task.getAssignedToId(), task.getCreatedById()))
+            .filter(Objects::nonNull)
+            .filter(id -> !id.isBlank())
+            .collect(Collectors.toSet());
+        if (neededUserIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> names = new HashMap<>();
+        userRepository.findByTenantIdAndDeletedFalse(tenantId).stream()
+            .filter(user -> neededUserIds.contains(user.getId()))
+            .forEach(user -> names.put(user.getId(), user.getName()));
+        return names;
+    }
+
     private TaskDTO toDTO(Task task) {
-        String assignedName = task.getAssignedToId() != null
-            ? userRepository.findByIdAndTenantIdAndDeletedFalse(task.getAssignedToId(), tenantId())
+        Long tenantId = tenantId();
+        Map<String, String> userNames = new HashMap<>();
+        if (task.getAssignedToId() != null) {
+            userRepository.findByIdAndTenantIdAndDeletedFalse(task.getAssignedToId(), tenantId)
                 .map(User::getName)
-                .orElse(null)
-            : null;
-        String createdByName = task.getCreatedById() != null
-            ? userRepository.findByIdAndTenantIdAndDeletedFalse(task.getCreatedById(), tenantId())
+                .ifPresent(name -> userNames.put(task.getAssignedToId(), name));
+        }
+        if (task.getCreatedById() != null) {
+            userRepository.findByIdAndTenantIdAndDeletedFalse(task.getCreatedById(), tenantId)
                 .map(User::getName)
-                .orElse(null)
-            : null;
+                .ifPresent(name -> userNames.put(task.getCreatedById(), name));
+        }
+        return toDTO(task, userNames);
+    }
+
+    private TaskDTO toDTO(Task task, Map<String, String> userNames) {
+        String assignedName = task.getAssignedToId() != null ? userNames.get(task.getAssignedToId()) : null;
+        String createdByName = task.getCreatedById() != null ? userNames.get(task.getCreatedById()) : null;
         return TaskDTO.builder()
             .id(task.getId())
             .title(task.getTitle())

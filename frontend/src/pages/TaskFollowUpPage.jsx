@@ -315,6 +315,8 @@ export default function TaskFollowUpPage() {
   const [leadActivities, setLeadActivities] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadingActivities, setLoadingActivities] = useState(false)
+  const [loadingCompletedTasks, setLoadingCompletedTasks] = useState(false)
+  const [completedTasksLoaded, setCompletedTasksLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('pending')
   const [searchQuery, setSearchQuery] = useState('')
   const [stageFilter, setStageFilter] = useState('')
@@ -326,7 +328,6 @@ export default function TaskFollowUpPage() {
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
     if (!leadIds.length) {
-      setLeadActivities({})
       return
     }
     setLoadingActivities(true)
@@ -370,7 +371,7 @@ export default function TaskFollowUpPage() {
         }
       }
 
-      setLeadActivities(results)
+      setLeadActivities((prev) => ({ ...prev, ...results }))
     } catch (err) {
       const results = {}
       let failedCount = 0
@@ -390,7 +391,7 @@ export default function TaskFollowUpPage() {
           }
         })
       }
-      setLeadActivities(results)
+      setLeadActivities((prev) => ({ ...prev, ...results }))
       if (failedCount >= leadIds.length) {
         toast.error('Unable to load activity data')
       }
@@ -401,18 +402,21 @@ export default function TaskFollowUpPage() {
 
   const refresh = useCallback(async () => {
     setLoading(true)
+    setCompletedTasksLoaded(false)
+    setLoadingCompletedTasks(false)
+    setLeadActivities({})
     try {
-      const [leadResponse, taskResponse] = await Promise.all([
+      const [leadResponse, pendingTaskResponse] = await Promise.all([
         leadsAPI.getAll({ page: 0, size: 500, sort: 'createdAt,desc' }),
-        tasksAPI.getAll({}),
+        tasksAPI.getAll({ status: 'PENDING' }),
       ])
       const leadRows = unwrapList(leadResponse)
-      const taskRows = unwrapList(taskResponse)
+      const pendingTaskRows = unwrapList(pendingTaskResponse)
       const leadById = new Map(leadRows.map((lead) => [lead.id, lead]))
-      const visibleTaskRows = taskRows.filter((task) => task.leadId && leadById.has(task.leadId))
+      const visiblePendingTaskRows = pendingTaskRows.filter((task) => task.leadId && leadById.has(task.leadId))
       const taskLeadRows = Array.from(
         new Map(
-          visibleTaskRows
+          visiblePendingTaskRows
             .map((task) => leadById.get(task.leadId))
             .filter(Boolean)
             .map((lead) => [lead.id, lead])
@@ -420,11 +424,39 @@ export default function TaskFollowUpPage() {
       )
 
       setLeads(leadRows)
-      setTasks(visibleTaskRows)
-      await loadAllActivities(taskLeadRows)
+      setTasks(visiblePendingTaskRows)
+      setLoading(false)
+      loadAllActivities(taskLeadRows)
+
+      setLoadingCompletedTasks(true)
+      tasksAPI.getAll({ status: 'COMPLETED' })
+        .then((completedTaskResponse) => {
+          const completedTaskRows = unwrapList(completedTaskResponse)
+            .filter((task) => task.leadId && leadById.has(task.leadId))
+          setTasks((prev) => {
+            const merged = new Map(prev.map((task) => [task.id, task]))
+            completedTaskRows.forEach((task) => merged.set(task.id, task))
+            return Array.from(merged.values())
+          })
+          const completedLeadRows = Array.from(
+            new Map(
+              completedTaskRows
+                .map((task) => leadById.get(task.leadId))
+                .filter(Boolean)
+                .map((lead) => [lead.id, lead])
+            ).values()
+          )
+          setCompletedTasksLoaded(true)
+          loadAllActivities(completedLeadRows)
+        })
+        .catch(() => {
+          setCompletedTasksLoaded(true)
+        })
+        .finally(() => {
+          setLoadingCompletedTasks(false)
+        })
     } catch (err) {
       toast.error(err?.message || 'Unable to load task follow-up data')
-    } finally {
       setLoading(false)
     }
   }, [loadAllActivities])
@@ -758,7 +790,7 @@ export default function TaskFollowUpPage() {
         </div>
 
         {/* Content */}
-        {loading ? (
+        {loading || (activeTab === 'completed' && loadingCompletedTasks && !completedTasksLoaded) ? (
           <div className="grid gap-3 p-4">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60" />

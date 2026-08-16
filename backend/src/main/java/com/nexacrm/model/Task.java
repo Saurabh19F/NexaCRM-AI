@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 @CompoundIndexes({
     @CompoundIndex(name = "task_tenant_status_due_idx", def = "{'tenant_id': 1, 'deleted': 1, 'status': 1, 'due_date': 1}"),
     @CompoundIndex(name = "task_tenant_assigned_due_idx", def = "{'tenant_id': 1, 'deleted': 1, 'assigned_to': 1, 'due_date': 1}"),
+    @CompoundIndex(name = "task_tenant_assigned_status_due_idx", def = "{'tenant_id': 1, 'deleted': 1, 'assigned_to': 1, 'status': 1, 'due_date': 1}"),
     @CompoundIndex(name = "task_tenant_lead_deal_idx", def = "{'tenant_id': 1, 'lead_id': 1, 'deal_id': 1}")
 })
 @Getter

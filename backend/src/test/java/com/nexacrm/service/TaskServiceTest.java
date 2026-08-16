@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -85,11 +87,47 @@ class TaskServiceTest {
             .thenReturn(Optional.of(employee));
         when(taskRepository.findByTenantIdAndDeletedFalseOrderByDueDateAsc(1L))
             .thenReturn(List.of(assignedTask, createdTask, hiddenTask));
+        when(userRepository.findByTenantIdAndDeletedFalse(1L)).thenReturn(List.of(employee));
 
         List<TaskDTO> visibleTasks = taskService.findAll(null, null, null, null);
 
         assertEquals(2, visibleTasks.size());
         assertEquals("Assigned Task", visibleTasks.get(0).getTitle());
         assertEquals("Created Task", visibleTasks.get(1).getTitle());
+    }
+
+    @Test
+    void findAll_shouldUseStatusFilteredRepositoryForPendingTasks() {
+        User manager = User.builder()
+            .name("Manager")
+            .email("manager@example.com")
+            .role(User.Role.MANAGER)
+            .build();
+        manager.setId("u-1");
+
+        Task pendingTask = Task.builder()
+            .title("Pending Follow-up")
+            .assignedToId("u-1")
+            .createdById("u-1")
+            .dueDate(LocalDateTime.now().plusHours(1))
+            .status("PENDING")
+            .build();
+        pendingTask.setId("task-1");
+
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("manager@example.com", "n/a")
+        );
+        when(userRepository.findByEmailAndTenantIdAndDeletedFalse("manager@example.com", 1L))
+            .thenReturn(Optional.of(manager));
+        when(taskRepository.findByTenantIdAndDeletedFalseAndStatusOrderByDueDateAsc(1L, "PENDING"))
+            .thenReturn(List.of(pendingTask));
+        when(userRepository.findByTenantIdAndDeletedFalse(1L)).thenReturn(List.of(manager));
+
+        List<TaskDTO> visibleTasks = taskService.findAll("PENDING", null, null, null);
+
+        assertEquals(1, visibleTasks.size());
+        assertEquals("Pending Follow-up", visibleTasks.get(0).getTitle());
+        verify(taskRepository).findByTenantIdAndDeletedFalseAndStatusOrderByDueDateAsc(1L, "PENDING");
+        verify(taskRepository, never()).findByTenantIdAndDeletedFalseOrderByDueDateAsc(1L);
     }
 }
