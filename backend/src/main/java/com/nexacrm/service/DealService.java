@@ -14,11 +14,15 @@ import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import com.nexacrm.websocket.NotificationPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.DBRef;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
+import org.bson.types.Decimal128;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -26,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -91,6 +96,44 @@ public class DealService {
             .total(page.getTotalElements()).totalPages(page.getTotalPages())
             .first(page.isFirst()).last(page.isLast())
             .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> findOptions(int size) {
+        int safeSize = Math.max(1, Math.min(size, 100));
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").ne(true));
+        User current = currentUser();
+        if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            query.addCriteria(Criteria.where("owner.$id").is(current.getId()));
+        }
+        query.with(Sort.by(Sort.Order.desc("createdAt")));
+        query.limit(safeSize);
+        query.fields()
+            .include("_id")
+            .include("title")
+            .include("deal_value")
+            .include("lead");
+
+        List<Document> deals = mongoTemplate.find(query, Document.class, "deals");
+        Set<String> leadIds = deals.stream()
+            .map(deal -> extractDbRefId(deal.get("lead")))
+            .filter(id -> !id.isBlank())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, String> companyByLeadId = buildCompanyByLeadId(leadIds);
+
+        return deals.stream()
+            .map(deal -> {
+                String leadId = extractDbRefId(deal.get("lead"));
+                Map<String, Object> option = new LinkedHashMap<>();
+                option.put("id", String.valueOf(deal.get("_id")));
+                option.put("title", firstNonBlank(deal.getString("title"), "Deal"));
+                option.put("company", firstNonBlank(companyByLeadId.get(leadId), "Company"));
+                option.put("value", toBigDecimal(deal.get("deal_value")));
+                return option;
+            })
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -288,6 +331,26 @@ public class DealService {
         return result;
     }
 
+    private Map<String, String> buildCompanyByLeadId(Set<String> leadIds) {
+        if (leadIds.isEmpty()) return Map.of();
+
+        Query query = new Query();
+        query.addCriteria(Criteria.where("_id").in(leadIds));
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").ne(true));
+        query.fields()
+            .include("_id")
+            .include("company")
+            .include("name");
+
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Document lead : mongoTemplate.find(query, Document.class, "leads")) {
+            String id = String.valueOf(lead.get("_id"));
+            result.putIfAbsent(id, firstNonBlank(lead.getString("company"), lead.getString("name")));
+        }
+        return result;
+    }
+
     private Deal.DealStage parseStage(String stage) {
         if (stage == null || stage.isBlank()) return null;
         return Deal.DealStage.valueOf(stage.toUpperCase());
@@ -439,6 +502,51 @@ public class DealService {
 
     private String trim(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            String text = trim(value);
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return "";
+    }
+
+    private String extractDbRefId(Object value) {
+        if (value instanceof DBRef dbRef && dbRef.getId() != null) {
+            return trim(String.valueOf(dbRef.getId()));
+        }
+        if (value instanceof Document document) {
+            Object id = document.get("$id");
+            return id != null ? trim(String.valueOf(id)) : "";
+        }
+        if (value instanceof Map<?, ?> map) {
+            Object id = map.get("$id");
+            return id != null ? trim(String.valueOf(id)) : "";
+        }
+        return "";
+    }
+
+    private BigDecimal toBigDecimal(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Decimal128 decimal) {
+            return decimal.bigDecimalValue();
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        if (value != null) {
+            try {
+                return new BigDecimal(String.valueOf(value));
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+        return BigDecimal.ZERO;
     }
 
     private String findFirstValue(Object node, List<String> keys) {

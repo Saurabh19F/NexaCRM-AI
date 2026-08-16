@@ -236,6 +236,7 @@ export const callsAPI = {
 // ──────────────────────────────────────────
 export const dealsAPI = {
   getAll:       (params)   => api.get('/deals', { params }),
+  getOptions:   (params)   => api.get('/deals/options', { params }),
   getBoard:     (params)   => api.get('/deals/board', { params, timeout: Number(import.meta.env.VITE_DEALS_BOARD_TIMEOUT_MS || 25000) }),
   getById:      (id)       => api.get(`/deals/${id}`),
   create:       (data)     => api.post('/deals', data),
@@ -250,11 +251,12 @@ export const dealsAPI = {
 //  Customers
 // ──────────────────────────────────────────
 export const customersAPI = {
-  getAll:  (params) => api.get('/customers', { params }),
-  getById: (id)     => api.get(`/customers/${id}`),
-  create:  (data)   => api.post('/customers', data),
-  update:  (id, d)  => api.put(`/customers/${id}`, d),
-  delete:  (id)     => api.delete(`/customers/${id}`),
+  getAll:     (params) => api.get('/customers', { params }),
+  getOptions: (params) => api.get('/customers/options', { params }),
+  getById:    (id)     => api.get(`/customers/${id}`),
+  create:     (data)   => api.post('/customers', data),
+  update:     (id, d)  => api.put(`/customers/${id}`, d),
+  delete:     (id)     => api.delete(`/customers/${id}`),
 }
 
 // ──────────────────────────────────────────

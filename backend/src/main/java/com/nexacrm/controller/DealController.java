@@ -42,6 +42,14 @@ public class DealController {
         return ResponseEntity.ok(dealService.getBoardView(pipelineId));
     }
 
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('deals.read')")
+    @Operation(summary = "Get lightweight deal options")
+    public ResponseEntity<List<Map<String, Object>>> getDealOptions(
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(dealService.findOptions(size));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('deals.read')")
     public ResponseEntity<DealDTO> getDealById(@PathVariable String id) {

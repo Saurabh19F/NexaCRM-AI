@@ -14,6 +14,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/customers")
 @RequiredArgsConstructor
@@ -30,6 +33,14 @@ public class CustomerController {
             @RequestParam(required = false) String status,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(customerService.findAll(search, status, pageable));
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('customers.read')")
+    @Operation(summary = "Get lightweight customer options")
+    public ResponseEntity<List<Map<String, Object>>> getCustomerOptions(
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(customerService.findOptions(size));
     }
 
     @GetMapping("/{id}")

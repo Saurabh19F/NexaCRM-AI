@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -22,7 +23,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -66,6 +71,38 @@ public class CustomerService {
             .total(page.getTotalElements()).totalPages(page.getTotalPages())
             .first(page.isFirst()).last(page.isLast())
             .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> findOptions(int size) {
+        int safeSize = Math.max(1, Math.min(size, 100));
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        query.addCriteria(Criteria.where("deleted").is(false));
+        User current = currentUser();
+        if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            query.addCriteria(Criteria.where("account_manager.$id").is(current.getId()));
+        }
+        query.with(Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("createdAt")));
+        query.limit(safeSize);
+        query.fields()
+            .include("name")
+            .include("company")
+            .include("primary_contact")
+            .include("status");
+
+        return mongoTemplate.find(query, Customer.class).stream()
+            .map(customer -> {
+                Map<String, Object> option = new LinkedHashMap<>();
+                option.put("id", customer.getId());
+                option.put("name", firstNonBlank(customer.getPrimaryContact(), customer.getName(), customer.getCompany(), "Customer"));
+                option.put("company", firstNonBlank(customer.getCompany(), customer.getName(), "Company"));
+                option.put("status", customer.getStatus() != null ? customer.getStatus().name().toLowerCase(Locale.ROOT) : "active");
+                option.put("source", "CRM");
+                option.put("value", BigDecimal.ZERO);
+                return option;
+            })
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -220,6 +257,15 @@ public class CustomerService {
         if (phone == null) return null;
         String normalized = phone.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 
     private void ensureVisible(Customer customer) {

@@ -313,23 +313,16 @@ function EmailWriter() {
     const loadCustomers = async () => {
       setLoadingLeads(true)
       try {
-        const all = []
-        let page = 0
-        let totalPages = 1
-        while (page < totalPages) {
-          const response = await customersAPI.getAll({ page, size: 100 })
-          const rows = Array.isArray(response?.content) ? response.content : []
-          all.push(...rows.map((c) => ({
-            id: c.id,
-            name: c.primaryContact || c.name || c.company || 'Customer',
-            company: c.company || c.name || 'Company',
-            status: String(c.status || 'ACTIVE').toLowerCase(),
-            source: 'CRM',
-            value: Number(c.revenue || 0),
-          })))
-          totalPages = Number(response?.totalPages || 1)
-          page += 1
-        }
+        const response = await customersAPI.getOptions({ size: 50 })
+        const rows = Array.isArray(response) ? response : []
+        const all = rows.map((c) => ({
+          id: c.id,
+          name: c.name || c.company || 'Customer',
+          company: c.company || c.name || 'Company',
+          status: String(c.status || 'active').toLowerCase(),
+          source: c.source || 'CRM',
+          value: Number(c.value || 0),
+        }))
         if (cancelled) return
         setCustomerLeads(all)
         setLead(all.length > 0 ? String(all[0].id) : '')
@@ -390,7 +383,7 @@ function EmailWriter() {
         <div><label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Type</label><select value={type} onChange={(e) => setType(e.target.value)} className="input text-sm w-full">{['follow-up', 'introduction', 'proposal', 're-engagement', 'meeting request', 'thank you', 'closing'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
         <div><label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Tone</label><select value={tone} onChange={(e) => setTone(e.target.value)} className="input text-sm w-full">{['professional', 'friendly', 'urgent', 'formal', 'casual'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
       </div>
-      <button onClick={generate} disabled={loading} className="btn-primary text-xs gap-2 disabled:opacity-60"><Wand2 className={`w-3.5 h-3.5 ${loading ? 'animate-pulse' : ''}`} />{loading ? 'Writing...' : 'Generate Email'}</button>
+      <button onClick={generate} disabled={loading || loadingLeads || !selectedLead} className="btn-primary text-xs gap-2 disabled:opacity-60"><Wand2 className={`w-3.5 h-3.5 ${loading ? 'animate-pulse' : ''}`} />{loading ? 'Writing...' : 'Generate Email'}</button>
       {result && <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative"><pre className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 font-sans leading-relaxed max-h-72 overflow-y-auto custom-scrollbar">{result}</pre><button onClick={copy} className="absolute top-3 right-3 btn-secondary text-xs gap-1.5 py-1"><Copy className="w-3 h-3" /> Copy</button></motion.div>}
     </div>
   )
@@ -410,21 +403,14 @@ function DealPredictor() {
     const loadDeals = async () => {
       setLoadingLeads(true)
       try {
-        const all = []
-        let page = 0
-        let totalPages = 1
-        while (page < totalPages) {
-          const response = await dealsAPI.getAll({ page, size: 100 })
-          const rows = Array.isArray(response?.content) ? response.content : []
-          all.push(...rows.map((d) => ({
-            id: d.id,
-            title: d.title || d.leadName || 'Deal',
-            company: d.company || d.leadName || 'Company',
-            value: Number(d.dealValue || 0),
-          })))
-          totalPages = Number(response?.totalPages || 1)
-          page += 1
-        }
+        const response = await dealsAPI.getOptions({ size: 50 })
+        const rows = Array.isArray(response) ? response : []
+        const all = rows.map((d) => ({
+          id: d.id,
+          title: d.title || 'Deal',
+          company: d.company || 'Company',
+          value: Number(d.value || 0),
+        }))
         if (cancelled) return
         setDeals(all)
         setDeal(all.length > 0 ? String(all[0].id) : '')
