@@ -205,6 +205,61 @@ export const useLeadsStore = create((set, get) => ({
     }
   },
 
+  fetchPipelineBoard: async (params) => {
+    set({ loading: true, error: null })
+    try {
+      const stateFilters = get().filters
+      const query = { ...stateFilters, ...params }
+
+      if (query.score === 'all') delete query.score
+      if (query.status === 'all') delete query.status
+      if (query.source === 'all') delete query.source
+      if (query.assignedTo === 'all') delete query.assignedTo
+      if (!query.search) delete query.search
+
+      const hasExplicitPage = query.page !== undefined || query.size !== undefined
+      const pageSize = Number(query.size) > 0 ? Number(query.size) : DEFAULT_PAGE_SIZE
+      const firstPage = await leadsAPI.getPipelineBoard({ ...query, page: query.page ?? 0, size: pageSize })
+      let rows = firstPage?.content ?? []
+      let activities = { ...(firstPage?.activities ?? {}) }
+
+      if (!hasExplicitPage) {
+        const totalPages = Math.max(1, Number(firstPage?.totalPages ?? 1))
+        if (totalPages > 1) {
+          const requests = []
+          for (let page = 1; page < totalPages; page += 1) {
+            requests.push(leadsAPI.getPipelineBoard({ ...query, page, size: pageSize }))
+          }
+          const remainingPages = await Promise.all(requests)
+          for (const pageData of remainingPages) {
+            rows = rows.concat(pageData?.content ?? [])
+            activities = { ...activities, ...(pageData?.activities ?? {}) }
+          }
+        }
+      }
+
+      const leads = rows.map((lead, i) => toFrontendLead(lead, i))
+
+      set({
+        leads,
+        pagination: {
+          page: firstPage?.page ?? 0,
+          size: firstPage?.size ?? pageSize,
+          total: firstPage?.total ?? rows.length,
+        },
+        loading: false,
+      })
+
+      return {
+        leads,
+        activities,
+      }
+    } catch (err) {
+      set({ loading: false, error: err?.message || 'Failed to fetch pipeline board' })
+      throw err
+    }
+  },
+
   createLead: async (data) => {
     set({ loading: true, error: null })
     try {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacrm.dto.LeadDTO;
 import com.nexacrm.dto.LeadActivityDTO;
+import com.nexacrm.dto.LeadPipelineBoardDTO;
 import com.nexacrm.dto.PageResponse;
 import com.nexacrm.model.Lead;
 import com.nexacrm.service.LeadActivityService;
@@ -51,6 +52,19 @@ public class LeadController {
             @RequestParam(required = false) String assignedTo,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(leadService.findAll(search, status, score, source, assignedTo, pageable));
+    }
+
+    @GetMapping("/pipeline-board")
+    @PreAuthorize("hasAuthority('leads.read')")
+    @Operation(summary = "Get leads and activity previews for the pipeline board")
+    public ResponseEntity<LeadPipelineBoardDTO> getPipelineBoard(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String score,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) String assignedTo,
+            @PageableDefault(size = 200) Pageable pageable) {
+        return ResponseEntity.ok(leadService.findPipelineBoard(search, status, score, source, assignedTo, pageable));
     }
 
     @PostMapping("/activities/bulk")

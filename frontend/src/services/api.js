@@ -184,6 +184,7 @@ export const authAPI = {
 // ──────────────────────────────────────────
 export const leadsAPI = {
   getAll:    (params) => api.get('/leads', { params }),
+  getPipelineBoard: (params) => api.get('/leads/pipeline-board', { params }),
   getById:   (id)     => api.get(`/leads/${id}`),
   findDuplicates: (params) => api.get('/leads/duplicates', { params }),
   create:    (data)   => api.post('/leads', data),

@@ -174,6 +174,12 @@ const formatLeadCreatedDateTime = (lead) => {
 
 const emptyActivityState = () => ({ data: [{}, {}, {}, {}], saved: [false, false, false, false], latestStage: null })
 
+const unwrapActivityRows = (payload) => {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.content)) return payload.content
+  return []
+}
+
 const buildActivityModalState = (rows = []) => {
   const data = [{}, {}, {}, {}]
   const saved = [false, false, false, false]
@@ -823,7 +829,7 @@ export default function KanbanPage() {
   const { user } = useAuthStore()
   const {
     leads,
-    fetchLeads,
+    fetchPipelineBoard,
     createLead,
     deleteLead,
     patchLeadLocal,
@@ -865,27 +871,22 @@ export default function KanbanPage() {
   /* Load all leads */
   const loadLeads = useCallback(async () => {
     try {
-      const rows = await fetchLeads({})
+      const board = await fetchPipelineBoard({})
       const activityStates = {}
-      const batchSize = 8
-      for (let i = 0; i < (rows || []).length; i += batchSize) {
-        const batch = rows.slice(i, i + batchSize)
-        const results = await Promise.allSettled(
-          batch.map((lead) => leadsAPI.getActivities(lead.id))
-        )
-        results.forEach((result, index) => {
-          const leadId = batch[index]?.id
-          if (!leadId) return
-          activityStates[leadId] = result.status === 'fulfilled'
-            ? buildActivityModalState(result.value || [])
-            : emptyActivityState()
-        })
-      }
+      const rows = board?.leads || []
+      const activitiesByLeadId = board?.activities || {}
+      const leadIds = Array.from(new Set(rows.map((lead) => lead?.id).filter(Boolean)))
+      leadIds.forEach((leadId) => { activityStates[leadId] = emptyActivityState() })
+
+      leadIds.forEach((leadId) => {
+        activityStates[leadId] = buildActivityModalState(unwrapActivityRows(activitiesByLeadId[leadId]))
+      })
+
       setActivityStateByLeadId(activityStates)
     } catch (err) {
       toast.error(err?.message || 'Failed to load leads')
     }
-  }, [fetchLeads])
+  }, [fetchPipelineBoard])
 
   useEffect(() => {
     setLoading(true)

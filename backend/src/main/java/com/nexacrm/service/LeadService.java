@@ -3,6 +3,7 @@ package com.nexacrm.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacrm.automation.WorkflowEngine;
 import com.nexacrm.dto.LeadDTO;
+import com.nexacrm.dto.LeadPipelineBoardDTO;
 import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.model.Customer;
@@ -79,6 +80,7 @@ public class LeadService {
     private final CommunicationService communicationService;
     private final IntegrationService integrationService;
     private final LeadAutoAssignService leadAutoAssignService;
+    private final LeadActivityService leadActivityService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -160,6 +162,29 @@ public class LeadService {
             .totalPages(pageable.getPageSize() <= 0 ? 1 : (int) Math.ceil((double) total / pageable.getPageSize()))
             .first(pageable.getPageNumber() == 0)
             .last(!hasMore)
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public LeadPipelineBoardDTO findPipelineBoard(String search, String status, String score,
+                                                  String source, String assignedTo, Pageable pageable) {
+        PageResponse<LeadDTO> leadPage = findAll(search, status, score, source, assignedTo, pageable);
+        List<String> leadIds = leadPage.getContent() == null
+            ? List.of()
+            : leadPage.getContent().stream()
+                .map(LeadDTO::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+
+        return LeadPipelineBoardDTO.builder()
+            .content(leadPage.getContent())
+            .activities(leadActivityService.listByLeadIds(leadIds))
+            .page(leadPage.getPage())
+            .size(leadPage.getSize())
+            .total(leadPage.getTotal())
+            .totalPages(leadPage.getTotalPages())
+            .first(leadPage.isFirst())
+            .last(leadPage.isLast())
             .build();
     }
 
