@@ -61,6 +61,17 @@ const STAGE_COLORS = {
   LOST: '#ef4444',
 }
 
+const FUNNEL_STAGE_ORDER = [
+  'NEW',
+  'ASSIGNED',
+  'CONTACTED',
+  'INTERESTED',
+  'QUALIFIED',
+  'PROPOSAL_SENT',
+  'CONVERTED',
+  'LOST',
+]
+
 const KPI_CARDS = [
   { key: 'totalLeads', title: 'Total Leads', icon: Users, color: 'from-brand-500 to-accent-500', glow: 'rgba(14,165,233,0.28)', rgb: '14, 165, 233' },
   { key: 'newLeads', title: 'New Leads', icon: Sparkles, color: 'from-cyan-500 to-brand-500', glow: 'rgba(6,182,212,0.3)', rgb: '6, 182, 212' },
@@ -393,16 +404,18 @@ export default function LeadConversionDashboard() {
   }, [employees, isFullAccess])
 
   const funnelData = useMemo(() => {
-    const sorted = [...funnel].sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
-    const maxCount = Math.max(1, ...sorted.map((row) => Number(row.count || 0)))
-    const step = maxCount / Math.max(1, sorted.length)
-    return sorted.map((row, index) => {
+    const rowsByStage = new Map(funnel.map((row) => [row.key, row]))
+    const ordered = FUNNEL_STAGE_ORDER.map((key) => rowsByStage.get(key)).filter(Boolean)
+    const rows = ordered.length ? ordered : funnel
+    const maxCount = Math.max(1, ...rows.map((row) => Number(row.count || 0)))
+    const step = maxCount / Math.max(1, rows.length)
+    return rows.map((row, index) => {
       const stageColor = STAGE_COLORS[row.key] || SOURCE_COLORS[index % SOURCE_COLORS.length]
       const realCount = Number(row.count || 0)
       const descendingMin = Math.max(1, Math.round(maxCount - step * index))
       return {
         ...row,
-        displayCount: realCount > 0 ? Math.max(realCount, descendingMin) : descendingMin,
+        displayCount: realCount > 0 ? Math.max(realCount, descendingMin) : 0,
         color: stageColor,
         fill: stageColor,
         dropOffLabel: prettyPercent(row.dropOffPercent),
@@ -410,6 +423,10 @@ export default function LeadConversionDashboard() {
       }
     })
   }, [funnel])
+
+  const funnelTotal = useMemo(() => (
+    funnel.reduce((sum, row) => sum + Number(row.count || 0), 0)
+  ), [funnel])
 
   const sourcePieData = useMemo(() => sources
     .filter((row) => Number(row.totalLeads || 0) > 0)
@@ -629,9 +646,18 @@ export default function LeadConversionDashboard() {
                 color="from-brand-500 to-violet-600"
                 glow="rgba(124,58,237,0.28)"
                 subtitle="Stage progression with drop-off."
-                action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best: {bestSource.sourceLabel}</span> : null}
+                action={(
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <span className="badge bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {prettyNumber(funnelTotal)} total leads
+                    </span>
+                    {bestSource && (
+                      <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best: {bestSource.sourceLabel}</span>
+                    )}
+                  </div>
+                )}
               />
-              {funnelData.length ? (
+              {funnelData.length && funnelTotal > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <FunnelChart margin={{ right: 110, top: 4, bottom: 4 }}>
                     <Tooltip
