@@ -172,17 +172,36 @@ public class LeadService {
     @Cacheable(value = "pipeline-board", key = "#root.target.pipelineBoardCacheKey(#search, #status, #score, #source, #assignedTo, #pageable)")
     public LeadPipelineBoardDTO findPipelineBoard(String search, String status, String score,
                                                   String source, String assignedTo, Pageable pageable) {
+        long started = System.nanoTime();
         PageResponse<LeadDTO> leadPage = findAll(search, status, score, source, assignedTo, pageable);
+        long leadsLoaded = System.nanoTime();
         List<String> leadIds = leadPage.getContent() == null
             ? List.of()
             : leadPage.getContent().stream()
                 .map(LeadDTO::getId)
                 .filter(id -> id != null && !id.isBlank())
                 .toList();
+        Map<String, List<com.nexacrm.dto.LeadActivityDTO>> activities = leadActivityService.listByLeadIds(leadIds);
+        long activitiesLoaded = System.nanoTime();
+        long leadMs = Duration.ofNanos(leadsLoaded - started).toMillis();
+        long activityMs = Duration.ofNanos(activitiesLoaded - leadsLoaded).toMillis();
+        long totalMs = Duration.ofNanos(activitiesLoaded - started).toMillis();
+        if (totalMs > 2_000) {
+            log.warn(
+                "Slow pipeline board load: tenant={}, page={}, size={}, leads={}, leadMs={}, activityMs={}, totalMs={}",
+                tenantId(),
+                pageable != null ? pageable.getPageNumber() : 0,
+                pageable != null ? pageable.getPageSize() : 0,
+                leadIds.size(),
+                leadMs,
+                activityMs,
+                totalMs
+            );
+        }
 
         return LeadPipelineBoardDTO.builder()
             .content(leadPage.getContent())
-            .activities(leadActivityService.listByLeadIds(leadIds))
+            .activities(activities)
             .page(leadPage.getPage())
             .size(leadPage.getSize())
             .total(leadPage.getTotal())

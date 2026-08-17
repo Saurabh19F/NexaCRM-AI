@@ -44,7 +44,7 @@ const STAGES = [
   { key: 'outcome_pending_review', label: 'Pending Review', group: 'Meeting Outcome', color: 'bg-slate-500' },
 ]
 
-const PIPELINE_PAGE_SIZE = 200
+const PIPELINE_PAGE_SIZE = 50
 
 const ACTIVITY_BY_WORKFLOW_STAGE = {
   welcome_connected: {

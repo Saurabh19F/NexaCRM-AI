@@ -14,7 +14,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Tag(name = "Leads", description = "Lead management endpoints")
 public class LeadController {
+    private static final int PIPELINE_BOARD_MAX_PAGE_SIZE = 50;
 
     private final LeadService leadService;
     private final LeadActivityService leadActivityService;
@@ -64,7 +67,15 @@ public class LeadController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) String assignedTo,
             @PageableDefault(size = 200) Pageable pageable) {
-        return ResponseEntity.ok(leadService.findPipelineBoard(search, status, score, source, assignedTo, pageable));
+        return ResponseEntity.ok(leadService.findPipelineBoard(search, status, score, source, assignedTo, capPipelinePageable(pageable)));
+    }
+
+    private Pageable capPipelinePageable(Pageable pageable) {
+        int page = pageable != null ? pageable.getPageNumber() : 0;
+        int requestedSize = pageable != null ? pageable.getPageSize() : PIPELINE_BOARD_MAX_PAGE_SIZE;
+        int size = Math.max(1, Math.min(requestedSize, PIPELINE_BOARD_MAX_PAGE_SIZE));
+        Sort sort = pageable != null ? pageable.getSort() : Sort.unsorted();
+        return PageRequest.of(page, size, sort);
     }
 
     @PostMapping("/activities/bulk")
