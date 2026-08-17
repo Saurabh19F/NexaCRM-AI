@@ -23,41 +23,6 @@ const INSIGHT_ROUTES = {
 
 const tintStyle = (rgb) => ({ '--dashboard-card-rgb': rgb })
 
-const getDashboardTintCards = (target, boundary) => {
-  const cards = []
-  let node = target instanceof Element ? target : null
-
-  while (node && node !== boundary) {
-    if (node.classList?.contains('dashboard-color-card')) cards.push(node)
-    node = node.parentElement
-  }
-
-  return cards
-}
-
-const updateDashboardTintPointer = (event) => {
-  const cards = getDashboardTintCards(event.target, event.currentTarget)
-  if (!cards.length) return
-
-  cards.forEach((card) => {
-    const rect = card.getBoundingClientRect()
-    card.style.setProperty('--dashboard-hover-x', `${event.clientX - rect.left}px`)
-    card.style.setProperty('--dashboard-hover-y', `${event.clientY - rect.top}px`)
-  })
-}
-
-const resetDashboardTintPointer = (event) => {
-  const cards = getDashboardTintCards(event.target, event.currentTarget)
-  if (!cards.length) return
-
-  cards.forEach((card) => {
-    const relatedTarget = event.relatedTarget
-    if (relatedTarget?.nodeType && card.contains(relatedTarget)) return
-    card.style.removeProperty('--dashboard-hover-x')
-    card.style.removeProperty('--dashboard-hover-y')
-  })
-}
-
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -98,7 +63,7 @@ export default function DashboardPage() {
   }, [loadExtras])
 
   return (
-    <div className="space-y-5" onPointerMove={updateDashboardTintPointer} onPointerOut={resetDashboardTintPointer}>
+    <div className="space-y-5">
       {/* Header */}
       <div className="nexa-command-hero">
         <div className="nexa-command-hero__scan" aria-hidden="true" />

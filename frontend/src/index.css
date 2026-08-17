@@ -148,7 +148,15 @@
     transform: translateX(-70%) rotate(12deg);
     transition: transform 420ms ease;
   }
-  .dashboard-color-card {
+  .dashboard-color-card,
+  .glass-card,
+  .kpi-card,
+  .deal-card,
+  :where(div[class~="border"][class*="rounded-"][class*="bg-"]),
+  :where(section[class~="border"][class*="rounded-"][class*="bg-"]),
+  :where(article[class~="border"][class*="rounded-"][class*="bg-"]),
+  :where(li[class~="border"][class*="rounded-"][class*="bg-"]),
+  :where(button[class~="border"][class*="rounded-"][class*="bg-"]) {
     --dashboard-card-rgb: 14, 165, 233;
     --dashboard-card-border-alpha: 0.38;
     --dashboard-hover-x: 4%;
@@ -162,7 +170,15 @@
       box-shadow 180ms ease,
       transform 180ms ease;
   }
-  .dashboard-color-card::before {
+  .dashboard-color-card::before,
+  .glass-card::before,
+  .kpi-card::before,
+  .deal-card::before,
+  :where(div[class~="border"][class*="rounded-"][class*="bg-"])::before,
+  :where(section[class~="border"][class*="rounded-"][class*="bg-"])::before,
+  :where(article[class~="border"][class*="rounded-"][class*="bg-"])::before,
+  :where(li[class~="border"][class*="rounded-"][class*="bg-"])::before,
+  :where(button[class~="border"][class*="rounded-"][class*="bg-"])::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -175,14 +191,38 @@
     transition: opacity 220ms ease;
     will-change: opacity, background;
   }
-  .dashboard-color-card > :not(.reactbits-spotlight__glow) {
+  .dashboard-color-card > :not(.reactbits-spotlight__glow),
+  .glass-card > :not(.reactbits-spotlight__glow),
+  .kpi-card > :not(.reactbits-spotlight__glow),
+  .deal-card > :not(.reactbits-spotlight__glow),
+  :where(div[class~="border"][class*="rounded-"][class*="bg-"]) > :not(.reactbits-spotlight__glow),
+  :where(section[class~="border"][class*="rounded-"][class*="bg-"]) > :not(.reactbits-spotlight__glow),
+  :where(article[class~="border"][class*="rounded-"][class*="bg-"]) > :not(.reactbits-spotlight__glow),
+  :where(li[class~="border"][class*="rounded-"][class*="bg-"]) > :not(.reactbits-spotlight__glow),
+  :where(button[class~="border"][class*="rounded-"][class*="bg-"]) > :not(.reactbits-spotlight__glow) {
     position: relative;
     z-index: 1;
   }
   .dashboard-color-card:hover,
+  .glass-card:hover,
+  .kpi-card:hover,
+  .deal-card:hover,
+  :where(div[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  :where(section[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  :where(article[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  :where(li[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  :where(button[class~="border"][class*="rounded-"][class*="bg-"]):hover,
   .glass-card.dashboard-color-card:hover,
   .kpi-card.dashboard-color-card:hover,
   .reactbits-spotlight.dashboard-color-card:hover,
+  html[data-theme] .glass-card:hover,
+  html[data-theme] .kpi-card:hover,
+  html[data-theme] .deal-card:hover,
+  html[data-theme] :where(div[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  html[data-theme] :where(section[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  html[data-theme] :where(article[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  html[data-theme] :where(li[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  html[data-theme] :where(button[class~="border"][class*="rounded-"][class*="bg-"]):hover,
   html[data-theme] .glass-card.dashboard-color-card:hover,
   html[data-theme] .kpi-card.dashboard-color-card:hover,
   html[data-theme] .reactbits-spotlight.dashboard-color-card:hover {
@@ -191,10 +231,26 @@
       0 18px 42px rgba(var(--dashboard-card-rgb), 0.14),
       0 10px 30px rgba(15,23,42,0.06);
   }
-  .dashboard-color-card:hover::before {
+  .dashboard-color-card:hover::before,
+  .glass-card:hover::before,
+  .kpi-card:hover::before,
+  .deal-card:hover::before,
+  :where(div[class~="border"][class*="rounded-"][class*="bg-"]):hover::before,
+  :where(section[class~="border"][class*="rounded-"][class*="bg-"]):hover::before,
+  :where(article[class~="border"][class*="rounded-"][class*="bg-"]):hover::before,
+  :where(li[class~="border"][class*="rounded-"][class*="bg-"]):hover::before,
+  :where(button[class~="border"][class*="rounded-"][class*="bg-"]):hover::before {
     opacity: 1;
   }
   .dark .dashboard-color-card:hover,
+  .dark .glass-card:hover,
+  .dark .kpi-card:hover,
+  .dark .deal-card:hover,
+  .dark :where(div[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  .dark :where(section[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  .dark :where(article[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  .dark :where(li[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+  .dark :where(button[class~="border"][class*="rounded-"][class*="bg-"]):hover,
   .dark .glass-card.dashboard-color-card:hover,
   .dark .kpi-card.dashboard-color-card:hover,
   .dark .reactbits-spotlight.dashboard-color-card:hover {
@@ -1518,11 +1574,27 @@ tbody tr:hover th {
 [data-theme="corporate"] [class~="border-slate-200/70"] { border-color: #E2E8F0 !important; }
 [data-theme="corporate"] .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #CBD5E1 !important; }
 
-/* Keep dashboard color hovers above late theme overrides. */
+/* Keep global color hovers above late theme overrides. */
 .dashboard-color-card:hover,
+.glass-card:hover,
+.kpi-card:hover,
+.deal-card:hover,
+:where(div[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+:where(section[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+:where(article[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+:where(li[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+:where(button[class~="border"][class*="rounded-"][class*="bg-"]):hover,
 .glass-card.dashboard-color-card:hover,
 .kpi-card.dashboard-color-card:hover,
 .reactbits-spotlight.dashboard-color-card:hover,
+html[data-theme] .glass-card:hover,
+html[data-theme] .kpi-card:hover,
+html[data-theme] .deal-card:hover,
+html[data-theme] :where(div[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+html[data-theme] :where(section[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+html[data-theme] :where(article[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+html[data-theme] :where(li[class~="border"][class*="rounded-"][class*="bg-"]):hover,
+html[data-theme] :where(button[class~="border"][class*="rounded-"][class*="bg-"]):hover,
 html[data-theme] .glass-card.dashboard-color-card:hover,
 html[data-theme] .kpi-card.dashboard-color-card:hover,
 html[data-theme] .reactbits-spotlight.dashboard-color-card:hover {

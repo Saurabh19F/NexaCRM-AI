@@ -143,6 +143,105 @@ function PlatformAdminRedirect() {
   return <Navigate to={user?.role === 'PLATFORM_ADMIN' ? '/admin/saas' : '/dashboard'} replace />
 }
 
+const COLOR_HOVER_CARD_SELECTOR = [
+  '.dashboard-color-card',
+  '.glass-card',
+  '.kpi-card',
+  '.deal-card',
+  'div[class~="border"][class*="rounded-"][class*="bg-"]',
+  'section[class~="border"][class*="rounded-"][class*="bg-"]',
+  'article[class~="border"][class*="rounded-"][class*="bg-"]',
+  'li[class~="border"][class*="rounded-"][class*="bg-"]',
+  'button[class~="border"][class*="rounded-"][class*="bg-"]',
+].join(',')
+const COLOR_ACCENT_SELECTORS = [
+  '[style*="--dashboard-card-rgb"]',
+  '[class*="from-"]',
+  '[class*="to-"]',
+  '[class*="bg-"]',
+  '[class*="border-"]',
+  '[class*="text-"]',
+].join(',')
+
+const ACCENT_RGB_BY_TONE = [
+  ['emerald', '16, 185, 129'],
+  ['green', '34, 197, 94'],
+  ['teal', '20, 184, 166'],
+  ['cyan', '6, 182, 212'],
+  ['sky', '14, 165, 233'],
+  ['brand', '14, 165, 233'],
+  ['blue', '59, 130, 246'],
+  ['indigo', '99, 102, 241'],
+  ['violet', '124, 58, 237'],
+  ['purple', '147, 51, 234'],
+  ['pink', '236, 72, 153'],
+  ['rose', '244, 63, 94'],
+  ['red', '239, 68, 68'],
+  ['orange', '249, 115, 22'],
+  ['amber', '245, 158, 11'],
+  ['yellow', '234, 179, 8'],
+]
+
+const getColorHoverCards = (target) => {
+  const cards = []
+  let node = target instanceof Element ? target : null
+
+  while (node && node !== document.body) {
+    if (node.matches?.(COLOR_HOVER_CARD_SELECTOR)) cards.push(node)
+    node = node.parentElement
+  }
+
+  return cards
+}
+
+const getClassValue = (element) =>
+  typeof element?.className === 'string' ? element.className : element?.getAttribute?.('class') || ''
+
+const pickAccentRgb = (card) => {
+  const assignedRgb = card.style.getPropertyValue('--dashboard-card-rgb')
+  if (assignedRgb) return assignedRgb
+
+  const candidates = [card, ...Array.from(card.querySelectorAll(COLOR_ACCENT_SELECTORS)).slice(0, 80)]
+  const classValues = candidates.map(getClassValue)
+  const preferredPrefixes = ['from-', 'to-', 'bg-', 'border-', 'text-']
+
+  for (const prefix of preferredPrefixes) {
+    const classValue = classValues.find((value) =>
+      ACCENT_RGB_BY_TONE.some(([tone]) => value.includes(`${prefix}${tone}`))
+    )
+    const match = ACCENT_RGB_BY_TONE.find(([tone]) => classValue?.includes(`${prefix}${tone}`))
+    if (match) return match[1]
+  }
+
+  return ''
+}
+
+const updateColorHoverPointer = (event) => {
+  const cards = getColorHoverCards(event.target)
+  if (!cards.length) return
+
+  cards.forEach((card) => {
+    const accentRgb = pickAccentRgb(card)
+    const rect = card.getBoundingClientRect()
+
+    if (accentRgb) card.style.setProperty('--dashboard-card-rgb', accentRgb)
+    card.style.setProperty('--dashboard-hover-x', `${event.clientX - rect.left}px`)
+    card.style.setProperty('--dashboard-hover-y', `${event.clientY - rect.top}px`)
+  })
+}
+
+const resetColorHoverPointer = (event) => {
+  const cards = getColorHoverCards(event.target)
+  if (!cards.length) return
+
+  cards.forEach((card) => {
+    const relatedTarget = event.relatedTarget
+    if (relatedTarget?.nodeType && card.contains(relatedTarget)) return
+    card.style.removeProperty('--dashboard-hover-x')
+    card.style.removeProperty('--dashboard-hover-y')
+  })
+}
+
 export default function App() {
   const { theme } = useThemeStore()
   const { authBootstrapped, isAuthenticated, token, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
@@ -154,6 +253,16 @@ export default function App() {
       useThemeStore.getState().setTheme('corporate')
     }
   }, [theme])
+
+  useEffect(() => {
+    document.addEventListener('pointermove', updateColorHoverPointer)
+    document.addEventListener('pointerout', resetColorHoverPointer)
+
+    return () => {
+      document.removeEventListener('pointermove', updateColorHoverPointer)
+      document.removeEventListener('pointerout', resetColorHoverPointer)
+    }
+  }, [])
 
   useEffect(() => {
     if (isDark) {
