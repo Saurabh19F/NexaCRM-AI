@@ -44,6 +44,8 @@ const STAGES = [
   { key: 'outcome_pending_review', label: 'Pending Review', group: 'Meeting Outcome', color: 'bg-slate-500' },
 ]
 
+const PIPELINE_PAGE_SIZE = 200
+
 const ACTIVITY_BY_WORKFLOW_STAGE = {
   welcome_connected: {
     activityIndex: 0,
@@ -850,6 +852,10 @@ export default function KanbanPage() {
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [activityStateByLeadId, setActivityStateByLeadId] = useState({})
   const [activityTabByLeadId, setActivityTabByLeadId] = useState({})
+  const [boardPage, setBoardPage] = useState(0)
+  const [boardTotal, setBoardTotal] = useState(0)
+  const [boardHasMore, setBoardHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const canCreateLead = hasPermission(user, PERMISSIONS.LEADS_CREATE)
   const canUpdateLead = hasPermission(user, PERMISSIONS.LEADS_UPDATE)
@@ -868,10 +874,10 @@ export default function KanbanPage() {
 
   useEffect(() => { setSearch(routeSearch) }, [routeSearch])
 
-  /* Load all leads */
-  const loadLeads = useCallback(async () => {
+  /* Load pipeline leads in chunks so opening the board does not fan out every page. */
+  const loadLeads = useCallback(async ({ page = 0, append = false } = {}) => {
     try {
-      const board = await fetchPipelineBoard({})
+      const board = await fetchPipelineBoard({ page, size: PIPELINE_PAGE_SIZE, append })
       const activityStates = {}
       const rows = board?.leads || []
       const activitiesByLeadId = board?.activities || {}
@@ -882,11 +888,24 @@ export default function KanbanPage() {
         activityStates[leadId] = buildActivityModalState(unwrapActivityRows(activitiesByLeadId[leadId]))
       })
 
-      setActivityStateByLeadId(activityStates)
+      setActivityStateByLeadId((prev) => append ? { ...prev, ...activityStates } : activityStates)
+      setBoardPage(board?.pageInfo?.page ?? page)
+      setBoardTotal(board?.pageInfo?.total ?? rows.length)
+      setBoardHasMore(Boolean(board?.hasMore))
     } catch (err) {
       toast.error(err?.message || 'Failed to load leads')
     }
   }, [fetchPipelineBoard])
+
+  const loadMoreLeads = useCallback(async () => {
+    if (loadingMore || !boardHasMore) return
+    setLoadingMore(true)
+    try {
+      await loadLeads({ page: boardPage + 1, append: true })
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [boardHasMore, boardPage, loadLeads, loadingMore])
 
   useEffect(() => {
     setLoading(true)
@@ -1170,7 +1189,7 @@ export default function KanbanPage() {
         <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
           <button
             type="button"
-            onClick={() => { setLoading(true); loadLeads().finally(() => setLoading(false)) }}
+            onClick={() => { setLoading(true); loadLeads({ page: 0, append: false }).finally(() => setLoading(false)) }}
             disabled={loading}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
             title="Refresh pipeline"
@@ -1311,6 +1330,23 @@ export default function KanbanPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {boardHasMore && (
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Showing {leads.length} of {boardTotal} leads
+          </span>
+          <button
+            type="button"
+            onClick={loadMoreLeads}
+            disabled={loadingMore}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingMore ? 'animate-spin' : ''}`} />
+            Load more
+          </button>
+        </div>
+      )}
 
       {/* Add Lead Modal */}
       <AnimatePresence>

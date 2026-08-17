@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -133,9 +134,7 @@ public class AuthService {
     }
 
     public Map<String, Object> getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(email, TenantContext.currentTenantId())
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = currentAuthenticatedUser();
         return Map.of(
             "id",       user.getId(),
             "name",     user.getName(),
@@ -144,6 +143,25 @@ public class AuthService {
             "tenantId", user.getTenantId(),
             "isActive", user.getIsActive()
         );
+    }
+
+    private User currentAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication != null ? authentication.getPrincipal() : null;
+        Long tenantId = TenantContext.currentTenantId();
+        if (principal instanceof User user
+            && user.getTenantId() != null
+            && user.getTenantId().equals(tenantId)
+            && !Boolean.TRUE.equals(user.getDeleted())) {
+            return user;
+        }
+
+        String email = authentication != null ? authentication.getName() : null;
+        if (email == null || email.isBlank()) {
+            throw new ResourceNotFoundException("User not found");
+        }
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     public UserDTO updateCurrentUser(UserDTO dto) {
