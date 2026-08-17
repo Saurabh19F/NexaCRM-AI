@@ -285,13 +285,28 @@ public class DashboardAnalyticsService {
     }
 
     private List<Lead> fetchLeadEntities() {
-        Query query = new Query();
-        query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
-        query.addCriteria(Criteria.where("deleted").is(false));
-        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
-        query.limit(WIDGET_LEAD_LIMIT);
-        includeDashboardLeadFields(query);
-        return mongoTemplate.find(query, Lead.class);
+        return fetchLeadDocuments(WIDGET_LEAD_LIMIT).stream()
+            .map(this::docToLeadEntity)
+            .toList();
+    }
+
+    private Lead docToLeadEntity(org.bson.Document d) {
+        Lead lead = new Lead();
+        if (d.getObjectId("_id") != null) lead.setId(d.getObjectId("_id").toString());
+        lead.setName(d.getString("name"));
+        lead.setCompany(d.getString("company"));
+        lead.setSource(enumOrNull(Lead.LeadSource.class, d.getString("source")));
+        lead.setStatus(enumOrNull(Lead.LeadStatus.class, d.getString("status")));
+        lead.setScore(enumOrNull(Lead.LeadScore.class, d.getString("score")));
+        lead.setPriority(enumOrNull(Lead.LeadPriority.class, d.getString("priority")));
+        lead.setDealValue(d.get("deal_value") != null ? new BigDecimal(d.get("deal_value").toString()) : null);
+        lead.setRevenueValue(d.get("revenue_value") != null ? new BigDecimal(d.get("revenue_value").toString()) : null);
+        lead.setFollowUpDate(docDate(d, "follow_up_date"));
+        lead.setConvertedAt(docDate(d, "converted_at"));
+        lead.setLastContactedAt(docDate(d, "last_contacted_at"));
+        lead.setCreatedAt(docDate(d, "createdAt"));
+        lead.setUpdatedAt(docDate(d, "updatedAt"));
+        return lead;
     }
 
     private List<Map<String, Object>> safeDashboardInsights(List<LeadDTO> leads) {
