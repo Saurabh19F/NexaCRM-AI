@@ -4,6 +4,7 @@ export default function SpotlightCard({
   children,
   className = '',
   spotlightColor = 'rgba(14, 165, 233, 0.18)',
+  style,
 }) {
   const cardRef = useRef(null)
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -22,6 +23,7 @@ export default function SpotlightCard({
     <div
       ref={cardRef}
       className={`reactbits-spotlight glass-card ${className}`}
+      style={style}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setOpacity(1)}
       onMouseLeave={() => setOpacity(0)}

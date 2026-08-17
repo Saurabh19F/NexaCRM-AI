@@ -14,6 +14,7 @@ import {
 import { dashboardAPI, tasksAPI } from '../../../services/api'
 import { useAuthStore } from '../../../store/authStore'
 import PaginatedSelect from '../../ui/PaginatedSelect'
+import DashboardIcon from '../DashboardIcon'
 
 const DATE_FILTERS = [
   { value: 'today', label: 'Today' },
@@ -61,18 +62,18 @@ const STAGE_COLORS = {
 }
 
 const KPI_CARDS = [
-  { key: 'totalLeads', title: 'Total Leads', icon: Users, color: 'from-brand-500 to-accent-500' },
-  { key: 'newLeads', title: 'New Leads', icon: Sparkles, color: 'from-cyan-500 to-brand-500' },
-  { key: 'assignedLeads', title: 'Assigned', icon: Repeat2, color: 'from-cyan-500 to-sky-600' },
-  { key: 'contactedLeads', title: 'Contacted', icon: Activity, color: 'from-cyan-500 to-sky-600' },
-  { key: 'interestedLeads', title: 'Interested', icon: Globe2, color: 'from-emerald-500 to-teal-600' },
-  { key: 'qualifiedLeads', title: 'Qualified', icon: Target, color: 'from-emerald-500 to-green-600' },
-  { key: 'proposalSentLeads', title: 'Proposal Sent', icon: LineChartIcon, color: 'from-orange-500 to-amber-600' },
-  { key: 'convertedLeads', title: 'Converted', icon: UserCheck, color: 'from-emerald-500 to-teal-600' },
-  { key: 'lostLeads', title: 'Lost', icon: TrendingDown, color: 'from-rose-500 to-red-600' },
-  { key: 'pendingFollowUps', title: 'Pending Follow-ups', icon: Clock3, color: 'from-amber-500 to-orange-600' },
-  { key: 'conversionRate', title: 'Conv. Rate', icon: TrendingUp, color: 'from-emerald-500 to-teal-600', percent: true },
-  { key: 'revenueFromConvertedLeads', title: 'Revenue', icon: FolderClock, color: 'from-cyan-500 to-blue-600', currency: true },
+  { key: 'totalLeads', title: 'Total Leads', icon: Users, color: 'from-brand-500 to-accent-500', glow: 'rgba(14,165,233,0.28)', rgb: '14, 165, 233' },
+  { key: 'newLeads', title: 'New Leads', icon: Sparkles, color: 'from-cyan-500 to-brand-500', glow: 'rgba(6,182,212,0.3)', rgb: '6, 182, 212' },
+  { key: 'assignedLeads', title: 'Assigned', icon: Repeat2, color: 'from-violet-500 to-indigo-600', glow: 'rgba(124,58,237,0.28)', rgb: '124, 58, 237' },
+  { key: 'contactedLeads', title: 'Contacted', icon: Activity, color: 'from-sky-500 to-blue-600', glow: 'rgba(59,130,246,0.28)', rgb: '59, 130, 246' },
+  { key: 'interestedLeads', title: 'Interested', icon: Globe2, color: 'from-teal-500 to-cyan-600', glow: 'rgba(20,184,166,0.28)', rgb: '20, 184, 166' },
+  { key: 'qualifiedLeads', title: 'Qualified', icon: Target, color: 'from-emerald-500 to-green-600', glow: 'rgba(16,185,129,0.3)', rgb: '16, 185, 129' },
+  { key: 'proposalSentLeads', title: 'Proposal Sent', icon: LineChartIcon, color: 'from-orange-500 to-amber-600', glow: 'rgba(245,158,11,0.3)', rgb: '245, 158, 11' },
+  { key: 'convertedLeads', title: 'Converted', icon: UserCheck, color: 'from-emerald-500 to-teal-600', glow: 'rgba(16,185,129,0.3)', rgb: '16, 185, 129' },
+  { key: 'lostLeads', title: 'Lost', icon: TrendingDown, color: 'from-rose-500 to-red-600', glow: 'rgba(244,63,94,0.28)', rgb: '244, 63, 94' },
+  { key: 'pendingFollowUps', title: 'Pending Follow-ups', icon: Clock3, color: 'from-amber-500 to-orange-600', glow: 'rgba(245,158,11,0.3)', rgb: '245, 158, 11' },
+  { key: 'conversionRate', title: 'Conv. Rate', icon: TrendingUp, color: 'from-lime-500 to-emerald-600', glow: 'rgba(34,197,94,0.28)', rgb: '34, 197, 94', percent: true },
+  { key: 'revenueFromConvertedLeads', title: 'Revenue', icon: FolderClock, color: 'from-cyan-500 to-blue-600', glow: 'rgba(6,182,212,0.3)', rgb: '6, 182, 212', currency: true },
 ]
 
 const ACTIVITY_PAGE_SIZE = 8
@@ -107,6 +108,8 @@ const prettyNumber = (value) => {
 const prettyCurrency = (value) => `₹${prettyNumber(Number(value || 0) / 100000)}L`
 
 const prettyPercent = (value) => `${Number(value || 0).toFixed(1)}%`
+
+const tintStyle = (rgb) => ({ '--dashboard-card-rgb': rgb })
 
 const getTrendGranularity = (filter, startDate, endDate) => {
   if (filter === 'today' || filter === 'yesterday' || filter === 'thisWeek') return 'day'
@@ -143,11 +146,12 @@ function MetricCard({ item, metric, sparkline = [] }) {
   const hasSparkline = sparkline.some((point) => Number(point.value || 0) > 0)
   const stroke = positive ? '#10b981' : '#f43f5e'
   return (
-    <div className="kpi-card flex min-h-[84px] flex-col gap-1.5 overflow-hidden px-2.5 py-2 sm:px-3 sm:py-2.5">
+    <div
+      className="dashboard-color-card group kpi-card flex min-h-[84px] flex-col gap-1.5 overflow-hidden px-2.5 py-2 sm:px-3 sm:py-2.5"
+      style={tintStyle(item.rgb)}
+    >
       <div className="flex items-start gap-2.5">
-        <div className={`h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
+        <DashboardIcon icon={Icon} color={item.color} glow={item.glow} className="h-9 w-9 rounded-xl" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{item.title}</p>
           <p className="mt-0.5 text-2xl font-bold leading-none text-slate-900 dark:text-slate-50">
@@ -184,15 +188,22 @@ function MetricCard({ item, metric, sparkline = [] }) {
   )
 }
 
-function SectionShell({ title, icon: Icon, subtitle, action }) {
+function SectionShell({
+  title,
+  icon: Icon,
+  subtitle,
+  action,
+  color = 'from-brand-500 to-accent-500',
+  glow = 'rgba(14,165,233,0.28)',
+}) {
   return (
     <div className="mb-2 flex items-center justify-between gap-3">
-      <div>
-        <div className="flex items-center gap-2">
-          <Icon className="h-3.5 w-3.5 text-brand-500" />
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <DashboardIcon icon={Icon} color={color} glow={glow} />
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+          {subtitle && <p className="mt-0.5 truncate text-[11px] leading-snug text-slate-500 dark:text-slate-400">{subtitle}</p>}
         </div>
-        {subtitle && <p className="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -611,10 +622,12 @@ export default function LeadConversionDashboard() {
 
           {/* ── Funnel + Trend ── */}
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
-            <div className="glass-card p-3 sm:p-4 xl:col-span-5">
+            <div className="dashboard-color-card glass-card p-3 sm:p-4 xl:col-span-5" style={tintStyle('124, 58, 237')}>
               <SectionShell
                 title="Lead Conversion Funnel"
                 icon={Target}
+                color="from-brand-500 to-violet-600"
+                glow="rgba(124,58,237,0.28)"
                 subtitle="Stage progression with drop-off."
                 action={bestSource ? <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300">Best: {bestSource.sourceLabel}</span> : null}
               />
@@ -657,10 +670,12 @@ export default function LeadConversionDashboard() {
               )}
             </div>
 
-            <div className="glass-card p-3 sm:p-4 xl:col-span-7">
+            <div className="dashboard-color-card glass-card p-3 sm:p-4 xl:col-span-7" style={tintStyle('6, 182, 212')}>
               <SectionShell
                 title="Trend Line"
                 icon={LineChartIcon}
+                color="from-cyan-500 to-blue-600"
+                glow="rgba(6,182,212,0.3)"
                 subtitle="Leads, conversions, and revenue over time."
               />
               {trend.length && trendHasData ? (
@@ -703,10 +718,12 @@ export default function LeadConversionDashboard() {
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {/* ── #2: Lead Source Analytics ── */}
-            <div className="glass-card p-3 sm:p-4">
+            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('16, 185, 129')}>
               <SectionShell
                 title="Lead Source Analytics"
                 icon={Globe2}
+                color="from-emerald-500 to-teal-600"
+                glow="rgba(16,185,129,0.3)"
                 subtitle="Conversion rates and revenue by source."
               />
               {sourcePieData.length > 1 ? (
@@ -771,10 +788,12 @@ export default function LeadConversionDashboard() {
             </div>
 
             {/* ── #3: Status Donut ── */}
-            <div className="glass-card p-3 sm:p-4">
+            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('124, 58, 237')}>
               <SectionShell
                 title="Status Donut"
                 icon={Repeat2}
+                color="from-violet-500 to-purple-600"
+                glow="rgba(124,58,237,0.3)"
                 subtitle="Current pipeline balance by status."
               />
               {(() => {
@@ -826,10 +845,12 @@ export default function LeadConversionDashboard() {
           </div>
 
           {/* ── #4: Activity Timeline — compact grid ── */}
-          <div className="glass-card p-3 sm:p-4">
+          <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('14, 165, 233')}>
             <SectionShell
               title="Lead Activity Timeline"
               icon={CalendarDays}
+              color="from-sky-500 to-cyan-600"
+              glow="rgba(14,165,233,0.3)"
               subtitle="Latest lifecycle events."
               action={activities.length > ACTIVITY_PAGE_SIZE ? (
                 <div className="flex items-center gap-1.5 text-[11px]">
@@ -899,10 +920,12 @@ export default function LeadConversionDashboard() {
 
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {/* ── #5: Follow-up Snapshot ── */}
-            <div className="glass-card p-3 sm:p-4">
+            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('245, 158, 11')}>
               <SectionShell
                 title="Follow-up Snapshot"
                 icon={Clock3}
+                color="from-amber-500 to-orange-600"
+                glow="rgba(245,158,11,0.3)"
                 subtitle="Today, yesterday, and this week's open follow-ups."
                 action={(
                   <div className="flex items-center gap-1.5">
@@ -987,10 +1010,12 @@ export default function LeadConversionDashboard() {
             </div>
 
             {/* ── #6: Employee Performance — compact leaderboard ── */}
-            <div className="glass-card p-3 sm:p-4">
+            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('244, 63, 94')}>
               <SectionShell
                 title="Employee Performance"
                 icon={Users}
+                color="from-rose-500 to-pink-600"
+                glow="rgba(244,63,94,0.26)"
                 subtitle="Click a row to expand details."
                 action={(
                   <div className="flex flex-wrap items-center justify-end gap-1.5">

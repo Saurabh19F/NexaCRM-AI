@@ -12,6 +12,7 @@ import { LinearProgress } from '../ui/Progress'
 import { Skeleton } from '../ui/Skeleton'
 import GradientText from '../reactbits/GradientText'
 import SpotlightCard from '../reactbits/SpotlightCard'
+import DashboardIcon from './DashboardIcon'
 
 const INSIGHT_ROUTES = {
   'Schedule Call':  '/communication',
@@ -19,6 +20,8 @@ const INSIGHT_ROUTES = {
   'View Profile':   '/customers',
   'Plan Campaign':  '/ai-engine',
 }
+
+const tintStyle = (rgb) => ({ '--dashboard-card-rgb': rgb })
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -103,11 +106,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
         {/* Call Intelligence */}
-        <SpotlightCard className="p-4" spotlightColor="rgba(14, 165, 233, 0.2)">
+        <SpotlightCard
+          className="dashboard-color-card p-4"
+          spotlightColor="rgba(14, 165, 233, 0.2)"
+          style={tintStyle('6, 182, 212')}
+        >
           <div className="flex items-center gap-2 mb-3">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center">
-              <Phone className="h-3.5 w-3.5 text-white" />
-            </div>
+            <DashboardIcon icon={Phone} color="from-cyan-500 to-sky-600" glow="rgba(6,182,212,0.3)" />
             <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Call Intelligence</h2>
             <div className="ml-auto flex items-center gap-1 text-[10px] text-slate-400">
               <Mic className="h-3 w-3" />
@@ -141,8 +146,9 @@ export default function DashboardPage() {
               {recentCallSnapshots.map((item) => (
                 <div
                   key={item.leadId}
-                  className="rounded-xl px-3 py-2.5"
+                  className="dashboard-color-card rounded-xl px-3 py-2.5"
                   style={{
+                    ...tintStyle('6, 182, 212'),
                     background: 'rgba(255,255,255,0.45)',
                     border: '1px solid rgba(255,255,255,0.35)',
                   }}
@@ -186,11 +192,13 @@ export default function DashboardPage() {
         </SpotlightCard>
 
         {/* AI Insights */}
-        <SpotlightCard className="p-4" spotlightColor="rgba(124, 58, 237, 0.2)">
+        <SpotlightCard
+          className="dashboard-color-card p-4"
+          spotlightColor="rgba(124, 58, 237, 0.2)"
+          style={tintStyle('124, 58, 237')}
+        >
           <div className="flex items-center gap-2 mb-3">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-              <Sparkles className="h-3.5 w-3.5 text-white" />
-            </div>
+            <DashboardIcon icon={Sparkles} color="from-violet-500 to-purple-600" glow="rgba(124,58,237,0.32)" />
             <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">AI Insights</h2>
           </div>
 
@@ -220,11 +228,16 @@ export default function DashboardPage() {
                   warning: 'border-l-amber-400 bg-amber-50/50 dark:bg-amber-950/10',
                   opportunity: 'border-l-brand-400 bg-brand-50/50 dark:bg-brand-950/10',
                 }
+                const accentRgb = {
+                  prediction: '16, 185, 129',
+                  warning: '245, 158, 11',
+                  opportunity: '14, 165, 233',
+                }[insight.type] || '14, 165, 233'
                 return (
                   <div
                     key={insight.id}
-                    className={`rounded-xl border-l-[3px] px-3 py-2.5 ${colors[insight.type] || 'border-l-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/10'}`}
-                    style={{ border: '1px solid rgba(255,255,255,0.3)', borderLeftWidth: '3px' }}
+                    className={`dashboard-color-card rounded-xl border-l-[3px] px-3 py-2.5 ${colors[insight.type] || 'border-l-cyan-400 bg-cyan-50/50 dark:bg-cyan-950/10'}`}
+                    style={{ ...tintStyle(accentRgb), border: '1px solid rgba(255,255,255,0.3)', borderLeftWidth: '3px' }}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{insight.title}</p>
