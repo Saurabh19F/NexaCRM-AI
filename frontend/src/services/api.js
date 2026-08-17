@@ -290,7 +290,7 @@ export const integrationsAPI = {
 // ──────────────────────────────────────────
 export const aiAPI = {
   chat:          (messages) => api.post('/ai/chat', { messages }),
-  scoreLead:     (leadId)   => api.post(`/ai/score/${leadId}`),
+  scoreLead:     (leadId, config = {}) => api.post(`/ai/score/${leadId}`, undefined, config),
   predictDeal:   (dealId)   => api.post(`/ai/predict/${dealId}`),
   generateEmail: (data)     => api.post('/ai/generate-email', data),
   getInsights:   ()         => api.get('/ai/insights'),

@@ -126,6 +126,7 @@ function LeadScoring() {
   const [loadingLeads, setLoadingLeads] = useState(true)
   const [loading, setLoading] = useState(false)
   const [scorePage, setScorePage] = useState(0)
+  const [scoreProgress, setScoreProgress] = useState({ done: 0, total: 0 })
   const pageSize = 4
   const totalPages = Math.ceil(scores.length / pageSize)
   const visibleScores = scores.slice(scorePage * pageSize, (scorePage + 1) * pageSize)
@@ -164,25 +165,57 @@ function LeadScoring() {
     setLoading(true)
     setScores([])
     setScorePage(0)
+    setScoreProgress({ done: 0, total: allLeads.length })
     try {
-      const next = await Promise.all(allLeads.map(async (lead) => {
-        const response = await aiAPI.scoreLead(String(lead.id))
-        const scoreLabel = String(response?.score || 'WARM').toLowerCase()
-        return {
-          id: lead.id,
-          name: lead.name || lead.company || 'Lead',
-          aiScore: scoreLabel === 'hot' || scoreLabel === 'warm' || scoreLabel === 'cold' ? scoreLabel : 'warm',
-          confidence: Number(response?.scoreValue ?? lead.aiScoreValue ?? 50),
-          reason: response?.reasoning || 'AI analysis completed.',
-          nextAction: response?.nextAction || 'Follow up with this lead.',
+      const results = new Array(allLeads.length)
+      const failed = []
+      let cursor = 0
+      let done = 0
+      const concurrency = Math.min(3, allLeads.length)
+
+      const scoreOne = async (lead, index) => {
+        try {
+          const response = await aiAPI.scoreLead(String(lead.id), { timeout: 20000 })
+          const scoreLabel = String(response?.score || 'WARM').toLowerCase()
+          results[index] = {
+            id: lead.id,
+            name: lead.name || lead.company || 'Lead',
+            aiScore: scoreLabel === 'hot' || scoreLabel === 'warm' || scoreLabel === 'cold' ? scoreLabel : 'warm',
+            confidence: Number(response?.scoreValue ?? lead.aiScoreValue ?? 50),
+            reason: response?.reasoning || 'AI analysis completed.',
+            nextAction: response?.nextAction || 'Follow up with this lead.',
+          }
+        } catch (error) {
+          failed.push({ lead, error })
+        } finally {
+          done += 1
+          setScoreProgress({ done, total: allLeads.length })
+          setScores(results.filter(Boolean))
         }
-      }))
-      setScores(next)
-      toast.success('AI scoring complete.')
+      }
+
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (cursor < allLeads.length) {
+          const index = cursor
+          cursor += 1
+          await scoreOne(allLeads[index], index)
+        }
+      })
+
+      await Promise.all(workers)
+
+      if (failed.length && results.some(Boolean)) {
+        toast(`${results.filter(Boolean).length} leads scored. ${failed.length} could not be scored right now.`)
+      } else if (failed.length) {
+        toast.error(failed[0]?.error?.message || 'Failed to score leads')
+      } else {
+        toast.success('AI scoring complete.')
+      }
     } catch (e) {
       toast.error(e.message)
     } finally {
       setLoading(false)
+      setScoreProgress({ done: 0, total: 0 })
     }
   }
 
@@ -199,7 +232,8 @@ function LeadScoring() {
         </button>
       </div>
       {!scores.length && !loading && <div className="flex flex-col items-center justify-center py-16 text-center"><div className="w-16 h-16 rounded-2xl bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center mb-4"><Target className="w-8 h-8 text-brand-500" /></div><p className="text-slate-500 text-sm">{loadingLeads ? 'Loading leads...' : allLeads.length ? 'Click "Score All Leads" to evaluate leads' : 'No leads available to score'}</p></div>}
-      {loading && <div className="flex flex-col items-center justify-center py-16"><RefreshCw className="w-8 h-8 text-brand-500 animate-spin mb-3" /><p className="text-sm text-slate-500">Analyzing your leads...</p></div>}
+      {loading && !scores.length && <div className="flex flex-col items-center justify-center py-16"><RefreshCw className="w-8 h-8 text-brand-500 animate-spin mb-3" /><p className="text-sm text-slate-500">Analyzing leads{scoreProgress.total ? ` ${scoreProgress.done}/${scoreProgress.total}` : '...'}</p></div>}
+      {loading && scores.length > 0 && <div className="text-xs text-slate-500">Scoring leads {scoreProgress.done}/{scoreProgress.total}</div>}
       {scores.length > 0 && (
         <div className="space-y-3">
           {visibleScores.map((s, i) => {
