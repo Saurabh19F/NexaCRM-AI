@@ -22,6 +22,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -69,16 +70,34 @@ public class InvoiceService {
             query.addCriteria(Criteria.where("customer.$id").is(customerId));
         }
 
-        List<Invoice> allRows = mongoTemplate.find(query, Invoice.class).stream()
-            .filter(this::canCurrentUserAccess)
-            .toList();
+        User current = currentUser();
+        if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
+            return pageInvoiceQuery(query, pageable);
+        }
 
-        long total = allRows.size();
+        List<Invoice> allRows = mongoTemplate.find(query, Invoice.class).stream()
+            .filter(invoice -> canCurrentUserAccess(invoice, current))
+            .toList();
         int start = Math.min((int) pageable.getOffset(), allRows.size());
         int end = Math.min(start + pageable.getPageSize(), allRows.size());
         List<Invoice> rows = start >= end ? List.of() : allRows.subList(start, end);
-        Page<Invoice> page = new PageImpl<>(rows, pageable, total);
+        Page<Invoice> page = new PageImpl<>(rows, pageable, allRows.size());
+        return toPageResponse(page);
+    }
 
+    private PageResponse<InvoiceDTO> pageInvoiceQuery(Query baseQuery, Pageable pageable) {
+        Query countQuery = Query.of(baseQuery).limit(-1).skip(-1);
+        long total = mongoTemplate.count(countQuery, Invoice.class);
+        Query pageQuery = Query.of(baseQuery);
+        pageQuery.with(pageable);
+        if (pageable.getSort().isUnsorted()) {
+            pageQuery.with(Sort.by(Sort.Order.desc("createdAt")));
+        }
+        Page<Invoice> page = new PageImpl<>(mongoTemplate.find(pageQuery, Invoice.class), pageable, total);
+        return toPageResponse(page);
+    }
+
+    private PageResponse<InvoiceDTO> toPageResponse(Page<Invoice> page) {
         return PageResponse.<InvoiceDTO>builder()
             .content(page.getContent().stream().map(this::toDTO).collect(Collectors.toList()))
             .page(page.getNumber()).size(page.getSize())
@@ -275,7 +294,10 @@ public class InvoiceService {
     }
 
     private boolean canCurrentUserAccess(Invoice invoice) {
-        User current = currentUser();
+        return canCurrentUserAccess(invoice, currentUser());
+    }
+
+    private boolean canCurrentUserAccess(Invoice invoice, User current) {
         if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
             return true;
         }

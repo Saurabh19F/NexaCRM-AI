@@ -425,8 +425,8 @@ export default function InvoicesPage() {
       setLoading(true)
       try {
         const [invoicePage, customerPage] = await Promise.all([
-          invoicesAPI.getAll(),
-          customersAPI.getAll({ size: 200 }),
+          invoicesAPI.getAll({ page: 0, size: 100 }),
+          customersAPI.getOptions({ size: 100 }),
         ])
         if (cancelled) return
         const rows = Array.isArray(invoicePage?.content) ? invoicePage.content.map(mapInvoiceFromApi) : []

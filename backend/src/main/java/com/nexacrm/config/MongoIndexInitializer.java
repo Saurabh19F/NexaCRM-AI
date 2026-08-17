@@ -1,6 +1,7 @@
 package com.nexacrm.config;
 
 import com.nexacrm.model.LeadActivity;
+import com.nexacrm.model.Invoice;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,15 @@ public class MongoIndexInitializer {
                 .on("saved_at", Sort.Direction.DESC)
                 .background()
                 .named("lead_activity_bulk_stage_preview_idx")
+        );
+
+        mongoTemplate.indexOps(Invoice.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .background()
+                .named("invoice_tenant_deleted_created_idx")
         );
 
         log.info("Mongo operational indexes verified");
