@@ -81,19 +81,10 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardOverviewDTO overview() {
-        List<org.bson.Document> leadDocs = fetchLeadDocuments(OVERVIEW_LEAD_LIMIT);
-        Map<String, String> assignments = extractAssignments(leadDocs);
-        List<LeadDTO> leads = leadDocs.stream()
-            .map(doc -> docToLeadDTO(doc, assignments))
-            .toList();
-        List<DealDTO> deals = fetchDealDocuments(WIDGET_DEAL_LIMIT).stream()
-            .map(this::docToDealDTO)
-            .toList();
-
         return new DashboardOverviewDTO(
-            leads,
-            deals,
-            buildFastInsights(leads),
+            List.of(),
+            List.of(),
+            buildFastInsights(List.of()),
             List.of(),
             List.of(),
             LocalDateTime.now().toString()
@@ -101,18 +92,15 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardWidgetSnapshotDTO widgets() {
-        List<Lead> leads = fetchLeadEntities();
-        List<DealDTO> deals = fetchDealDocuments(WIDGET_DEAL_LIMIT).stream()
-            .map(this::docToDealDTO)
-            .toList();
+        long total = countLeads();
 
         return new DashboardWidgetSnapshotDTO(
-            buildAgingCounts(leads),
-            buildSlaSummary(leads),
-            buildEmployeePerformance(leads),
-            buildMonthlyRevenue(deals),
-            buildFunnelData(leads),
-            buildLeadSources(leads),
+            new DashboardWidgetSnapshotDTO.AgingCounts(total, 0, 0),
+            new DashboardWidgetSnapshotDTO.LeadSlaSummary(total, 0, total, 0, 0, null),
+            List.of(),
+            List.of(),
+            buildFunnelDataFromCounts(),
+            buildLeadSourcesFromCounts(total),
             LocalDateTime.now().toString()
         );
     }
@@ -699,6 +687,16 @@ public class DashboardAnalyticsService {
         return stages;
     }
 
+    private List<DashboardWidgetSnapshotDTO.FunnelStage> buildFunnelDataFromCounts() {
+        List<DashboardWidgetSnapshotDTO.FunnelStage> stages = new ArrayList<>();
+        for (DashboardStage stage : dashboardStages()) {
+            Lead.LeadStatus status = enumOrNull(Lead.LeadStatus.class, stage.key());
+            long count = status != null ? countLeads(Criteria.where("status").is(status)) : 0;
+            stages.add(new DashboardWidgetSnapshotDTO.FunnelStage(stage.label(), count, stage.color()));
+        }
+        return stages;
+    }
+
     private List<DashboardWidgetSnapshotDTO.LeadSourceShare> buildLeadSources(List<Lead> leads) {
         Map<String, Long> totals = new LinkedHashMap<>();
         for (String source : SOURCE_ORDER) {
@@ -719,6 +717,23 @@ public class DashboardAnalyticsService {
                 leadSourceColor(entry.getKey())
             ))
             .toList();
+    }
+
+    private List<DashboardWidgetSnapshotDTO.LeadSourceShare> buildLeadSourcesFromCounts(long total) {
+        long totalLeads = Math.max(1L, total);
+        List<DashboardWidgetSnapshotDTO.LeadSourceShare> rows = new ArrayList<>();
+        for (Lead.LeadSource source : Lead.LeadSource.values()) {
+            long count = countLeads(Criteria.where("source").is(source));
+            if (count <= 0) continue;
+            String label = sourceLabel(source);
+            rows.add(new DashboardWidgetSnapshotDTO.LeadSourceShare(
+                label,
+                round((count * 100.0) / totalLeads),
+                leadSourceColor(label)
+            ));
+        }
+        rows.sort((left, right) -> Double.compare(right.value(), left.value()));
+        return rows.stream().limit(6).toList();
     }
 
     private Map<String, LocalDateTime> fetchFirstResponseByLeadId(List<Lead> leads) {
