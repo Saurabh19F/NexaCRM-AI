@@ -430,8 +430,11 @@ export default function InvoicesPage() {
         ])
         if (cancelled) return
         const rows = Array.isArray(invoicePage?.content) ? invoicePage.content.map(mapInvoiceFromApi) : []
+        const customerRows = Array.isArray(customerPage)
+          ? customerPage
+          : Array.isArray(customerPage?.content) ? customerPage.content : []
         setInvoices(rows)
-        setCustomers(Array.isArray(customerPage?.content) ? customerPage.content : [])
+        setCustomers(customerRows)
       } catch (err) {
         if (!cancelled) toast.error(err?.message || 'Failed to load invoices')
       } finally {
