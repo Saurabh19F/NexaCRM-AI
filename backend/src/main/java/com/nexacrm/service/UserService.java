@@ -32,8 +32,13 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserDTO> findAll() {
+        return findAll(false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDTO> findAll(boolean includeInactive) {
         return userRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
-            .filter(u -> !Boolean.FALSE.equals(u.getIsActive()) || u.getIsActive() == null)
+            .filter(u -> includeInactive || !Boolean.FALSE.equals(u.getIsActive()) || u.getIsActive() == null)
             .map(this::toDTO)
             .collect(Collectors.toList());
     }

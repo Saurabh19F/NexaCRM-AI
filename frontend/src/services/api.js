@@ -410,7 +410,7 @@ export const dashboardAPI = {
 //  Team
 // ──────────────────────────────────────────
 export const teamAPI = {
-  getAll:   ()     => api.get('/users'),
+  getAll:   (params = {}) => api.get('/users', { params }),
   getById:  (id)   => api.get(`/users/${id}`),
   invite:   (data) => api.post('/users/invite', data),
   update:   (id,d) => api.put(`/users/${id}`, d),

@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,8 +24,9 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('team.read')")
-    public ResponseEntity<List<UserDTO>> getAll() {
-        return ResponseEntity.ok(userService.findAll());
+    public ResponseEntity<List<UserDTO>> getAll(
+            @RequestParam(defaultValue = "false") boolean includeInactive) {
+        return ResponseEntity.ok(userService.findAll(includeInactive));
     }
 
     @GetMapping("/{id}")
@@ -54,9 +56,15 @@ public class UserController {
 
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('team.read')")
-    public ResponseEntity<List<Map<String, String>>> getRoles() {
-        List<Map<String, String>> roles = Arrays.stream(User.Role.values())
-            .map(r -> Map.of("value", r.name(), "label", formatRoleLabel(r)))
+    public ResponseEntity<List<Map<String, Object>>> getRoles() {
+        List<Map<String, Object>> roles = Arrays.stream(User.Role.values())
+            .map(r -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("value", r.name());
+                row.put("label", formatRoleLabel(r));
+                row.put("permissions", User.getPermissionsForRole(r));
+                return row;
+            })
             .collect(Collectors.toList());
         return ResponseEntity.ok(roles);
     }

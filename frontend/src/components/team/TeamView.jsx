@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Shield, Plus, Trophy, Edit, Trash2, Crown, UserCheck, User, X } from 'lucide-react'
+import { Shield, Plus, Trophy, Edit, Trash2, Crown, UserCheck, User, X, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { teamAPI, leadsAPI, dealsAPI } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
@@ -29,21 +29,11 @@ const ROLE_PERFORMANCE_LABEL = {
   NORMAL_USER: 'Normal user account',
 }
 
-const ROLE_PERMISSION_LABELS = {
-  COMPANY_ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
-  ADMIN: ['View all data', 'Manage users', 'Configure settings', 'View billing', 'All module access', 'Delete records'],
-  MANAGER: ['View all data', 'Manage assigned team', 'View reports', 'Create campaigns', 'Export data'],
-  SALES_EXEC: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
-  NORMAL_USER: ['View own leads', 'Create & edit leads', 'Manage own deals', 'Log activities', 'View assigned customers'],
-}
-
-const buildPermissionState = () =>
-  Object.fromEntries(
-    Object.entries(ROLE_PERMISSION_LABELS).map(([role, permissions]) => [
-      role,
-      Object.fromEntries(permissions.map((permission) => [permission, true])),
-    ])
-  )
+const DEFAULT_ROLE_DEFINITIONS = Object.entries(ROLE_CONFIG).map(([value, config]) => ({
+  value,
+  label: config.label,
+  permissions: [],
+}))
 
 const MEMBER_FORM_INITIAL = {
   name: '',
@@ -57,33 +47,51 @@ const MEMBER_FORM_INITIAL = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^\+?[0-9\s-]{7,15}$/
 
+const formatPermissionLabel = (permission = '') =>
+  permission
+    .split('.')
+    .map((part) => part.replace(/_/g, ' '))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' / ')
+
+const groupPermissionsByModule = (permissions = []) =>
+  permissions.reduce((groups, permission) => {
+    const [module = 'general'] = String(permission).split('.')
+    if (!groups[module]) groups[module] = []
+    groups[module].push(permission)
+    return groups
+  }, {})
+
 export default function TeamPage() {
   const { user } = useAuthStore()
   const [team, setTeam] = useState([])
   const [loadingTeam, setLoadingTeam] = useState(true)
   const [liveLeaderboard, setLiveLeaderboard] = useState([])
+  const [roleDefinitions, setRoleDefinitions] = useState(DEFAULT_ROLE_DEFINITIONS)
   const [selectedRole, setSelectedRole] = useState('SALES_EXEC')
-  const [permissionsByRole, setPermissionsByRole] = useState(buildPermissionState)
   const [memberModal, setMemberModal] = useState(null)
   const [memberForm, setMemberForm] = useState(MEMBER_FORM_INITIAL)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const canInvite = hasPermission(user, APP_PERMISSIONS.TEAM_INVITE)
   const canUpdate = hasPermission(user, APP_PERMISSIONS.TEAM_UPDATE)
   const canDeactivate = hasPermission(user, APP_PERMISSIONS.TEAM_DEACTIVATE)
-  const canConfigure = hasPermission(user, APP_PERMISSIONS.SETTINGS_UPDATE)
   const isManager = user?.role === 'MANAGER'
   const isAdminLike = ['COMPANY_ADMIN', 'ADMIN'].includes(user?.role) || user?.role === 'PLATFORM_ADMIN'
   const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || !['COMPANY_ADMIN', 'ADMIN'].includes(roleKey))
+  const selectedRoleDefinition = roleDefinitions.find((role) => role.value === selectedRole) || roleDefinitions[0]
+  const selectedRolePermissions = selectedRoleDefinition?.permissions || []
+  const selectedPermissionGroups = groupPermissionsByModule(selectedRolePermissions)
 
   useEffect(() => {
     let mounted = true
     const loadTeam = async () => {
       setLoadingTeam(true)
       try {
-        const [users, leadRows, dealRows] = await Promise.all([
-          teamAPI.getAll(),
-          fetchAllPages((params) => leadsAPI.getAll(params), 250).then((result) => result.rows),
-          fetchAllPages((params) => dealsAPI.getAll(params), 200).then((result) => result.rows),
+        const [users, leadRows, dealRows, roles] = await Promise.all([
+          teamAPI.getAll({ includeInactive: true }),
+          fetchAllPages((params) => leadsAPI.getAll(params), 250).then((result) => result.rows).catch(() => []),
+          fetchAllPages((params) => dealsAPI.getAll(params), 200).then((result) => result.rows).catch(() => []),
+          teamAPI.getRoles().catch(() => DEFAULT_ROLE_DEFINITIONS),
         ])
         if (!mounted) return
         const normalized = (users ?? []).map((u) => ({
@@ -101,6 +109,16 @@ export default function TeamPage() {
         }))
         setTeam(normalized)
         setLiveLeaderboard(buildTeamLeaderboard({ users, leads: leadRows, deals: dealRows }))
+        const normalizedRoles = (roles || [])
+          .filter((role) => ROLE_CONFIG[role.value])
+          .map((role) => ({
+            value: role.value,
+            label: role.label || ROLE_CONFIG[role.value].label,
+            permissions: Array.isArray(role.permissions) ? role.permissions : [],
+        }))
+        if (normalizedRoles.length > 0) {
+          setRoleDefinitions(normalizedRoles)
+        }
       } catch (err) {
         toast.error(err?.message || 'Failed to load team members')
       } finally {
@@ -319,25 +337,6 @@ export default function TeamPage() {
     }
   }
 
-  const togglePermission = (role, permission) => {
-    if (!canConfigure) {
-      toast.error('You do not have permission to configure role permissions.')
-      return
-    }
-    setPermissionsByRole((prev) => {
-      const nextEnabled = !prev[role][permission]
-      const next = {
-        ...prev,
-        [role]: {
-          ...prev[role],
-          [permission]: nextEnabled,
-        },
-      }
-      toast.success(`${permission} ${nextEnabled ? 'enabled' : 'disabled'} for ${ROLE_CONFIG[role].label}`)
-      return next
-    })
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -518,44 +517,44 @@ export default function TeamPage() {
 
         {/* Role Permissions */}
         <div className="glass-card p-5 space-y-4">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Role Permissions</h2>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Role Permissions</h2>
+              <p className="text-xs text-slate-500 mt-1">{selectedRolePermissions.length} backend permissions</p>
+            </div>
+            <Shield className="w-4 h-4 text-brand-500 mt-0.5" />
+          </div>
           <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
-            {Object.keys(ROLE_PERMISSION_LABELS).map((role) => (
+            {roleDefinitions.map((role) => (
               <button
-                key={role}
-                onClick={() => setSelectedRole(role)}
+                key={role.value}
+                onClick={() => setSelectedRole(role.value)}
                 className={`flex-1 min-w-[92px] py-1.5 text-xs font-medium rounded-lg transition-all
-                  ${selectedRole === role ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-500'}`}
+                  ${selectedRole === role.value ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-500'}`}
               >
-                {ROLE_CONFIG[role]?.label}
+                {role.label}
               </button>
             ))}
           </div>
-          <div className="space-y-2">
-            {Object.keys(permissionsByRole[selectedRole]).map((perm) => (
-              <div key={perm} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div
-                  className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0
-                    ${permissionsByRole[selectedRole][perm] ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full
-                      ${permissionsByRole[selectedRole][perm] ? 'bg-emerald-500' : 'bg-red-500'}`}
-                  />
+          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            {Object.entries(selectedPermissionGroups).map(([module, permissions]) => (
+              <div key={module} className="space-y-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{module.replace(/_/g, ' ')}</p>
+                <div className="space-y-1.5">
+                  {permissions.map((permission) => (
+                    <div key={permission} className="flex items-center gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2.5 py-2 text-xs text-slate-600 dark:text-slate-400">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      <span className="min-w-0 truncate" title={permission}>{formatPermissionLabel(permission)}</span>
+                    </div>
+                  ))}
                 </div>
-                <span className={permissionsByRole[selectedRole][perm] ? '' : 'line-through opacity-70'}>{perm}</span>
-                <button
-                  onClick={() => togglePermission(selectedRole, perm)}
-                  className={`ml-auto px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors
-                    ${permissionsByRole[selectedRole][perm]
-                      ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/20 dark:text-red-400'
-                      : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400'
-                    }`}
-                >
-                  {permissionsByRole[selectedRole][perm] ? 'Disable' : 'Enable'}
-                </button>
               </div>
             ))}
+            {selectedRolePermissions.length === 0 && (
+              <div className="py-6 text-center text-sm text-slate-500">
+                No permissions returned for this role.
+              </div>
+            )}
           </div>
         </div>
       </div>
