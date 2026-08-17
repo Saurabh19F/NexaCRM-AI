@@ -57,7 +57,7 @@ public class MongoIndexInitializer {
                 .on("assigned_to.$id", Sort.Direction.ASC)
                 .on("createdAt", Sort.Direction.DESC)
                 .background()
-                .named("lead_tenant_deleted_assigned_ref_created_idx")
+                .named("lead_tenant_deleted_assigned_created_idx")
         );
 
         log.info("Mongo operational indexes verified");
