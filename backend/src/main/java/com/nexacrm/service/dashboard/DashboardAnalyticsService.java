@@ -290,7 +290,7 @@ public class DashboardAnalyticsService {
         query.addCriteria(Criteria.where("deleted").is(false));
         query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
         query.limit(WIDGET_LEAD_LIMIT);
-        query.fields().exclude("assigned_to");
+        includeDashboardLeadFields(query);
         return mongoTemplate.find(query, Lead.class);
     }
 
