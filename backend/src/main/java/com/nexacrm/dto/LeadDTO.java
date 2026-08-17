@@ -4,12 +4,15 @@ import com.nexacrm.model.Lead;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class LeadDTO {
+public class LeadDTO implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
 
     @NotBlank(message = "Name is required")

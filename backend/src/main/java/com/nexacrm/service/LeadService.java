@@ -27,6 +27,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
@@ -35,6 +36,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -166,6 +169,7 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "pipeline-board", key = "#root.target.pipelineBoardCacheKey(#search, #status, #score, #source, #assignedTo, #pageable)")
     public LeadPipelineBoardDTO findPipelineBoard(String search, String status, String score,
                                                   String source, String assignedTo, Pageable pageable) {
         PageResponse<LeadDTO> leadPage = findAll(search, status, score, source, assignedTo, pageable);
@@ -188,6 +192,36 @@ public class LeadService {
             .build();
     }
 
+    public String pipelineBoardCacheKey(String search, String status, String score,
+                                        String source, String assignedTo, Pageable pageable) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication != null ? authentication.getPrincipal() : null;
+        String actor = authentication != null ? authentication.getName() : "anonymous";
+        String role = "unknown";
+        if (principal instanceof User user) {
+            actor = user.getId() != null ? user.getId() : user.getEmail();
+            role = user.getRole() != null ? user.getRole().name() : "unknown";
+        }
+
+        int page = pageable != null ? pageable.getPageNumber() : 0;
+        int size = pageable != null ? pageable.getPageSize() : 200;
+        String sort = pageable != null && pageable.getSort() != null ? pageable.getSort().toString() : "";
+
+        return String.join("|",
+            "tenant", String.valueOf(tenantId()),
+            "actor", cachePart(actor),
+            "role", cachePart(role),
+            "search", cachePart(search),
+            "status", cachePart(status),
+            "score", cachePart(score),
+            "source", cachePart(source),
+            "assignedTo", cachePart(assignedTo),
+            "page", String.valueOf(page),
+            "size", String.valueOf(size),
+            "sort", cachePart(sort)
+        );
+    }
+
     @Transactional(readOnly = true)
     public LeadDTO findById(String id) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
@@ -204,7 +238,8 @@ public class LeadService {
         @CacheEvict(value = "dashboard-employees", allEntries = true),
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
-        @CacheEvict(value = "dashboard-trend", allEntries = true)
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO create(LeadDTO dto) {
         String normalizedEmail = normalizeEmail(dto.getEmail());
@@ -305,7 +340,8 @@ public class LeadService {
         @CacheEvict(value = "dashboard-employees", allEntries = true),
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
-        @CacheEvict(value = "dashboard-trend", allEntries = true)
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO update(String id, LeadDTO dto) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
@@ -388,7 +424,8 @@ public class LeadService {
         @CacheEvict(value = "dashboard-employees", allEntries = true),
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
-        @CacheEvict(value = "dashboard-trend", allEntries = true)
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public void delete(String id) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
@@ -404,7 +441,8 @@ public class LeadService {
         @CacheEvict(value = "dashboard-employees", allEntries = true),
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
-        @CacheEvict(value = "dashboard-trend", allEntries = true)
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public int bulkDelete(List<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
@@ -435,6 +473,15 @@ public class LeadService {
             .toList();
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
+    })
     public LeadDTO merge(String primaryId, String duplicateId) {
         if (primaryId == null || duplicateId == null || primaryId.isBlank() || duplicateId.isBlank()) {
             throw new IllegalStateException("Both lead ids are required");
@@ -460,6 +507,15 @@ public class LeadService {
         return toDTO(saved);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
+    })
     public LeadDTO reopen(String id, Map<String, Object> options) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -1627,6 +1683,11 @@ public class LeadService {
         if (email == null) return null;
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private String cachePart(String value) {
+        if (value == null) return "";
+        return value.trim().toLowerCase(Locale.ROOT).replace('|', ':');
     }
 
     private String normalizePhone(String phone) {

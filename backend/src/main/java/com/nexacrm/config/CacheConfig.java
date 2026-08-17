@@ -28,6 +28,9 @@ public class CacheConfig implements CachingConfigurer {
     @Value("${nexacrm.cache.dashboard-ttl-seconds:30}")
     private long dashboardTtlSeconds;
 
+    @Value("${nexacrm.cache.pipeline-board-ttl-seconds:10}")
+    private long pipelineBoardTtlSeconds;
+
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         try {
@@ -51,9 +54,12 @@ public class CacheConfig implements CachingConfigurer {
 
         RedisCacheConfiguration dashboardConfig = defaultConfig
                 .entryTtl(Duration.ofSeconds(dashboardTtlSeconds));
+        RedisCacheConfiguration pipelineBoardConfig = defaultConfig
+                .entryTtl(Duration.ofSeconds(pipelineBoardTtlSeconds));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig.entryTtl(Duration.ofMinutes(5)))
+                .withCacheConfiguration("pipeline-board", pipelineBoardConfig)
                 .withCacheConfiguration("dashboard-summary", dashboardConfig)
                 .withCacheConfiguration("dashboard-funnel", dashboardConfig)
                 .withCacheConfiguration("dashboard-employees", dashboardConfig)

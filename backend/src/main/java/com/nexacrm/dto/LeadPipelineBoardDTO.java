@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
@@ -12,7 +13,9 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LeadPipelineBoardDTO {
+public class LeadPipelineBoardDTO implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private List<LeadDTO> content;
     private Map<String, List<LeadActivityDTO>> activities;
     private int page;
