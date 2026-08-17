@@ -6,16 +6,10 @@ import {
 } from 'recharts'
 import { BarChart3, TrendingUp, Trophy, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { leadsAPI, dealsAPI, invoicesAPI, teamAPI, customersAPI } from '../../services/api'
+import { analyticsAPI } from '../../services/api'
 import {
   buildLeadTrend,
-  buildRevenueTrend,
-  buildLeadSourceBreakdown,
-  buildFunnelBreakdown,
-  buildTeamLeaderboard,
-  buildCustomerMetrics,
 } from '../../utils/liveMetrics'
-import { fetchAllPages } from '../../utils/pagination'
 
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6']
 
@@ -33,11 +27,8 @@ function downloadCSV(rows, filename) {
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [leads, setLeads] = useState([])
-  const [deals, setDeals] = useState([])
-  const [invoices, setInvoices] = useState([])
-  const [users, setUsers] = useState([])
-  const [customers, setCustomers] = useState([])
+  const [overview, setOverview] = useState(null)
+  const [widgets, setWidgets] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -46,20 +37,14 @@ export default function AnalyticsPage() {
       setLoading(true)
       setError('')
       try {
-        const [leadRows, dealRows, invoiceRows, userRows, customerRows] = await Promise.all([
-          fetchAllPages((params) => leadsAPI.getAll(params), 250).then((result) => result.rows),
-          fetchAllPages((params) => dealsAPI.getAll(params), 200).then((result) => result.rows),
-          fetchAllPages((params) => invoicesAPI.getAll(params), 200).then((result) => result.rows),
-          teamAPI.getAll(),
-          fetchAllPages((params) => customersAPI.getAll(params), 200).then((result) => result.rows),
+        const [overviewData, widgetData] = await Promise.all([
+          analyticsAPI.getDashboard(),
+          analyticsAPI.getDashboardWidgets(),
         ])
 
         if (cancelled) return
-        setLeads(Array.isArray(leadRows) ? leadRows : [])
-        setDeals(Array.isArray(dealRows) ? dealRows : [])
-        setInvoices(Array.isArray(invoiceRows) ? invoiceRows : [])
-        setUsers(Array.isArray(userRows) ? userRows : [])
-        setCustomers(Array.isArray(customerRows) ? customerRows : [])
+        setOverview(overviewData || {})
+        setWidgets(widgetData || {})
       } catch (err) {
         if (!cancelled) {
           setError(err?.message || 'Failed to load analytics data')
@@ -76,32 +61,49 @@ export default function AnalyticsPage() {
     }
   }, [])
 
+  const leads = Array.isArray(overview?.leads) ? overview.leads : []
+  const deals = Array.isArray(overview?.deals) ? overview.deals : []
+  const agingCounts = widgets?.agingCounts || {}
+  const slaSummary = widgets?.slaSummary || {}
   const leadTrend = useMemo(() => buildLeadTrend(leads), [leads])
-  const revenueTrend = useMemo(() => buildRevenueTrend(invoices), [invoices])
-  const sourceBreakdown = useMemo(() => buildLeadSourceBreakdown(leads), [leads])
-  const funnelBreakdown = useMemo(() => buildFunnelBreakdown(leads), [leads])
-  const teamLeaderboard = useMemo(() => buildTeamLeaderboard({ users, leads, deals }), [users, leads, deals])
-  const customerMetrics = useMemo(() => buildCustomerMetrics({ customers, deals, invoices }), [customers, deals, invoices])
+  const revenueTrend = useMemo(() => Array.isArray(widgets?.monthlyRevenue) ? widgets.monthlyRevenue : [], [widgets])
+  const sourceBreakdown = useMemo(() => Array.isArray(widgets?.leadSources) ? widgets.leadSources : [], [widgets])
+  const funnelBreakdown = useMemo(() => Array.isArray(widgets?.funnelData) ? widgets.funnelData : [], [widgets])
+  const teamLeaderboard = useMemo(() => {
+    const rows = Array.isArray(widgets?.employeePerformance) ? widgets.employeePerformance : []
+    return rows.map((member, index) => {
+      const total = Number(member.total || 0)
+      const met = Number(member.met || 0)
+      const breached = Number(member.breached || 0)
+      return {
+        id: member.owner || index,
+        name: member.owner || 'Unassigned',
+        rank: index + 1,
+        badge: index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}`,
+        leads: total,
+        deals: met,
+        revenue: breached,
+        convRate: total ? Math.round((met / total) * 1000) / 10 : 0,
+      }
+    })
+  }, [widgets])
 
   const summary = useMemo(() => {
-    const paidInvoices = invoices.filter((invoice) => String(invoice.status || '').toLowerCase() === 'paid')
-    const totalRevenue = paidInvoices.reduce((sum, invoice) => sum + Number(invoice.total ?? invoice.subtotal ?? 0), 0)
     const wonDeals = deals.filter((deal) => String(deal.stage || deal.status || '').toLowerCase() === 'won')
     const openDeals = deals.filter((deal) => !['won', 'lost'].includes(String(deal.stage || deal.status || '').toLowerCase())).length
-    const activeCustomers = customers.filter((customer) => String(customer.status || '').toLowerCase() === 'active').length
-    const avgHealth = customers.length
-      ? Math.round(customers.reduce((sum, customer) => sum + Number(customer.healthScore ?? customer.health ?? 0), 0) / customers.length)
-      : 0
+    const totalRevenue = revenueTrend.reduce((sum, bucket) => sum + Number(bucket.revenue || 0), 0)
+    const pending = Number(slaSummary.pending || 0)
+    const avgResponse = slaSummary.avgResponseMinutes != null ? `${Number(slaSummary.avgResponseMinutes).toFixed(0)}m` : '—'
 
     return [
-      { label: 'Leads', value: leads.length.toLocaleString(), tone: 'brand' },
+      { label: 'Leads', value: Number(slaSummary.total ?? leads.length).toLocaleString(), tone: 'brand' },
       { label: 'Open Deals', value: openDeals.toLocaleString(), tone: 'amber' },
       { label: 'Won Deals', value: wonDeals.length.toLocaleString(), tone: 'emerald' },
       { label: 'Paid Revenue', value: `₹${(totalRevenue / 100000).toFixed(1)}L`, tone: 'brand' },
-      { label: 'Active Customers', value: activeCustomers.toLocaleString(), tone: 'sky' },
-      { label: 'Avg Health', value: `${avgHealth}%`, tone: 'slate' },
+      { label: 'Pending SLA', value: pending.toLocaleString(), tone: 'sky' },
+      { label: 'Avg Response', value: avgResponse, tone: 'slate' },
     ]
-  }, [leads.length, deals, invoices, customers])
+  }, [leads.length, deals, revenueTrend, slaSummary])
 
   const exportReport = () => {
     const rows = [
@@ -114,11 +116,11 @@ export default function AnalyticsPage() {
       ...revenueTrend.map((row) => [row.month, row.revenue]),
       [],
       ['=== LEAD SOURCES ==='],
-      ['Source', 'Leads'],
+      ['Source', 'Share'],
       ...sourceBreakdown.map((row) => [row.name, row.value]),
       [],
       ['=== TEAM LEADERBOARD ==='],
-      ['Name', 'Leads', 'Deals', 'Revenue'],
+      ['Name', 'Leads', 'SLA Met', 'SLA Breached'],
       ...teamLeaderboard.map((member) => [member.name, member.leads, member.deals, member.revenue]),
     ]
     downloadCSV(rows, `nexacrm-analytics-${new Date().toISOString().slice(0, 10)}.csv`)
@@ -225,7 +227,7 @@ export default function AnalyticsPage() {
                 <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, stage.count * 8)}%` }}
+                    animate={{ width: `${Math.min(100, Number(stage.count || 0) * 8)}%` }}
                     transition={{ duration: 0.6, delay: index * 0.05 }}
                     className="h-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500"
                   />
@@ -250,7 +252,7 @@ export default function AnalyticsPage() {
                 <div className="flex-1">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-semibold text-slate-800 dark:text-slate-200">{member.name}</span>
-                    <span className="text-slate-500">₹{(member.revenue / 100000).toFixed(1)}L</span>
+                    <span className="text-slate-500">{member.convRate}% SLA met</span>
                   </div>
                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full">
                     <motion.div
@@ -262,8 +264,8 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="flex gap-4 mt-1 text-[10px] text-slate-400">
                     <span>{member.leads} leads</span>
-                    <span>{member.deals} deals</span>
-                    <span>{member.convRate}% conversion</span>
+                    <span>{member.deals} met</span>
+                    <span>{member.revenue} breached</span>
                   </div>
                 </div>
               </div>
@@ -272,27 +274,26 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="glass-card p-5">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Customer Health</h2>
-          <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-            {customers.slice(0, 8).map((customer, index) => {
-              const metric = customerMetrics[index] || { revenue: 0, deals: 0 }
-              const health = Number(customer.healthScore ?? customer.health ?? 0)
-              return (
-                <div key={customer.id} className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">{customer.name || customer.company}</p>
-                      <p className="text-xs text-slate-400">{customer.primaryContact || customer.contact || '—'}</p>
-                    </div>
-                    <span className="text-xs font-semibold text-slate-500">{health}% health</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-slate-500">
-                    <span>Deals: {metric.deals}</span>
-                    <span>Revenue: ₹{Number(metric.revenue || 0).toLocaleString()}</span>
-                  </div>
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Lead Response Health</h2>
+          <div className="space-y-3">
+            {[
+              ['Fresh', agingCounts.fresh, 'bg-emerald-500'],
+              ['Warning', agingCounts.warning, 'bg-amber-500'],
+              ['Critical', agingCounts.critical, 'bg-red-500'],
+              ['Pending Response', slaSummary.pending, 'bg-sky-500'],
+              ['SLA Met', slaSummary.met, 'bg-brand-500'],
+              ['SLA Breached', slaSummary.breached, 'bg-rose-500'],
+            ].map(([label, value, color]) => (
+              <div key={label} className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-slate-800 dark:text-slate-200">{label}</p>
+                  <span className="text-xs font-semibold text-slate-500">{Number(value || 0).toLocaleString()}</span>
                 </div>
-              )
-            })}
+                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full mt-2 overflow-hidden">
+                  <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, Number(value || 0) * 8)}%` }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

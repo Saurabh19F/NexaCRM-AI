@@ -81,24 +81,38 @@ public class DashboardAnalyticsService {
     }
 
     public DashboardOverviewDTO overview() {
+        List<org.bson.Document> leadDocs = fetchLeadDocuments(OVERVIEW_LEAD_LIMIT);
+        Map<String, String> assignments = extractAssignments(leadDocs);
+        List<LeadDTO> leads = leadDocs.stream()
+            .map(doc -> docToLeadDTO(doc, assignments))
+            .toList();
+        List<DealDTO> deals = fetchDealDocuments(WIDGET_DEAL_LIMIT).stream()
+            .map(this::docToDealDTO)
+            .toList();
+
         return new DashboardOverviewDTO(
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
+            leads,
+            deals,
+            safeDashboardInsights(leads),
+            buildRecentActivity(leads),
+            buildRecentCallSnapshots(leads),
             LocalDateTime.now().toString()
         );
     }
 
     public DashboardWidgetSnapshotDTO widgets() {
+        List<Lead> leads = fetchLeadEntities();
+        List<DealDTO> deals = fetchDealDocuments(WIDGET_DEAL_LIMIT).stream()
+            .map(this::docToDealDTO)
+            .toList();
+
         return new DashboardWidgetSnapshotDTO(
-            new DashboardWidgetSnapshotDTO.AgingCounts(0, 0, 0),
-            new DashboardWidgetSnapshotDTO.LeadSlaSummary(0, 0, 0, 0, 0, null),
-            List.of(),
-            List.of(),
-            List.of(),
-            List.of(),
+            buildAgingCounts(leads),
+            buildSlaSummary(leads),
+            buildEmployeePerformance(leads),
+            buildMonthlyRevenue(deals),
+            buildFunnelData(leads),
+            buildLeadSources(leads),
             LocalDateTime.now().toString()
         );
     }
