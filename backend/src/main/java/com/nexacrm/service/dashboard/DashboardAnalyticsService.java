@@ -93,9 +93,9 @@ public class DashboardAnalyticsService {
         return new DashboardOverviewDTO(
             leads,
             deals,
-            safeDashboardInsights(leads),
-            buildRecentActivity(leads),
-            buildRecentCallSnapshots(leads),
+            buildFastInsights(leads),
+            List.of(),
+            List.of(),
             LocalDateTime.now().toString()
         );
     }
