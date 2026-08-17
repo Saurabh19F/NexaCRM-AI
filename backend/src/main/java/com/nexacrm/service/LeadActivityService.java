@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -106,22 +107,32 @@ public class LeadActivityService {
                 .append("lead_id", new Document("$in", new ArrayList<>(visibleLeadIds)))),
             new Document("$sort", new Document("lead_id", 1)
                 .append("activity_index", 1)
-                .append("saved_at", -1)
-                .append("createdAt", -1)),
+                .append("saved_at", -1)),
             new Document("$group", new Document("_id", new Document("leadId", "$lead_id")
                     .append("activityIndex", "$activity_index"))
                 .append("activity", new Document("$first", "$$ROOT"))),
             new Document("$replaceRoot", new Document("newRoot", "$activity")),
             new Document("$sort", new Document("lead_id", 1)
-                .append("saved_at", -1)
-                .append("createdAt", -1))
+                .append("saved_at", -1))
         );
 
         List<LeadActivity> activities = new ArrayList<>();
-        mongoTemplate.getCollection("lead_activities")
-            .aggregate(pipeline)
-            .allowDiskUse(true)
-            .forEach(doc -> activities.add(mongoTemplate.getConverter().read(LeadActivity.class, doc)));
+        try {
+            mongoTemplate.getCollection("lead_activities")
+                .aggregate(pipeline)
+                .hintString("lead_activity_bulk_stage_preview_idx")
+                .allowDiskUse(false)
+                .maxTime(8, TimeUnit.SECONDS)
+                .forEach(doc -> activities.add(mongoTemplate.getConverter().read(LeadActivity.class, doc)));
+        } catch (RuntimeException ex) {
+            // The board should still open even if activity previews are temporarily expensive.
+            // A lead's full activity timeline is still loaded on demand when its modal is opened.
+            org.slf4j.LoggerFactory.getLogger(LeadActivityService.class).warn(
+                "Bulk activity preview skipped for {} leads: {}",
+                visibleLeadIds.size(),
+                ex.getMessage()
+            );
+        }
         return activities;
     }
 
