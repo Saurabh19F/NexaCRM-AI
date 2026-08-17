@@ -131,7 +131,7 @@ public class DashboardAnalyticsService {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").ne(true));
-        query.with(Sort.by(Sort.Direction.DESC, "updatedAt"));
+        query.with(Sort.by(Sort.Direction.DESC, "createdAt"));
         query.limit(limit);
         includeDashboardDealFields(query);
         return mongoTemplate.find(query, org.bson.Document.class, "deals");
