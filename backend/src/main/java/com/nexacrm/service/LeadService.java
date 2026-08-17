@@ -177,7 +177,7 @@ public class LeadService {
                 .map(LeadDTO::getId)
                 .filter(id -> id != null && !id.isBlank())
                 .toList();
-        Map<String, List<com.nexacrm.dto.LeadActivityDTO>> activities = leadActivityService.listByLeadIds(leadIds);
+        Map<String, List<com.nexacrm.dto.LeadActivityDTO>> activities = leadActivityService.listVisibleLeadIds(leadIds);
         long activitiesLoaded = System.nanoTime();
         long leadMs = Duration.ofNanos(leadsLoaded - started).toMillis();
         long activityMs = Duration.ofNanos(activitiesLoaded - leadsLoaded).toMillis();

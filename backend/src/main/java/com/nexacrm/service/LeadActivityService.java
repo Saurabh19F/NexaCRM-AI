@@ -57,6 +57,15 @@ public class LeadActivityService {
 
     @Transactional(readOnly = true)
     public Map<String, List<LeadActivityDTO>> listByLeadIds(Collection<String> requestedLeadIds) {
+        return listByLeadIds(requestedLeadIds, true);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<LeadActivityDTO>> listVisibleLeadIds(Collection<String> requestedLeadIds) {
+        return listByLeadIds(requestedLeadIds, false);
+    }
+
+    private Map<String, List<LeadActivityDTO>> listByLeadIds(Collection<String> requestedLeadIds, boolean verifyVisibility) {
         Set<String> leadIds = requestedLeadIds == null
             ? Set.of()
             : requestedLeadIds.stream()
@@ -71,20 +80,9 @@ public class LeadActivityService {
             return grouped;
         }
 
-        var current = currentUser();
-        boolean canSeeAll = current == null
-            || com.nexacrm.model.User.isAdminLike(current.getRole())
-            || current.getRole() == com.nexacrm.model.User.Role.MANAGER;
-        String currentUserId = current != null ? current.getId() : null;
-
-        Set<String> visibleLeadIds = leadRepository.findByIdInAndTenantIdAndDeletedFalse(leadIds, tenantId()).stream()
-            .filter(lead -> canSeeAll || (
-                currentUserId != null
-                    && lead.getAssignedTo() != null
-                    && currentUserId.equals(lead.getAssignedTo().getId())
-            ))
-            .map(Lead::getId)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> visibleLeadIds = verifyVisibility
+            ? visibleLeadIds(leadIds)
+            : leadIds;
 
         if (visibleLeadIds.isEmpty()) {
             return grouped;
@@ -98,6 +96,23 @@ public class LeadActivityService {
             });
 
         return grouped;
+    }
+
+    private Set<String> visibleLeadIds(Set<String> leadIds) {
+        var current = currentUser();
+        boolean canSeeAll = current == null
+            || com.nexacrm.model.User.isAdminLike(current.getRole())
+            || current.getRole() == com.nexacrm.model.User.Role.MANAGER;
+        String currentUserId = current != null ? current.getId() : null;
+
+        return leadRepository.findByIdInAndTenantIdAndDeletedFalse(leadIds, tenantId()).stream()
+            .filter(lead -> canSeeAll || (
+                currentUserId != null
+                    && lead.getAssignedTo() != null
+                    && currentUserId.equals(lead.getAssignedTo().getId())
+            ))
+            .map(Lead::getId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private List<LeadActivity> fetchBulkActivityPreview(Set<String> visibleLeadIds) {
