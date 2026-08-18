@@ -47,6 +47,16 @@ public class AuthService {
             User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+            // FIX #7: Block login if the user's tenant/company is deactivated
+            // (Platform admins are exempt — they manage the platform, not a company)
+            if (user.getRole() != User.Role.PLATFORM_ADMIN && user.getTenantId() != null) {
+                Tenant tenant = tenantRepository.findByTenantIdAndDeletedFalse(user.getTenantId())
+                    .orElse(null);
+                if (tenant != null && !Boolean.TRUE.equals(tenant.getIsActive())) {
+                    throw new UnauthorizedException("Your company account has been deactivated. Please contact the platform administrator.");
+                }
+            }
+
             String accessToken  = jwtService.generateToken(Map.of("tenantId", user.getTenantId()), user);
             String refreshToken = jwtService.generateRefreshToken(user);
             refreshTokenService.issue(user, refreshToken, jwtService.getRefreshExpiration());

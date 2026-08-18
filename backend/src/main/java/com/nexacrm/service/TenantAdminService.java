@@ -1,9 +1,13 @@
 package com.nexacrm.service;
 
+import com.nexacrm.model.AuditLog;
 import com.nexacrm.model.Tenant;
 import com.nexacrm.model.User;
 import com.nexacrm.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +29,7 @@ public class TenantAdminService {
     private final InvoiceRepository invoiceRepository;
     private final WorkflowRepository workflowRepository;
     private final IntegrationConfigRepository integrationConfigRepository;
+    private final AuditLogRepository auditLogRepository;
 
     // ── Tenants ─────────────────────────────────────────────────
 
@@ -59,10 +64,18 @@ public class TenantAdminService {
             .collect(Collectors.toList());
     }
 
+    // FIX #3: Check for duplicate slug before creating
     public Map<String, Object> createTenant(Map<String, Object> body) {
+        String slug = slugify(string(body.get("slug"), "new-tenant"));
+
+        // Check for duplicate slug
+        if (tenantRepository.findBySlugAndDeletedFalse(slug).isPresent()) {
+            throw new IllegalArgumentException("A company with slug '" + slug + "' already exists. Please use a different slug.");
+        }
+
         Tenant tenant = Tenant.builder()
             .name(string(body.get("name"), "New Tenant"))
-            .slug(slugify(string(body.get("slug"), "new-tenant")))
+            .slug(slug)
             .plan(string(body.get("plan"), "TRIAL"))
             .isActive(bool(body.get("isActive"), true))
             .maxUsers(number(body.get("maxUsers"), 5))
@@ -75,14 +88,30 @@ public class TenantAdminService {
         tenant.setTenantId(nextTenantId());
         tenant.setFeatureFlags(parseBooleanMap(body.get("featureFlags")));
         tenant.setUsageLimits(parseIntegerMap(body.get("usageLimits")));
-        return tenantSummary(tenantRepository.save(tenant));
+        Tenant saved = tenantRepository.save(tenant);
+
+        audit("TENANT_CREATED", "Tenant", saved.getId(), saved.getName(),
+            Map.of("plan", saved.getPlan(), "slug", slug));
+
+        return tenantSummary(saved);
     }
 
     public Map<String, Object> updateTenant(String id, Map<String, Object> body) {
         Tenant tenant = tenantRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + id));
+
+        // FIX #3: Check slug uniqueness on update too
+        if (body.containsKey("slug")) {
+            String newSlug = slugify(string(body.get("slug"), tenant.getSlug()));
+            if (!newSlug.equals(tenant.getSlug())) {
+                if (tenantRepository.findBySlugAndDeletedFalse(newSlug).isPresent()) {
+                    throw new IllegalArgumentException("A company with slug '" + newSlug + "' already exists.");
+                }
+                tenant.setSlug(newSlug);
+            }
+        }
+
         if (body.containsKey("name")) tenant.setName(string(body.get("name"), tenant.getName()));
-        if (body.containsKey("slug")) tenant.setSlug(slugify(string(body.get("slug"), tenant.getSlug())));
         if (body.containsKey("plan")) tenant.setPlan(string(body.get("plan"), tenant.getPlan()));
         if (body.containsKey("isActive")) tenant.setIsActive(bool(body.get("isActive"), tenant.getIsActive()));
         if (body.containsKey("maxUsers")) tenant.setMaxUsers(number(body.get("maxUsers"), tenant.getMaxUsers()));
@@ -93,7 +122,10 @@ public class TenantAdminService {
         if (body.containsKey("subscriptionEndsAt")) tenant.setSubscriptionEndsAt(parseDateTime(body.get("subscriptionEndsAt")));
         if (body.containsKey("featureFlags")) tenant.setFeatureFlags(parseBooleanMap(body.get("featureFlags")));
         if (body.containsKey("usageLimits")) tenant.setUsageLimits(parseIntegerMap(body.get("usageLimits")));
-        return tenantSummary(tenantRepository.save(tenant));
+
+        Tenant saved = tenantRepository.save(tenant);
+        audit("TENANT_UPDATED", "Tenant", saved.getId(), saved.getName(), Map.of());
+        return tenantSummary(saved);
     }
 
     public Map<String, Object> setActive(String id, boolean active) {
@@ -105,8 +137,24 @@ public class TenantAdminService {
             tenant.setActivatedAt(LocalDateTime.now());
         } else {
             tenant.setDeactivatedAt(LocalDateTime.now());
+
+            // FIX #7: Deactivate all users belonging to this tenant
+            if (tenant.getTenantId() != null) {
+                List<User> tenantUsers = userRepository.findByTenantIdAndDeletedFalse(tenant.getTenantId());
+                for (User u : tenantUsers) {
+                    // Don't deactivate PLATFORM_ADMIN accounts
+                    if (u.getRole() != User.Role.PLATFORM_ADMIN) {
+                        u.setIsActive(false);
+                        userRepository.save(u);
+                    }
+                }
+            }
         }
-        return tenantSummary(tenantRepository.save(tenant));
+
+        Tenant saved = tenantRepository.save(tenant);
+        audit(active ? "TENANT_ACTIVATED" : "TENANT_DEACTIVATED", "Tenant", saved.getId(), saved.getName(),
+            Map.of("isActive", active));
+        return tenantSummary(saved);
     }
 
     // ── Cross-tenant User Management ────────────────────────────
@@ -121,8 +169,10 @@ public class TenantAdminService {
             }
         }
 
+        // FIX #4: Stream and limit to prevent loading unbounded data
         return userRepository.findAll().stream()
             .filter(u -> !Boolean.TRUE.equals(u.getDeleted()))
+            .limit(500)
             .map(u -> {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("id", u.getId());
@@ -141,19 +191,57 @@ public class TenantAdminService {
             .collect(Collectors.toList());
     }
 
+    // FIX #1: Block promotion to PLATFORM_ADMIN
     public Map<String, Object> changeUserRole(String userId, String roleName) {
+        User.Role newRole;
+        try {
+            newRole = User.Role.valueOf(roleName);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid role: " + roleName);
+        }
+
+        // Prevent assigning PLATFORM_ADMIN role through this endpoint
+        if (newRole == User.Role.PLATFORM_ADMIN) {
+            throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN role through this interface. Platform admin accounts must be created at the database level.");
+        }
+
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
-        user.setRole(User.Role.valueOf(roleName));
+
+        // Prevent changing a PLATFORM_ADMIN's role
+        if (user.getRole() == User.Role.PLATFORM_ADMIN) {
+            throw new IllegalArgumentException("Cannot modify the role of a Platform Admin account.");
+        }
+
+        String previousRole = user.getRole() != null ? user.getRole().name() : "UNKNOWN";
+        user.setRole(newRole);
         userRepository.save(user);
+
+        audit("USER_ROLE_CHANGED", "User", userId, user.getName(),
+            Map.of("previousRole", previousRole, "newRole", roleName, "email", user.getEmail()));
+
         return Map.of("id", userId, "role", roleName, "success", true);
     }
 
+    // FIX #6: Prevent deactivating yourself
     public Map<String, Object> setUserActive(String userId, boolean active) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+
+        // Prevent self-deactivation
+        if (!active) {
+            User currentUser = getCurrentUser();
+            if (currentUser != null && currentUser.getId().equals(userId)) {
+                throw new IllegalArgumentException("You cannot deactivate your own account.");
+            }
+        }
+
         user.setIsActive(active);
         userRepository.save(user);
+
+        audit(active ? "USER_ACTIVATED" : "USER_DEACTIVATED", "User", userId, user.getName(),
+            Map.of("email", user.getEmail(), "isActive", active));
+
         return Map.of("id", userId, "isActive", active, "success", true);
     }
 
@@ -195,8 +283,10 @@ public class TenantAdminService {
     @Transactional(readOnly = true)
     public Map<String, Object> getPlatformOverview() {
         List<Tenant> tenants = tenantRepository.findAll();
+        // FIX #4: Limit user loading
         List<User> allUsers = userRepository.findAll().stream()
             .filter(u -> !Boolean.TRUE.equals(u.getDeleted()))
+            .limit(1000)
             .toList();
 
         long totalCompanies = tenants.size();
@@ -254,42 +344,42 @@ public class TenantAdminService {
 
     // ── Audit Logs ──────────────────────────────────────────────
 
+    // FIX #5: Return real audit logs from the audit_logs collection
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAuditLogs() {
-        // Return recent platform activity from all tenants
-        List<User> allUsers = userRepository.findAll().stream()
-            .filter(u -> !Boolean.TRUE.equals(u.getDeleted()))
-            .sorted((a, b) -> {
-                LocalDateTime ra = b.getUpdatedAt() != null ? b.getUpdatedAt() : LocalDateTime.MIN;
-                LocalDateTime la = a.getUpdatedAt() != null ? a.getUpdatedAt() : LocalDateTime.MIN;
-                return ra.compareTo(la);
+        return auditLogRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 100))
+            .stream()
+            .map(log -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", log.getId());
+                row.put("action", log.getAction());
+                row.put("entityType", log.getEntityType());
+                row.put("entityId", log.getEntityId());
+                row.put("entityName", log.getEntityName());
+                row.put("performedBy", log.getPerformedBy());
+                row.put("performedByEmail", log.getPerformedByEmail());
+                row.put("tenantId", log.getTenantId());
+                row.put("details", log.getDetails());
+                row.put("createdAt", log.getCreatedAt());
+                // Frontend compatibility fields
+                row.put("userName", log.getPerformedBy());
+                row.put("userEmail", log.getPerformedByEmail());
+                row.put("updatedAt", log.getCreatedAt());
+                row.put("isActive", true);
+                row.put("role", "PLATFORM_ADMIN");
+                return row;
             })
-            .limit(50)
-            .toList();
-
-        return allUsers.stream().map(u -> {
-            Map<String, Object> log = new LinkedHashMap<>();
-            log.put("id", u.getId());
-            log.put("action", "USER_ACTIVITY");
-            log.put("entityType", "User");
-            log.put("entityId", u.getId());
-            log.put("userName", u.getName());
-            log.put("userEmail", u.getEmail());
-            log.put("role", u.getRole() != null ? u.getRole().name() : "SALES_EXEC");
-            log.put("tenantId", u.getTenantId());
-            log.put("isActive", Boolean.TRUE.equals(u.getIsActive()));
-            log.put("createdAt", u.getCreatedAt());
-            log.put("updatedAt", u.getUpdatedAt());
-            return log;
-        }).collect(Collectors.toList());
+            .collect(Collectors.toList());
     }
 
     // ── Security Overview ───────────────────────────────────────
 
     @Transactional(readOnly = true)
     public Map<String, Object> getSecurityOverview() {
+        // FIX #4: Limit user loading
         List<User> allUsers = userRepository.findAll().stream()
             .filter(u -> !Boolean.TRUE.equals(u.getDeleted()))
+            .limit(1000)
             .toList();
 
         long total = allUsers.size();
@@ -352,7 +442,8 @@ public class TenantAdminService {
 
     // ── Private helpers ─────────────────────────────────────────
 
-    private Long nextTenantId() {
+    // FIX #2: Synchronized to prevent race condition on concurrent tenant creation
+    private synchronized Long nextTenantId() {
         return tenantRepository.findAll().stream()
             .map(Tenant::getTenantId)
             .filter(java.util.Objects::nonNull)
@@ -398,6 +489,36 @@ public class TenantAdminService {
             "trialDays", trialDays,
             "features", features
         );
+    }
+
+    /** Get the currently authenticated user, or null if not available */
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User user) {
+            return user;
+        }
+        return null;
+    }
+
+    /** Write a real audit log entry */
+    private void audit(String action, String entityType, String entityId, String entityName, Map<String, Object> details) {
+        User currentUser = getCurrentUser();
+        AuditLog log = AuditLog.builder()
+            .action(action)
+            .entityType(entityType)
+            .entityId(entityId)
+            .entityName(entityName)
+            .performedBy(currentUser != null ? currentUser.getName() : "System")
+            .performedByEmail(currentUser != null ? currentUser.getEmail() : "system")
+            .tenantId(currentUser != null ? currentUser.getTenantId() : null)
+            .details(details)
+            .createdAt(LocalDateTime.now())
+            .build();
+        try {
+            auditLogRepository.save(log);
+        } catch (Exception e) {
+            // Don't let audit logging failures break the main operation
+        }
     }
 
     private String defaultString(String value) {

@@ -453,10 +453,14 @@ function UsersTab({ loading, refreshData }) {
                       </td>
                       <td className="py-3 pr-4 text-xs text-slate-600 dark:text-slate-400">{u.tenantName}</td>
                       <td className="py-3 pr-4">
-                        <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                          className="input h-7 py-0 text-xs w-auto min-w-[130px]">
-                          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                        </select>
+                        {u.role === 'PLATFORM_ADMIN' ? (
+                          <span className={`badge text-xs ${ROLE_COLORS.PLATFORM_ADMIN}`}>{ROLE_LABELS.PLATFORM_ADMIN}</span>
+                        ) : (
+                          <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                            className="input h-7 py-0 text-xs w-auto min-w-[130px]">
+                            {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'PLATFORM_ADMIN').map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                          </select>
+                        )}
                       </td>
                       <td className="py-3 pr-4">
                         {u.isActive ? (
@@ -473,10 +477,14 @@ function UsersTab({ loading, refreshData }) {
                         )}
                       </td>
                       <td className="py-3">
-                        <button type="button" onClick={() => handleToggleActive(u)}
-                          className={`btn-ghost h-7 px-2 text-xs ${u.isActive ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}`}>
-                          {u.isActive ? <><UserX className="h-3.5 w-3.5" />Deactivate</> : <><UserCheck className="h-3.5 w-3.5" />Activate</>}
-                        </button>
+                        {u.role === 'PLATFORM_ADMIN' ? (
+                          <span className="text-[10px] text-slate-400">Protected</span>
+                        ) : (
+                          <button type="button" onClick={() => handleToggleActive(u)}
+                            className={`btn-ghost h-7 px-2 text-xs ${u.isActive ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}`}>
+                            {u.isActive ? <><UserX className="h-3.5 w-3.5" />Deactivate</> : <><UserCheck className="h-3.5 w-3.5" />Activate</>}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -711,10 +719,31 @@ function AuditLogsTab({ auditLogs, loading }) {
   const filtered = auditLogs.filter((log) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return log.userName?.toLowerCase().includes(q) || log.userEmail?.toLowerCase().includes(q) || log.action?.toLowerCase().includes(q)
+    return log.userName?.toLowerCase().includes(q) || log.userEmail?.toLowerCase().includes(q)
+      || log.action?.toLowerCase().includes(q) || log.entityName?.toLowerCase().includes(q)
   })
 
   if (loading) return <Skeleton count={6} h="h-14" />
+
+  const ACTION_LABELS = {
+    TENANT_CREATED: 'Created company',
+    TENANT_UPDATED: 'Updated company',
+    TENANT_ACTIVATED: 'Activated company',
+    TENANT_DEACTIVATED: 'Deactivated company',
+    USER_ROLE_CHANGED: 'Changed user role',
+    USER_ACTIVATED: 'Activated user',
+    USER_DEACTIVATED: 'Deactivated user',
+  }
+
+  const ACTION_COLORS = {
+    TENANT_CREATED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
+    TENANT_UPDATED: 'bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400',
+    TENANT_ACTIVATED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
+    TENANT_DEACTIVATED: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400',
+    USER_ROLE_CHANGED: 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
+    USER_ACTIVATED: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
+    USER_DEACTIVATED: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400',
+  }
 
   return (
     <div className="space-y-4">
@@ -726,21 +755,27 @@ function AuditLogsTab({ auditLogs, loading }) {
 
       <SectionCard title="Global Audit Trail" subtitle={`${filtered.length} recent events`} icon={FileText} iconColor="text-slate-500">
         <div className="max-h-[36rem] overflow-y-auto custom-scrollbar space-y-2">
-          {filtered.map((log) => (
-            <div key={log.id} className="rounded-xl border border-slate-200/70 bg-white/70 p-3 dark:border-slate-800/70 dark:bg-slate-950/40">
+          {filtered.map((log, i) => (
+            <div key={log.id || i} className="rounded-xl border border-slate-200/70 bg-white/70 p-3 dark:border-slate-800/70 dark:bg-slate-950/40">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{log.userName || 'Unknown'}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{log.userEmail} · <span className={`${ROLE_COLORS[log.role]?.split(' ')[1] || 'text-slate-600'}`}>{ROLE_LABELS[log.role] || log.role}</span></p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`badge text-xs ${ACTION_COLORS[log.action] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                      {ACTION_LABELS[log.action] || log.action}
+                    </span>
+                    {log.entityName && <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{log.entityName}</span>}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    by {log.performedBy || log.userName || 'System'} ({log.performedByEmail || log.userEmail || ''})
+                  </p>
+                  {log.details && Object.keys(log.details).length > 0 && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                    </p>
+                  )}
                 </div>
-                <div className="text-right">
-                  <span className={`badge text-xs ${log.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'}`}>
-                    {log.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                  <p className="mt-1 text-[11px] text-slate-400">{formatDate(log.updatedAt)}</p>
-                </div>
+                <p className="text-[11px] text-slate-400 whitespace-nowrap">{formatDate(log.createdAt)}</p>
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Tenant {log.tenantId || 'global'} · Created {formatDate(log.createdAt)}</p>
             </div>
           ))}
           {filtered.length === 0 && <p className="text-center text-sm text-slate-400 py-8">No audit events found</p>}
