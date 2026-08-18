@@ -46,7 +46,15 @@ import {
    ══════════════════════════════════════════════════════════ */
 
 const navItems = ['Home', 'Features', 'Pricing', 'Testimonial', 'Contact']
-const quickLinks = ['Home', 'About Us', 'Services', 'Products', 'Portfolio', 'Contact']
+const quickLinks = [
+  { label: 'Home', href: '#home' },
+  { label: 'Features', href: '#features' },
+  { label: 'Pricing', href: '#pricing' },
+  { label: 'Testimonials', href: '#testimonial' },
+  { label: 'Contact', href: '#contact' },
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Terms of Service', href: '/terms' },
+]
 
 const socialLinks = [
   { label: 'LinkedIn', href: 'https://www.linkedin.com', Icon: BadgeCheck },
@@ -1243,8 +1251,14 @@ export default function LandingPage() {
               <nav aria-label="Footer quick links">
                 <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">Quick Links</h2>
                 <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
-                  {quickLinks.map((item) => (
-                    <li key={item}><a href={`#${item.toLowerCase().replaceAll(' ', '-')}`} className="transition hover:text-white">{item}</a></li>
+                  {quickLinks.map(({ label, href }) => (
+                    <li key={label}>
+                      {href.startsWith('/') ? (
+                        <Link to={href} className="transition hover:text-white">{label}</Link>
+                      ) : (
+                        <a href={href} className="transition hover:text-white">{label}</a>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </nav>
@@ -1265,7 +1279,7 @@ export default function LandingPage() {
             </div>
 
             <div className="relative mx-auto mt-8 flex max-w-7xl flex-col gap-3 border-t border-white/10 pt-5 text-xs text-slate-500 md:flex-row md:items-center md:justify-between">
-              <p>&copy; 2026 Kriscel Tech Pvt. Ltd. All rights reserved.</p>
+              <p>&copy; 2026 <a href="https://www.kriscel.com" target="_blank" rel="noreferrer" className="font-semibold transition hover:text-white">Kriscel Tech Pvt. Ltd.</a> All rights reserved.</p>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 <Link to="/privacy" className="transition hover:text-white">Privacy Policy</Link>
                 <Link to="/terms" className="transition hover:text-white">Terms of Service</Link>
