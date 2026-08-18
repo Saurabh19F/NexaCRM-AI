@@ -1,0 +1,202 @@
+{
+  "text": "Dashboard\nLeads\nPipeline\nTasks\nCustomers\n3\nMessages\nAI Engine\nAutomation\nInvoices\nAnalytics\nTeam\nSettings\nD\n3\nD\nDemo\nCompany admin\nPipeline\nLeads Pipeline\n\nLoading leads...\n\nRefresh\nFilter\nAdd Lead\nLeft\nRight\nLEAD\nNew\n0\n\nDrop leads here\n\nWELCOME CALL\nConnected\n0\n\nDrop leads here\n\nWELCOME CALL\nNot Connected\n0\n\nDrop leads here\n\nFOLLOW UP FOR MEETING\nNot Interested\n0\n\nDrop leads here\n\nFOLLOW UP FOR MEETING\nMeeting\n0\n\nDrop leads here\n\nFOLLOW UP FOR MEETING\nFollow Up\n0\n\nDrop leads here\n\nALLOWED PERSON FOR MEETING\nSuccessful\n0\n\nDrop leads here\n\nALLOWED PERSON FOR MEETING\nReschedule\n0\n\nDrop leads here\n\nMEETING OUTCOME\nNegotiation\n0\n\nDrop leads here\n\nMEETING OUTCOME\nLost\n0\n\nDrop leads here\n\nMEETING OUTCOME\nWon\n0\n\nDrop leads here\n\nMEETING OUTCOME\nHold\n0\n\nDrop leads here\n\nMEETING OUTCOME\nPending Review\n0\n\nDrop leads here",
+  "requests": [
+    {
+      "url": "/api/users",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/json",
+      "ms": 2369,
+      "bytes": 130896
+    },
+    {
+      "url": "/api/notifications",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/json",
+      "ms": 692,
+      "bytes": 1441
+    },
+    {
+      "url": "/pipeline",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "text/html",
+      "ms": 456,
+      "bytes": 1379
+    },
+    {
+      "url": "/api/auth/me",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/json",
+      "ms": 428,
+      "bytes": 649
+    },
+    {
+      "url": "/assets/index-DbabZxv8.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 153,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/tag-DlTnSIcZ.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 64,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/phone-call-BmMAq5iO.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 63,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/calendar-BUyJBkaR.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 62,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/clipboard-list-PIuwXh5Y.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 62,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/message-circle-Dp05kWj2.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 61,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/indian-rupee-DXE5JuJo.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 55,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/PaginatedSelect-DiiEFV3U.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 42,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/search-BaJx6RZg.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 42,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/check-De7GbZ4w.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 42,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/chevron-left-vwoCp7i_.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 42,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/filter-NHzp-8SE.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 42,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/thermometer-CJzuC6j1.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 42,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/PageHeading-s_Oa4ola.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 40,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/GradientText-BS8eliuw.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 40,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/LeadActivitiesModal-DcEc_HTu.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 40,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/phone-4JCg__88.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 40,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/trophy-7h1JVqO8.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 40,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/KanbanPage-CtzgCtUJ.js",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "application/javascript",
+      "ms": 21,
+      "bytes": 0
+    },
+    {
+      "url": "/assets/index-D5_p2Fr-.css",
+      "method": "GET",
+      "status": 200,
+      "mimeType": "text/css",
+      "ms": 0,
+      "bytes": 0
+    },
+    {
+      "url": "/api/leads/pipeline-board?page=0&size=50",
+      "method": "GET",
+      "ms": null
+    }
+  ]
+}

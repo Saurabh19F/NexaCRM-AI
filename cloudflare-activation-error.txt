@@ -1,0 +1,14 @@
+Error: Playwright selector deadline exceeded
+waiting on click for selector internal:role=button[name=/Continue to activation/i]
+Locator diagnostics: {"kind":"no_matches","action":"click","locator":"internal:role=button[name=/Continue to activation/i]","matchCount":0,"matches":[],"visibleCount":0,"truncated":false}
+Error: Playwright selector deadline exceeded
+    at de (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1407:861)
+    at mI (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1407:297)
+    at async e.evaluateOnPlaywrightSelectorWithTarget (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1073:478)
+    at async e.resolvePointerActionTarget (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1086:2701)
+    at async e.performPointerAction (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1086:2301)
+    at async e.clickLocator (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1086:362)
+    at async C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1019:10011
+    at async C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:2429
+    at async FP (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:6993)
+    at async C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:7255

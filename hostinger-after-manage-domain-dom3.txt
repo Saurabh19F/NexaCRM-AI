@@ -1,0 +1,273 @@
+- banner:
+  - link "hostinger":
+    - /url: /
+    - img "hostinger"
+  - button "Refer & earn up to $360":
+    - text: Refer & earn up to
+    - generic: $360
+  - button "Ask AI":
+    - generic: Ask AI
+  - button:
+  - button:
+  - button "Search":
+  - button "Open menu":
+- navigation:
+  - list:
+    - link "Home Home":
+      - /url: /
+      - button "Home":
+      - generic: Home
+    - list
+    - link "Websites Websites":
+      - /url: /websites
+      - button "Websites":
+      - generic: Websites
+    - list:
+      - link "WordPress":
+        - /url: /websites?websiteType=wordpress
+        - generic: WordPress
+      - link "Horizons":
+        - /url: /websites?websiteType=horizons
+        - generic: Horizons
+      - link "Website Builder":
+        - /url: /websites?websiteType=builder
+        - generic: Website Builder
+      - link "Web Apps":
+        - /url: /websites?websiteType=nodejs
+        - generic: Web Apps
+      - link "PHP/HTML":
+        - /url: /websites?websiteType=other
+        - generic: PHP/HTML
+    - link "Domains Domains":
+      - /url: /domains
+      - button "Domains":
+      - generic: Domains
+    - list:
+      - link "Domain search":
+        - /url: /domains/domain-checker
+        - generic: Domain search
+      - link "Transfers":
+        - /url: /domains/transfers
+        - generic: Transfers
+      - link "DNS":
+        - /url: /domains/dns
+        - generic: DNS
+      - link "Contact profiles":
+        - /url: /domains/contact-profiles
+        - generic: Contact profiles
+    - link "Emails Emails":
+      - /url: /emails
+      - button "Emails":
+      - generic: Emails
+    - list
+    - link "More services More services":
+      - /url: /marketplace
+      - button "More services":
+      - generic: More services
+    - list
+- navigation:
+  - list:
+    - button "Horizons Horizons":
+      - button "Horizons":
+      - generic: Horizons
+    - list
+    - link "Email marketing Email marketing":
+      - /url: /email-marketing
+      - button "Email marketing":
+      - generic: Email marketing
+    - list
+    - link "Ecomm Ecomm":
+      - /url: /ecommerce
+      - button "Ecomm":
+      - generic: Ecomm
+    - list
+- navigation:
+  - list:
+    - button "Agent Agent":
+      - button "Agent":
+      - generic: Agent
+    - list
+    - link "OpenClaw OpenClaw":
+      - /url: /applications/openclaw
+      - button "OpenClaw":
+      - generic: OpenClaw
+    - list
+    - link "Hermes Agent Hermes Agent":
+      - /url: /applications/hermes
+      - button "Hermes Agent":
+      - generic: Hermes Agent
+    - list
+    - link "n8n n8n":
+      - /url: /applications/n8n
+      - button "n8n":
+      - generic: n8n
+    - list
+- navigation:
+  - list:
+    - link "VPS VPS":
+      - /url: /vps
+      - button "VPS":
+      - generic: VPS
+    - list
+    - link "GPU GPU":
+      - /url: /gpu
+      - button "GPU":
+      - generic: GPU
+    - list
+    - link "API API":
+      - /url: /api
+      - button "API":
+      - generic: API
+    - list
+    - link "AI Router (nexos.ai) AI Router (nexos.ai)":
+      - /url: /ai-router
+      - button "AI Router (nexos.ai)":
+      - generic: AI Router (nexos.ai)
+    - list
+- complementary:
+  - generic: Select domain
+  - combobox "Select domain":
+    - generic: nexacrmai.com
+  - navigation:
+    - list:
+      - menuitem "Domain Overview":
+        - generic: Domain Overview
+      - list
+      - menuitem "DNS / Nameservers":
+        - generic: DNS / Nameservers
+      - list
+      - menuitem "Domain Ownership":
+        - generic: Domain Ownership
+      - list
+      - menuitem "Brand protection":
+        - generic: Brand protection
+      - list
+  - menuitem "Give feedback":
+    - generic: Give feedback
+- banner:
+  - navigation "Breadcrumb":
+    - list:
+      - link:
+        - /url: /?amplitudeLocation=breadcrumbs
+      - link "Domain portfolio":
+        - /url: /domains?redirectLocation=breadcrumbs
+        - generic: Domain portfolio
+      - generic: nexacrmai.com
+  - heading "Domain Overview" [level=1]
+- main:
+  - region:
+    - heading "Your domain checklist" [level=3]
+    - progressbar
+    - generic: 1/4
+    - heading "Register your domain" [level=4]
+    - heading "Create or migrate your website" [level=4]
+    - heading "Create a site that's truly yours - simple to build, easy to publish, and ready to share anywhere." [level=4]
+    - button "Get started":
+      - generic: Get started
+    - heading "Get a business @nexacrmai.com email account" [level=4]
+    - heading "Build your brand with a professional, domain-based email" [level=4]
+    - button "Try for free":
+      - generic: Try for free
+    - heading "Get Domain Shield for additional protection" [level=4]
+    - heading "Activate Domain Shield to reach premium protection." [level=4]
+    - button "Learn more":
+      - generic: Learn more
+  - region:
+    - heading "Protect your brand" [level=2]
+    - generic: Secure your brand name with different domain extensions.
+    - heading "nexacrmai.in" [level=3]:
+      - generic: nexacrmai
+      - generic: .in
+    - generic: Save 99%
+    - paragraph: Only for 3yr+ term
+    - paragraph: ₹ 899.00
+    - heading "₹ 1.00/1st yr" [level=3]
+    - button "Buy now":
+      - generic: Buy now
+    - generic: Explore more extensions
+  - region:
+    - heading "Tools" [level=2]
+    - list:
+      - generic: Grow your audience with email marketing
+      - generic: Free
+      - generic: Design newsletters, segment your contacts, and send compliant campaigns using your domain.
+      - button "Start for free":
+        - generic: Start for free
+      - generic: Create a one page site in minutes
+      - generic: Free
+      - generic: Go live with a coming soon or link in bio site.
+      - button "Create free site":
+        - generic: Create free site
+      - generic: Redirect your domain
+      - generic: Redirect visitors to another website or social media platform like Facebook.
+      - button "Redirect":
+        - generic: Redirect
+      - generic: Discover how much your domain is worth
+      - text: Let AI estimate the value of
+      - strong: nexacrmai.com
+      - text: – it might be more valuable than you think.
+      - button "Estimate value":
+        - generic: Estimate value
+      - generic: Share your domain as a QR code
+      - generic: Share a link to your domain in a scannable format.
+      - button "Generate QR code":
+        - generic: Generate QR code
+      - generic: Generate a logo for your brand
+      - generic: Use Hostinger AI logo maker to generate a unique logo.
+      - button "Generate logo":
+        - generic: Generate logo
+  - region:
+    - link "nexacrmai.com":
+      - /url: https://nexacrmai.com
+      - heading "nexacrmai.com" [level=2]
+    - generic: Active
+    - button "SSL active. Open SSL settings.":
+    - generic: Expiration date
+    - heading "2027-08-13" [level=2]
+    - generic: Renew
+    - generic: Auto-renewal
+    - switch [checked]
+  - region:
+    - heading "DNS/Nameservers" [level=3]
+    - generic: Edit
+    - heading "apollo.dns-parking.com" [level=3]
+    - heading "athena.dns-parking.com" [level=3]
+    - heading "Domain Ownership" [level=3]
+    - generic: View all
+    - heading "Email:" [level=4]
+    - paragraph: sunnykumarkumar2014@gmail.com
+    - heading "First name:" [level=4]
+    - paragraph: Sunny
+    - heading "Last name:" [level=4]
+    - paragraph: Kumar
+    - heading "Phone number:" [level=4]
+    - paragraph: +91 9711401947
+    - generic: Privacy protection
+    - checkbox [checked] [disabled]
+    - generic: Domain Shield
+    - generic: Inactive
+    - heading "Transfer" [level=3]
+    - heading "Domain lock" [level=4]
+    - checkbox [checked] [disabled]
+    - heading "Authorization code" [level=4]
+    - button "Get code":
+      - heading "Get code" [level=4]
+  - region:
+    - heading "Build your website for free" [level=2]
+    - paragraph: Launch a site in minutes with AI-generated content and images. Or start with one of 150 customizable templates.
+    - button "Try for free":
+      - generic: Try for free
+- paragraph: How would you rate the Domain Overview page?
+- generic: "1"
+- generic: "2"
+- generic: "3"
+- generic: "4"
+- generic: "5"
+- generic: "6"
+- generic: "7"
+- generic: "8"
+- generic: "9"
+- generic: "10"
+- paragraph: Poor
+- paragraph: Excellent
+- paragraph: Question 1 of 2

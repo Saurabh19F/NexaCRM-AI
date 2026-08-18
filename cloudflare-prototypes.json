@@ -1,0 +1,152 @@
+{
+  "playwright": [
+    {
+      "ctor": "Eo",
+      "keys": []
+    },
+    {
+      "ctor": "Eo",
+      "keys": [
+        "constructor",
+        "goBack",
+        "goForward",
+        "evaluate",
+        "locator",
+        "getByRole",
+        "getByText",
+        "getByLabel",
+        "getByPlaceholder",
+        "getByTestId",
+        "frameLocator",
+        "waitForURL",
+        "waitForLoadState",
+        "waitForTimeout",
+        "waitForEvent",
+        "expectNavigation",
+        "elementInfo",
+        "elementScreenshot",
+        "domSnapshot"
+      ]
+    },
+    {
+      "ctor": "Object",
+      "keys": [
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString"
+      ]
+    }
+  ],
+  "dom_cua": [
+    {
+      "ctor": "Co",
+      "keys": []
+    },
+    {
+      "ctor": "Co",
+      "keys": [
+        "constructor",
+        "get_visible_dom",
+        "click",
+        "double_click",
+        "scroll",
+        "type",
+        "keypress",
+        "downloadMedia"
+      ]
+    },
+    {
+      "ctor": "Object",
+      "keys": [
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString"
+      ]
+    }
+  ],
+  "cua": [
+    {
+      "ctor": "To",
+      "keys": []
+    },
+    {
+      "ctor": "To",
+      "keys": [
+        "constructor",
+        "click",
+        "scroll",
+        "double_click",
+        "type",
+        "keypress",
+        "drag",
+        "move",
+        "downloadMedia"
+      ]
+    },
+    {
+      "ctor": "Object",
+      "keys": [
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString"
+      ]
+    }
+  ],
+  "dev": [
+    {
+      "ctor": "Io",
+      "keys": []
+    },
+    {
+      "ctor": "Io",
+      "keys": [
+        "constructor",
+        "logs"
+      ]
+    },
+    {
+      "ctor": "Object",
+      "keys": [
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString"
+      ]
+    }
+  ]
+}

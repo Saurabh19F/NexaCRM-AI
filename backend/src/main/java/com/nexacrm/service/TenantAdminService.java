@@ -95,6 +95,26 @@ public class TenantAdminService {
         audit("TENANT_CREATED", "Tenant", saved.getId(), saved.getName(),
             Map.of("plan", saved.getPlan(), "slug", slug));
 
+        // Auto-create Company Admin if admin credentials are provided
+        String adminEmail = string(body.get("adminEmail"), null);
+        String adminPassword = string(body.get("adminPassword"), null);
+        if (adminEmail != null && adminPassword != null && adminPassword.length() >= 6) {
+            String adminName = string(body.get("adminName"), adminEmail.split("@")[0]);
+            User admin = User.builder()
+                .name(adminName)
+                .email(adminEmail.toLowerCase().trim())
+                .password(passwordEncoder.encode(adminPassword))
+                .role(User.Role.COMPANY_ADMIN)
+                .isActive(true)
+                .build();
+            admin.setTenantId(saved.getTenantId());
+            admin.setDeleted(false);
+            userRepository.save(admin);
+
+            audit("USER_CREATED", "User", admin.getId(), adminName,
+                Map.of("email", adminEmail, "role", "COMPANY_ADMIN", "tenantName", saved.getName()));
+        }
+
         return tenantSummary(saved);
     }
 

@@ -1,0 +1,95 @@
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - button "Expand sidebar" [ref=e8] [cursor=pointer]:
+        - img "NexaCRM AI" [ref=e9]
+      - navigation [ref=e10]:
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Leads" [ref=e21] [cursor=pointer]:
+          - /url: /leads
+        - link "Pipeline" [ref=e30] [cursor=pointer]:
+          - /url: /pipeline
+        - link "Tasks" [ref=e35] [cursor=pointer]:
+          - /url: /task-followup
+        - link "Customers" [ref=e42] [cursor=pointer]:
+          - /url: /customers
+        - link "9+ Messages" [ref=e50] [cursor=pointer]:
+          - /url: /communication
+          - generic [ref=e51]: 9+
+          - generic [ref=e55]: Messages
+        - link "AI Engine" [ref=e57] [cursor=pointer]:
+          - /url: /ai-engine
+        - link "Automation" [ref=e63] [cursor=pointer]:
+          - /url: /automation
+        - link "Invoices" [ref=e69] [cursor=pointer]:
+          - /url: /invoices
+        - link "Analytics" [ref=e76] [cursor=pointer]:
+          - /url: /analytics
+        - link "Team" [ref=e82] [cursor=pointer]:
+          - /url: /team
+        - link "Settings" [ref=e88] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=e94]: "N"
+  - generic [ref=e99]:
+    - banner [ref=e100]:
+      - img "NexaCRM AI" [ref=e103]
+      - generic [ref=e104]:
+        - button "Refresh page" [ref=e105] [cursor=pointer]
+        - button "Lead delay alert" [ref=e112] [cursor=pointer]
+        - button "Switch to dark theme" [ref=e115] [cursor=pointer]
+        - button "Notifications" [ref=e119] [cursor=pointer]:
+          - generic [ref=e124]: "20"
+        - button "Open user menu" [ref=e126] [cursor=pointer]:
+          - generic [ref=e127]: "N"
+          - generic [ref=e130]: Nisha
+    - main [ref=e133]:
+      - generic [ref=e134]:
+        - navigation "Breadcrumb" [ref=e135]:
+          - link "Home" [ref=e137] [cursor=pointer]:
+            - /url: /dashboard
+          - generic [ref=e141]: Company admin
+          - generic [ref=e145]: AI Engine
+        - generic [ref=e149]:
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - heading "AI Engine" [level=1] [ref=e152]
+              - paragraph [ref=e155]: Backend AI features for CRM intelligence
+            - generic [ref=e156]: AI Service Connected
+          - generic [ref=e159]:
+            - button "AI Chat" [ref=e160] [cursor=pointer]
+            - button "Lead Scoring" [ref=e163] [cursor=pointer]
+            - button "Email Writer" [ref=e168] [cursor=pointer]
+            - button "Deal Predictor" [ref=e172] [cursor=pointer]
+            - button "AI Insights" [ref=e176] [cursor=pointer]
+          - generic [ref=e408]:
+            - generic [ref=e409]:
+              - heading "AI Email Writer" [level=3] [ref=e410]
+              - paragraph [ref=e411]: Generates personalized emails for any lead
+            - generic [ref=e412]:
+              - generic [ref=e413]:
+                - generic [ref=e414]: Lead
+                - button "Nijam - Nijam" [ref=e416] [cursor=pointer]
+              - generic [ref=e420]:
+                - generic [ref=e421]: Type
+                - combobox [active] [ref=e422]:
+                  - option "Follow-up" [selected]
+                  - option "Introduction"
+                  - option "Proposal"
+                  - option "Re-engagement"
+                  - option "Meeting request"
+                  - option "Thank you"
+                  - option "Closing"
+              - generic [ref=e423]:
+                - generic [ref=e424]: Tone
+                - combobox [ref=e425]:
+                  - option "Professional" [selected]
+                  - option "Friendly"
+                  - option "Urgent"
+                  - option "Formal"
+                  - option "Casual"
+            - button "Generate Email" [ref=e430] [cursor=pointer]
+            - generic [ref=e431]:
+              - generic [ref=e432]: "Subject: Following up on your recent activity, Nijam Hi Nijam, I hope this email finds you well. I noticed your recent activity in our system and wanted to check in to see how we can assist you further. As an active customer, we’re committed to ensuring you get the most out of our solution. Are there any specific areas or features you’d like to explore further? I’d be happy to schedule a quick call or provide additional resources to support your goals. Looking forward to your thoughts. Best regards, [Your Full Name] [Your Job Title] [Your Company Name] [Your Contact Information] [Company Website]"
+              - button "Copy" [ref=e433] [cursor=pointer]
+  - button "Quick actions" [ref=e245] [cursor=pointer]

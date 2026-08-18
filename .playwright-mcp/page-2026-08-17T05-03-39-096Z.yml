@@ -1,0 +1,97 @@
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - button "Expand sidebar" [ref=e8] [cursor=pointer]:
+        - img "NexaCRM AI" [ref=e9]
+      - navigation [ref=e10]:
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Leads" [ref=e21] [cursor=pointer]:
+          - /url: /leads
+        - link "Pipeline" [ref=e30] [cursor=pointer]:
+          - /url: /pipeline
+        - link "Tasks" [ref=e35] [cursor=pointer]:
+          - /url: /task-followup
+        - link "Customers" [ref=e42] [cursor=pointer]:
+          - /url: /customers
+        - link "9+ Messages" [ref=e50] [cursor=pointer]:
+          - /url: /communication
+          - generic [ref=e51]: 9+
+          - generic [ref=e55]: Messages
+        - link "AI Engine" [ref=e57] [cursor=pointer]:
+          - /url: /ai-engine
+        - link "Automation" [ref=e63] [cursor=pointer]:
+          - /url: /automation
+        - link "Invoices" [ref=e69] [cursor=pointer]:
+          - /url: /invoices
+        - link "Analytics" [ref=e76] [cursor=pointer]:
+          - /url: /analytics
+        - link "Team" [ref=e82] [cursor=pointer]:
+          - /url: /team
+        - link "Settings" [ref=e88] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=e94]: "N"
+  - generic [ref=e99]:
+    - banner [ref=e100]:
+      - img "NexaCRM AI" [ref=e103]
+      - generic [ref=e104]:
+        - button "Refresh page" [ref=e105] [cursor=pointer]
+        - button "Lead delay alert" [ref=e112] [cursor=pointer]
+        - button "Switch to dark theme" [ref=e115] [cursor=pointer]
+        - button "Notifications" [ref=e119] [cursor=pointer]:
+          - generic [ref=e124]: "20"
+        - button "Open user menu" [ref=e126] [cursor=pointer]:
+          - generic [ref=e127]: "N"
+          - generic [ref=e130]: Nisha
+    - main [ref=e133]:
+      - generic [ref=e134]:
+        - navigation "Breadcrumb" [ref=e135]:
+          - link "Home" [ref=e137] [cursor=pointer]:
+            - /url: /dashboard
+          - generic [ref=e141]: Company admin
+          - generic [ref=e145]: AI Engine
+        - generic [ref=e149]:
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - heading "AI Engine" [level=1] [ref=e152]
+              - paragraph [ref=e155]: Backend AI features for CRM intelligence
+            - generic [ref=e156]: AI Service Connected
+          - generic [ref=e159]:
+            - button "AI Chat" [ref=e160] [cursor=pointer]
+            - button "Lead Scoring" [ref=e163] [cursor=pointer]
+            - button "Email Writer" [ref=e168] [cursor=pointer]
+            - button "Deal Predictor" [ref=e172] [cursor=pointer]
+            - button "AI Insights" [ref=e176] [cursor=pointer]
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - generic [ref=e183]:
+                - heading "AI Lead Scoring" [level=3] [ref=e184]
+                - paragraph [ref=e185]: Live AI scoring with confidence and next action
+              - button "Scoring..." [disabled] [ref=e186]
+            - generic [ref=e197]: Scoring leads 3/20
+            - generic [ref=e198]:
+              - generic [ref=e199]:
+                - generic [ref=e200]: COLD
+                - generic [ref=e206]:
+                  - generic [ref=e207]:
+                    - paragraph [ref=e208]: Deepti
+                    - generic [ref=e209]: 30%
+                  - paragraph [ref=e212]: Lead is CONTACTED but no deal value or expected close timeline provided. Source is META_ADS, which may indicate initial interest but lacks urgency or qualification.
+                  - paragraph [ref=e213]: "Next: Request more details on deal value and expected close timeline to refine scoring."
+              - generic [ref=e214]:
+                - generic [ref=e215]: COLD
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - paragraph [ref=e223]: Nijam
+                    - generic [ref=e224]: 20%
+                  - paragraph [ref=e227]: Lead status is WON, indicating no active sales opportunity. Expected close timeline is null, and deal value is missing.
+                  - paragraph [ref=e228]: "Next: Archive lead as no further action required."
+              - generic [ref=e229]:
+                - generic [ref=e230]: COLD
+                - generic [ref=e236]:
+                  - generic [ref=e237]:
+                    - paragraph [ref=e238]: only block 9k
+                    - generic [ref=e239]: 30%
+                  - paragraph [ref=e242]: Lead is new with no expected close timeline or deal value. Source is META_ADS but lacks engagement signals.
+                  - paragraph [ref=e243]: "Next: Contact lead within 48 hours to qualify intent and gather more details about timeline and deal value."
+  - button "Quick actions" [ref=e245] [cursor=pointer]

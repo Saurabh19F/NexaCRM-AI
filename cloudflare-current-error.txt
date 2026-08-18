@@ -1,0 +1,5 @@
+TypeError: t.url is not a function
+    at C:\Users\Krisc\Claude\Projects\NexaCRM\.node_repl_cell_13.mjs:29:57
+    at Array.find (<anonymous>)
+    at C:\Users\Krisc\Claude\Projects\NexaCRM\.node_repl_cell_13.mjs:29:33
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

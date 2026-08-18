@@ -1,0 +1,904 @@
+- complementary:
+  - link:
+    - /url: /
+  - button "Switch Account" [expanded]:
+    - generic "Devloper@kriscel.com's Account"
+  - dialog:
+    - combobox "Search for an account" [expanded] [active]
+    - listbox "Accounts":
+      - option "Devloper@kriscel.com's Account" [selected]:
+        - generic: Devloper@kriscel.com's Account
+      - option "Create Account":
+        - generic: Create Account
+    - generic: 1 accounts
+  - navigation:
+    - button:
+      - generic: Quick search...
+      - generic: Ctrl K
+    - list:
+      - link:
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/home
+        - generic: Account home
+      - button [expanded]:
+        - generic: Recents
+      - region:
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+            - generic: Overview
+            - generic: Domains
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/work-track-system
+            - generic: work-track-system
+            - generic: R2
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/whatsappapi
+            - generic: whatsappapi
+            - generic: R2
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/overview
+            - generic: Overview
+            - generic: R2 Object Storage
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/imagegeneration
+            - generic: imagegeneration
+            - generic: R2
+          - button:
+      - button:
+        - generic: Domains
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/registrations
+          - generic: Registrations
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/transfers
+          - generic: Transfers
+      - generic: Observe
+      - list:
+        - button:
+          - generic: Investigate
+        - list:
+          - button:
+            - generic: Log Explorer
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/log-explorer/log-search
+              - generic: Log search
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/trace
+            - generic: Trace
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/logs
+            - generic: Logpush
+        - button:
+          - generic: Analytics
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/dashboards
+            - generic: Dashboards
+            - generic: New
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/analytics
+            - generic: Account analytics
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/web-analytics
+            - generic: Web analytics
+      - generic: Build
+      - list:
+        - button:
+          - generic: Compute
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers-and-pages
+            - generic: Workers & Pages
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/observability
+            - generic: Observability
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers-for-platforms
+            - generic: Workers for Platforms
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/containers
+            - generic: Containers
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/durable-objects
+            - generic: Durable Objects
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/queues
+            - generic: Queues
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/workflows
+            - generic: Workflows
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/browser-run
+            - generic: Browser Run
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/vpc
+            - generic: VPC
+            - generic: Beta
+          - button:
+            - generic: Email Service
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/email-service/sending
+              - generic: Email Sending
+              - generic: Beta
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/email-service/routing
+              - generic: Email Routing
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/plans
+            - generic: Workers plans
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/flagship
+            - generic: Flagship
+            - generic: Beta
+        - button:
+          - generic: AI
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/models
+            - generic: Models
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/workers-ai
+            - generic: Workers AI
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/ai-gateway
+            - generic: AI Gateway
+          - link:
+            - /url: https://dash.cloudflare.com/6bb087ca89fdd73e0b93b22e1cc7e2b6/one/access-controls/ai-controls/mcp-server-portal
+            - generic: MCP Portals
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/vectorize
+            - generic: Vectorize
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/ai-search
+            - generic: AI Search
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/agents
+            - generic: Agents
+        - button:
+          - generic: Storage & databases
+        - list:
+          - button:
+            - generic: R2 Object Storage
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/overview
+              - generic: Overview
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/slurper
+              - generic: Data migration
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/data-catalog
+            - generic: R2 Data Catalog
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/hyperdrive
+            - generic: Postgres & MySQL (Hyperdrive)
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/kv/namespaces
+            - generic: Workers KV
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/d1
+            - generic: D1 SQLite Database
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/analytics-engine
+            - generic: Analytics Engine
+          - button:
+            - generic: Pipelines
+            - generic: Beta
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/pipelines/overview
+              - generic: Pipelines
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/secrets-store
+            - generic: Secrets Store
+            - generic: New
+        - button:
+          - generic: Media
+        - list:
+          - button:
+            - generic: Stream
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/stream/plans
+              - generic: Plans
+          - button:
+            - generic: Images
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/images/transformations
+              - generic: Transformations
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/images/hosted
+              - generic: Hosted images
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/images/plans
+              - generic: Plans
+          - button:
+            - generic: Realtime
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/kit
+              - generic: RealtimeKit
+              - generic: Beta
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/turn
+              - generic: TURN Server
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/sfu
+              - generic: Serverless SFU
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/moq
+              - generic: MoQ Relay
+              - generic: Beta
+      - generic: Protect & connect
+      - list:
+        - button:
+          - generic: Application security
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/security-center
+            - generic: Security insights
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/application-security/waf
+            - generic: WAF
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/application-security/investigate
+            - generic: Investigate
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/security-center/inventory
+            - generic: Infrastructure
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/turnstile
+            - generic: Turnstile
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/zero-trust/landing-page
+          - generic: Zero Trust
+        - button:
+          - generic: Networking
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/magic-networks/overview
+            - generic: Overview
+            - generic: New
+          - button:
+            - generic: Insights
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/networking-insights/analytics/network-analytics/flow-analytics
+              - generic: Network flow
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tunnels
+            - generic: Tunnels
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/mesh
+            - generic: Mesh
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/magic-networks/routes
+            - generic: Routes
+            - generic: New
+          - button:
+            - generic: IP addresses
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ip-addresses/address-space
+              - generic: Address space
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ip-addresses/proxy-ips
+              - generic: Address maps
+        - button:
+          - generic: Delivery & performance
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/bulk-redirects
+            - generic: Bulk redirects
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/load-balancing
+            - generic: Load Balancing
+          - button:
+            - generic: Web tag management
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/zaraz
+              - generic: Tag setup
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/consent
+              - generic: Consent
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/history
+              - generic: History
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/monitoring
+              - generic: Monitoring
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/settings
+              - generic: Settings
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/plans
+              - generic: Zaraz plans
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/google-tag-gateway
+              - generic: Google Tag Gateway
+      - button:
+        - generic: Manage account
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/members
+          - generic: Members
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/billing
+          - generic: Billing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/api-tokens
+          - generic: Account API tokens
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/oauth-clients
+          - generic: OAuth clients
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/audit-log
+          - generic: Audit logs
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/notifications
+          - generic: Notifications
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/shared-configurations
+          - generic: Shared config
+          - generic: Alpha
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/blocked-content
+          - generic: Blocked content
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/abuse-reports
+          - generic: Abuse reports
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/carbon
+          - generic: Carbon Impact Report
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/configurations
+          - generic: Configurations
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tags
+          - generic: Tagged Resources
+          - generic: Beta
+    - button "Quick search...":
+      - generic: Quick search...
+      - generic: Ctrl K
+    - link "Back to Domains":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+      - generic: Back to Domains
+    - list:
+      - link "Overview":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/
+        - generic: Overview
+      - button "Recents" [expanded]:
+        - generic: Recents
+      - region:
+        - list:
+          - link "Overview Domains":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+            - generic: Overview
+            - generic: Domains
+          - button "Pin":
+          - link "work-track-system R2":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/work-track-system
+            - generic: work-track-system
+            - generic: R2
+          - button "Pin":
+          - link "whatsappapi R2":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/whatsappapi
+            - generic: whatsappapi
+            - generic: R2
+          - button "Pin":
+          - link "Overview R2 Object Storage":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/overview
+            - generic: Overview
+            - generic: R2 Object Storage
+          - button "Pin":
+          - link "imagegeneration R2":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/imagegeneration
+            - generic: imagegeneration
+            - generic: R2
+          - button "Pin":
+      - button "AI Crawl Control":
+        - generic: AI Crawl Control
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/metrics
+          - generic: Metrics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/security
+          - generic: Security
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/optimization
+          - generic: Optimization
+          - generic: New
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/signals
+          - generic: Signals
+      - button "Agent Readiness":
+        - generic: Agent Readiness
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/diagnostics
+          - generic: Diagnostics
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/ai-playground
+          - generic: AI Playground
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/webmcp
+          - generic: WebMCP
+          - generic: Beta
+      - button "Investigate":
+        - generic: Investigate
+      - list:
+        - button:
+          - generic: Log Explorer
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/log-explorer/log-search
+            - generic: Log search
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/trace/search
+          - generic: Trace
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/logs
+          - generic: Logpush
+      - button "Analytics":
+        - generic: Analytics
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dashboards
+          - generic: Dashboards
+          - generic: New
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/traffic
+          - generic: HTTP Traffic
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/performance
+          - generic: Performance
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/workers
+          - generic: Workers
+      - button "DNS":
+        - generic: DNS
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dns/records
+          - generic: Records
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dns/analytics
+          - generic: Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dns/settings
+          - generic: Settings
+      - button "Email":
+        - generic: Email
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/email/routing
+          - generic: Email Routing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/email/dmarc-management
+          - generic: DMARC Management
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/email/security
+          - generic: Email Security
+      - button "SSL/TLS":
+        - generic: SSL/TLS
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/edge-certificates
+          - generic: Edge Certificates
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/client-certificates
+          - generic: Client Certificates
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/origin
+          - generic: Origin Server
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/custom-hostnames
+          - generic: Custom Hostnames
+      - button "Security":
+        - generic: Security
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/analytics
+          - generic: Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/web-assets
+          - generic: Web assets
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/security-rules
+          - generic: Security rules
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/settings
+          - generic: Settings
+      - link "Access":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/access
+        - generic: Access
+      - button "Speed":
+        - generic: Speed
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed
+          - generic: Observatory
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/origin-analytics
+          - generic: Origin Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/test
+          - generic: Synthetic monitoring
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/optimization
+          - generic: Settings
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/smart-shield
+          - generic: Smart Shield
+      - button "Caching":
+        - generic: Caching
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/configuration
+          - generic: Configuration
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/cache-rules
+          - generic: Cache Rules
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/tiered-cache
+          - generic: Tiered Cache
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/cache-reserve
+          - generic: Cache Reserve
+      - link "Workers Routes":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/workers
+        - generic: Workers Routes
+      - button "Rules":
+        - generic: Rules
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/snippets
+          - generic: Snippets
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/cloud-connector
+          - generic: Cloud Connector
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/page-rules
+          - generic: Page Rules
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/settings
+          - generic: Settings
+      - link "Error Pages New":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/error-pages
+        - generic: Error Pages
+        - generic: New
+      - link "Network":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/network
+        - generic: Network
+      - button "Traffic":
+        - generic: Traffic
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic
+          - generic: Argo Smart Routing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/load-balancing
+          - generic: Load Balancing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/load-balancing-analytics
+          - generic: Load Balancing Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/health-checks
+          - generic: Health Checks
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/waiting-rooms
+          - generic: Waiting Room
+      - link "Web3":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/web3
+        - generic: Web3
+      - button "Manage account":
+        - generic: Manage account
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/members
+          - generic: Members
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/billing
+          - generic: Billing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/api-tokens
+          - generic: Account API tokens
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/audit-log
+          - generic: Audit logs
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/notifications
+          - generic: Notifications
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/shared-configurations
+          - generic: Shared config
+          - generic: Alpha
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/blocked-content
+          - generic: Blocked content
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/abuse-reports
+          - generic: Abuse reports
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/carbon
+          - generic: Carbon Impact Report
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/configurations
+          - generic: Configurations
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tags
+          - generic: Tagged Resources
+          - generic: Beta
+  - button "Collapse sidebar" [expanded]:
+- banner:
+  - button "Star domain":
+  - paragraph: nexacrmai.com
+  - button "free":
+    - generic: free
+  - button "Ask AI":
+    - generic: Ask AI
+  - link "Support":
+    - /url: /?to=/:account/support
+    - generic: Support
+  - button "User menu":
+- generic: Select a plan for
+- generic: nexacrmai.com
+- button "Pay monthly"
+- button "Pay yearly (save up to 20%)"
+- link "Which plan is right for you?documentation":
+  - /url: https://www.cloudflare.com/plans/
+  - text: Which plan is right for you?
+  - img "documentation"
+- heading "Free" [level=4]
+- strong: $0
+- button "Select plan":
+  - generic: Select plan
+- paragraph: Deploy apps on Cloudflare's global platform with free Workers, D1, R2, Pages, DNS, SSL, and CDN included.
+- 'button "Workers: 100K requests/day"':
+  - list:
+    - listitem: "Workers: 100K requests/day"
+    - list
+- 'button "D1: 5 GB storage"':
+  - list:
+    - listitem: "D1: 5 GB storage"
+    - list
+- 'button "R2: 10 GB storage"':
+  - list:
+    - listitem: "R2: 10 GB storage"
+    - list
+- 'button "Pages: unlimited static sites"':
+  - list:
+    - listitem: "Pages: unlimited static sites"
+    - list
+- button "Universal SSL certificate":
+  - list:
+    - listitem: Universal SSL certificate
+    - list
+- button "Fast, easy-to-use DNS":
+  - list:
+    - listitem: Fast, easy-to-use DNS
+    - list
+- button "Global CDN":
+  - list:
+    - listitem: Global CDN
+    - list
+- generic: Included with every Cloudflare account
+- heading "Rules" [level=4]
+- list:
+  - generic: "70"
+  - button "Cloudflare Rules":
+    - generic: Cloudflare Rules
+  - generic: "5"
+  - button "WAF Rules":
+    - generic: WAF Rules
+- heading "Support" [level=4]
+- generic: Community
+- generic: Documentation
+- heading "Pro" [level=4]
+- strong: $20 per month
+- strong: $240 yearly
+- button "Select plan":
+  - generic: Select plan
+- button "Why Pro plan?":
+  - generic: Why Pro plan?
+- paragraph: Launch production apps with faster asset delivery, managed WAF rules, image optimization, cache analytics, and email support.
+- generic: Everything in Free +
+- button "Defend against common attacks including OWASP vulnerabilities with WAF":
+  - list:
+    - listitem: Defend against common attacks including OWASP vulnerabilities with WAF
+    - list
+- button "Protect against zero-day threats with WAF":
+  - list:
+    - listitem: Protect against zero-day threats with WAF
+    - list
+- button "Detect and challenge easy-to-detect bots":
+  - list:
+    - listitem: Detect and challenge easy-to-detect bots
+    - list
+- button "Prioritized loading of key site assets":
+  - list:
+    - listitem: Prioritized loading of key site assets
+    - list
+- button "One-click image optimizations":
+  - list:
+    - listitem: One-click image optimizations
+    - list
+- button "Cache analytics for CDN optimization":
+  - list:
+    - listitem: Cache analytics for CDN optimization
+    - list
+- heading "Rules" [level=4]
+- list:
+  - generic: "225"
+  - button "Cloudflare Rules":
+    - generic: Cloudflare Rules
+  - generic: "20"
+  - button "WAF Rules":
+    - generic: WAF Rules
+- heading "Support" [level=4]
+- generic: Ticket
+- generic: Community
+- generic: Documentation
+- heading "Business" [level=4]
+- strong: $200 per month
+- strong: $2,400 yearly
+- button "Select plan":
+  - generic: Select plan
+- button "Why Business plan?":
+  - generic: Why Business plan?
+- paragraph: Run business-critical apps with stronger protection, advanced DDoS mitigation, custom WAF rulesets, and chat support.
+- generic: Everything in Pro +
+- button "Protect against unknown application vulnerabilities with WAF":
+  - list:
+    - listitem: Protect against unknown application vulnerabilities with WAF
+    - list
+- button "PCI and SOC 2 Type II compliance":
+  - list:
+    - listitem: PCI and SOC 2 Type II compliance
+    - list
+- button "Detect malicious 3rd-party scripts on web apps and receive alerts":
+  - list:
+    - listitem: Detect malicious 3rd-party scripts on web apps and receive alerts
+    - list
+- button "Custom SSL certificates":
+  - list:
+    - listitem: Custom SSL certificates
+    - list
+- button "Detect and challenge sophisticated bots":
+  - list:
+    - listitem: Detect and challenge sophisticated bots
+    - list
+- button "Custom nameservers":
+  - list:
+    - listitem: Custom nameservers
+    - list
+- button "100% uptime guarantee (SLA)":
+  - list:
+    - listitem: 100% uptime guarantee (SLA)
+    - list
+- heading "Rules" [level=4]
+- list:
+  - generic: "450"
+  - button "Cloudflare Rules":
+    - generic: Cloudflare Rules
+  - generic: "100"
+  - button "WAF Rules":
+    - generic: WAF Rules
+- heading "Support" [level=4]
+- generic: Chat
+- generic: Ticket
+- generic: Community
+- generic: Documentation
+- heading "Enterprise" [level=4]
+- strong: Custom
+- button "Contact sales":
+  - generic: Contact sales
+- paragraph: Scale critical apps with enterprise security, API protection, logs, SCIM provisioning, and a dedicated account team.
+- generic: Everything in Business +
+- button "Enterprise-grade WAF and rate limiting":
+  - list:
+    - listitem: Enterprise-grade WAF and rate limiting
+    - list
+- button "Advanced DDoS protection":
+  - list:
+    - listitem: Advanced DDoS protection
+    - list
+- button "API Gateway":
+  - list:
+    - listitem: API Gateway
+    - list
+- button "Enterprise bot management":
+  - list:
+    - listitem: Enterprise bot management
+    - list
+- button "Logs":
+  - list:
+    - listitem: Logs
+    - list
+- button "Automated user provisioning (SCIM)":
+  - list:
+    - listitem: Automated user provisioning (SCIM)
+    - list
+- button "Customer Success support":
+  - list:
+    - listitem: Customer Success support
+    - list
+- heading "Rules" [level=4]
+- list:
+  - generic: 2,700
+  - button "Cloudflare Rules":
+    - generic: Cloudflare Rules
+  - generic: 1,000
+  - button "WAF Rules":
+    - generic: WAF Rules
+- heading "Support" [level=4]
+- generic: Phone
+- generic: Chat
+- generic: Ticket
+- generic: Community
+- generic: Documentation
+- generic: Need more compute, AI, or storage?
+- text: Cloudflare's developer platform includes compute, AI, storage, and network services. This website plan protects your domain; Workers Paid and R2 paid usage are separate plans you can add when you're ready to scale.
+- link "Compare Workers plans":
+  - /url: https://developers.cloudflare.com/workers/platform/pricing/
+  - generic: Compare Workers plans
+- contentinfo:
+  - list:
+    - link "Support":
+      - /url: https://support.cloudflare.com
+    - link "System status":
+      - /url: https://www.cloudflarestatus.com
+    - link "Careers":
+      - /url: https://www.cloudflare.com/careers/
+    - link "Terms of Use":
+      - /url: https://www.cloudflare.com/website-terms/
+    - link "Report Security Issues":
+      - /url: https://www.cloudflare.com/disclosure/
+    - link "Privacy Policy":
+      - /url: https://www.cloudflare.com/privacypolicy/
+    - button "A blue and white pill with a checkmark and an x, representing privacy choices Cookie Preferences":
+      - img "A blue and white pill with a checkmark and an x, representing privacy choices"
+      - text: Cookie Preferences
+    - generic: © 2026 Cloudflare, Inc.
+- region "Notifications"

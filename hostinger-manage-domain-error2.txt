@@ -1,0 +1,16 @@
+Error: TypeError: MouseEvent is not a constructor
+    at __playwrightEvaluate (<anonymous>:2656:30)
+    at <anonymous>:2664:14
+    at runUserScript (<anonymous>:2665:10)
+    at <anonymous>:2669:10
+    at <anonymous>:2670:3
+    at kI (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4098:379)
+    at C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:1451:964
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:2429
+    at async FP (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:6993)
+    at async C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:7255
+    at async Object.WH [as withCommandTelemetry] (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:7231)
+    at async C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:2387
+    at async Object.run (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:3768)
+    at async Jo.executeAgentCommand (C:\Users\Krisc\.codex\plugins\cache\openai-bundled\chrome\26.803.81509\scripts\browser-client.mjs:4122:2300)

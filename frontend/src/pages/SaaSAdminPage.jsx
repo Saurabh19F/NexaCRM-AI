@@ -34,6 +34,7 @@ const EMPTY_FORM = {
   isActive: true, maxUsers: 5, logoUrl: '',
   trialEndsAt: '', subscriptionStartedAt: '', subscriptionEndsAt: '',
   featureFlagsJson: '{}', usageLimitsJson: '{}',
+  adminName: '', adminEmail: '', adminPassword: '',
 }
 
 
@@ -327,6 +328,30 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
               <textarea name="usageLimitsJson" rows={8} value={form.usageLimitsJson} onChange={updateForm} className="input font-mono text-xs" />
             </div>
           </div>
+          {/* Company Admin credentials — only shown when creating a new company */}
+          {!form.id && (
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/30 p-4 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                <Crown className="h-3.5 w-3.5" /> Company Admin Account
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Admin Name</label>
+                  <input name="adminName" value={form.adminName} onChange={updateForm} className="input" placeholder="John Doe" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Admin Email <span className="text-rose-500">*</span></label>
+                  <input name="adminEmail" type="email" value={form.adminEmail} onChange={updateForm} className="input" placeholder="admin@company.com" required />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Password <span className="text-rose-500">*</span></label>
+                  <input name="adminPassword" type="text" value={form.adminPassword} onChange={updateForm} className="input" placeholder="Min 6 characters" required minLength={6} />
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">This user will be the first Company Admin and can log in at the company login page.</p>
+            </div>
+          )}
+
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             <input type="checkbox" name="isActive" checked={form.isActive} onChange={updateForm} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
             Active company
@@ -955,8 +980,14 @@ export default function SaaSAdminPage() {
         await platformAdminAPI.updateTenant(form.id, payload)
         toast.success('Company updated')
       } else {
+        // Include admin credentials when creating a new company
+        if (form.adminEmail) {
+          payload.adminEmail = form.adminEmail
+          payload.adminPassword = form.adminPassword
+          payload.adminName = form.adminName || form.adminEmail.split('@')[0]
+        }
         await platformAdminAPI.createTenant(payload)
-        toast.success('Company created')
+        toast.success(form.adminEmail ? 'Company & admin user created' : 'Company created')
       }
       await loadData()
     } catch (error) {

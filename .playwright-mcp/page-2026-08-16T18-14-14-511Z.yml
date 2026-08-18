@@ -1,0 +1,72 @@
+- generic [ref=f1e3]:
+  - complementary [ref=f1e4]:
+    - generic [ref=f1e206]:
+      - button "Expand sidebar" [ref=f1e208] [cursor=pointer]:
+        - img "NexaCRM AI" [ref=f1e209]
+      - navigation [ref=f1e210]:
+        - link "Dashboard" [ref=f1e212] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Leads" [ref=f1e221] [cursor=pointer]:
+          - /url: /leads
+        - link "Pipeline" [ref=f1e230] [cursor=pointer]:
+          - /url: /pipeline
+        - link "Tasks" [ref=f1e235] [cursor=pointer]:
+          - /url: /task-followup
+        - link "Customers" [ref=f1e242] [cursor=pointer]:
+          - /url: /customers
+        - link "9+ Messages" [ref=f1e250] [cursor=pointer]:
+          - /url: /communication
+          - generic [ref=f1e251]: 9+
+          - generic [ref=f1e255]: Messages
+        - link "AI Engine" [ref=f1e257] [cursor=pointer]:
+          - /url: /ai-engine
+        - link "Automation" [ref=f1e263] [cursor=pointer]:
+          - /url: /automation
+        - link "Invoices" [ref=f1e269] [cursor=pointer]:
+          - /url: /invoices
+        - link "Analytics" [ref=f1e276] [cursor=pointer]:
+          - /url: /analytics
+        - link "Team" [ref=f1e282] [cursor=pointer]:
+          - /url: /team
+        - link "Settings" [ref=f1e288] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f1e294]: "N"
+  - generic [ref=f1e97]:
+    - banner [ref=f1e98]:
+      - img "NexaCRM AI" [ref=f1e101]
+      - generic [ref=f1e102]:
+        - button "Refresh page" [ref=f1e103] [cursor=pointer]
+        - button "Lead delay alert" [ref=f1e110] [cursor=pointer]
+        - button "Switch to dark theme" [ref=f1e113] [cursor=pointer]
+        - button "Notifications" [ref=f1e117] [cursor=pointer]:
+          - generic [ref=f1e300]: "20"
+        - button "Open user menu" [ref=f1e122] [cursor=pointer]:
+          - generic [ref=f1e123]: "N"
+          - generic [ref=f1e126]: Nisha
+    - main [ref=f1e129]:
+      - generic [ref=f1e130]:
+        - navigation "Breadcrumb" [ref=f1e131]:
+          - link "Home" [ref=f1e133] [cursor=pointer]:
+            - /url: /dashboard
+          - generic [ref=f1e137]: Company admin
+          - generic [ref=f1e141]: AI Engine
+        - generic [ref=f1e145]:
+          - generic [ref=f1e146]:
+            - generic [ref=f1e147]:
+              - heading "AI Engine" [level=1] [ref=f1e148]
+              - paragraph [ref=f1e151]: Backend AI features for CRM intelligence
+            - generic [ref=f1e152]: AI Service Connected
+          - generic [ref=f1e155]:
+            - button "AI Chat" [ref=f1e156] [cursor=pointer]
+            - button "Lead Scoring" [active] [ref=f1e159] [cursor=pointer]
+            - button "Email Writer" [ref=f1e164] [cursor=pointer]
+            - button "Deal Predictor" [ref=f1e168] [cursor=pointer]
+            - button "AI Insights" [ref=f1e172] [cursor=pointer]
+          - generic [ref=f1e380]:
+            - generic [ref=f1e381]:
+              - generic [ref=f1e382]:
+                - heading "AI Lead Scoring" [level=3] [ref=f1e383]
+                - paragraph [ref=f1e384]: Live AI scoring with confidence and next action
+              - button "Score All Leads" [ref=f1e385] [cursor=pointer]
+            - paragraph [ref=f1e402]: Click "Score All Leads" to evaluate leads
+  - button "Quick actions" [ref=f1e204] [cursor=pointer]

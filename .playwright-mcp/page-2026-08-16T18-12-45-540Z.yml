@@ -1,0 +1,85 @@
+- generic [ref=e2]:
+  - status [ref=e52]: Welcome back, Nisha Kapoor!
+  - generic [ref=e53]:
+    - complementary [ref=e54]:
+      - generic [ref=e55]:
+        - button "Expand sidebar" [ref=e57] [cursor=pointer]:
+          - img "NexaCRM AI" [ref=e58]
+        - navigation [ref=e59]:
+          - link "Dashboard" [ref=e61] [cursor=pointer]:
+            - /url: /dashboard
+          - link "Leads" [ref=e70] [cursor=pointer]:
+            - /url: /leads
+          - link "Pipeline" [ref=e79] [cursor=pointer]:
+            - /url: /pipeline
+          - link "Tasks" [ref=e84] [cursor=pointer]:
+            - /url: /task-followup
+          - link "Customers" [ref=e91] [cursor=pointer]:
+            - /url: /customers
+          - link "Messages" [ref=e99] [cursor=pointer]:
+            - /url: /communication
+          - link "AI Engine" [ref=e105] [cursor=pointer]:
+            - /url: /ai-engine
+          - link "Automation" [ref=e111] [cursor=pointer]:
+            - /url: /automation
+          - link "Invoices" [ref=e117] [cursor=pointer]:
+            - /url: /invoices
+          - link "Analytics" [ref=e124] [cursor=pointer]:
+            - /url: /analytics
+          - link "Team" [ref=e130] [cursor=pointer]:
+            - /url: /team
+          - link "Settings" [ref=e136] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=e142]: "N"
+    - generic [ref=e147]:
+      - banner [ref=e148]:
+        - img "NexaCRM AI" [ref=e151]
+        - generic [ref=e152]:
+          - button "Refresh page" [ref=e153] [cursor=pointer]
+          - button "Lead delay alert" [ref=e160] [cursor=pointer]
+          - button "Switch to dark theme" [ref=e163] [cursor=pointer]
+          - button "Notifications" [ref=e167] [cursor=pointer]
+          - button "Open user menu" [ref=e172] [cursor=pointer]:
+            - generic [ref=e173]: "N"
+            - generic [ref=e176]: Nisha
+      - main [ref=e179]:
+        - generic [ref=e180]:
+          - navigation "Breadcrumb" [ref=e181]:
+            - link "Home" [ref=e183] [cursor=pointer]:
+              - /url: /dashboard
+            - generic [ref=e187]: Company admin
+            - generic [ref=e191]: Dashboard
+          - generic [ref=e195]:
+            - generic [ref=e196]:
+              - generic [ref=e197]:
+                - generic [ref=e198]:
+                  - generic [ref=e199]: Live Command Center
+                  - heading "Good Evening, Nisha" [level=1] [ref=e206]
+                  - paragraph [ref=e208]: Sunday, August 16, 2026
+                - generic [ref=e209]:
+                  - generic [ref=e210]: Live Signal
+                  - generic [ref=e218]: AI Assist
+                  - generic [ref=e232]: Secure CRM
+              - generic [ref=e237]:
+                - generic [ref=e238]: Live
+                - generic [ref=e239]: Pro Plan
+            - generic [ref=e244]:
+              - button "This Month" [ref=e246] [cursor=pointer]
+              - button "All Employees" [ref=e253] [cursor=pointer]
+              - combobox [ref=e257]:
+                - option "All Statuses" [selected]
+                - option "New"
+                - option "Assigned"
+                - option "Contacted"
+                - option "Interested"
+                - option "Qualified"
+                - option "Proposal Sent"
+                - option "Converted"
+                - option "Lost"
+              - button "Live 15s" [ref=e258] [cursor=pointer]
+            - generic [ref=e273]:
+              - generic [ref=e276]:
+                - heading "Call Intelligence" [level=2] [ref=e280]
+                - generic [ref=e281]: Live
+              - heading "AI Insights" [level=2] [ref=e304]
+    - button "Quick actions" [ref=e315] [cursor=pointer]

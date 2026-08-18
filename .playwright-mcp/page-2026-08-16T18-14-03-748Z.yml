@@ -1,0 +1,90 @@
+- generic [ref=f1e2]:
+  - status [ref=f1e360]: Insights ready.
+  - generic [ref=f1e3]:
+    - complementary [ref=f1e4]:
+      - generic [ref=f1e206]:
+        - button "Expand sidebar" [ref=f1e208] [cursor=pointer]:
+          - img "NexaCRM AI" [ref=f1e209]
+        - navigation [ref=f1e210]:
+          - link "Dashboard" [ref=f1e212] [cursor=pointer]:
+            - /url: /dashboard
+          - link "Leads" [ref=f1e221] [cursor=pointer]:
+            - /url: /leads
+          - link "Pipeline" [ref=f1e230] [cursor=pointer]:
+            - /url: /pipeline
+          - link "Tasks" [ref=f1e235] [cursor=pointer]:
+            - /url: /task-followup
+          - link "Customers" [ref=f1e242] [cursor=pointer]:
+            - /url: /customers
+          - link "9+ Messages" [ref=f1e250] [cursor=pointer]:
+            - /url: /communication
+            - generic [ref=f1e251]: 9+
+            - generic [ref=f1e255]: Messages
+          - link "AI Engine" [ref=f1e257] [cursor=pointer]:
+            - /url: /ai-engine
+          - link "Automation" [ref=f1e263] [cursor=pointer]:
+            - /url: /automation
+          - link "Invoices" [ref=f1e269] [cursor=pointer]:
+            - /url: /invoices
+          - link "Analytics" [ref=f1e276] [cursor=pointer]:
+            - /url: /analytics
+          - link "Team" [ref=f1e282] [cursor=pointer]:
+            - /url: /team
+          - link "Settings" [ref=f1e288] [cursor=pointer]:
+            - /url: /settings
+        - generic [ref=f1e294]: "N"
+    - generic [ref=f1e97]:
+      - banner [ref=f1e98]:
+        - img "NexaCRM AI" [ref=f1e101]
+        - generic [ref=f1e102]:
+          - button "Refresh page" [ref=f1e103] [cursor=pointer]
+          - button "Lead delay alert" [ref=f1e110] [cursor=pointer]
+          - button "Switch to dark theme" [ref=f1e113] [cursor=pointer]
+          - button "Notifications" [ref=f1e117] [cursor=pointer]:
+            - generic [ref=f1e300]: "20"
+          - button "Open user menu" [ref=f1e122] [cursor=pointer]:
+            - generic [ref=f1e123]: "N"
+            - generic [ref=f1e126]: Nisha
+      - main [ref=f1e129]:
+        - generic [ref=f1e130]:
+          - navigation "Breadcrumb" [ref=f1e131]:
+            - link "Home" [ref=f1e133] [cursor=pointer]:
+              - /url: /dashboard
+            - generic [ref=f1e137]: Company admin
+            - generic [ref=f1e141]: AI Engine
+          - generic [ref=f1e145]:
+            - generic [ref=f1e146]:
+              - generic [ref=f1e147]:
+                - heading "AI Engine" [level=1] [ref=f1e148]
+                - paragraph [ref=f1e151]: Backend AI features for CRM intelligence
+              - generic [ref=f1e152]: AI Service Connected
+            - generic [ref=f1e155]:
+              - button "AI Chat" [ref=f1e156] [cursor=pointer]
+              - button "Lead Scoring" [ref=f1e159] [cursor=pointer]
+              - button "Email Writer" [ref=f1e164] [cursor=pointer]
+              - button "Deal Predictor" [ref=f1e168] [cursor=pointer]
+              - button "AI Insights" [ref=f1e172] [cursor=pointer]
+            - generic [ref=f1e342]:
+              - generic [ref=f1e343]:
+                - generic [ref=f1e344]:
+                  - heading "AI Business Insights" [level=3] [ref=f1e345]
+                  - paragraph [ref=f1e346]: Pattern highlights from CRM data
+                - button "Refresh" [ref=f1e361] [cursor=pointer]
+              - generic [ref=f1e362]:
+                - generic [ref=f1e363]:
+                  - paragraph [ref=f1e364]: Customer Churn Risk
+                  - paragraph [ref=f1e365]: Analysis predicts a 68% probability of churn for customers who have not engaged in the last 3 months.
+                  - paragraph [ref=f1e366]: "Action: Trigger win-back campaign for at-risk customers."
+                - generic [ref=f1e367]:
+                  - paragraph [ref=f1e368]: Low Conversion Rate
+                  - paragraph [ref=f1e369]: Conversion rate for leads generated last quarter dropped by 22% compared to the previous period.
+                  - paragraph [ref=f1e370]: "Action: Review lead qualification process and adjust targeting criteria."
+                - generic [ref=f1e371]:
+                  - paragraph [ref=f1e372]: Upsell Potential
+                  - paragraph [ref=f1e373]: Customers who purchased Product A in the last 6 months show a 40% higher likelihood to buy Product B.
+                  - paragraph [ref=f1e374]: "Action: Launch targeted upsell campaign for high-potential customers."
+                - generic [ref=f1e375]:
+                  - paragraph [ref=f1e376]: Seasonal Purchase Pattern
+                  - paragraph [ref=f1e377]: Historical data reveals a 35% increase in purchases during Q4, correlating with holiday seasons.
+                  - paragraph [ref=f1e378]: "Action: Optimize inventory and marketing spend for Q4 peak demand."
+    - button "Quick actions" [ref=f1e204] [cursor=pointer]

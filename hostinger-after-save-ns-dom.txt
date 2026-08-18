@@ -1,0 +1,188 @@
+- banner:
+  - link "hostinger":
+    - /url: /
+    - img "hostinger"
+  - button "Refer & earn up to $360":
+    - text: Refer & earn up to
+    - generic: $360
+  - button "Ask AI":
+    - generic: Ask AI
+  - button:
+  - button:
+  - button "Search":
+  - button "Open menu":
+- navigation:
+  - list:
+    - link "Home Home":
+      - /url: /
+      - button "Home":
+      - generic: Home
+    - list
+    - link "Websites Websites":
+      - /url: /websites
+      - button "Websites":
+      - generic: Websites
+    - list:
+      - link "WordPress":
+        - /url: /websites?websiteType=wordpress
+        - generic: WordPress
+      - link "Horizons":
+        - /url: /websites?websiteType=horizons
+        - generic: Horizons
+      - link "Website Builder":
+        - /url: /websites?websiteType=builder
+        - generic: Website Builder
+      - link "Web Apps":
+        - /url: /websites?websiteType=nodejs
+        - generic: Web Apps
+      - link "PHP/HTML":
+        - /url: /websites?websiteType=other
+        - generic: PHP/HTML
+    - link "Domains Domains":
+      - /url: /domains
+      - button "Domains":
+      - generic: Domains
+    - list:
+      - link "Domain search":
+        - /url: /domains/domain-checker
+        - generic: Domain search
+      - link "Transfers":
+        - /url: /domains/transfers
+        - generic: Transfers
+      - link "DNS":
+        - /url: /domains/dns
+        - generic: DNS
+      - link "Contact profiles":
+        - /url: /domains/contact-profiles
+        - generic: Contact profiles
+    - link "Emails Emails":
+      - /url: /emails
+      - button "Emails":
+      - generic: Emails
+    - list
+    - link "More services More services":
+      - /url: /marketplace
+      - button "More services":
+      - generic: More services
+    - list
+- navigation:
+  - list:
+    - button "Horizons Horizons":
+      - button "Horizons":
+      - generic: Horizons
+    - list
+    - link "Email marketing Email marketing":
+      - /url: /email-marketing
+      - button "Email marketing":
+      - generic: Email marketing
+    - list
+    - link "Ecomm Ecomm":
+      - /url: /ecommerce
+      - button "Ecomm":
+      - generic: Ecomm
+    - list
+- navigation:
+  - list:
+    - button "Agent Agent":
+      - button "Agent":
+      - generic: Agent
+    - list
+    - link "OpenClaw OpenClaw":
+      - /url: /applications/openclaw
+      - button "OpenClaw":
+      - generic: OpenClaw
+    - list
+    - link "Hermes Agent Hermes Agent":
+      - /url: /applications/hermes
+      - button "Hermes Agent":
+      - generic: Hermes Agent
+    - list
+    - link "n8n n8n":
+      - /url: /applications/n8n
+      - button "n8n":
+      - generic: n8n
+    - list
+- navigation:
+  - list:
+    - link "VPS VPS":
+      - /url: /vps
+      - button "VPS":
+      - generic: VPS
+    - list
+    - link "GPU GPU":
+      - /url: /gpu
+      - button "GPU":
+      - generic: GPU
+    - list
+    - link "API API":
+      - /url: /api
+      - button "API":
+      - generic: API
+    - list
+    - link "AI Router (nexos.ai) AI Router (nexos.ai)":
+      - /url: /ai-router
+      - button "AI Router (nexos.ai)":
+      - generic: AI Router (nexos.ai)
+    - list
+- complementary:
+  - generic: Select domain
+  - combobox "Select domain":
+    - generic: nexacrmai.com
+  - navigation:
+    - list:
+      - menuitem "Domain Overview":
+        - generic: Domain Overview
+      - list
+      - menuitem "DNS / Nameservers":
+        - generic: DNS / Nameservers
+      - list
+      - menuitem "Domain Ownership":
+        - generic: Domain Ownership
+      - list
+      - menuitem "Brand protection":
+        - generic: Brand protection
+      - list
+- banner:
+  - navigation "Breadcrumb":
+    - list:
+      - link:
+        - /url: /?amplitudeLocation=breadcrumbs
+      - link "Domain portfolio":
+        - /url: /domains?redirectLocation=breadcrumbs
+        - generic: Domain portfolio
+      - link "nexacrmai.com":
+        - /url: /domain/nexacrmai.com/domain-overview?redirectLocation=breadcrumbs
+        - generic: nexacrmai.com
+      - generic: DNS / Nameservers
+  - heading "DNS / Nameservers" [level=1]
+- main:
+  - list:
+    - generic: DNS records
+    - generic: Child nameservers
+    - generic: Redirects
+    - generic: DNSSEC
+    - generic: DNS history
+    - generic: Subdomains
+    - generic: SSL
+  - region:
+    - paragraph: Nameservers
+    - paragraph: Nameservers handle internet requests for your domain. You can use Hostinger nameservers or use custom nameservers to point to other hosting provider.
+    - paragraph: eoin.ns.cloudflare.com
+    - paragraph: nina.ns.cloudflare.com
+    - button "Change Nameservers":
+      - generic: Change Nameservers
+  - region:
+    - heading "Manage DNS records" [level=3]
+    - paragraph: DNS records control how your domain works. Use DNS records to connect your domain to websites, email services, and other online tools.
+    - 'alert "warning notification: DNS is managed at another provider"':
+      - generic: DNS is managed at another provider
+      - generic: Your domain is registered with Hostinger, but DNS is managed elsewhere. To manage DNS records here, switch your nameservers to Hostinger.
+    - button "Add more records":
+      - generic: Add more records
+- heading "Nameservers changed!" [level=2]
+- paragraph: "Your nameservers has been changed to:"
+- paragraph: eoin.ns.cloudflare.com
+- paragraph: nina.ns.cloudflare.com
+- paragraph: It might take up to 24 hours for the domain to propagate to the new nameservers.
+- button "Close":
+  - generic: Close

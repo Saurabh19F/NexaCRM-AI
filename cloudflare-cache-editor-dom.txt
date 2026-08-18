@@ -1,0 +1,1006 @@
+- complementary:
+  - link:
+    - /url: /
+  - button "Switch Account":
+    - generic "Devloper@kriscel.com's Account"
+  - navigation:
+    - button:
+      - generic: Quick search...
+      - generic: Ctrl K
+    - list:
+      - link:
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/home
+        - generic: Account home
+      - button [expanded]:
+        - generic: Recents
+      - region:
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching
+            - generic: Cache Rules
+            - generic: nexacrmai.com
+            - generic: /
+            - generic: Caching
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls
+            - generic: Overview
+            - generic: nexacrmai.com
+            - generic: /
+            - generic: SSL/TLS
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com
+            - generic: nexacrmai.com
+            - generic: Domains
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+            - generic: Overview
+            - generic: Domains
+          - button:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/work-track-system
+            - generic: work-track-system
+            - generic: R2
+          - button:
+      - button:
+        - generic: Domains
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/registrations
+          - generic: Registrations
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/transfers
+          - generic: Transfers
+      - generic: Observe
+      - list:
+        - button:
+          - generic: Investigate
+        - list:
+          - button:
+            - generic: Log Explorer
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/log-explorer/log-search
+              - generic: Log search
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/trace
+            - generic: Trace
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/logs
+            - generic: Logpush
+        - button:
+          - generic: Analytics
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/dashboards
+            - generic: Dashboards
+            - generic: New
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/analytics
+            - generic: Account analytics
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/web-analytics
+            - generic: Web analytics
+      - generic: Build
+      - list:
+        - button:
+          - generic: Compute
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers-and-pages
+            - generic: Workers & Pages
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/observability
+            - generic: Observability
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers-for-platforms
+            - generic: Workers for Platforms
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/containers
+            - generic: Containers
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/durable-objects
+            - generic: Durable Objects
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/queues
+            - generic: Queues
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/workflows
+            - generic: Workflows
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/browser-run
+            - generic: Browser Run
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/vpc
+            - generic: VPC
+            - generic: Beta
+          - button:
+            - generic: Email Service
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/email-service/sending
+              - generic: Email Sending
+              - generic: Beta
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/email-service/routing
+              - generic: Email Routing
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/plans
+            - generic: Workers plans
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/flagship
+            - generic: Flagship
+            - generic: Beta
+        - button:
+          - generic: AI
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/models
+            - generic: Models
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/workers-ai
+            - generic: Workers AI
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/ai-gateway
+            - generic: AI Gateway
+          - link:
+            - /url: https://dash.cloudflare.com/6bb087ca89fdd73e0b93b22e1cc7e2b6/one/access-controls/ai-controls/mcp-server-portal
+            - generic: MCP Portals
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/vectorize
+            - generic: Vectorize
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ai/ai-search
+            - generic: AI Search
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/agents
+            - generic: Agents
+        - button:
+          - generic: Storage & databases
+        - list:
+          - button:
+            - generic: R2 Object Storage
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/overview
+              - generic: Overview
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/slurper
+              - generic: Data migration
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/data-catalog
+            - generic: R2 Data Catalog
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/hyperdrive
+            - generic: Postgres & MySQL (Hyperdrive)
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/kv/namespaces
+            - generic: Workers KV
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/d1
+            - generic: D1 SQLite Database
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/workers/analytics-engine
+            - generic: Analytics Engine
+          - button:
+            - generic: Pipelines
+            - generic: Beta
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/pipelines/overview
+              - generic: Pipelines
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/secrets-store
+            - generic: Secrets Store
+            - generic: New
+        - button:
+          - generic: Media
+        - list:
+          - button:
+            - generic: Stream
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/stream/plans
+              - generic: Plans
+          - button:
+            - generic: Images
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/images/transformations
+              - generic: Transformations
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/images/hosted
+              - generic: Hosted images
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/images/plans
+              - generic: Plans
+          - button:
+            - generic: Realtime
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/kit
+              - generic: RealtimeKit
+              - generic: Beta
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/turn
+              - generic: TURN Server
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/sfu
+              - generic: Serverless SFU
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/realtime/moq
+              - generic: MoQ Relay
+              - generic: Beta
+      - generic: Protect & connect
+      - list:
+        - button:
+          - generic: Application security
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/security-center
+            - generic: Security insights
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/application-security/waf
+            - generic: WAF
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/application-security/investigate
+            - generic: Investigate
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/security-center/inventory
+            - generic: Infrastructure
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/turnstile
+            - generic: Turnstile
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/zero-trust/landing-page
+          - generic: Zero Trust
+        - button:
+          - generic: Networking
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/magic-networks/overview
+            - generic: Overview
+            - generic: New
+          - button:
+            - generic: Insights
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/networking-insights/analytics/network-analytics/flow-analytics
+              - generic: Network flow
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tunnels
+            - generic: Tunnels
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/mesh
+            - generic: Mesh
+            - generic: Beta
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/magic-networks/routes
+            - generic: Routes
+            - generic: New
+          - button:
+            - generic: IP addresses
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ip-addresses/address-space
+              - generic: Address space
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/ip-addresses/proxy-ips
+              - generic: Address maps
+        - button:
+          - generic: Delivery & performance
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/bulk-redirects
+            - generic: Bulk redirects
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/load-balancing
+            - generic: Load Balancing
+          - button:
+            - generic: Web tag management
+          - list:
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/zaraz
+              - generic: Tag setup
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/consent
+              - generic: Consent
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/history
+              - generic: History
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/monitoring
+              - generic: Monitoring
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/settings
+              - generic: Settings
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/plans
+              - generic: Zaraz plans
+            - link:
+              - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tag-management/google-tag-gateway
+              - generic: Google Tag Gateway
+      - button:
+        - generic: Manage account
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/members
+          - generic: Members
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/billing
+          - generic: Billing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/api-tokens
+          - generic: Account API tokens
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/oauth-clients
+          - generic: OAuth clients
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/audit-log
+          - generic: Audit logs
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/notifications
+          - generic: Notifications
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/shared-configurations
+          - generic: Shared config
+          - generic: Alpha
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/blocked-content
+          - generic: Blocked content
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/abuse-reports
+          - generic: Abuse reports
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/carbon
+          - generic: Carbon Impact Report
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/configurations
+          - generic: Configurations
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tags
+          - generic: Tagged Resources
+          - generic: Beta
+    - button "Quick search...":
+      - generic: Quick search...
+      - generic: Ctrl K
+    - link "Back to Domains":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+      - generic: Back to Domains
+    - list:
+      - link "Overview":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/
+        - generic: Overview
+      - button "Recents" [expanded]:
+        - generic: Recents
+      - region:
+        - list:
+          - link "Cache Rules nexacrmai.com / Caching":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching
+            - generic: Cache Rules
+            - generic: nexacrmai.com
+            - generic: /
+            - generic: Caching
+          - button "Pin":
+          - link "Overview nexacrmai.com / SSL/TLS":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls
+            - generic: Overview
+            - generic: nexacrmai.com
+            - generic: /
+            - generic: SSL/TLS
+          - button "Pin":
+          - link "nexacrmai.com Domains":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com
+            - generic: nexacrmai.com
+            - generic: Domains
+          - button "Pin":
+          - link "Overview Domains":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/domains/overview
+            - generic: Overview
+            - generic: Domains
+          - button "Pin":
+          - link "work-track-system R2":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/r2/default/buckets/work-track-system
+            - generic: work-track-system
+            - generic: R2
+          - button "Pin":
+      - button "AI Crawl Control":
+        - generic: AI Crawl Control
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/metrics
+          - generic: Metrics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/security
+          - generic: Security
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/optimization
+          - generic: Optimization
+          - generic: New
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ai/signals
+          - generic: Signals
+      - button "Agent Readiness":
+        - generic: Agent Readiness
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/diagnostics
+          - generic: Diagnostics
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/ai-playground
+          - generic: AI Playground
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/agent-readiness/webmcp
+          - generic: WebMCP
+          - generic: Beta
+      - button "Investigate":
+        - generic: Investigate
+      - list:
+        - button:
+          - generic: Log Explorer
+        - list:
+          - link:
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/log-explorer/log-search
+            - generic: Log search
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/trace/search
+          - generic: Trace
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/logs
+          - generic: Logpush
+      - button "Analytics":
+        - generic: Analytics
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dashboards
+          - generic: Dashboards
+          - generic: New
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/traffic
+          - generic: HTTP Traffic
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/web/overview
+          - generic: Web analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/performance
+          - generic: Performance
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/analytics/workers
+          - generic: Workers
+      - button "DNS":
+        - generic: DNS
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dns/records
+          - generic: Records
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dns/analytics
+          - generic: Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/dns/settings
+          - generic: Settings
+      - button "Email":
+        - generic: Email
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/email/routing
+          - generic: Email Routing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/email/dmarc-management
+          - generic: DMARC Management
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/email/security
+          - generic: Email Security
+      - button "SSL/TLS":
+        - generic: SSL/TLS
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/edge-certificates
+          - generic: Edge Certificates
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/client-certificates
+          - generic: Client Certificates
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/origin
+          - generic: Origin Server
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/ssl-tls/custom-hostnames
+          - generic: Custom Hostnames
+      - button "Security":
+        - generic: Security
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/analytics
+          - generic: Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/web-assets
+          - generic: Web assets
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/security-rules
+          - generic: Security rules
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/security/settings
+          - generic: Settings
+      - link "Access":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/access
+        - generic: Access
+      - button "Speed":
+        - generic: Speed
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed
+          - generic: Observatory
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/origin-analytics
+          - generic: Origin Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/rum
+          - generic: Real user monitoring
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/test
+          - generic: Synthetic monitoring
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/optimization
+          - generic: Settings
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/speed/smart-shield
+          - generic: Smart Shield
+      - button "Caching" [expanded]:
+        - generic: Caching
+      - region:
+        - list:
+          - link "Overview":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching
+            - generic: Overview
+          - link "Configuration":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/configuration
+            - generic: Configuration
+          - link "Cache Rules":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/cache-rules
+            - generic: Cache Rules
+          - link "Tiered Cache":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/tiered-cache
+            - generic: Tiered Cache
+          - link "Cache Reserve":
+            - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/cache-reserve
+            - generic: Cache Reserve
+      - link "Workers Routes":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/workers
+        - generic: Workers Routes
+      - button "Rules":
+        - generic: Rules
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/overview
+          - generic: Overview
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/snippets
+          - generic: Snippets
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/cloud-connector
+          - generic: Cloud Connector
+          - generic: Beta
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/page-rules
+          - generic: Page Rules
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/rules/settings
+          - generic: Settings
+      - link "Error Pages New":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/error-pages
+        - generic: Error Pages
+        - generic: New
+      - link "Network":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/network
+        - generic: Network
+      - button "Traffic":
+        - generic: Traffic
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic
+          - generic: Argo Smart Routing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/load-balancing
+          - generic: Load Balancing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/load-balancing-analytics
+          - generic: Load Balancing Analytics
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/health-checks
+          - generic: Health Checks
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/traffic/waiting-rooms
+          - generic: Waiting Room
+      - link "Web3":
+        - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/web3
+        - generic: Web3
+      - button "Manage account":
+        - generic: Manage account
+      - list:
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/members
+          - generic: Members
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/billing
+          - generic: Billing
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/api-tokens
+          - generic: Account API tokens
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/audit-log
+          - generic: Audit logs
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/notifications
+          - generic: Notifications
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/shared-configurations
+          - generic: Shared config
+          - generic: Alpha
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/blocked-content
+          - generic: Blocked content
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/abuse-reports
+          - generic: Abuse reports
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/carbon
+          - generic: Carbon Impact Report
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/configurations
+          - generic: Configurations
+        - link:
+          - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/tags
+          - generic: Tagged Resources
+          - generic: Beta
+  - button "Collapse sidebar" [expanded]:
+- banner:
+  - button "Star domain":
+  - paragraph: nexacrmai.com
+  - button "free":
+    - generic: free
+  - navigation "breadcrumb":
+    - link "Cache Rules":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules
+      - generic: Cache Rules
+    - generic: New Cache Rule
+  - button "Ask AI":
+    - generic: Ask AI
+  - link "Support":
+    - /url: /?to=/:account/support
+    - generic: Support
+  - button "User menu":
+- main:
+  - heading "New Cache Rule View documentation" [level=1]:
+    - text: New Cache Rule
+    - link "View documentation":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/
+  - paragraph:
+    - paragraph: Specify which resources should be cached and for how long.
+  - generic "Rules Template card":
+    - heading "Cache everything" [level=3]
+    - paragraph:
+      - paragraph: Adjust the cache level for all requests.
+    - link "Create from template":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules/cache/new?template=cache-everything
+      - generic: Create from template
+    - link "Cache Rules":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules/cache
+      - generic: Cache Rules
+    - button "Open documentation":
+      - button "Open documentation":
+  - generic "Rules Template card":
+    - heading "Bypass cache for everything" [level=3]
+    - paragraph:
+      - paragraph: Bypass cache for all requests
+    - link "Create from template":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules/cache/new?template=bypass-cache-everything
+      - generic: Create from template
+    - link "Cache Rules":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules/cache
+      - generic: Cache Rules
+    - button "Open documentation":
+      - button "Open documentation":
+  - generic "Rules Template card":
+    - heading "Cache default file extensions" [level=3]
+    - paragraph:
+      - paragraph: Replicate Page Rules caching behaviour by making only default extensions eligible for cache.
+    - link "Create from template":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules/cache/new?template=cache-file-extensions
+      - generic: Create from template
+    - link "Cache Rules":
+      - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules/cache
+      - generic: Cache Rules
+    - button "Open documentation":
+      - button "Open documentation":
+  - generic: Rule name (required)
+  - textbox "Rule name (required)"
+  - generic: Give your rule a descriptive name.
+  - generic: If incoming requests match…
+  - radio "Custom filter expression Only apply the rule to requests matching the custom filter expression" [checked]
+  - paragraph: Custom filter expression
+  - paragraph: Only apply the rule to requests matching the custom filter expression
+  - radio "All incoming requests Apply the rule to all requests"
+  - paragraph: All incoming requests
+  - paragraph: Apply the rule to all requests
+  - generic: When incoming requests match…
+  - generic: Field
+  - generic: URI Full
+  - combobox "Field"
+  - generic: Operator
+  - generic: wildcard
+  - combobox "Operator"
+  - generic: Value
+  - textbox "Value"
+  - generic: e.g. https://*.example.com/files/*
+  - button "And"
+  - button "Or"
+  - generic: Expression Preview
+  - button "Edit expression":
+    - generic: Edit expression
+  - generic: (http.request.full_uri wildcard r"")
+  - generic: 36 / 4000 characters
+  - generic: Then...
+  - heading "Cache eligibility" [level=1]
+  - paragraph: (Required)
+  - paragraph:
+    - text: Mark whether the request’s response from origin is eligible for caching. Caching itself will still depend on the cache-control header and your other caching configurations.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#cache-eligibility
+      - generic: Learn more
+  - group "Cache eligibility (Required)":
+    - radio "Bypass cache"
+    - generic: Bypass cache
+    - radio "Eligible for cache" [checked]
+    - generic: Eligible for cache
+  - heading "Edge TTL" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Specify if and how long Cloudflare should cache the response, depending on if a cache-control header is present on the origin response. If you need to modify your origin’s cache-control directives, create a cache response transform rule. Learn more about
+    - link "cache rules":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/
+      - generic: cache rules
+    - text: or
+    - link "cache response transforms":
+      - /url: https://developers.cloudflare.com/rules/transform/response-header-modification/
+      - generic: cache response transforms
+  - group "Edge TTL (Optional)":
+    - radio "Use cache-control header if present, bypass cache if not"
+    - generic: Use cache-control header if present, bypass cache if not
+    - radio "Use cache-control header if present, cache request with Cloudflare's default TTL for the response status if not"
+    - generic: Use cache-control header if present, cache request with Cloudflare's default TTL for the response status if not
+    - radio "Ignore cache-control header and use this TTL"
+    - generic: Ignore cache-control header and use this TTL
+  - generic: Input time-to-live (TTL)
+  - combobox:
+    - textbox "Input time-to-live (TTL)" [disabled]:
+      - /placeholder: Select or add a duration in seconds
+    - button [disabled]
+  - heading "Status code TTL" [level=1]:
+    - paragraph: Status code TTL
+  - generic: Specify how long Cloudflare should cache the response based on the status code from the origin.
+  - button "Add status code setting":
+    - generic: Add status code setting
+  - heading "Browser TTL" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Specify how long client browsers should cache the response. Cloudflare cache purge will not purge content cached on client browsers, so high browser TTLs may lead to stale content.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#browser-ttl
+      - generic: Learn more
+  - group "Browser TTL (Optional)":
+    - radio "Bypass cache"
+    - generic: Bypass cache
+    - radio "Respect origin TTL"
+    - generic: Respect origin TTL
+    - radio "Override origin and use this TTL"
+    - generic: Override origin and use this TTL
+  - generic: Input time-to-live (TTL)
+  - combobox:
+    - textbox "Input time-to-live (TTL)" [disabled]:
+      - /placeholder: Select or add a duration in seconds
+    - button [disabled]
+  - heading "Cache key" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Define which components of the request are included or excluded from the cache key Cloudflare uses to store the response in cache.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#cache-key
+      - generic: Learn more
+  - heading "Cache deception armor" [level=1]
+  - paragraph: Protect from web cache deception attacks while allowing static assets to be cached
+  - checkbox "Cache deception armor Protect from web cache deception attacks while allowing static assets to be cached"
+  - generic: Changing the below settings will modify the cache key, effectively purging cache for matching URLs
+  - heading "Cache by device type" [level=1]
+  - paragraph: Separate cached content based on the visitor’s device type
+  - checkbox "Cache by device type Separate cached content based on the visitor’s device type"
+  - heading "Ignore query string" [level=1]
+  - paragraph: Deliver the same resource to everyone independent of the query string
+  - checkbox "Ignore query string Deliver the same resource to everyone independent of the query string"
+  - heading "Sort query string" [level=1]
+  - paragraph: Treat requests with the same query parameters the same, regardless of the order those query parameters are in.
+  - checkbox "Sort query string Treat requests with the same query parameters the same, regardless of the order those query parameters are in."
+  - 'button "Query string (optional) All query string parameters All query string parameters except: Enter a parameter value No query parameters except: Enter a parameter value Ignore query string"':
+    - paragraph:
+      - strong: Query string
+      - text: (optional)
+    - radio "All query string parameters"
+    - generic: All query string parameters
+    - radio "All query string parameters except:"
+    - generic: "All query string parameters except:"
+    - generic: Enter a parameter value
+    - radio "No query parameters except:"
+    - generic: "No query parameters except:"
+    - generic: Enter a parameter value
+    - radio "Ignore query string"
+    - generic: Ignore query string
+  - button "Headers (optional) Define which headers will go into the Cache Key. Learn more. Include headers and selected values Match on all values in header, include only matched values in the cache key. For restricted headers you need to include from 1 to 10 values. Leave blank for all values Bypass cache Add header Check presence of Enter header names Eligible for cache Include origin header":
+    - paragraph:
+      - strong: Headers
+      - text: (optional)
+    - text: Define which headers will go into the Cache Key.
+    - link "Learn more.":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-keys/#headers
+      - generic: Learn more.
+    - generic: Include headers and selected values
+    - text: Match on all values in header, include only matched values in the cache key. For
+    - link "restricted":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-keys/#headers:~:text=accept,user%2Dagent
+      - generic: restricted
+    - text: headers you need to include from 1 to 10 values.
+    - textbox "custom-header"
+    - generic: Leave blank for all values
+    - combobox "Bypass cache"
+    - button:
+    - button "Add header":
+      - generic: Add header
+    - generic: Check presence of
+    - generic: Enter header names
+    - combobox "Eligible for cache"
+    - checkbox "Include origin header" [checked]
+    - generic: Include origin header
+  - button "Cookie (optional) Include these cookie names and their values Enter cookie names Bypass cache Check presence of Enter cookie names Respect origin TTL":
+    - paragraph:
+      - strong: Cookie
+      - text: (optional)
+    - generic: Include these cookie names and their values
+    - generic: Enter cookie names
+    - combobox "Bypass cache"
+    - generic: Check presence of
+    - generic: Enter cookie names
+    - combobox "Respect origin TTL"
+  - button "Host (optional) User (optional) Device type Country Language":
+    - paragraph:
+      - strong: Host
+      - text: (optional)
+    - group "Host (optional)":
+      - radio "Use original host"
+      - generic: Use original host
+      - radio "Resolved host"
+      - generic: Resolved host
+    - paragraph:
+      - strong: User
+      - text: (optional)
+    - checkbox "Device type"
+    - generic: Device type
+    - checkbox "Country"
+    - generic: Country
+    - checkbox "Language"
+    - generic: Language
+  - heading "Vary" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Determine how Cloudflare segments responses based on the Vary header.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#vary
+      - generic: Learn more
+  - radio "Normalize values(Recommended)" [checked]
+  - generic: Normalize values(Recommended)
+  - generic: Normalize values for each request header listed in the response's Vary header before determining the variance key. Recommended to maximize cache hits.
+  - radio "Use raw header values"
+  - generic: Use raw header values
+  - generic: Values of the request headers listed in the response's Vary header are used without modification when determining the variance key.
+  - radio "Bypass caching"
+  - generic: Bypass caching
+  - generic: Skip caching when the request has a header listed in the response's Vary header, but does not have a specific configuration (below).
+  - heading "Per header configuration" [level=1]
+  - generic: Determine whether we normalize, use raw value, or bypass cache for specific request headers.
+  - paragraph: No specific request headers configured. The default behavior applies to every request header listed in the Vary response header.
+  - button "Add request header":
+    - generic: Add request header
+  - heading "Serve stale content while revalidating" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Define if Cloudflare should serve stale content while getting the latest content from the origin.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#serve-stale-content-while-revalidating
+      - generic: Learn more
+  - heading "Do not serve stale content while updating" [level=1]
+  - paragraph:
+    - generic: If on, Cloudflare will not serve stale content while getting the latest content from the origin.
+  - checkbox "Do not serve stale content while updating If on, Cloudflare will not serve stale content while getting the latest content from the origin."
+  - heading "Respect strong ETags" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Specify whether or not Cloudflare should respect strong ETag (entity tag) headers.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#respect-strong-etags
+      - generic: Learn more
+  - heading "Use strong ETag headers" [level=1]
+  - paragraph: When off, Cloudflare converts strong ETag headers to weak ETag headers.
+  - checkbox "Use strong ETag headers When off, Cloudflare converts strong ETag headers to weak ETag headers."
+  - heading "Origin error page pass-through" [level=1]
+  - paragraph: (Optional)
+  - button "Add setting":
+    - generic: Add setting
+  - paragraph:
+    - text: Define if Cloudflare should use error pages issued by the origin server in case of HTTP error status codes.
+    - link "Learn more":
+      - /url: https://developers.cloudflare.com/cache/how-to/cache-rules/settings/#origin-error-page-pass-through
+      - generic: Learn more
+  - heading "Use Origin error page pass-thru" [level=1]
+  - paragraph: When enabled, HTTP error pages will be issued from the origin server instead of Cloudflare.
+  - checkbox "Use Origin error page pass-thru When enabled, HTTP error pages will be issued from the origin server instead of Cloudflare."
+  - link "Cancel":
+    - /url: /6bb087ca89fdd73e0b93b22e1cc7e2b6/nexacrmai.com/caching/rules
+    - generic: Cancel
+  - button "Save as Draft":
+    - generic: Save as Draft
+  - button "Deploy":
+    - generic: Deploy
+- contentinfo:
+  - list:
+    - link "Support":
+      - /url: https://support.cloudflare.com
+    - link "System status":
+      - /url: https://www.cloudflarestatus.com
+    - link "Careers":
+      - /url: https://www.cloudflare.com/careers/
+    - link "Terms of Use":
+      - /url: https://www.cloudflare.com/website-terms/
+    - link "Report Security Issues":
+      - /url: https://www.cloudflare.com/disclosure/
+    - link "Privacy Policy":
+      - /url: https://www.cloudflare.com/privacypolicy/
+    - button "A blue and white pill with a checkmark and an x, representing privacy choices Cookie Preferences":
+      - img "A blue and white pill with a checkmark and an x, representing privacy choices"
+      - text: Cookie Preferences
+    - generic: © 2026 Cloudflare, Inc.
+- region "Notifications"
+- status

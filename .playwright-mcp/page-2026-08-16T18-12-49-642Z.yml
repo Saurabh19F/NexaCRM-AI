@@ -1,0 +1,76 @@
+- generic [ref=f1e3]:
+  - complementary [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - button "Expand sidebar" [ref=f1e7] [cursor=pointer]:
+        - img "NexaCRM AI" [ref=f1e8]
+      - navigation [ref=f1e9]:
+        - link "Dashboard" [ref=f1e11] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Leads" [ref=f1e20] [cursor=pointer]:
+          - /url: /leads
+        - link "Pipeline" [ref=f1e29] [cursor=pointer]:
+          - /url: /pipeline
+        - link "Tasks" [ref=f1e34] [cursor=pointer]:
+          - /url: /task-followup
+        - link "Customers" [ref=f1e41] [cursor=pointer]:
+          - /url: /customers
+        - link "Messages" [ref=f1e49] [cursor=pointer]:
+          - /url: /communication
+        - link "AI Engine" [ref=f1e55] [cursor=pointer]:
+          - /url: /ai-engine
+        - link "Automation" [ref=f1e61] [cursor=pointer]:
+          - /url: /automation
+        - link "Invoices" [ref=f1e67] [cursor=pointer]:
+          - /url: /invoices
+        - link "Analytics" [ref=f1e74] [cursor=pointer]:
+          - /url: /analytics
+        - link "Team" [ref=f1e80] [cursor=pointer]:
+          - /url: /team
+        - link "Settings" [ref=f1e86] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f1e92]: "N"
+  - generic [ref=f1e97]:
+    - banner [ref=f1e98]:
+      - img "NexaCRM AI" [ref=f1e101]
+      - generic [ref=f1e102]:
+        - button "Refresh page" [ref=f1e103] [cursor=pointer]
+        - button "Lead delay alert" [ref=f1e110] [cursor=pointer]
+        - button "Switch to dark theme" [ref=f1e113] [cursor=pointer]
+        - button "Notifications" [ref=f1e117] [cursor=pointer]
+        - button "Open user menu" [ref=f1e122] [cursor=pointer]:
+          - generic [ref=f1e123]: "N"
+          - generic [ref=f1e126]: Nisha
+    - main [ref=f1e129]:
+      - generic [ref=f1e130]:
+        - navigation "Breadcrumb" [ref=f1e131]:
+          - link "Home" [ref=f1e133] [cursor=pointer]:
+            - /url: /dashboard
+          - generic [ref=f1e137]: Company admin
+          - generic [ref=f1e141]: AI Engine
+        - generic [ref=f1e145]:
+          - generic [ref=f1e146]:
+            - generic [ref=f1e147]:
+              - heading "AI Engine" [level=1] [ref=f1e148]
+              - paragraph [ref=f1e151]: Backend AI features for CRM intelligence
+            - generic [ref=f1e152]: AI Service Connected
+          - generic [ref=f1e155]:
+            - button "AI Chat" [ref=f1e156] [cursor=pointer]
+            - button "Lead Scoring" [ref=f1e159] [cursor=pointer]
+            - button "Email Writer" [ref=f1e164] [cursor=pointer]
+            - button "Deal Predictor" [ref=f1e168] [cursor=pointer]
+            - button "AI Insights" [ref=f1e172] [cursor=pointer]
+          - generic [ref=f1e177]:
+            - generic [ref=f1e184]:
+              - generic [ref=f1e185]: Hi, I'm NexaAI. Ask me anything about your CRM and pipeline.
+              - button [ref=f1e186] [cursor=pointer]
+            - generic [ref=f1e190]:
+              - button "Which leads should I prioritize today?" [ref=f1e191] [cursor=pointer]
+              - button "Write a follow-up email for my hottest lead" [ref=f1e192] [cursor=pointer]
+              - button "What's blocking my pipeline?" [ref=f1e193] [cursor=pointer]
+              - button "Give me 3 tips to close more deals this week" [ref=f1e194] [cursor=pointer]
+            - generic [ref=f1e195]:
+              - generic [ref=f1e196]:
+                - textbox "Ask NexaAI anything..." [ref=f1e197]
+                - button [disabled] [ref=f1e198]
+              - paragraph [ref=f1e202]: Powered by backend AI service
+  - button "Quick actions" [ref=f1e204] [cursor=pointer]

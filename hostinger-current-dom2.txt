@@ -1,0 +1,191 @@
+- banner:
+  - link "hostinger":
+    - /url: /
+    - img "hostinger"
+  - button "Refer & earn up to $360":
+    - text: Refer & earn up to
+    - generic: $360
+  - button "Ask AI":
+    - generic: Ask AI
+  - button:
+  - button:
+  - button "Search":
+  - button "Open menu":
+- navigation:
+  - list:
+    - menuitem "Home":
+      - generic: Home
+    - list
+    - menuitem "Websites":
+      - generic: Websites
+    - list:
+      - menuitem "WordPress":
+        - generic: WordPress
+      - menuitem "Horizons":
+        - generic: Horizons
+      - menuitem "Website Builder":
+        - generic: Website Builder
+      - menuitem "Web Apps":
+        - generic: Web Apps
+      - menuitem "PHP/HTML":
+        - generic: PHP/HTML
+    - menuitem "Domains":
+      - generic: Domains
+    - list:
+      - menuitem "Domain search":
+        - generic: Domain search
+      - menuitem "Transfers":
+        - generic: Transfers
+      - menuitem "DNS":
+        - generic: DNS
+      - menuitem "Contact profiles":
+        - generic: Contact profiles
+    - menuitem "Emails":
+      - generic: Emails
+    - list
+    - menuitem "More services":
+      - generic: More services
+    - list
+- button "Hostinger apps" [expanded]:
+  - generic: Hostinger apps
+- navigation:
+  - list:
+    - menuitem "Horizons Add to favorites":
+      - generic: Horizons
+      - button "Add to favorites":
+    - list
+    - menuitem "Email marketing Add to favorites":
+      - generic: Email marketing
+      - button "Add to favorites":
+    - list
+    - menuitem "Ecommerce Add to favorites":
+      - generic: Ecommerce
+      - button "Add to favorites":
+    - list
+- button "AI agents" [expanded]:
+  - generic: AI agents
+- navigation:
+  - list:
+    - menuitem "Agent Add to favorites":
+      - generic: Agent
+      - button "Add to favorites":
+    - list
+    - menuitem "OpenClaw Add to favorites":
+      - generic: OpenClaw
+      - button "Add to favorites":
+    - list
+    - menuitem "Hermes Agent Add to favorites":
+      - generic: Hermes Agent
+      - button "Add to favorites":
+    - list
+    - menuitem "n8n Add to favorites":
+      - generic: n8n
+      - button "Add to favorites":
+    - list
+- button "Dev tools" [expanded]:
+  - generic: Dev tools
+- navigation:
+  - list:
+    - menuitem "VPS Add to favorites":
+      - generic: VPS
+      - button "Add to favorites":
+    - list
+    - menuitem "GPU Beta Add to favorites":
+      - generic: GPU
+      - generic: Beta
+      - button "Add to favorites":
+    - list
+    - menuitem "API Add to favorites":
+      - generic: API
+      - button "Add to favorites":
+    - list
+    - menuitem "AI Router (nexos.ai) Add to favorites":
+      - generic: AI Router (nexos.ai)
+      - button "Add to favorites":
+    - list
+- heading "Hi, Sunny! How can I help you today?" [level=1]
+- textbox "Type what you’re looking for or ask a question"
+- button "Send" [disabled]:
+- status
+- button "Get domain":
+  - generic: Get domain
+- button "Create website":
+  - generic: Create website
+- button "Get email":
+  - generic: Get email
+- button "Try vibe coding":
+  - generic: Try vibe coding
+- button "Migrate site":
+  - generic: Migrate site
+- button "Get VPS":
+  - generic: Get VPS
+- button "Try email marketing":
+  - generic: Try email marketing
+- img "Get your website live – in minutes"
+- heading "Get your website live – in minutes" [level=3]
+- paragraph: Just describe your idea and let AI build your site. From portfolios and online stores to business sites and more – get yours online today.
+- button "Try AI Builder":
+  - generic: Try AI Builder
+- img "Grow your business with AI agents"
+- heading "Grow your business with AI agents" [level=3]
+- paragraph: From strategy and SEO to marketing and sales, just say what you need and let AI agents get to work.
+- button "Get started":
+  - generic: Get started
+- img "Join our Discord community"
+- heading "Join our Discord community" [level=3]
+- paragraph: Connect, collaborate, and celebrate with fellow creators.
+- button "Join Discord":
+  - generic: Join Discord
+- img "Claim your free email marketing plan"
+- heading "Claim your free email marketing plan" [level=3]
+- paragraph: Send marketing campaigns and newsletters free for one year. See what's included.
+- button "Get started":
+  - generic: Get started
+- img "Launch an AI automation app to handle your busywork"
+- heading "Launch an AI automation app to handle your busywork" [level=3]
+- paragraph: Works right inside your chat apps and inbox. Tell it what you need in plain language, and it gets to work – no setup required.
+- button "Get started":
+  - generic: Get started
+- img "Save 10% on hosting"
+- heading "Save 10% on hosting" [level=3]
+- paragraph:
+  - text: Build your site and save with code
+  - strong: BUILDSITE10
+  - text: on 12-month+ plans.
+- button "Claim the deal":
+  - generic: Claim the deal
+- img "Build your online store with AI"
+- heading "Build your online store with AI" [level=3]
+- paragraph: Sell on your site, social media, and more. Manage products, orders, and sales – all from one place.
+- button "Get started":
+  - generic: Get started
+- heading "Your to-dos" [level=2]
+- generic: "1"
+- region:
+  - generic: Claim your free email marketing plan
+  - generic: Send marketing campaigns and newsletters free for one year. See what's included.
+  - button "Get started":
+    - generic: Get started
+  - button "Close nudge":
+- heading "Your business" [level=2]
+- generic: .com
+- text: nexacrmai.com
+- generic: Domain
+- button "Manage domain":
+  - generic: Manage domain
+- button "Set up email" [pressed]:
+  - generic: Set up email
+- button "Create a website" [pressed]:
+  - generic: Create a website
+- button "Add email marketing" [pressed]:
+  - generic: Add email marketing
+- text: automationbysj.site
+- generic: Domain
+- button "Manage domain":
+  - generic: Manage domain
+- button "Set up email" [pressed]:
+  - generic: Set up email
+- button "Create a website" [pressed]:
+  - generic: Create a website
+- button "Add email marketing" [pressed]:
+  - generic: Add email marketing

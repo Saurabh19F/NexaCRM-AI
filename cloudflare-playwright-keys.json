@@ -1,0 +1,13 @@
+{
+  "playwright": [],
+  "tab": [
+    "id",
+    "playwright",
+    "dom_cua",
+    "cua",
+    "content",
+    "clipboard",
+    "dev",
+    "capabilities"
+  ]
+}
