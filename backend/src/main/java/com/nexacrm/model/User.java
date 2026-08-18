@@ -50,7 +50,7 @@ public class User extends BaseEntity implements UserDetails {
 
     // Platform Admin permissions — platform-level operations only, not company CRM data
     private static final List<String> PLATFORM_ADMIN_PERMISSIONS = List.of(
-        "profile.update", "notifications.read", "settings.view"
+        "profile.update", "notifications.read"
     );
 
     static {

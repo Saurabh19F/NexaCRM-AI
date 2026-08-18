@@ -24,6 +24,7 @@ public class SubscriptionController {
     // ── Company-level: own subscription ─────────────────────────────
 
     @GetMapping("/api/subscription/current")
+    @PreAuthorize("!hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Get current company subscription")
     public ResponseEntity<SubscriptionDTO> getCurrentSubscription() {
         return ResponseEntity.ok(subscriptionService.getCurrentSubscription());
