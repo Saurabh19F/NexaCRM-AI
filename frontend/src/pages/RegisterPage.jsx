@@ -36,7 +36,7 @@ const highlights = [
 
 export default function RegisterPage() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-50 px-4 py-4 text-slate-900 font-sans antialiased sm:px-6">
+    <main className="relative flex h-screen items-center justify-center overflow-hidden bg-brand-50 px-4 py-0 text-slate-900 font-sans antialiased sm:px-6">
       {/* Aurora background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="reactbits-aurora absolute inset-0 opacity-50" />
@@ -48,10 +48,10 @@ export default function RegisterPage() {
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:h-[560px] md:grid-cols-[1.05fr_0.95fr]"
+        className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:max-h-[min(520px,90vh)] md:grid-cols-[1.05fr_0.95fr]"
       >
         {/* Left — branding & highlights */}
-        <div className="relative flex flex-col justify-center overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-accent-500 p-8 text-white sm:p-10">
+        <div className="relative hidden flex-col justify-center overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-accent-500 p-6 text-white sm:p-8 md:flex">
           <motion.div
             initial={{ scaleX: 1 }}
             animate={{ scaleX: 0 }}
@@ -66,25 +66,25 @@ export default function RegisterPage() {
 
           <div className="relative z-20">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }}>
-              <Link to="/" className="inline-flex items-center gap-2 mb-8">
+              <Link to="/" className="inline-flex items-center gap-2 mb-5">
                 <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-9 w-9 object-contain brightness-0 invert" />
                 <span className="text-lg font-bold tracking-tight">NexaCRM AI</span>
               </Link>
             </motion.div>
 
             <motion.h2 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.5 }}
-              className="text-2xl font-bold leading-tight sm:text-3xl">
+              className="text-xl font-bold leading-tight sm:text-2xl">
               The smarter way to manage your sales pipeline
             </motion.h2>
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8, duration: 0.5 }}
-              className="mt-8 space-y-4">
+              className="mt-5 space-y-3">
               {highlights.map(({ icon: Icon, text }, i) => (
                 <motion.div key={text} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.9 + i * 0.1 }}
                   className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur">
-                    <Icon size={16} />
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur">
+                    <Icon size={14} />
                   </span>
                   <span className="text-sm font-medium text-white/90">{text}</span>
                 </motion.div>
@@ -92,14 +92,14 @@ export default function RegisterPage() {
             </motion.div>
 
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}
-              className="mt-8 text-xs text-white/60">
+              className="mt-5 text-xs text-white/60">
               Trusted by 300K+ businesses worldwide
             </motion.p>
           </div>
         </div>
 
         {/* Right — request access */}
-        <div className="flex min-h-[420px] flex-col justify-center px-7 py-8 sm:px-10 md:min-h-0 lg:px-14">
+        <div className="flex flex-col justify-center px-7 py-6 sm:px-10 lg:px-12">
           <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-600">
               <ShieldAlert className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export default function RegisterPage() {
           </motion.div>
 
           <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }}
-            className="mt-5 text-3xl font-bold tracking-tight text-slate-900">
+            className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
             Request Access
           </motion.h1>
 
@@ -118,9 +118,9 @@ export default function RegisterPage() {
           </motion.p>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}
-            className="mt-7 rounded-2xl border border-brand-100 bg-brand-50/50 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600 mb-4">What to do next</p>
-            <div className="space-y-3">
+            className="mt-5 rounded-2xl border border-brand-100 bg-brand-50/50 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600 mb-3">What to do next</p>
+            <div className="space-y-2.5">
               {[
                 'Ask your workspace admin to invite your email address.',
                 'Use the login screen once your account is provisioned.',
@@ -137,7 +137,7 @@ export default function RegisterPage() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}
-            className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link to="/login"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand-500 px-6 text-sm font-bold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5 hover:bg-brand-600">
               <ArrowLeft size={15} />

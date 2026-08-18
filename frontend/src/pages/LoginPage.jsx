@@ -102,7 +102,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-50 px-4 py-4 text-slate-900 font-sans antialiased sm:px-6">
+    <main className="relative flex h-screen items-center justify-center overflow-hidden bg-brand-50 px-4 py-0 text-slate-900 font-sans antialiased sm:px-6">
       {/* Animated aurora background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="reactbits-aurora absolute inset-0 opacity-50" />
@@ -114,10 +114,10 @@ export default function LoginPage() {
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:h-[560px] md:grid-cols-[1.05fr_0.95fr]"
+        className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:max-h-[min(520px,90vh)] md:grid-cols-[1.05fr_0.95fr]"
       >
         {/* Left — illustration with image reveal */}
-        <div className="relative h-[260px] overflow-hidden bg-brand-50 md:h-full flex items-center justify-center">
+        <div className="relative hidden overflow-hidden bg-brand-50 md:flex md:h-full items-center justify-center">
           <motion.div
             initial={{ scaleX: 1 }}
             animate={{ scaleX: 0 }}
@@ -145,7 +145,7 @@ export default function LoginPage() {
         </div>
 
         {/* Right — form */}
-        <div className="flex min-h-[420px] flex-col justify-center px-7 py-8 sm:px-10 md:min-h-0 lg:px-14">
+        <div className="flex flex-col justify-center px-7 py-6 sm:px-10 lg:px-12">
           <motion.div
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
@@ -153,7 +153,7 @@ export default function LoginPage() {
           >
             <Link
               to="/"
-              className="mb-7 inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-900 transition hover:text-brand-600"
+              className="mb-5 inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-900 transition hover:text-brand-600"
               aria-label="Go to NexaCRM AI home"
             >
               <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-8 w-8 object-contain" />
@@ -166,7 +166,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
-              className="text-3xl font-bold tracking-tight text-slate-900"
+              className="text-2xl font-bold tracking-tight text-slate-900"
             >
               Welcome back
             </motion.h1>
@@ -184,7 +184,7 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.7 }}
-              className="mt-7 space-y-4"
+              className="mt-5 space-y-3.5"
             >
               {/* Email */}
               <label className="block">
@@ -197,7 +197,7 @@ export default function LoginPage() {
                     borderColor: 'rgba(226,232,240,1)',
                     boxShadow: '0 0 0 0 transparent',
                   }}
-                  className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition"
+                  className="flex h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition"
                 >
                   <Mail size={17} className={focusedField === 'email' ? 'text-brand-500' : ''} />
                   <input
@@ -225,7 +225,7 @@ export default function LoginPage() {
                     borderColor: 'rgba(226,232,240,1)',
                     boxShadow: '0 0 0 0 transparent',
                   }}
-                  className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition"
+                  className="flex h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition"
                 >
                   <Lock size={17} className={focusedField === 'password' ? 'text-brand-500' : ''} />
                   <input
@@ -274,7 +274,7 @@ export default function LoginPage() {
               <MagneticSubmit
                 type="submit"
                 disabled={loading}
-                className="h-12 w-full rounded-xl bg-brand-500 text-sm font-bold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5 hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 disabled:opacity-70 disabled:hover:translate-y-0"
+                className="h-11 w-full rounded-xl bg-brand-500 text-sm font-bold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5 hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 <AnimatePresence mode="wait">
                   {loading ? (
@@ -308,7 +308,7 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.9 }}
-              className="mt-6 space-y-1.5 text-center text-xs text-slate-500"
+              className="mt-4 space-y-1 text-center text-xs text-slate-500"
             >
               <p>
                 Need access?{' '}
