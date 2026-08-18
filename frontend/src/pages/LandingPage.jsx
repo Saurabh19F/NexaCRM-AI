@@ -803,9 +803,9 @@ export default function LandingPage() {
         {/* ═══ HERO ═══ */}
         <section className="relative overflow-hidden px-5 pt-5 sm:px-8 lg:px-16">
           <div className="absolute inset-x-0 top-0 h-[750px] overflow-hidden">
-            <div className="reactbits-aurora absolute inset-0" />
-            <div className="reactbits-aurora__band reactbits-aurora__band--one absolute inset-0" />
-            <div className="reactbits-aurora__band reactbits-aurora__band--two absolute inset-0" />
+            <img src="/hero-clouds.png" alt="" aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover object-center" />
+            <div className="absolute inset-0 bg-white/30" />
             <FloatingParticles count={28} />
             <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-white to-transparent" />
           </div>
