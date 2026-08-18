@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class TenantAdminService {
     private final WorkflowRepository workflowRepository;
     private final IntegrationConfigRepository integrationConfigRepository;
     private final AuditLogRepository auditLogRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // ── Tenants ─────────────────────────────────────────────────
 
@@ -243,6 +245,82 @@ public class TenantAdminService {
             Map.of("email", user.getEmail(), "isActive", active));
 
         return Map.of("id", userId, "isActive", active, "success", true);
+    }
+
+    /**
+     * Platform Admin: create a user for any company.
+     * Cannot create PLATFORM_ADMIN accounts — those are managed at the database level.
+     */
+    public Map<String, Object> createUser(Map<String, Object> body) {
+        String email = string(body.get("email"), "").toLowerCase().trim();
+        if (email.isBlank()) {
+            throw new IllegalArgumentException("Email is required.");
+        }
+
+        final Long tenantId;
+        Object tenantIdRaw = body.get("tenantId");
+        if (tenantIdRaw instanceof Number n) {
+            tenantId = n.longValue();
+        } else if (tenantIdRaw != null) {
+            try { tenantId = Long.parseLong(String.valueOf(tenantIdRaw)); } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid tenantId format.");
+            }
+        } else {
+            throw new IllegalArgumentException("tenantId is required.");
+        }
+
+        // Verify tenant exists
+        Tenant tenant = tenantRepository.findByTenantIdAndDeletedFalse(tenantId)
+            .orElseThrow(() -> new IllegalArgumentException("Company with tenantId " + tenantId + " not found."));
+
+        // Don't allow creating PLATFORM_ADMIN via this endpoint
+        String roleName = string(body.get("role"), "SALES_EXEC");
+        if ("PLATFORM_ADMIN".equals(roleName)) {
+            throw new IllegalArgumentException("Cannot create PLATFORM_ADMIN accounts through this interface.");
+        }
+        User.Role role;
+        try {
+            role = User.Role.valueOf(roleName);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid role: " + roleName);
+        }
+
+        // Check for duplicate email in this tenant
+        if (userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId).isPresent()) {
+            throw new IllegalArgumentException("A user with email '" + email + "' already exists in this company.");
+        }
+
+        String password = string(body.get("password"), null);
+        if (password == null || password.length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters.");
+        }
+
+        User user = User.builder()
+            .name(string(body.get("name"), email.split("@")[0]))
+            .email(email)
+            .password(passwordEncoder.encode(password))
+            .phone(string(body.get("phone"), null))
+            .role(role)
+            .isActive(true)
+            .build();
+        user.setTenantId(tenantId);
+        user.setDeleted(false);
+
+        User saved = userRepository.save(user);
+
+        audit("USER_CREATED", "User", saved.getId(), saved.getName(),
+            Map.of("email", email, "role", roleName, "tenantId", tenantId, "tenantName", tenant.getName()));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", saved.getId());
+        result.put("name", saved.getName());
+        result.put("email", saved.getEmail());
+        result.put("role", saved.getRole().name());
+        result.put("tenantId", saved.getTenantId());
+        result.put("tenantName", tenant.getName());
+        result.put("isActive", true);
+        result.put("success", true);
+        return result;
     }
 
     // ── Billing Dashboard ───────────────────────────────────────

@@ -348,15 +348,23 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
 // ═════════════════════════════════════════════════════════════════
 function UsersTab({ loading, refreshData }) {
   const [users, setUsers] = useState([])
+  const [tenants, setTenants] = useState([])
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [loadingUsers, setLoadingUsers] = useState(true)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'COMPANY_ADMIN', tenantId: '' })
 
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true)
     try {
-      const data = await platformAdminAPI.getAllUsers()
-      setUsers(Array.isArray(data) ? data : [])
+      const [userData, tenantData] = await Promise.all([
+        platformAdminAPI.getAllUsers(),
+        platformAdminAPI.getTenants(),
+      ])
+      setUsers(Array.isArray(userData) ? userData : [])
+      setTenants(Array.isArray(tenantData) ? tenantData : [])
     } catch (err) {
       toast.error(err?.message || 'Failed to load users')
     } finally {
@@ -402,6 +410,30 @@ function UsersTab({ loading, refreshData }) {
     }
   }
 
+  const handleCreateUser = async (e) => {
+    e.preventDefault()
+    if (!newUser.email || !newUser.password || !newUser.tenantId) {
+      toast.error('Email, password, and company are required')
+      return
+    }
+    setCreating(true)
+    try {
+      await platformAdminAPI.createUser({
+        ...newUser,
+        tenantId: Number(newUser.tenantId),
+      })
+      toast.success('User created successfully')
+      setShowCreateForm(false)
+      setNewUser({ name: '', email: '', password: '', role: 'COMPANY_ADMIN', tenantId: '' })
+      await loadUsers()
+      refreshData()
+    } catch (err) {
+      toast.error(err?.message || 'Failed to create user')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const activeCount = users.filter((u) => u.isActive).length
   const inactiveCount = users.length - activeCount
 
@@ -414,6 +446,56 @@ function UsersTab({ loading, refreshData }) {
         <KpiCard label="Inactive" value={inactiveCount} icon={UserX} color="text-rose-500" />
       </div>
 
+      {/* Create User Form */}
+      {showCreateForm && (
+        <SectionCard title="Create New User" icon={Plus} iconColor="text-emerald-500">
+          <form onSubmit={handleCreateUser} className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Company <span className="text-rose-500">*</span></label>
+              <select value={newUser.tenantId} onChange={(e) => setNewUser({ ...newUser, tenantId: e.target.value })}
+                className="input" required>
+                <option value="">Select company...</option>
+                {tenants.filter(t => t.isActive).map(t => (
+                  <option key={t.tenantId} value={t.tenantId}>{t.name} (ID: {t.tenantId})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Role</label>
+              <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                className="input">
+                {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'PLATFORM_ADMIN').map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Full Name</label>
+              <input type="text" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                placeholder="John Doe" className="input" />
+            </div>
+            <div>
+              <label className="label">Email <span className="text-rose-500">*</span></label>
+              <input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                placeholder="user@company.com" className="input" required />
+            </div>
+            <div>
+              <label className="label">Password <span className="text-rose-500">*</span></label>
+              <input type="text" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                placeholder="Min 6 characters" className="input" required minLength={6} />
+            </div>
+            <div className="flex items-end gap-2">
+              <button type="submit" disabled={creating} className="btn-primary flex-1">
+                {creating ? 'Creating...' : <><Plus className="h-4 w-4" /> Create User</>}
+              </button>
+              <button type="button" onClick={() => setShowCreateForm(false)} className="btn-secondary">
+                <X className="h-4 w-4" /> Cancel
+              </button>
+            </div>
+          </form>
+        </SectionCard>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -425,6 +507,10 @@ function UsersTab({ loading, refreshData }) {
           <option value="">All roles</option>
           {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <button type="button" onClick={() => setShowCreateForm(!showCreateForm)}
+          className={`btn-primary ${showCreateForm ? 'bg-rose-600 hover:bg-rose-700' : ''}`}>
+          {showCreateForm ? <><X className="h-4 w-4" /> Close</> : <><Plus className="h-4 w-4" /> New User</>}
+        </button>
         <button type="button" onClick={loadUsers} className="btn-secondary"><RefreshCw className="h-4 w-4" /></button>
       </div>
 

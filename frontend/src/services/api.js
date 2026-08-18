@@ -361,6 +361,7 @@ export const platformAdminAPI = {
   // Feature Flags
   getFeatureFlags:  () => api.get('/admin/saas/feature-flags'),
   // Users (cross-tenant)
+  createUser:        (data) => api.post('/admin/saas/users', data),
   getAllUsers:       () => api.get('/admin/saas/users'),
   changeUserRole:   (id, role) => api.patch(`/admin/saas/users/${id}/role`, { role }),
   activateUser:     (id) => api.patch(`/admin/saas/users/${id}/activate`),

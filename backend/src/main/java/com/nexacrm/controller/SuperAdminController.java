@@ -82,6 +82,12 @@ public class SuperAdminController {
         return ResponseEntity.ok(tenantAdminService.listAllUsers());
     }
 
+    @PostMapping("/users")
+    @Operation(summary = "Create a user for a company")
+    public ResponseEntity<Map<String, Object>> createUser(@RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(tenantAdminService.createUser(body));
+    }
+
     @PatchMapping("/users/{id}/role")
     @Operation(summary = "Change a user's role")
     public ResponseEntity<Map<String, Object>> changeUserRole(
