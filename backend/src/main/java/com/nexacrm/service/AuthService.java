@@ -5,7 +5,9 @@ import com.nexacrm.dto.AuthResponse;
 import com.nexacrm.dto.UserDTO;
 import com.nexacrm.exception.ResourceNotFoundException;
 import com.nexacrm.exception.UnauthorizedException;
+import com.nexacrm.model.Tenant;
 import com.nexacrm.model.User;
+import com.nexacrm.repository.TenantRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import com.nexacrm.security.JwtService;
@@ -28,6 +30,7 @@ import java.util.List;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final TenantRepository tenantRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
@@ -135,14 +138,21 @@ public class AuthService {
 
     public Map<String, Object> getCurrentUser() {
         User user = currentAuthenticatedUser();
-        return Map.of(
-            "id",       user.getId(),
-            "name",     user.getName(),
-            "email",    user.getEmail(),
-            "role",     user.getRole(),
-            "tenantId", user.getTenantId(),
-            "isActive", user.getIsActive()
-        );
+        String tenantName = null;
+        if (user.getTenantId() != null) {
+            tenantName = tenantRepository.findByTenantIdAndDeletedFalse(user.getTenantId())
+                .map(Tenant::getName)
+                .orElse(null);
+        }
+        java.util.LinkedHashMap<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("id", user.getId());
+        result.put("name", user.getName());
+        result.put("email", user.getEmail());
+        result.put("role", user.getRole());
+        result.put("tenantId", user.getTenantId());
+        result.put("tenantName", tenantName);
+        result.put("isActive", user.getIsActive());
+        return result;
     }
 
     private User currentAuthenticatedUser() {
@@ -200,6 +210,12 @@ public class AuthService {
     }
 
     private UserDTO toUserDTO(User user) {
+        String tenantName = null;
+        if (user.getTenantId() != null) {
+            tenantName = tenantRepository.findByTenantIdAndDeletedFalse(user.getTenantId())
+                .map(Tenant::getName)
+                .orElse(null);
+        }
         return UserDTO.builder()
             .id(user.getId())
             .name(user.getName())
@@ -209,6 +225,7 @@ public class AuthService {
             .avatarUrl(user.getAvatarUrl())
             .isActive(user.getIsActive())
             .tenantId(user.getTenantId())
+            .tenantName(tenantName)
             .build();
     }
 

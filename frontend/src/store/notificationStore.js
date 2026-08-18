@@ -9,10 +9,40 @@ const directionToLower = (direction) => {
   return null
 }
 
+const ISO_WITHOUT_ZONE_RE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)?$/
+const HAS_TIME_ZONE_RE = /(?:Z|[+-]\d{2}:?\d{2})$/i
+
+const trimFractionalSeconds = (value) => value.replace(/(\.\d{3})\d+/, '$1')
+
+export const parseNotificationCreatedAt = (value, fallback = new Date()) => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? fallback : value
+  }
+
+  if (typeof value === 'number') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? fallback : date
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed) {
+      const normalized = trimFractionalSeconds(trimmed.replace(' ', 'T'))
+      const candidate = ISO_WITHOUT_ZONE_RE.test(trimmed) && !HAS_TIME_ZONE_RE.test(trimmed)
+        ? `${normalized}Z`
+        : normalized
+      const date = new Date(candidate)
+      if (!Number.isNaN(date.getTime())) return date
+    }
+  }
+
+  return fallback
+}
+
 export const formatIndianTime = (isoString) => {
-  const date = new Date(isoString)
+  const date = parseNotificationCreatedAt(isoString)
   const now = new Date()
-  const diffMs = now - date
+  const diffMs = Math.max(0, now - date)
   const diffMin = Math.floor(diffMs / 60000)
   const diffHr = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
@@ -33,7 +63,7 @@ export const formatIndianTime = (isoString) => {
 }
 
 const toUiNotification = (notification) => {
-  const createdAt = notification?.createdAt ? new Date(notification.createdAt) : new Date()
+  const createdAt = parseNotificationCreatedAt(notification?.createdAt)
   const isoString = createdAt.toISOString()
   return {
     id: notification?.id,
@@ -70,7 +100,8 @@ export const useNotificationStore = create((set, get) => ({
 
   addNotification: (notification) =>
     set((s) => {
-      const isoString = new Date().toISOString()
+      const createdAt = parseNotificationCreatedAt(notification?.createdAt)
+      const isoString = createdAt.toISOString()
       return {
         notifications: [{
           id: `local-${Date.now()}`,

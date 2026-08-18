@@ -10,6 +10,7 @@ import {
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import { platformAdminAPI } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 
 // ── Helpers ─────────────────────────────────────────────────────
 const formatDate = (value) => {
@@ -174,7 +175,7 @@ function OverviewTab({ overview, billing, loading }) {
 // ═════════════════════════════════════════════════════════════════
 //  COMPANIES TAB
 // ═════════════════════════════════════════════════════════════════
-function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, updateForm, submitTenant, saving, toggleTenant, onNewTenant }) {
+function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, updateForm, submitTenant, saving, toggleTenant, onNewTenant, currentTenantId }) {
   const [search, setSearch] = useState('')
   const filtered = tenants.filter((t) =>
     !search || t.name?.toLowerCase().includes(search.toLowerCase()) || t.slug?.toLowerCase().includes(search.toLowerCase())
@@ -213,6 +214,11 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{tenant.name}</h3>
+                          {currentTenantId && String(tenant.tenantId) === String(currentTenantId) && (
+                            <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400 text-xs">
+                              <Building2 className="mr-1 h-3 w-3" />Current
+                            </span>
+                          )}
                           <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-xs">{tenant.plan}</span>
                           {tenant.isActive ? (
                             <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-xs">
@@ -742,6 +748,7 @@ function AuditLogsTab({ auditLogs, loading }) {
 export default function SaaSAdminPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const VALID_TABS = ['overview', 'companies', 'users', 'subscriptions', 'security', 'features', 'audit']
   const rawTab = searchParams.get('tab') || 'overview'
   const tab = VALID_TABS.includes(rawTab) ? rawTab : 'overview'
@@ -863,6 +870,7 @@ export default function SaaSAdminPage() {
           selectedTenant={selectedTenant} form={form} updateForm={updateForm}
           submitTenant={submitTenant} saving={saving} toggleTenant={toggleTenant}
           onNewTenant={() => selectTenant(null)}
+          currentTenantId={user?.tenantId}
         />
       )}
       {tab === 'users' && <UsersTab loading={loading} refreshData={loadData} />}

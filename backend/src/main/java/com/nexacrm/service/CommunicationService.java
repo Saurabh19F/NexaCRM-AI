@@ -77,6 +77,15 @@ public class CommunicationService {
     @Value("${nexacrm.whatsapp.aiadrika.access-token:}")
     private String defaultAccessToken;
 
+    @Value("${nexacrm.whatsapp.aknexus.api-url:https://app.aknexus.in/api/v2}")
+    private String defaultAknexusApiUrl;
+
+    @Value("${nexacrm.whatsapp.aknexus.api-token:}")
+    private String defaultAknexusApiToken;
+
+    @Value("${nexacrm.whatsapp.aknexus.instance-id:}")
+    private String defaultAknexusInstanceId;
+
     @Value("${meta.page-access-token:}")
     private String defaultFacebookPageAccessToken;
 
@@ -632,6 +641,14 @@ public class CommunicationService {
         }
 
         Map<String, String> config = integrationService.getConfig("whatsapp");
+        String provider = trim(config.get("provider")).toLowerCase(Locale.ROOT);
+        String aknexusToken = firstNonBlank(config.get("apiToken"), config.get("bearerToken"), defaultAknexusApiToken);
+        if ("aknexus".equals(provider)
+            || (!aknexusToken.isBlank() && !"aiadrika".equals(provider) && !"kriscelwa".equals(provider))) {
+            sendViaAknexusWhatsApp(number, body, config, aknexusToken);
+            return;
+        }
+
         String apiKey = trim(config.get("apiKey"));
         String sessionId = trim(config.get("sessionId"));
 
@@ -689,6 +706,125 @@ public class CommunicationService {
         } catch (Exception ex) {
             log.error("Aiadrika send failed: {}", ex.getMessage());
             throw new IllegalStateException("Failed to send WhatsApp message via Aiadrika.");
+        }
+    }
+
+    private void sendViaAknexusWhatsApp(String number, String body, Map<String, String> config, String apiToken) {
+        if (trim(apiToken).isBlank()) {
+            throw new IllegalStateException("AKNexus API token is missing.");
+        }
+
+        String baseUrl = firstNonBlank(config.get("apiUrl"), defaultAknexusApiUrl);
+        if (baseUrl.isBlank()) {
+            baseUrl = "https://app.aknexus.in/api/v2";
+        }
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        if (!baseUrl.endsWith("/api/v2")) {
+            baseUrl = baseUrl + "/api/v2";
+        }
+
+        String instanceId = resolveAknexusInstanceId(
+            baseUrl,
+            apiToken,
+            firstNonBlank(config.get("instanceId"), defaultAknexusInstanceId),
+            config.get("senderNumber")
+        );
+        if (instanceId.isBlank()) {
+            throw new IllegalStateException("AKNexus WhatsApp instance ID is missing.");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(trim(apiToken));
+
+        Map<String, String> payload = new LinkedHashMap<>();
+        payload.put("instance_id", instanceId);
+        payload.put("to", number);
+        payload.put("message", body);
+
+        try {
+            String jsonBody = objectMapper.writeValueAsString(payload);
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(
+                baseUrl + "/whatsapp/send/text",
+                HttpMethod.POST,
+                entity,
+                String.class
+            );
+            String response = responseEntity.getBody();
+            String externalId = null;
+            if (response != null && !response.isBlank()) {
+                Map<String, Object> data = objectMapper.readValue(response, MAP_TYPE);
+                Object status = data.get("status");
+                if (status != null && "error".equalsIgnoreCase(String.valueOf(status))) {
+                    String apiMessage = String.valueOf(data.getOrDefault("message", "Unknown error"));
+                    throw new IllegalStateException("AKNexus error: " + apiMessage);
+                }
+                externalId = extractExternalId(objectMapper.valueToTree(data));
+            }
+            tryPersistCommunication("WHATSAPP", "OUT", number, body, "SENT", externalId, response, "aknexus");
+            notifyOutboundCommunication("whatsapp", number, body);
+            log.info("WhatsApp sent via AKNexus to {}", number);
+        } catch (HttpStatusCodeException ex) {
+            log.error("AKNexus WhatsApp API error {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw new IllegalStateException("AKNexus WhatsApp API error: " + ex.getResponseBodyAsString());
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("AKNexus WhatsApp send failed: {}", ex.getMessage());
+            throw new IllegalStateException("Failed to send WhatsApp message via AKNexus.");
+        }
+    }
+
+    private String resolveAknexusInstanceId(String baseUrl, String apiToken, String configuredInstanceId, String senderNumber) {
+        String desiredSender = senderNumber == null ? "" : senderNumber.replaceAll("\\D", "");
+        if (desiredSender.isBlank()) {
+            return trim(configuredInstanceId);
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(trim(apiToken));
+
+        try {
+            ResponseEntity<String> responseEntity = restTemplate.exchange(
+                baseUrl + "/whatsapp/instances",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class
+            );
+            String response = responseEntity.getBody();
+            if (response == null || response.isBlank()) {
+                throw new IllegalStateException("AKNexus returned an empty instance list.");
+            }
+
+            Map<String, Object> data = objectMapper.readValue(response, MAP_TYPE);
+            Object instances = data.get("instances");
+            if (instances instanceof List<?> list) {
+                for (Object item : list) {
+                    JsonNode row = objectMapper.valueToTree(item);
+                    String phone = row.path("phone").asText("").replaceAll("\\D", "");
+                    String instanceId = trim(row.path("instance_id").asText(""));
+                    String status = trim(row.path("status").asText(""));
+                    if (desiredSender.equals(phone) && !instanceId.isBlank()) {
+                        if (!"connected".equalsIgnoreCase(status) && !"success".equalsIgnoreCase(status)) {
+                            throw new IllegalStateException("AKNexus sender " + desiredSender + " is not connected.");
+                        }
+                        return instanceId;
+                    }
+                }
+            }
+
+            throw new IllegalStateException("AKNexus sender number " + desiredSender + " was not found.");
+        } catch (HttpStatusCodeException ex) {
+            log.error("AKNexus instance lookup failed {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw new IllegalStateException("Unable to verify AKNexus sender number: " + ex.getResponseBodyAsString());
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("AKNexus sender lookup failed: {}", ex.getMessage());
+            throw new IllegalStateException("Unable to verify AKNexus sender number.");
         }
     }
 

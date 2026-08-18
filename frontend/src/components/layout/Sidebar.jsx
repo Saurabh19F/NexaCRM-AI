@@ -195,6 +195,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             {showLabel && (
               <div className="overflow-hidden">
                 <p className="text-xs font-semibold text-white truncate leading-tight">{user?.name}</p>
+                {user?.tenantName && (
+                  <p className="text-[10px] text-brand-300 truncate leading-tight">{user.tenantName}</p>
+                )}
                 <p className="text-[10px] text-slate-400 truncate">{user?.role}</p>
               </div>
             )}

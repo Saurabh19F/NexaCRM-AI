@@ -16,4 +16,5 @@ public class UserDTO {
     private String avatarUrl;
     private Boolean isActive;
     private Long tenantId;
+    private String tenantName;
 }

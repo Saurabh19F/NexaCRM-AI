@@ -28,6 +28,25 @@ public class TenantAdminService {
 
     // ── Tenants ─────────────────────────────────────────────────
 
+    /**
+     * Backfill tenantId on any Tenant documents that are missing it.
+     * Called at startup to fix legacy data.
+     */
+    public void backfillTenantIds() {
+        List<Tenant> all = tenantRepository.findAll();
+        long maxId = all.stream()
+            .map(Tenant::getTenantId)
+            .filter(java.util.Objects::nonNull)
+            .max(Long::compareTo)
+            .orElse(0L);
+        for (Tenant t : all) {
+            if (t.getTenantId() == null) {
+                t.setTenantId(++maxId);
+                tenantRepository.save(t);
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listTenants() {
         return tenantRepository.findAll().stream()
@@ -53,6 +72,7 @@ public class TenantAdminService {
             .subscriptionStartedAt(parseDateTime(body.get("subscriptionStartedAt")))
             .subscriptionEndsAt(parseDateTime(body.get("subscriptionEndsAt")))
             .build();
+        tenant.setTenantId(nextTenantId());
         tenant.setFeatureFlags(parseBooleanMap(body.get("featureFlags")));
         tenant.setUsageLimits(parseIntegerMap(body.get("usageLimits")));
         return tenantSummary(tenantRepository.save(tenant));
@@ -331,6 +351,14 @@ public class TenantAdminService {
     }
 
     // ── Private helpers ─────────────────────────────────────────
+
+    private Long nextTenantId() {
+        return tenantRepository.findAll().stream()
+            .map(Tenant::getTenantId)
+            .filter(java.util.Objects::nonNull)
+            .max(Long::compareTo)
+            .orElse(0L) + 1;
+    }
 
     private Map<String, Object> tenantSummary(Tenant tenant) {
         Long tenantId = tenant.getTenantId();

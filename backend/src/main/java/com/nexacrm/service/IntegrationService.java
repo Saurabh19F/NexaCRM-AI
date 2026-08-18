@@ -6,8 +6,15 @@ import com.nexacrm.repository.IntegrationConfigRepository;
 import com.nexacrm.security.CryptoService;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -46,6 +53,7 @@ public class IntegrationService {
     private final ObjectProvider<LeadService> leadServiceProvider;
     private final IntegrationConfigRepository integrationConfigRepository;
     private final CryptoService cryptoService;
+    private final RestTemplate restTemplate;
 
     private Long tenantId() {
         return TenantContext.currentTenantId();
@@ -99,6 +107,9 @@ public class IntegrationService {
 
         if ("google_sheets_leads".equals(normalizedId)) {
             return leadService().testPublicGoogleSheetAccess(testValues);
+        }
+        if ("whatsapp".equals(normalizedId)) {
+            return testWhatsAppConnection(testValues);
         }
 
         return Map.of(
@@ -198,6 +209,67 @@ public class IntegrationService {
         return required;
     }
 
+    private Map<String, Object> testWhatsAppConnection(Map<String, String> values) {
+        String provider = trim(values.get("provider")).toLowerCase(Locale.ROOT);
+        String apiToken = firstNonBlank(values.get("apiToken"), values.get("bearerToken"));
+        if ("aknexus".equals(provider) || !apiToken.isBlank()) {
+            String instanceId = trim(values.get("instanceId"));
+            if (apiToken.isBlank() || instanceId.isBlank()) {
+                throw new IllegalStateException("AKNexus API Token and Instance ID are required.");
+            }
+
+            String baseUrl = normalizeAknexusBaseUrl(values.get("apiUrl"));
+            String url = UriComponentsBuilder.fromHttpUrl(baseUrl)
+                .pathSegment("whatsapp", "instance", "status", instanceId)
+                .toUriString();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(apiToken);
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    Map.class
+                );
+                Map<?, ?> body = response.getBody() == null ? Map.of() : response.getBody();
+                Object statusObject = body.get("status");
+                String status = trim(statusObject == null ? "" : String.valueOf(statusObject));
+                if (!"connected".equalsIgnoreCase(status) && !"success".equalsIgnoreCase(status)) {
+                    throw new IllegalStateException("AKNexus instance status is " + (status.isBlank() ? "unknown" : status));
+                }
+                return Map.of(
+                    "ok", true,
+                    "message", "AKNexus WhatsApp instance is connected.",
+                    "integration", "whatsapp",
+                    "provider", "aknexus"
+                );
+            } catch (HttpStatusCodeException ex) {
+                throw new IllegalStateException("AKNexus test failed: " + ex.getResponseBodyAsString());
+            }
+        }
+
+        return Map.of(
+            "ok", true,
+            "message", "Connection test passed for whatsapp",
+            "integration", "whatsapp"
+        );
+    }
+
+    private String normalizeAknexusBaseUrl(String raw) {
+        String baseUrl = trim(raw);
+        if (baseUrl.isBlank()) {
+            baseUrl = "https://app.aknexus.in/api/v2";
+        }
+        while (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        if (!baseUrl.endsWith("/api/v2")) {
+            baseUrl = baseUrl + "/api/v2";
+        }
+        return baseUrl;
+    }
+
     private void validateRequired(Map<String, String> values, List<String> requiredFields) {
         List<String> missing = requiredFields.stream()
             .filter(field -> trim(values.get(field)).isBlank())
@@ -285,6 +357,16 @@ public class IntegrationService {
     private boolean isMaskedValue(String value) {
         String v = trim(value);
         return v.startsWith("****");
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            String normalized = trim(value);
+            if (!normalized.isBlank()) {
+                return normalized;
+            }
+        }
+        return "";
     }
 
     private Map<String, String> safeCopy(Map<String, String> source) {

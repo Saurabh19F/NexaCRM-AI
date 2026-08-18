@@ -88,6 +88,7 @@ export default function Topbar({ onMenuClick, onRefresh }) {
             title,
             message,
             actionUrl: incoming?.actionUrl || incoming?.action_url || null,
+            createdAt: incoming?.createdAt,
           })
           toast.success(`${title}: ${message}`.slice(0, 120))
         })
@@ -313,6 +314,9 @@ export default function Topbar({ onMenuClick, onRefresh }) {
                 <div className="px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/40">
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user?.name}</p>
                   <p className="text-xs text-slate-500">{user?.email}</p>
+                  {user?.tenantName && (
+                    <p className="text-[10px] text-brand-500 dark:text-brand-400 font-medium mt-0.5">{user.tenantName}</p>
+                  )}
                 </div>
                 <button
                   onClick={() => {

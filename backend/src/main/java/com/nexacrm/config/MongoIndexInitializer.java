@@ -3,6 +3,7 @@ package com.nexacrm.config;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.Invoice;
 import com.nexacrm.model.Lead;
+import com.nexacrm.service.TenantAdminService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 public class MongoIndexInitializer {
 
     private final MongoTemplate mongoTemplate;
+    private final TenantAdminService tenantAdminService;
 
     @PostConstruct
     public void ensureOperationalIndexes() {
@@ -61,5 +63,12 @@ public class MongoIndexInitializer {
         );
 
         log.info("Mongo operational indexes verified");
+
+        try {
+            tenantAdminService.backfillTenantIds();
+            log.info("Tenant tenantId backfill complete");
+        } catch (Exception e) {
+            log.warn("Tenant backfill skipped: {}", e.getMessage());
+        }
     }
 }
