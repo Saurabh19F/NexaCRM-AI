@@ -28,6 +28,7 @@ const pageImports = {
   '/admin/saas': () => import('./pages/SaaSAdminPage'),
   '/platform/login': () => import('./pages/PlatformLoginPage'),
   '/terms': () => import('./pages/TermsPage'),
+  '/privacy': () => import('./pages/PrivacyPage'),
 }
 
 export const prefetchPage = (path) => {
@@ -53,6 +54,7 @@ const SettingsPage = lazy(pageImports['/settings'])
 const SaaSAdminPage = lazy(pageImports['/admin/saas'])
 const PlatformLoginPage = lazy(pageImports['/platform/login'])
 const TermsPage = lazy(pageImports['/terms'])
+const PrivacyPage = lazy(pageImports['/privacy'])
 
 function RouteFallback() {
   return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
@@ -337,6 +339,7 @@ export default function App() {
           <Route path="/platform/login" element={<PlatformLoginPage />} />
           {/* Legal pages */}
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
 
           {/* App routes */}
           <Route
