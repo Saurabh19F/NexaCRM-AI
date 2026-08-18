@@ -1090,41 +1090,64 @@ export default function LandingPage() {
           </section>
 
           {/* ═══ 360° VIEW ═══ */}
-          <section className="px-6 py-24 text-center sm:px-10 lg:px-24">
-            <ScrollReveal className="mx-auto max-w-4xl">
-              <div className="relative mx-auto h-80 max-w-3xl">
-                {[1, 2, 3].map((ring) => (
-                  <motion.span key={ring} initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }} transition={{ delay: ring * 0.15, duration: 0.6 }}
-                    className="absolute left-1/2 top-1/2 rounded-[50%] border border-brand-300/50"
-                    style={{ width: `${ring * 180}px`, height: `${ring * 92}px`, transform: 'translate(-50%, -50%) rotate(-8deg)' }} />
-                ))}
-                {['CRM', 'Sales', 'Support', 'Finance', 'Marketing'].map((item, i) => (
-                  <motion.span key={item} initial={{ opacity: 0, scale: 0 }} whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }} transition={{ delay: 0.5 + i * 0.1, type: 'spring', stiffness: 200 }}
-                    whileHover={{ scale: 1.12, y: -3 }}
-                    className="absolute rounded-full border border-brand-200 bg-white px-4 py-2 text-xs font-bold text-brand-600 shadow-sm cursor-default"
-                    style={{ left: `${15 + i * 17}%`, top: `${28 + (i % 2) * 32}%` }}>
-                    {item}
-                  </motion.span>
-                ))}
-                <motion.span initial={{ opacity: 0, scale: 0 }} whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }} transition={{ delay: 0.3, type: 'spring' }}
-                  className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg shadow-brand-500/15 ring-1 ring-brand-100">
-                  <CircleDot size={30} className="text-brand-500" />
-                </motion.span>
+          <section className="relative overflow-hidden px-6 py-24 sm:px-10 lg:px-24">
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-brand-50/40 to-white" />
+            <div className="relative">
+              <ScrollReveal className="mx-auto max-w-2xl text-center mb-14">
+                <div className="nexa-signal-pill mx-auto mb-4 w-fit">
+                  <Layers className="h-3.5 w-3.5" />
+                  All-in-One Platform
+                </div>
+                <h2 className="text-3xl font-bold leading-tight sm:text-4xl">
+                  <span className="reactbits-gradient-text">Everything in a neat 360° view</span>
+                </h2>
+                <p className="mt-4 text-sm leading-6 text-slate-600">
+                  One unified platform that connects every department — sales, support, marketing, and finance — so nothing slips through the cracks.
+                </p>
+              </ScrollReveal>
+
+              <div className="mx-auto max-w-5xl">
+                {/* Module cards grid */}
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                  {[
+                    { icon: Users, label: 'CRM', desc: 'Contacts & companies', color: 'from-brand-500 to-cyan-400' },
+                    { icon: Target, label: 'Sales', desc: 'Pipeline & deals', color: 'from-violet-500 to-brand-500' },
+                    { icon: MessageCircle, label: 'Support', desc: 'Tickets & chat', color: 'from-accent-500 to-emerald-400' },
+                    { icon: BarChart3, label: 'Finance', desc: 'Invoices & billing', color: 'from-amber-500 to-orange-400' },
+                    { icon: Mail, label: 'Marketing', desc: 'Campaigns & emails', color: 'from-rose-500 to-pink-400' },
+                  ].map(({ icon: Icon, label, desc, color }, i) => (
+                    <ScrollReveal key={label} delay={i * 0.08}>
+                      <motion.div whileHover={{ y: -6, scale: 1.03 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                        className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-lg hover:shadow-brand-500/10 cursor-default">
+                        <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${color} shadow-sm`}>
+                          <Icon size={20} className="text-white" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-900">{label}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{desc}</p>
+                        <div className={`absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br ${color} opacity-0 blur-2xl transition-opacity group-hover:opacity-20`} />
+                      </motion.div>
+                    </ScrollReveal>
+                  ))}
+                </div>
+
+                {/* Central connector */}
+                <ScrollReveal delay={0.3}>
+                  <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-brand-200 bg-gradient-to-r from-brand-50 via-white to-accent-50 p-6 text-center shadow-sm">
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 shadow-lg shadow-brand-500/25">
+                      <CircleDot size={28} className="text-white" />
+                    </div>
+                    <p className="text-lg font-bold text-slate-900">Unified 360° Platform</p>
+                    <p className="mt-1 text-sm text-slate-500">All modules connected, all data in sync — real-time.</p>
+                    <div className="mt-5 flex justify-center gap-3">
+                      <MagneticButton to="/register" className="rounded-full bg-brand-500 px-5 py-2.5 text-xs font-extrabold text-white shadow-sm shadow-brand-500/20 transition hover:bg-brand-600">
+                        Get Started</MagneticButton>
+                      <MagneticAnchor href="#pricing" className="rounded-full bg-slate-900 px-5 py-2.5 text-xs font-extrabold text-white transition hover:bg-slate-800">
+                        See Pricing</MagneticAnchor>
+                    </div>
+                  </div>
+                </ScrollReveal>
               </div>
-              <p className="text-sm font-semibold text-brand-600">Everything your business needs,</p>
-              <h2 className="mt-1 text-3xl font-bold sm:text-4xl">
-                <span className="reactbits-gradient-text">with a neat 360° view.</span>
-              </h2>
-              <div className="mt-7 flex justify-center gap-3">
-                <MagneticButton to="/register" className="rounded-full bg-brand-500 px-5 py-3 text-xs font-extrabold text-white shadow-sm shadow-brand-500/20 transition hover:bg-brand-600">
-                  Get Started</MagneticButton>
-                <MagneticAnchor href="#pricing" className="rounded-full bg-slate-900 px-5 py-3 text-xs font-extrabold text-white transition hover:bg-slate-800">
-                  See Pricing</MagneticAnchor>
-              </div>
-            </ScrollReveal>
+            </div>
           </section>
 
           {/* ═══ PRICING ═══ */}
