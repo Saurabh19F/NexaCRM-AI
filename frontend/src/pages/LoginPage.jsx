@@ -117,7 +117,7 @@ export default function LoginPage() {
         className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:h-[560px] md:grid-cols-[1.05fr_0.95fr]"
       >
         {/* Left — illustration with image reveal */}
-        <div className="relative h-[260px] overflow-hidden bg-brand-50 md:h-full">
+        <div className="relative h-[260px] overflow-hidden bg-brand-50 md:h-full flex items-center justify-center">
           <motion.div
             initial={{ scaleX: 1 }}
             animate={{ scaleX: 0 }}
@@ -125,12 +125,12 @@ export default function LoginPage() {
             className="absolute inset-0 z-10 origin-right bg-gradient-to-r from-brand-100 to-accent-100"
           />
           <motion.img
-            src="/login-crm-side.png"
-            alt="CRM dashboard illustration"
+            src="/login-crm-illustration.png"
+            alt="CRM support and communication illustration"
             initial={{ scale: 1.15 }}
             animate={{ scale: 1 }}
             transition={{ duration: 1.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="h-full w-full object-cover object-center"
+            className="h-full w-full object-contain object-center p-4 md:p-6"
           />
           {/* Floating badge */}
           <motion.div
