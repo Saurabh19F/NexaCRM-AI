@@ -169,7 +169,7 @@ export default function PlatformLoginPage() {
 
   return (
     <div
-      className="min-h-screen flex bg-slate-50"
+      className="h-screen flex overflow-hidden bg-slate-50"
     >
       {/* Left panel — Platform Animation */}
       <div className="hidden lg:flex flex-col w-1/2 relative">
