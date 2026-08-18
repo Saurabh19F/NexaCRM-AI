@@ -116,51 +116,48 @@ export default function LoginPage() {
         transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:max-h-[min(520px,90vh)] md:grid-cols-[1.05fr_0.95fr]"
       >
-        {/* Left — illustration with branding */}
-        <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-accent-500 md:flex md:h-full flex-col items-center justify-center">
+        {/* Left — full illustration with glassmorphism text */}
+        <div className="relative hidden overflow-hidden bg-white md:flex md:h-full flex-col">
           <motion.div
             initial={{ scaleX: 1 }}
             animate={{ scaleX: 0 }}
             transition={{ duration: 0.9, delay: 0.3, ease: [0.77, 0, 0.175, 1] }}
-            className="absolute inset-0 z-10 origin-right bg-brand-600"
+            className="absolute inset-0 z-30 origin-right bg-white"
           />
 
-          {/* Decorative circles */}
-          <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full border border-white/10" aria-hidden="true" />
-          <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full border border-white/10" aria-hidden="true" />
+          {/* Full-bleed illustration */}
+          <motion.img
+            src="/login-crm-illustration.png"
+            alt="CRM support and communication illustration"
+            initial={{ scale: 1.1, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="absolute inset-0 h-full w-full object-contain object-center p-5"
+          />
 
-          <div className="relative z-20 flex flex-col items-center px-8 text-center text-white">
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-              <Link to="/" className="inline-flex items-center gap-2 mb-4">
-                <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-9 w-9 object-contain brightness-0 invert" />
-                <span className="text-lg font-bold tracking-tight">NexaCRM AI</span>
-              </Link>
-            </motion.div>
-
-            <motion.img
-              src="/login-crm-illustration.png"
-              alt="CRM support and communication illustration"
-              initial={{ scale: 1.15, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 1.2, delay: 0.4 }}
-              className="w-[75%] max-h-[220px] object-contain drop-shadow-lg"
-            />
-
-            <motion.h2 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
-              className="mt-4 text-xl font-bold leading-tight">
-              Your sales, support &amp; success — all in one place
-            </motion.h2>
-
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-              className="mt-2 text-sm text-white/80 leading-relaxed max-w-xs">
-              AI-powered CRM that helps modern teams close deals faster and delight customers.
-            </motion.p>
-
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}
-              className="mt-4 text-xs text-white/60">
-              Trusted by 300K+ businesses worldwide
-            </motion.p>
-          </div>
+          {/* Glassmorphism text overlay at bottom */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
+            className="absolute bottom-0 left-0 right-0 z-20 p-5"
+          >
+            <div className="rounded-2xl border border-white/40 p-5"
+              style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                boxShadow: '0 8px 32px rgba(14,165,233,0.1), inset 0 1px 0 rgba(255,255,255,0.6)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-6 w-6 object-contain" />
+                <span className="text-sm font-bold text-slate-800">NexaCRM AI</span>
+              </div>
+              <p className="text-sm font-bold text-slate-800 leading-snug">
+                Your sales, support &amp; success — all in one place
+              </p>
+              <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
+                AI-powered CRM that helps modern teams close deals faster and delight customers.
+              </p>
+              <p className="mt-2 text-[11px] font-semibold text-brand-500">Trusted by 300K+ businesses worldwide</p>
+            </div>
+          </motion.div>
         </div>
 
         {/* Right — form */}
