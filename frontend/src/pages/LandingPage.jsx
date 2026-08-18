@@ -616,46 +616,6 @@ function GradientBorderCard({ children, className = '', highlight = false }) {
 }
 
 /* ── Dock Navigation (ReactBits-inspired) ── */
-function DockNav() {
-  const [show, setShow] = useState(false)
-
-  useEffect(() => {
-    const onScroll = () => setShow(window.scrollY > 500)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  const dockItems = [
-    { label: 'Home', href: '#home', icon: '🏠' },
-    { label: 'Features', href: '#features', icon: '✨' },
-    { label: 'Pricing', href: '#pricing', icon: '💎' },
-    { label: 'Reviews', href: '#testimonial', icon: '⭐' },
-    { label: 'Contact', href: '#contact', icon: '📬' },
-  ]
-
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.nav
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 80, opacity: 0 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-          className="fixed bottom-6 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-1 rounded-2xl border border-slate-200/70 bg-white/80 px-2 py-2 shadow-[0_20px_50px_rgba(14,165,233,0.15)] backdrop-blur-2xl lg:flex"
-          aria-label="Quick navigation"
-        >
-          {dockItems.map(({ label, href, icon }) => (
-            <a key={label} href={href}
-              className="group flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-slate-600 transition hover:bg-brand-50 hover:text-brand-600">
-              <span className="text-lg transition-transform group-hover:scale-125 group-hover:-translate-y-1">{icon}</span>
-              <span className="text-[9px] font-bold">{label}</span>
-            </a>
-          ))}
-        </motion.nav>
-      )}
-    </AnimatePresence>
-  )
-}
 
 /* ══════════════════════════════════════════════════════════
    CHATBOT
@@ -1317,7 +1277,6 @@ export default function LandingPage() {
 
       <Chatbot />
       <BackToTop />
-      <DockNav />
 
       {/* CSS for all landing animations */}
       <style>{`
