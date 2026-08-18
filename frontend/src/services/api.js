@@ -353,8 +353,8 @@ export const platformAdminAPI = {
   getTenants:       () => api.get('/admin/saas/tenants'),
   createTenant:     (data) => api.post('/admin/saas/tenants', data),
   updateTenant:     (id, data) => api.put(`/admin/saas/tenants/${id}`, data),
-  activateTenant:   (id) => api.post(`/admin/saas/tenants/${id}/activate`),
-  deactivateTenant: (id) => api.post(`/admin/saas/tenants/${id}/deactivate`),
+  activateTenant:   (id) => api.patch(`/admin/saas/tenants/${id}/activate`),
+  deactivateTenant: (id) => api.patch(`/admin/saas/tenants/${id}/deactivate`),
   // Subscriptions & Plans
   getPlans:         () => api.get('/admin/saas/plans'),
   getBilling:       () => api.get('/admin/saas/billing'),

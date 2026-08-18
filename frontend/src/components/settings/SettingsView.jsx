@@ -40,7 +40,7 @@ const INTEGRATIONS = [
 
 const SETTINGS_STORAGE_KEY = 'nexacrm-settings'
 const DEFAULT_GENERAL_SETTINGS = [
-  { key: 'companyName', label: 'Company Name', value: 'NexaCRM Workspace' },
+  { key: 'companyName', label: 'Company Name', value: 'Kriscel Tech Pvt Ltd.' },
   { key: 'timezone', label: 'Timezone', value: 'Asia/Kolkata (IST)' },
   { key: 'currency', label: 'Currency', value: 'INR (₹)' },
   { key: 'language', label: 'Language', value: 'English' },

@@ -244,14 +244,24 @@ public class AuthService {
         if (matches.isEmpty()) {
             throw new ResourceNotFoundException("User not found");
         }
-        if (matches.size() > 1) {
-            throw new UnauthorizedException("Tenant ID is required to sign in to this account");
+        if (matches.size() == 1) {
+            Long tenantId = matches.get(0).getTenantId();
+            if (tenantId == null) {
+                throw new UnauthorizedException("Tenant ID is required to sign in to this account");
+            }
+            return tenantId;
         }
 
-        Long tenantId = matches.get(0).getTenantId();
-        if (tenantId == null) {
-            throw new UnauthorizedException("Tenant ID is required to sign in to this account");
+        // Multiple matches — prefer the PLATFORM_ADMIN account so super-admins
+        // can log in via /platform/login without specifying a tenant.
+        User platformAdmin = matches.stream()
+            .filter(u -> u.getRole() == User.Role.PLATFORM_ADMIN)
+            .findFirst()
+            .orElse(null);
+        if (platformAdmin != null && platformAdmin.getTenantId() != null) {
+            return platformAdmin.getTenantId();
         }
-        return tenantId;
+
+        throw new UnauthorizedException("Tenant ID is required to sign in to this account");
     }
 }
