@@ -177,12 +177,18 @@ function OverviewTab({ overview, billing, loading }) {
 // ═════════════════════════════════════════════════════════════════
 function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, updateForm, submitTenant, saving, toggleTenant, onNewTenant, currentTenantId }) {
   const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
+
+  const handleSelectTenant = (tenant) => { onSelectTenant(tenant); setShowForm(true) }
+  const handleNewTenant = () => { onNewTenant(); setShowForm(true) }
+  const handleCloseForm = () => { setShowForm(false) }
+  const handleSubmit = async (e) => { await submitTenant(e); setShowForm(false) }
   const filtered = tenants.filter((t) =>
     !search || t.name?.toLowerCase().includes(search.toLowerCase()) || t.slug?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+    <div className={`grid gap-6 ${showForm ? 'xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]' : ''}`}>
       <div className="space-y-4">
         {/* Search */}
         <div className="relative">
@@ -195,7 +201,7 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
         </div>
 
         <SectionCard title="Companies" subtitle={`${filtered.length} compan${filtered.length === 1 ? 'y' : 'ies'}`} icon={Building2} iconColor="text-brand-500"
-          actions={<button type="button" onClick={onNewTenant} className="btn-primary h-8 px-3 text-xs"><Plus className="h-3.5 w-3.5" />New</button>}
+          actions={<button type="button" onClick={handleNewTenant} className="btn-primary h-8 px-3 text-xs"><Plus className="h-3.5 w-3.5" />New</button>}
         >
           {loading ? <Skeleton /> : (
             <div className="space-y-3 max-h-[36rem] overflow-y-auto custom-scrollbar">
@@ -208,7 +214,7 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
                         ? 'border-brand-300 bg-brand-50/40 dark:border-brand-900/50 dark:bg-brand-950/20'
                         : 'border-slate-200/70 bg-white/70 hover:border-slate-300 dark:border-slate-800/70 dark:bg-slate-950/40 dark:hover:border-slate-700'
                     }`}
-                    onClick={() => onSelectTenant(tenant)}
+                    onClick={() => handleSelectTenant(tenant)}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
@@ -241,7 +247,7 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" onClick={() => onSelectTenant(tenant)} className="btn-ghost h-8 px-2.5 text-xs">
+                        <button type="button" onClick={() => handleSelectTenant(tenant)} className="btn-ghost h-8 px-2.5 text-xs">
                           <Pencil className="h-3.5 w-3.5" />Edit
                         </button>
                         {tenant.isActive ? (
@@ -267,8 +273,10 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
       </div>
 
       {/* Edit / Create form */}
-      <SectionCard title={form.id ? 'Edit Company' : 'Create Company'} subtitle="Manage plan, limits, flags and lifecycle" icon={Sparkles} iconColor="text-brand-500">
-        <form onSubmit={submitTenant} className="space-y-4">
+      {showForm && <SectionCard title={form.id ? 'Edit Company' : 'Create Company'} subtitle="Manage plan, limits, flags and lifecycle" icon={Sparkles} iconColor="text-brand-500"
+        actions={<button type="button" onClick={handleCloseForm} className="btn-ghost h-8 px-2.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"><X className="h-4 w-4" /></button>}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Company name</label>
@@ -324,13 +332,13 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
             Active company
           </label>
           <div className="flex flex-col-reverse gap-3 sm:flex-row">
-            <button type="button" onClick={onNewTenant} className="btn-secondary flex-1">New blank</button>
+            <button type="button" onClick={handleCloseForm} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" className="btn-primary flex-1" disabled={saving}>
               {saving ? 'Saving...' : form.id ? 'Update company' : 'Create company'}
             </button>
           </div>
         </form>
-      </SectionCard>
+      </SectionCard>}
     </div>
   )
 }
