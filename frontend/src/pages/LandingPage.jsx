@@ -559,19 +559,6 @@ function FloatingParticles({ count = 24 }) {
   )
 }
 
-/* ── 3D Orb (Spline-inspired) ── */
-function GlassOrb() {
-  return (
-    <div className="absolute -right-20 top-16 hidden xl:block pointer-events-none" aria-hidden="true">
-      <div className="landing-3d-orb">
-        <div className="landing-3d-orb__inner" />
-        <div className="landing-3d-orb__ring" />
-        <div className="landing-3d-orb__ring landing-3d-orb__ring--2" />
-        <div className="landing-3d-orb__ring landing-3d-orb__ring--3" />
-      </div>
-    </div>
-  )
-}
 
 /* ── Scroll-triggered section ── */
 function ScrollReveal({ children, className = '', delay = 0 }) {
@@ -842,7 +829,6 @@ export default function LandingPage() {
 
             {/* Hero content */}
             <div id="home" className="relative mx-auto max-w-3xl pb-6 pt-16 text-center sm:pt-20">
-              <GlassOrb />
 
               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay: 0.2 }}
                 className="nexa-signal-pill mx-auto mb-6 w-fit">
