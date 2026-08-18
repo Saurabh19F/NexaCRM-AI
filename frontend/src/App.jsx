@@ -27,6 +27,7 @@ const pageImports = {
   // These pages are now tabs inside Settings — kept for lazy imports by SettingsView
   '/admin/saas': () => import('./pages/SaaSAdminPage'),
   '/platform/login': () => import('./pages/PlatformLoginPage'),
+  '/terms': () => import('./pages/TermsPage'),
 }
 
 export const prefetchPage = (path) => {
@@ -51,6 +52,7 @@ const TeamPage = lazy(pageImports['/team'])
 const SettingsPage = lazy(pageImports['/settings'])
 const SaaSAdminPage = lazy(pageImports['/admin/saas'])
 const PlatformLoginPage = lazy(pageImports['/platform/login'])
+const TermsPage = lazy(pageImports['/terms'])
 
 function RouteFallback() {
   return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
@@ -333,6 +335,8 @@ export default function App() {
           </Route>
           {/* Platform Admin login — separate full-page layout */}
           <Route path="/platform/login" element={<PlatformLoginPage />} />
+          {/* Legal pages */}
+          <Route path="/terms" element={<TermsPage />} />
 
           {/* App routes */}
           <Route

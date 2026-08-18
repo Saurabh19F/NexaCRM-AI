@@ -1267,8 +1267,8 @@ export default function LandingPage() {
             <div className="relative mx-auto mt-8 flex max-w-7xl flex-col gap-3 border-t border-white/10 pt-5 text-xs text-slate-500 md:flex-row md:items-center md:justify-between">
               <p>&copy; 2026 Kriscel Tech Pvt. Ltd. All rights reserved.</p>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
-                <a href="#privacy" className="transition hover:text-white">Privacy Policy</a>
-                <a href="#terms" className="transition hover:text-white">Terms of Service</a>
+                <Link to="/privacy" className="transition hover:text-white">Privacy Policy</Link>
+                <Link to="/terms" className="transition hover:text-white">Terms of Service</Link>
               </div>
             </div>
           </footer>
