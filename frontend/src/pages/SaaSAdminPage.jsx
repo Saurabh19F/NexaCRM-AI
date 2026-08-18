@@ -26,7 +26,7 @@ const stringifyJson = (value) => {
 
 const parseJson = (value) => {
   if (!value || !value.trim()) return {}
-  return JSON.parse(value)
+  try { return JSON.parse(value) } catch { return {} }
 }
 
 const EMPTY_FORM = {
@@ -838,6 +838,12 @@ export default function SaaSAdminPage() {
   }
 
   const toggleTenant = async (tenant, active) => {
+    if (!active) {
+      const confirmed = window.confirm(
+        `Are you sure you want to deactivate "${tenant.name}"? All users in this company will lose access.`
+      )
+      if (!confirmed) return
+    }
     try {
       if (active) await platformAdminAPI.activateTenant(tenant.id)
       else await platformAdminAPI.deactivateTenant(tenant.id)
