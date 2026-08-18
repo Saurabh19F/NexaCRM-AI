@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Lock, Mail, Sparkles } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { authAPI } from '../services/api'
 import toast from 'react-hot-toast'
@@ -44,15 +44,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#eaf7ff] px-4 py-4 text-slate-950 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-brand-50 px-4 py-4 text-slate-900 font-sans antialiased sm:px-6">
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/80 bg-white shadow-[0_20px_54px_rgba(15,23,42,0.14)] md:h-[540px] md:grid-cols-[1.05fr_0.95fr]"
+        className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:h-[540px] md:grid-cols-[1.05fr_0.95fr]"
       >
         {/* Left — illustration */}
-        <div className="relative h-[260px] overflow-hidden bg-[#f6fbff] md:h-full">
+        <div className="relative h-[260px] overflow-hidden bg-brand-50 md:h-full">
           <img
             src="/login-crm-side.png"
             alt="CRM dashboard illustration"
@@ -64,17 +64,15 @@ export default function LoginPage() {
         <div className="flex min-h-[420px] flex-col justify-center px-7 py-8 sm:px-10 md:min-h-0 lg:px-14">
           <Link
             to="/"
-            className="mb-7 inline-flex w-fit items-center gap-2 text-sm font-extrabold text-slate-900"
-            aria-label="Go to NexaCRM home"
+            className="mb-7 inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-900"
+            aria-label="Go to NexaCRM AI home"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00a8b8] text-white shadow-sm shadow-cyan-700/20">
-              <Sparkles size={16} strokeWidth={2.4} />
-            </span>
-            NexaCRM
+            <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-8 w-8 object-contain" />
+            NexaCRM AI
           </Link>
 
           <div className="w-full max-w-sm">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">Login</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Login</h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Enter your details to access your CRM workspace.
             </p>
@@ -83,7 +81,7 @@ export default function LoginPage() {
               {/* Email */}
               <label className="block">
                 <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Email</span>
-                <span className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition focus-within:border-[#00a8b8] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#00a8b8]/10">
+                <span className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition focus-within:border-brand-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-500/10">
                   <Mail size={17} />
                   <input
                     type="email"
@@ -92,7 +90,7 @@ export default function LoginPage() {
                     placeholder="you@company.com"
                     autoComplete="email"
                     required
-                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
                   />
                 </span>
               </label>
@@ -100,7 +98,7 @@ export default function LoginPage() {
               {/* Password */}
               <label className="block">
                 <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Password</span>
-                <span className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition focus-within:border-[#00a8b8] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#00a8b8]/10">
+                <span className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition focus-within:border-brand-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-500/10">
                   <Lock size={17} />
                   <input
                     type={showPwd ? 'text' : 'password'}
@@ -109,7 +107,7 @@ export default function LoginPage() {
                     placeholder="Enter password"
                     autoComplete="current-password"
                     required
-                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
                   />
                   <button
                     type="button"
@@ -129,14 +127,14 @@ export default function LoginPage() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 text-[#00a8b8] focus:ring-[#00a8b8]/30"
+                    className="rounded border-slate-300 text-brand-500 focus:ring-brand-500/30"
                   />
                   Remember me
                 </label>
                 <button
                   type="button"
                   onClick={() => toast('Password resets are handled by your admin or identity provider.')}
-                  className="text-[#00a8b8] hover:text-[#0891b2] font-semibold"
+                  className="text-brand-500 hover:text-brand-600 font-semibold"
                 >
                   Forgot password?
                 </button>
@@ -146,7 +144,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="h-12 w-full rounded-xl bg-[#00a8b8] text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(0,168,184,0.22)] transition hover:-translate-y-0.5 hover:bg-[#0891b2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a8b8]/40 focus-visible:ring-offset-2 disabled:opacity-70 disabled:hover:translate-y-0"
+                className="h-12 w-full rounded-xl bg-brand-500 text-sm font-bold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] transition hover:-translate-y-0.5 hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:ring-offset-2 disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
@@ -163,11 +161,11 @@ export default function LoginPage() {
             <div className="mt-6 space-y-1.5 text-center text-xs text-slate-500">
               <p>
                 Need access?{' '}
-                <Link to="/register" className="text-[#00a8b8] hover:text-[#0891b2] font-semibold">Request an invite</Link>
+                <Link to="/register" className="text-brand-500 hover:text-brand-600 font-semibold">Request an invite</Link>
               </p>
               <p>
                 Platform Admin?{' '}
-                <Link to="/platform/login" className="text-[#00a8b8] hover:text-[#0891b2] font-semibold">Sign in here</Link>
+                <Link to="/platform/login" className="text-brand-500 hover:text-brand-600 font-semibold">Sign in here</Link>
               </p>
             </div>
           </div>
