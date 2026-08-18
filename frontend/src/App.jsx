@@ -95,6 +95,8 @@ function PermissionRoute({ permission, children }) {
   if (!authBootstrapped) {
     return <div className="min-h-screen grid place-items-center text-slate-500">Checking session...</div>
   }
+  // Platform Admin should not access company-level pages — redirect to their dashboard
+  if (user?.role === 'PLATFORM_ADMIN') return <Navigate to="/admin/saas" replace />
   if (hasPermission(user, permission)) return children
 
   return (

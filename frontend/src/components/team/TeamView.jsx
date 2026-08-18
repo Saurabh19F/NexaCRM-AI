@@ -76,7 +76,7 @@ export default function TeamPage() {
   const canUpdate = hasPermission(user, APP_PERMISSIONS.TEAM_UPDATE)
   const canDeactivate = hasPermission(user, APP_PERMISSIONS.TEAM_DEACTIVATE)
   const isManager = user?.role === 'MANAGER'
-  const isAdminLike = ['COMPANY_ADMIN', 'ADMIN'].includes(user?.role) || user?.role === 'PLATFORM_ADMIN'
+  const isAdminLike = ['COMPANY_ADMIN', 'ADMIN'].includes(user?.role)
   const roleOptions = Object.keys(ROLE_CONFIG).filter((roleKey) => !isManager || !['COMPANY_ADMIN', 'ADMIN'].includes(roleKey))
   const selectedRoleDefinition = roleDefinitions.find((role) => role.value === selectedRole) || roleDefinitions[0]
   const selectedRolePermissions = selectedRoleDefinition?.permissions || []

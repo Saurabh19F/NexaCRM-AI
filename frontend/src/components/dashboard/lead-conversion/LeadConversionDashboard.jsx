@@ -280,7 +280,7 @@ const isOpenFollowUpTask = (task) => {
 
 export default function LeadConversionDashboard() {
   const { user } = useAuthStore()
-  const isFullAccess = ['COMPANY_ADMIN', 'ADMIN', 'MANAGER'].includes(user?.role) || user?.role === 'PLATFORM_ADMIN'
+  const isFullAccess = ['COMPANY_ADMIN', 'ADMIN', 'MANAGER'].includes(user?.role)
   const dateFilterRef = useRef(null)
   const [filter, setFilter] = useState('thisMonth')
   const [dateMenuOpen, setDateMenuOpen] = useState(false)

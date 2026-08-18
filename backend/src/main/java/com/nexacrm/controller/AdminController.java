@@ -12,7 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'COMPANY_ADMIN', 'ADMIN')")
+@PreAuthorize("hasAnyRole('COMPANY_ADMIN', 'ADMIN')")
 public class AdminController {
 
     private final UserRepository userRepository;

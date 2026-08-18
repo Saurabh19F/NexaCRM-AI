@@ -48,8 +48,13 @@ public class User extends BaseEntity implements UserDetails {
 
     private static final Map<Role, List<String>> ROLE_PERMISSIONS = new EnumMap<>(Role.class);
 
+    // Platform Admin permissions — platform-level operations only, not company CRM data
+    private static final List<String> PLATFORM_ADMIN_PERMISSIONS = List.of(
+        "profile.update", "notifications.read", "settings.view"
+    );
+
     static {
-        ROLE_PERMISSIONS.put(Role.PLATFORM_ADMIN, ALL_PERMISSIONS);
+        ROLE_PERMISSIONS.put(Role.PLATFORM_ADMIN, PLATFORM_ADMIN_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.COMPANY_ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.ADMIN, ALL_PERMISSIONS);
         ROLE_PERMISSIONS.put(Role.MANAGER, List.of(

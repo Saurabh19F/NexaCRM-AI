@@ -64,8 +64,9 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
     '/communication': unreadCount,
   }
 
+  // Platform Admin only sees Platform Admin tabs — no company nav items at all
   const visibleNavItems = isPlatformAdmin
-    ? NAV_ITEMS.filter((item) => item.path === '/settings')
+    ? []
     : NAV_ITEMS.filter((item) => !item.platformAdminOnly && hasPermission(user, item.permission))
 
   useEffect(() => {
