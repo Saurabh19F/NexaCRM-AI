@@ -14,6 +14,7 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByEmail(String email);
     Optional<User> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
     List<User> findByTenantIdAndDeletedFalse(Long tenantId);
+    long countByTenantIdAndDeletedFalse(Long tenantId);
     boolean existsByEmailAndTenantId(String email, Long tenantId);
     boolean existsByPhoneAndTenantIdAndDeletedFalse(String phone, Long tenantId);
 }

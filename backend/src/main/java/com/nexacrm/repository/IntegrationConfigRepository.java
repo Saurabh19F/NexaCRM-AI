@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface IntegrationConfigRepository extends MongoRepository<IntegrationConfig, String> {
     Optional<IntegrationConfig> findByTenantIdAndIntegrationIdAndDeletedFalse(Long tenantId, String integrationId);
     List<IntegrationConfig> findByTenantIdAndDeletedFalse(Long tenantId);
+    long countByTenantIdAndDeletedFalse(Long tenantId);
 }

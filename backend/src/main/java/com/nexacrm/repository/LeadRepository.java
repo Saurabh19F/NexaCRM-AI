@@ -29,6 +29,8 @@ public interface LeadRepository extends MongoRepository<Lead, String> {
 
     List<Lead> findByTenantIdAndDeletedFalseAndScore(Long tenantId, Lead.LeadScore score);
 
+    long countByTenantIdAndDeletedFalse(Long tenantId);
+
     long countByTenantIdAndDeletedFalseAndScore(Long tenantId, Lead.LeadScore score);
 
     long countByTenantIdAndDeletedFalseAndStatus(Long tenantId, Lead.LeadStatus status);

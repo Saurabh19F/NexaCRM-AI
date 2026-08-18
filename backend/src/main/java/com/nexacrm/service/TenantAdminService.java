@@ -219,7 +219,7 @@ public class TenantAdminService {
                 Collectors.counting()
             ));
 
-        // Count data across all tenants
+        // Count data across all tenants using efficient count queries
         long totalLeads = 0;
         long totalDeals = 0;
         long totalInvoices = 0;
@@ -228,11 +228,11 @@ public class TenantAdminService {
         for (Tenant t : tenants) {
             Long tid = t.getTenantId();
             if (tid != null) {
-                totalLeads += leadRepository.findByTenantIdAndDeletedFalse(tid).size();
-                totalDeals += dealRepository.findByTenantIdAndDeletedFalse(tid).size();
-                totalInvoices += invoiceRepository.findByTenantIdAndDeletedFalse(tid).size();
-                try { totalWorkflows += workflowRepository.findByTenantIdAndDeletedFalse(tid).size(); } catch (Exception ignored) {}
-                try { totalIntegrations += integrationConfigRepository.findByTenantIdAndDeletedFalse(tid).size(); } catch (Exception ignored) {}
+                totalLeads += leadRepository.countByTenantIdAndDeletedFalse(tid);
+                totalDeals += dealRepository.countByTenantIdAndDeletedFalse(tid);
+                totalInvoices += invoiceRepository.countByTenantIdAndDeletedFalse(tid);
+                try { totalWorkflows += workflowRepository.countByTenantIdAndDeletedFalse(tid); } catch (Exception ignored) {}
+                try { totalIntegrations += integrationConfigRepository.countByTenantIdAndDeletedFalse(tid); } catch (Exception ignored) {}
             }
         }
 
@@ -362,10 +362,10 @@ public class TenantAdminService {
 
     private Map<String, Object> tenantSummary(Tenant tenant) {
         Long tenantId = tenant.getTenantId();
-        long userCount = tenantId != null ? userRepository.findByTenantIdAndDeletedFalse(tenantId).size() : 0L;
-        long leadCount = tenantId != null ? leadRepository.findByTenantIdAndDeletedFalse(tenantId).size() : 0L;
-        long dealCount = tenantId != null ? dealRepository.findByTenantIdAndDeletedFalse(tenantId).size() : 0L;
-        long invoiceCount = tenantId != null ? invoiceRepository.findByTenantIdAndDeletedFalse(tenantId).size() : 0L;
+        long userCount = tenantId != null ? userRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
+        long leadCount = tenantId != null ? leadRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
+        long dealCount = tenantId != null ? dealRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
+        long invoiceCount = tenantId != null ? invoiceRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", tenant.getId());
         row.put("tenantId", tenant.getTenantId());
