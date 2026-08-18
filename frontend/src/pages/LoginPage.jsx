@@ -1,149 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, LogIn } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail, Sparkles } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { authAPI } from '../services/api'
-import BrandLogo from '../components/brand/BrandLogo'
 import toast from 'react-hot-toast'
-
-/* ── Animated CRM illustration (left panel) ─────────────────────── */
-function CRMAnimation() {
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-      {/* Floating gradient orbs */}
-      <div className="absolute w-[500px] h-[500px] rounded-full opacity-30 animate-[float_8s_ease-in-out_infinite]"
-        style={{ background: 'radial-gradient(circle, rgba(14,165,233,0.4), transparent 70%)', top: '10%', left: '5%' }} />
-      <div className="absolute w-[400px] h-[400px] rounded-full opacity-25 animate-[float_10s_ease-in-out_infinite_reverse]"
-        style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.35), transparent 70%)', bottom: '10%', right: '0%' }} />
-      <div className="absolute w-[300px] h-[300px] rounded-full opacity-20 animate-[float_12s_ease-in-out_infinite]"
-        style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', top: '50%', left: '40%' }} />
-
-      {/* Main CRM SVG Illustration */}
-      <svg viewBox="0 0 500 500" className="w-[85%] max-w-[420px] relative z-10 drop-shadow-2xl" xmlns="http://www.w3.org/2000/svg">
-        {/* Dashboard card background */}
-        <rect x="50" y="60" width="400" height="320" rx="24" fill="rgba(255,255,255,0.35)" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5">
-          <animate attributeName="y" values="60;55;60" dur="4s" repeatCount="indefinite" />
-        </rect>
-        <rect x="50" y="60" width="400" height="50" rx="24" fill="rgba(14,165,233,0.15)" />
-        {/* Fake window dots */}
-        <circle cx="78" cy="85" r="6" fill="#ef4444" opacity="0.7" />
-        <circle cx="98" cy="85" r="6" fill="#f59e0b" opacity="0.7" />
-        <circle cx="118" cy="85" r="6" fill="#22c55e" opacity="0.7" />
-        <text x="200" y="90" textAnchor="middle" fill="rgba(14,165,233,0.8)" fontSize="13" fontWeight="700" fontFamily="Roboto, sans-serif">CRM Dashboard</text>
-
-        {/* KPI cards row */}
-        <g opacity="0.9">
-          <rect x="75" y="125" width="100" height="55" rx="12" fill="rgba(255,255,255,0.6)" stroke="rgba(14,165,233,0.2)" strokeWidth="1">
-            <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite" />
-          </rect>
-          <text x="125" y="148" textAnchor="middle" fill="#0ea5e9" fontSize="10" fontWeight="600" fontFamily="Roboto, sans-serif">Leads</text>
-          <text x="125" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Roboto, sans-serif">2,847</text>
-
-          <rect x="195" y="125" width="100" height="55" rx="12" fill="rgba(255,255,255,0.6)" stroke="rgba(20,184,166,0.2)" strokeWidth="1">
-            <animate attributeName="opacity" values="1;0.7;1" dur="3s" repeatCount="indefinite" />
-          </rect>
-          <text x="245" y="148" textAnchor="middle" fill="#14b8a6" fontSize="10" fontWeight="600" fontFamily="Roboto, sans-serif">Deals</text>
-          <text x="245" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Roboto, sans-serif">₹42L</text>
-
-          <rect x="315" y="125" width="100" height="55" rx="12" fill="rgba(255,255,255,0.6)" stroke="rgba(139,92,246,0.2)" strokeWidth="1">
-            <animate attributeName="opacity" values="0.7;1;0.7" dur="3.5s" repeatCount="indefinite" />
-          </rect>
-          <text x="365" y="148" textAnchor="middle" fill="#8b5cf6" fontSize="10" fontWeight="600" fontFamily="Roboto, sans-serif">Conv.</text>
-          <text x="365" y="168" textAnchor="middle" fill="#0c4a6e" fontSize="18" fontWeight="800" fontFamily="Roboto, sans-serif">68%</text>
-        </g>
-
-        {/* Animated chart */}
-        <g transform="translate(75, 195)">
-          <rect width="180" height="120" rx="12" fill="rgba(255,255,255,0.5)" stroke="rgba(14,165,233,0.15)" strokeWidth="1" />
-          <text x="90" y="18" textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600" fontFamily="Roboto, sans-serif">Revenue Trend</text>
-          {/* Chart bars */}
-          {[
-            { x: 15, h: 40, color: '#0ea5e9', delay: '0s' },
-            { x: 35, h: 55, color: '#14b8a6', delay: '0.2s' },
-            { x: 55, h: 35, color: '#0ea5e9', delay: '0.4s' },
-            { x: 75, h: 70, color: '#14b8a6', delay: '0.6s' },
-            { x: 95, h: 50, color: '#0ea5e9', delay: '0.8s' },
-            { x: 115, h: 80, color: '#14b8a6', delay: '1s' },
-            { x: 135, h: 65, color: '#0ea5e9', delay: '1.2s' },
-            { x: 155, h: 90, color: '#14b8a6', delay: '1.4s' },
-          ].map(({ x, h, color, delay }) => (
-            <rect key={x} x={x} y={105 - h} width="14" height={h} rx="3" fill={color} opacity="0.7">
-              <animate attributeName="height" values={`0;${h};${h}`} dur="1.5s" begin={delay} fill="freeze" />
-              <animate attributeName="y" values={`105;${105 - h};${105 - h}`} dur="1.5s" begin={delay} fill="freeze" />
-              <animate attributeName="opacity" values="0.5;0.8;0.5" dur="3s" begin={delay} repeatCount="indefinite" />
-            </rect>
-          ))}
-        </g>
-
-        {/* Lead pipeline funnel */}
-        <g transform="translate(275, 195)">
-          <rect width="140" height="120" rx="12" fill="rgba(255,255,255,0.5)" stroke="rgba(20,184,166,0.15)" strokeWidth="1" />
-          <text x="70" y="18" textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600" fontFamily="Roboto, sans-serif">Pipeline</text>
-          {/* Funnel stages */}
-          {[
-            { y: 30, w: 110, label: 'New', color: '#0ea5e9', delay: '0.3s' },
-            { y: 50, w: 90, label: 'Qualified', color: '#06b6d4', delay: '0.6s' },
-            { y: 70, w: 70, label: 'Proposal', color: '#14b8a6', delay: '0.9s' },
-            { y: 90, w: 50, label: 'Won', color: '#10b981', delay: '1.2s' },
-          ].map(({ y, w, label, color, delay }) => (
-            <g key={label}>
-              <rect x={(140 - w) / 2} y={y} width={w} height="16" rx="4" fill={color} opacity="0.6">
-                <animate attributeName="width" values={`0;${w}`} dur="1s" begin={delay} fill="freeze" />
-                <animate attributeName="x" values={`70;${(140 - w) / 2}`} dur="1s" begin={delay} fill="freeze" />
-              </rect>
-              <text x="70" y={y + 12} textAnchor="middle" fill="white" fontSize="8" fontWeight="600" fontFamily="Roboto, sans-serif">{label}</text>
-            </g>
-          ))}
-        </g>
-
-        {/* Floating notification badges */}
-        <g>
-          <circle cx="420" cy="80" r="14" fill="#0ea5e9" opacity="0.9">
-            <animate attributeName="r" values="14;16;14" dur="2s" repeatCount="indefinite" />
-          </circle>
-          <text x="420" y="85" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">5</text>
-        </g>
-
-        {/* Animated connecting lines (data flow) */}
-        <line x1="170" y1="330" x2="280" y2="330" stroke="rgba(14,165,233,0.3)" strokeWidth="1.5" strokeDasharray="6,4">
-          <animate attributeName="stroke-dashoffset" values="0;-20" dur="2s" repeatCount="indefinite" />
-        </line>
-
-        {/* User avatars */}
-        <g transform="translate(100, 335)" opacity="0.8">
-          <circle cx="0" cy="0" r="15" fill="#0ea5e9" opacity="0.8" />
-          <text x="0" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">S</text>
-          <circle cx="28" cy="0" r="15" fill="#14b8a6" opacity="0.8" />
-          <text x="28" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">A</text>
-          <circle cx="56" cy="0" r="15" fill="#8b5cf6" opacity="0.8" />
-          <text x="56" y="5" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="Roboto, sans-serif">M</text>
-          <circle cx="84" cy="0" r="13" fill="rgba(14,165,233,0.2)" stroke="rgba(14,165,233,0.4)" strokeWidth="1.5" strokeDasharray="4,3">
-            <animate attributeName="stroke-dashoffset" values="0;-14" dur="3s" repeatCount="indefinite" />
-          </circle>
-          <text x="84" y="5" textAnchor="middle" fill="#0ea5e9" fontSize="14" fontWeight="400" fontFamily="Roboto, sans-serif">+</text>
-        </g>
-      </svg>
-
-      {/* Floating particles */}
-      {[...Array(6)].map((_, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full animate-[float_6s_ease-in-out_infinite]"
-          style={{
-            width: 6 + i * 2,
-            height: 6 + i * 2,
-            background: i % 2 === 0 ? 'rgba(14,165,233,0.3)' : 'rgba(20,184,166,0.3)',
-            top: `${15 + i * 13}%`,
-            left: `${10 + i * 15}%`,
-            animationDelay: `${i * 0.8}s`,
-            animationDuration: `${5 + i}s`,
-          }}
-        />
-      ))}
-    </div>
-  )
-}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -183,125 +44,135 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="min-h-screen flex bg-slate-50"
-    >
-      {/* Left panel — CRM Animation */}
-      <div className="hidden lg:flex flex-col w-1/2 relative">
-        <div className="absolute top-8 left-8 z-20">
-          <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
+    <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#eaf7ff] px-4 py-4 text-slate-950 sm:px-6">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-white/80 bg-white shadow-[0_20px_54px_rgba(15,23,42,0.14)] md:h-[540px] md:grid-cols-[1.05fr_0.95fr]"
+      >
+        {/* Left — illustration */}
+        <div className="relative h-[260px] overflow-hidden bg-[#f6fbff] md:h-full">
+          <img
+            src="/login-crm-side.png"
+            alt="CRM dashboard illustration"
+            className="h-full w-full object-cover object-center"
+          />
         </div>
 
-        <div className="flex h-full items-center px-8">
-          <div className="max-w-md space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Sales workspace</p>
-            <h1 className="text-4xl font-bold tracking-tight text-slate-950">A calmer CRM for focused teams.</h1>
-            <p className="text-sm leading-6 text-slate-600">
-              Manage leads, conversations, tasks, and invoices from one clean command center.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Right panel — Login form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-md"
-        >
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <BrandLogo variant="wordmark" size="md" tone="light" className="max-w-[260px]" />
-          </div>
-
-          <div
-            className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm sm:p-10"
+        {/* Right — form */}
+        <div className="flex min-h-[420px] flex-col justify-center px-7 py-8 sm:px-10 md:min-h-0 lg:px-14">
+          <Link
+            to="/"
+            className="mb-7 inline-flex w-fit items-center gap-2 text-sm font-extrabold text-slate-900"
+            aria-label="Go to NexaCRM home"
           >
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
-              <p className="text-slate-500 text-sm mt-1">Sign in to your sales command center</p>
-            </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00a8b8] text-white shadow-sm shadow-cyan-700/20">
+              <Sparkles size={16} strokeWidth={2.4} />
+            </span>
+            NexaCRM
+          </Link>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1.5">Email Address</label>
-                <input
-                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  required autoComplete="email"
-                  className="input"
-                  placeholder="you@company.com"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 block mb-1.5">Password</label>
-                <div className="relative">
+          <div className="w-full max-w-sm">
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">Login</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Enter your details to access your CRM workspace.
+            </p>
+
+            <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+              {/* Email */}
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Email</span>
+                <span className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition focus-within:border-[#00a8b8] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#00a8b8]/10">
+                  <Mail size={17} />
                   <input
-                    type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
-                    required autoComplete="current-password"
-                    className="input pr-12"
-                    placeholder="••••••••"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    required
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
                   />
-                  <button type="button" onClick={() => setShowPwd(!showPwd)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+                </span>
+              </label>
 
+              {/* Password */}
+              <label className="block">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Password</span>
+                <span className="flex h-12 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-slate-500 transition focus-within:border-[#00a8b8] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#00a8b8]/10">
+                  <Lock size={17} />
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password"
+                    autoComplete="current-password"
+                    required
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-950 outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(!showPwd)}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPwd ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </span>
+              </label>
+
+              {/* Remember me + forgot */}
               <div className="flex items-center justify-between text-xs">
                 <label className="flex items-center gap-2 text-slate-500 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 text-brand-500 focus:ring-brand-500/30"
+                    className="rounded border-slate-300 text-[#00a8b8] focus:ring-[#00a8b8]/30"
                   />
                   Remember me
                 </label>
                 <button
                   type="button"
                   onClick={() => toast('Password resets are handled by your admin or identity provider.')}
-                  className="text-brand-500 hover:text-brand-600 font-semibold"
+                  className="text-[#00a8b8] hover:text-[#0891b2] font-semibold"
                 >
                   Forgot password?
                 </button>
               </div>
 
-              <button type="submit" disabled={loading}
-                className="btn-primary w-full py-3 text-base gap-2 disabled:opacity-70"
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="h-12 w-full rounded-xl bg-[#00a8b8] text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(0,168,184,0.22)] transition hover:-translate-y-0.5 hover:bg-[#0891b2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a8b8]/40 focus-visible:ring-offset-2 disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Signing in…
+                  </span>
                 ) : (
-                  <LogIn className="w-5 h-5" />
+                  'Login'
                 )}
-                {loading ? 'Signing in…' : 'Sign In'}
               </button>
             </form>
-          </div>
 
-          <div className="text-center text-xs text-slate-500 mt-6 space-y-1.5">
-            <p>Use your assigned workspace credentials to sign in.</p>
-            <p>
-              Need access? <Link to="/register" className="text-brand-500 hover:text-brand-600 font-semibold">Request an invite</Link>
-            </p>
-            <p>
-              Platform Admin? <Link to="/platform/login" className="text-brand-500 hover:text-brand-600 font-semibold">Sign in here</Link>
-            </p>
+            {/* Footer links */}
+            <div className="mt-6 space-y-1.5 text-center text-xs text-slate-500">
+              <p>
+                Need access?{' '}
+                <Link to="/register" className="text-[#00a8b8] hover:text-[#0891b2] font-semibold">Request an invite</Link>
+              </p>
+              <p>
+                Platform Admin?{' '}
+                <Link to="/platform/login" className="text-[#00a8b8] hover:text-[#0891b2] font-semibold">Sign in here</Link>
+              </p>
+            </div>
           </div>
-        </motion.div>
-      </div>
-
-      {/* CSS animation keyframes */}
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          33% { transform: translateY(-15px) rotate(1deg); }
-          66% { transform: translateY(-8px) rotate(-1deg); }
-        }
-      `}</style>
-    </div>
+        </div>
+      </motion.section>
+    </main>
   )
 }

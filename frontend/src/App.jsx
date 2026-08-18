@@ -9,6 +9,7 @@ import { authAPI } from './services/api'
 import { PERMISSIONS, hasPermission } from './utils/permissions'
 
 const pageImports = {
+  '/landing': () => import('./pages/LandingPage'),
   '/login': () => import('./pages/LoginPage'),
   '/register': () => import('./pages/RegisterPage'),
   '/dashboard': () => import('./pages/DashboardPage'),
@@ -33,6 +34,7 @@ export const prefetchPage = (path) => {
   if (loader) loader()
 }
 
+const LandingPage = lazy(pageImports['/landing'])
 const LoginPage = lazy(pageImports['/login'])
 const RegisterPage = lazy(pageImports['/register'])
 const DashboardPage = lazy(pageImports['/dashboard'])
@@ -81,7 +83,7 @@ function PrivateRoute({ children }) {
   if (!authBootstrapped) {
     return <div className="min-h-screen grid place-items-center text-slate-500">Checking session...</div>
   }
-  return isAuthenticated ? children : <Navigate to="/login" replace />
+  return isAuthenticated ? children : <Navigate to="/" replace />
 }
 
 function PermissionRoute({ permission, children }) {
@@ -320,6 +322,10 @@ export default function App() {
           }}
         />
         <Routes>
+          {/* Public landing page — default route */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/landing" element={<LandingPage />} />
+
           {/* Auth routes */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
@@ -336,7 +342,6 @@ export default function App() {
               </PrivateRoute>
             }
           >
-            <Route index element={<PlatformAdminRedirect />} />
             <Route path="/dashboard" element={<PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW}><DashboardPage /></PermissionRoute>} />
             <Route path="/leads" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><LeadsPage /></PermissionRoute>} />
             <Route path="/pipeline" element={<PermissionRoute permission={PERMISSIONS.LEADS_READ}><KanbanPage /></PermissionRoute>} />
@@ -358,7 +363,7 @@ export default function App() {
           </Route>
 
           {/* Fallback */}
-          <Route path="*" element={<PlatformAdminRedirect />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
