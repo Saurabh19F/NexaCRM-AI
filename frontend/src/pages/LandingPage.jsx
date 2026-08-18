@@ -1250,7 +1250,7 @@ export default function LandingPage() {
 
               <nav aria-label="Footer quick links">
                 <h2 className="text-xs font-extrabold uppercase tracking-[0.18em] text-white">Quick Links</h2>
-                <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400">
+                <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
                   {quickLinks.map(({ label, href }) => (
                     <li key={label}>
                       {href.startsWith('/') ? (
