@@ -116,7 +116,7 @@ export default function LoginPage() {
         transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_54px_rgba(14,165,233,0.12)] md:max-h-[min(520px,90vh)] md:grid-cols-[1.05fr_0.95fr]"
       >
-        {/* Left — full illustration with glassmorphism text */}
+        {/* Left — illustration top + glassmorphism card bottom */}
         <div className="relative hidden overflow-hidden bg-white md:flex md:h-full flex-col">
           <motion.div
             initial={{ scaleX: 1 }}
@@ -125,38 +125,38 @@ export default function LoginPage() {
             className="absolute inset-0 z-30 origin-right bg-white"
           />
 
-          {/* Full-bleed illustration */}
-          <motion.img
-            src="/login-crm-illustration.png"
-            alt="CRM support and communication illustration"
-            initial={{ scale: 1.1, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="absolute inset-0 h-full w-full object-contain object-center p-5"
-          />
+          {/* Illustration — takes top 58% */}
+          <div className="relative flex-[1_1_58%] flex items-center justify-center overflow-hidden">
+            <motion.img
+              src="/login-crm-illustration.png"
+              alt="CRM support and communication illustration"
+              initial={{ scale: 1.1, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 1.4, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="h-full w-full object-contain object-center p-4"
+            />
+          </div>
 
-          {/* Glassmorphism text overlay at bottom */}
+          {/* Glassmorphism card — bottom */}
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.6 }}
-            className="absolute bottom-0 left-0 right-0 z-20 p-5"
+            className="relative z-20 mx-4 mb-4 shrink-0 rounded-2xl border border-brand-100/60 p-4"
+            style={{ background: 'rgba(240,249,255,0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 8px 32px rgba(14,165,233,0.08), inset 0 1px 0 rgba(255,255,255,0.8)' }}
           >
-            <div className="rounded-2xl border border-white/40 p-5"
-              style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-                boxShadow: '0 8px 32px rgba(14,165,233,0.1), inset 0 1px 0 rgba(255,255,255,0.6)' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-6 w-6 object-contain" />
-                <span className="text-sm font-bold text-slate-800">NexaCRM AI</span>
-              </div>
-              <p className="text-sm font-bold text-slate-800 leading-snug">
-                Your sales, support &amp; success — all in one place
-              </p>
-              <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                AI-powered CRM that helps modern teams close deals faster and delight customers.
-              </p>
-              <p className="mt-2 text-[11px] font-semibold text-brand-500">Trusted by 300K+ businesses worldwide</p>
+            <div className="flex items-center gap-2 mb-1.5">
+              <img src="/brand/nexacrm-ai-icon.png" alt="" className="h-5 w-5 object-contain" />
+              <span className="text-sm font-bold text-slate-800">NexaCRM AI</span>
             </div>
+            <p className="text-sm font-bold text-slate-800 leading-snug">
+              Your sales, support &amp; success — all in one place
+            </p>
+            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+              AI-powered CRM that helps modern teams close deals faster and delight customers.
+            </p>
+            <p className="mt-1.5 text-[11px] font-semibold text-brand-500">Trusted by 300K+ businesses worldwide</p>
           </motion.div>
         </div>
 
