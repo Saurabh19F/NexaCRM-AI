@@ -1208,7 +1208,7 @@ export default function LandingPage() {
           </section>
 
           {/* ═══ FOOTER ═══ */}
-          <footer className="relative overflow-hidden bg-slate-950 px-5 pb-5 pt-12 text-slate-300 sm:px-8 lg:px-10">
+          <footer className="relative overflow-hidden bg-slate-950 px-5 pb-20 pt-12 text-slate-300 sm:px-8 sm:pb-24 lg:px-10">
             <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_24%_20%,rgba(14,165,233,0.15),transparent_32%),radial-gradient(circle_at_74%_84%,rgba(20,184,166,0.12),transparent_30%)]" />
             <div className="relative mx-auto grid max-w-7xl gap-7 lg:grid-cols-[1.35fr_0.7fr_0.95fr] lg:gap-12">
               <div id="contact" className="max-w-xl">
