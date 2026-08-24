@@ -26,6 +26,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DuplicateKeyException;
@@ -70,6 +71,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Transactional
 public class LeadService {
+
+    private static final String LEAD_IMPORT_SUPPRESSIONS_COLLECTION = "lead_import_suppressions";
+    private static final String META_ADS_SOURCE = "META_ADS";
 
     private final LeadRepository leadRepository;
     private final CustomerRepository customerRepository;
@@ -448,6 +452,8 @@ public class LeadService {
             return;
         }
 
+        rememberDeletedExternalLeads(leads, tenantId);
+
         Query leadScoped = new Query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds));
         mongoTemplate.remove(leadScoped, "communications");
         mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "lead_activities");
@@ -460,6 +466,44 @@ public class LeadService {
             "notifications"
         );
         leadRepository.deleteAll(leads);
+    }
+
+    private void rememberDeletedExternalLeads(Collection<Lead> leads, Long tenantId) {
+        if (tenantId == null) {
+            return;
+        }
+        leads.forEach(lead -> rememberDeletedMetaLead(lead, tenantId));
+    }
+
+    private void rememberDeletedMetaLead(Lead lead, Long tenantId) {
+        if (lead == null) {
+            return;
+        }
+
+        String facebookLeadId = trim(lead.getFacebookLeadId());
+        if (facebookLeadId == null || facebookLeadId.isBlank()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        Query query = Query.query(Criteria.where("tenant_id").is(tenantId)
+            .and("source").is(META_ADS_SOURCE)
+            .and("external_id").is(facebookLeadId));
+
+        Update update = new Update()
+            .setOnInsert("tenant_id", tenantId)
+            .setOnInsert("source", META_ADS_SOURCE)
+            .setOnInsert("external_id", facebookLeadId)
+            .setOnInsert("createdAt", now)
+            .set("lead_name", lead.getName())
+            .set("email", lead.getEmail())
+            .set("phone", lead.getPhone())
+            .set("reason", "lead_deleted")
+            .set("deleted", false)
+            .set("deleted_at", now)
+            .set("updatedAt", now);
+
+        mongoTemplate.upsert(query, update, LEAD_IMPORT_SUPPRESSIONS_COLLECTION);
     }
 
     @Transactional(readOnly = true)
@@ -1109,6 +1153,10 @@ public class LeadService {
                 log.info("Facebook lead already exists, skipping: leadgen_id={}", leadgenId);
                 return;
             }
+            if (isDeletedExternalLeadSuppressed(META_ADS_SOURCE, leadgenId)) {
+                log.info("Facebook lead was deleted from CRM, skipping re-import: leadgen_id={}", leadgenId);
+                return;
+            }
 
             String accessToken = resolveFacebookLeadAccessToken();
             if (accessToken.isBlank()) {
@@ -1267,6 +1315,11 @@ public class LeadService {
                 fetched++;
                 String leadgenId = trim(String.valueOf(rawLead.get("id")));
                 if (leadgenId == null || leadgenId.isBlank()) {
+                    skipped++;
+                    continue;
+                }
+                if (isDeletedExternalLeadSuppressed(META_ADS_SOURCE, leadgenId)) {
+                    log.info("Facebook lead was deleted from CRM, skipping sync import: leadgen_id={}", leadgenId);
                     skipped++;
                     continue;
                 }
@@ -1457,6 +1510,21 @@ public class LeadService {
     private boolean isDuplicateEmailError(Exception ex) {
         String message = ex.getMessage();
         return message != null && message.toLowerCase(Locale.ROOT).contains("already exists");
+    }
+
+    private boolean isDeletedExternalLeadSuppressed(String source, String externalId) {
+        String normalizedSource = trim(source);
+        String normalizedExternalId = trim(externalId);
+        if (normalizedSource == null || normalizedSource.isBlank()
+            || normalizedExternalId == null || normalizedExternalId.isBlank()) {
+            return false;
+        }
+
+        Query query = Query.query(Criteria.where("tenant_id").is(tenantId())
+            .and("source").is(normalizedSource)
+            .and("external_id").is(normalizedExternalId)
+            .and("deleted").ne(true));
+        return mongoTemplate.exists(query, LEAD_IMPORT_SUPPRESSIONS_COLLECTION);
     }
 
     private String appendNote(String existing, String addition) {
