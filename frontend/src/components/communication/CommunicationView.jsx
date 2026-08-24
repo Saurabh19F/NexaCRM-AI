@@ -116,6 +116,20 @@ function isNumericScopedId(value) { return /^\d+$/.test(String(value || '').trim
 function convIdForWhatsApp(contact) { return `whatsapp-${cleanPhone(contact)}` }
 function convIdForFacebook(psid) { return `facebook-${psid}` }
 function convIdForInstagram(igsid) { return `instagram-${igsid}` }
+function isPhoneOnlyName(name, phone) {
+  const normalizedName = cleanPhone(name)
+  const normalizedPhone = cleanPhone(phone)
+  return normalizedName && normalizedPhone && normalizedName === normalizedPhone
+}
+function bestConversationName(previous, incoming) {
+  const previousName = String(previous?.name || '').trim()
+  const incomingName = String(incoming?.name || '').trim()
+  const phone = incoming?.phone || previous?.phone || incoming?.recipient || previous?.recipient || ''
+
+  if (incomingName && !isPhoneOnlyName(incomingName, phone)) return incomingName
+  if (previousName && !isPhoneOnlyName(previousName, phone)) return previousName
+  return incomingName || previousName || phone
+}
 function formatMessageTime(iso) {
   if (!iso) return nowTime()
   const dt = new Date(iso)
@@ -359,7 +373,7 @@ export default function CommunicationPage() {
   useEffect(() => { saveConversations(conversations) }, [conversations])
   useEffect(() => {
     if (activeId && !conversations.some((c) => c.id === activeId)) {
-      setActiveId(conversations[0]?.id || null)
+      setActiveId(null)
     }
   }, [activeId, conversations])
   useEffect(() => {
@@ -378,9 +392,10 @@ export default function CommunicationPage() {
           const backendWhatsapp = rows.map((row) => {
             const contact = cleanPhone(row.contact || '')
             const id = convIdForWhatsApp(contact)
+            const displayName = String(row.name || '').trim()
             return {
               id,
-              name: `+${contact}`,
+              name: displayName || `+${contact}`,
               phone: `+${contact}`,
               recipient: contact,
               company: 'WhatsApp',
@@ -391,7 +406,8 @@ export default function CommunicationPage() {
 
           // Upsert backend conversations without deleting local ones.
           for (const conv of backendWhatsapp) {
-            existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
+            const previous = existing.get(conv.id) || {}
+            existing.set(conv.id, { ...previous, ...conv, name: bestConversationName(previous, conv) })
           }
 
           // Keep all local chats; backend sync should enrich, not replace.
@@ -417,7 +433,6 @@ export default function CommunicationPage() {
       try {
         const rows = await commsAPI.getFacebookConversations()
         if (cancelled) return
-        let newestFacebookConvId = null
         setConversations((prev) => {
           const existing = new Map(prev.map((c) => [c.id, c]))
           const backendFacebook = rows.map((row) => {
@@ -436,16 +451,10 @@ export default function CommunicationPage() {
             }
           })
           for (const conv of backendFacebook) {
-            if (!existing.has(conv.id)) {
-              newestFacebookConvId = conv.id
-            }
             existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
           }
           return Array.from(existing.values())
         })
-        if (newestFacebookConvId) {
-          setActiveId((current) => current || newestFacebookConvId)
-        }
       } catch {
         // keep local conversations when backend unreachable
       }
@@ -462,7 +471,6 @@ export default function CommunicationPage() {
       try {
         const rows = await commsAPI.getInstagramConversations()
         if (cancelled) return
-        let newestInstagramConvId = null
         setConversations((prev) => {
           const existing = new Map(prev.map((c) => [c.id, c]))
           const backendInstagram = rows.map((row) => {
@@ -481,16 +489,10 @@ export default function CommunicationPage() {
             }
           })
           for (const conv of backendInstagram) {
-            if (!existing.has(conv.id)) {
-              newestInstagramConvId = conv.id
-            }
             existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
           }
           return Array.from(existing.values())
         })
-        if (newestInstagramConvId) {
-          setActiveId((current) => current || newestInstagramConvId)
-        }
       } catch {
         // keep local conversations when backend unreachable
       }
@@ -1028,8 +1030,8 @@ export default function CommunicationPage() {
         </div>
 
         {/* ── Chat Window ── */}
-        <div className="flex-1 glass-card flex flex-col overflow-hidden min-h-[420px] lg:min-h-0">
-          {activeConv ? (
+        {activeConv && (
+          <div className="flex-1 glass-card flex flex-col overflow-hidden min-h-[420px] lg:min-h-0">
             <>
               {/* Chat header */}
               <div className={`flex flex-wrap items-start justify-between gap-2 px-3 sm:px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/40
@@ -1199,26 +1201,8 @@ export default function CommunicationPage() {
                 </button>
               </div>
             </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-slate-400 space-y-3">
-                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto">
-                  <MessageSquare className="w-8 h-8 opacity-40" />
-                </div>
-                <div>
-                  <p className="font-medium text-slate-600 dark:text-slate-300">Select a conversation</p>
-                  <p className="text-sm mt-1">Choose from the sidebar to start messaging</p>
-                </div>
-                {whatsappEnabled && (
-                  <button onClick={() => setNewContact(true)}
-                    className="mx-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors">
-                    <Plus className="w-4 h-4" /> New WhatsApp Chat
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── New Contact Modal ── */}

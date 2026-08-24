@@ -7,7 +7,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacrm.model.CommunicationRecord;
+import com.nexacrm.model.Customer;
+import com.nexacrm.model.Lead;
 import com.nexacrm.repository.CommunicationRecordRepository;
+import com.nexacrm.repository.CustomerRepository;
+import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.security.TenantContext;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -72,6 +76,8 @@ public class CommunicationService {
     private final JavaMailSender mailSender;
     private final IntegrationService integrationService;
     private final CommunicationRecordRepository communicationRecordRepository;
+    private final LeadRepository leadRepository;
+    private final CustomerRepository customerRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
@@ -558,7 +564,7 @@ public class CommunicationService {
         return latestByContact.values().stream()
             .map(row -> WhatsAppConversationResponse.builder()
                 .contact(row.getContactIdentifier())
-                .name(trim(row.getContactName()))
+                .name(resolveWhatsAppDisplayName(row))
                 .lastMessage(row.getBody())
                 .lastDirection(row.getDirection())
                 .lastAt(asUtcOffsetDateTime(row.getCreatedAt()))
@@ -2282,6 +2288,54 @@ public class CommunicationService {
         String psid = trim(row.getContactIdentifier());
         String resolved = resolveFacebookProfileName(psid);
         return resolved.isBlank() ? "PSID: " + psid : resolved;
+    }
+
+    private String resolveWhatsAppDisplayName(CommunicationRecord row) {
+        String existing = trim(row.getContactName());
+        if (!existing.isBlank()) {
+            return existing;
+        }
+
+        String contact = normalizeContact(row.getContactIdentifier());
+        if (contact.isBlank()) {
+            return "";
+        }
+
+        for (String candidate : phoneLookupCandidates(contact)) {
+            Optional<Lead> lead = leadRepository.findByPhoneAndTenantIdAndDeletedFalse(candidate, tenantId());
+            if (lead.isPresent()) {
+                String name = trim(lead.get().getName());
+                if (!name.isBlank()) {
+                    return name;
+                }
+            }
+            Optional<Customer> customer = customerRepository.findByPhoneAndTenantIdAndDeletedFalse(candidate, tenantId());
+            if (customer.isPresent()) {
+                String name = trim(customer.get().getName());
+                if (!name.isBlank()) {
+                    return name;
+                }
+            }
+        }
+
+        return "+" + contact;
+    }
+
+    private List<String> phoneLookupCandidates(String contact) {
+        String normalized = normalizeContact(contact);
+        if (normalized.isBlank()) {
+            return List.of();
+        }
+        List<String> candidates = new ArrayList<>();
+        candidates.add(normalized);
+        candidates.add("+" + normalized);
+        if (normalized.startsWith("91") && normalized.length() > 10) {
+            String local = normalized.substring(2);
+            candidates.add(local);
+            candidates.add("+91 " + local);
+            candidates.add("+91" + local);
+        }
+        return candidates.stream().distinct().toList();
     }
 
     private String resolveFacebookProfileName(String psidRaw) {
