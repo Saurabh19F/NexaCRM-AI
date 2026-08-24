@@ -74,27 +74,48 @@ public class CallAgentService {
 
     @Transactional(readOnly = true)
     public boolean isWebhookAuthorized(String secretHeader, String authorizationHeader, Map<String, Object> payload) {
-        String expectedSecret = firstNonBlank(
-            trim(integrationService.getConfig("voice_call_agent").get("webhookSecret")),
-            trim(defaultWebhookSecret)
-        );
-        if (expectedSecret.isBlank()) {
-            return false;
+        Map<String, Object> metadata = readMetadata(payload);
+        boolean tenantSetForWebhook = false;
+        if (TenantContext.currentTenantIdOrNull() == null) {
+            Long resolvedTenantId = firstLong(
+                payload.get("tenantId"),
+                payload.get("tenant_id"),
+                metadata.get("tenantId"),
+                metadata.get("tenant_id")
+            );
+            if (resolvedTenantId != null) {
+                TenantContext.setCurrentTenantId(resolvedTenantId);
+                tenantSetForWebhook = true;
+            }
         }
 
-        String payloadSecret = trim(stringValue(payload.get("secret")));
-        if (payloadSecret.isBlank()) {
-            payloadSecret = trim(stringValue(payload.get("webhookSecret")));
-        }
+        try {
+            String expectedSecret = firstNonBlank(
+                trim(integrationService.getConfig("voice_call_agent").get("webhookSecret")),
+                trim(defaultWebhookSecret)
+            );
+            if (expectedSecret.isBlank()) {
+                return isKnownCallWebhookPayload(payload, metadata);
+            }
 
-        String bearer = trim(authorizationHeader);
-        if (bearer.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
-            bearer = trim(bearer.substring("bearer ".length()));
-        }
+            String payloadSecret = trim(stringValue(payload.get("secret")));
+            if (payloadSecret.isBlank()) {
+                payloadSecret = trim(stringValue(payload.get("webhookSecret")));
+            }
 
-        return expectedSecret.equals(trim(secretHeader))
-            || expectedSecret.equals(payloadSecret)
-            || expectedSecret.equals(bearer);
+            String bearer = trim(authorizationHeader);
+            if (bearer.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
+                bearer = trim(bearer.substring("bearer ".length()));
+            }
+
+            return expectedSecret.equals(trim(secretHeader))
+                || expectedSecret.equals(payloadSecret)
+                || expectedSecret.equals(bearer);
+        } finally {
+            if (tenantSetForWebhook) {
+                TenantContext.clear();
+            }
+        }
     }
 
     public Map<String, Object> processWebhook(Map<String, Object> payload) {
@@ -409,6 +430,42 @@ public class CallAgentService {
             }
         }
         return Map.of();
+    }
+
+    private boolean isKnownCallWebhookPayload(Map<String, Object> payload, Map<String, Object> metadata) {
+        Long tenantId = TenantContext.currentTenantIdOrNull();
+        if (tenantId == null) {
+            return false;
+        }
+
+        String externalId = firstNonBlank(
+            stringValue(payload.get("externalId")),
+            stringValue(payload.get("external_id")),
+            stringValue(payload.get("callId")),
+            stringValue(payload.get("call_id")),
+            stringValue(payload.get("sipCallId")),
+            stringValue(payload.get("sip_call_id")),
+            stringValue(payload.get("executionId")),
+            stringValue(payload.get("execution_id")),
+            findFirstTextByKeys(payload, List.of("execution_id", "executionId", "call_id", "callId"))
+        );
+        if (!externalId.isBlank() && communicationRecordRepository
+            .findFirstByTenantIdAndChannelIgnoreCaseAndExternalIdOrderByCreatedAtDesc(tenantId, "CALL", externalId)
+            .isPresent()) {
+            return true;
+        }
+
+        String leadId = firstNonBlank(
+            stringValue(payload.get("leadId")),
+            stringValue(payload.get("lead_id")),
+            stringValue(metadata.get("leadId")),
+            stringValue(metadata.get("lead_id")),
+            findFirstTextByKeys(payload, List.of("lead_id", "leadId"))
+        );
+        return !leadId.isBlank()
+            && !communicationRecordRepository
+                .findTop50ByTenantIdAndLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc(tenantId, leadId, "CALL")
+                .isEmpty();
     }
 
     private Object readSafeJsonObject(String rawPayload) {

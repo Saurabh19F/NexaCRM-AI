@@ -127,6 +127,17 @@ public class LeadCallAutomationService {
             return;
         }
 
+        syncLatestProviderResult(fresh);
+        fresh = leadCallAutomationRepository
+            .findByTenantIdAndLeadId(workflow.getTenantId(), workflow.getLeadId())
+            .orElse(null);
+        if (fresh == null || !isActive(fresh.getStatus())) {
+            return;
+        }
+        if (fresh.getNextScheduledAt() == null || fresh.getNextScheduledAt().isAfter(LocalDateTime.now())) {
+            return;
+        }
+
         queueAttemptIfAllowed(fresh, "scheduled_retry");
     }
 
@@ -243,6 +254,17 @@ public class LeadCallAutomationService {
             scheduleRetry(workflow, lead, "FAILED");
             return workflow;
         }
+    }
+
+    private void syncLatestProviderResult(LeadCallAutomation workflow) {
+        communicationService.fetchLatestLeadCallProviderResult(workflow.getLeadId())
+            .ifPresent(result -> handleCallResult(
+                workflow.getLeadId(),
+                result.status(),
+                result.outcome(),
+                result.durationSeconds(),
+                result.externalId()
+            ));
     }
 
     private LeadCallAutomation scheduleRetry(LeadCallAutomation workflow, Lead lead, String lastStatus) {

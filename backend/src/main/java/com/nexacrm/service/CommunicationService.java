@@ -22,6 +22,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -41,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -49,6 +51,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CommunicationService {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+
+    public record VoiceCallProviderResult(
+        String status,
+        String outcome,
+        Integer durationSeconds,
+        String externalId
+    ) {}
 
     private final JavaMailSender mailSender;
     private final IntegrationService integrationService;
@@ -257,6 +266,67 @@ public class CommunicationService {
             trim(triggerSource).isBlank() ? "manual_lead_call" : triggerSource,
             mergedMetadata
         );
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<VoiceCallProviderResult> fetchLatestLeadCallProviderResult(String leadId) {
+        String normalizedLeadId = trim(leadId);
+        if (normalizedLeadId.isBlank()) {
+            return Optional.empty();
+        }
+
+        List<CommunicationRecord> calls = communicationRecordRepository
+            .findTop50ByTenantIdAndLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc(
+                TenantContext.currentTenantId(),
+                normalizedLeadId,
+                "CALL"
+            );
+
+        for (CommunicationRecord call : calls) {
+            String provider = trim(call.getProvider()).toLowerCase(Locale.ROOT);
+            String externalId = trim(call.getExternalId());
+            if (!"bolna".equals(provider) || externalId.isBlank()) {
+                continue;
+            }
+
+            Map<String, Object> execution = fetchBolnaExecutionDetails(externalId);
+            if (execution.isEmpty()) {
+                continue;
+            }
+
+            String status = findFirstTextByKeys(execution, List.of(
+                "status",
+                "call_status",
+                "callStatus",
+                "state",
+                "execution_status",
+                "executionStatus",
+                "telephony_status",
+                "telephonyStatus"
+            ));
+            String outcome = findFirstTextByKeys(execution, List.of(
+                "outcome",
+                "call_outcome",
+                "callOutcome",
+                "disposition",
+                "result",
+                "answered_by",
+                "answeredBy"
+            ));
+            Integer durationSeconds = firstInteger(findFirstTextByKeys(execution, List.of(
+                "durationSeconds",
+                "duration_seconds",
+                "callDurationSeconds",
+                "call_duration_seconds",
+                "duration"
+            )));
+
+            if (!status.isBlank() || !outcome.isBlank() || durationSeconds != null) {
+                return Optional.of(new VoiceCallProviderResult(status, outcome, durationSeconds, externalId));
+            }
+        }
+
+        return Optional.empty();
     }
 
     public void autoCallNewLeadAsync(
@@ -1435,6 +1505,110 @@ public class CommunicationService {
             return normalized;
         }
         return normalized + "/call";
+    }
+
+    private Map<String, Object> fetchBolnaExecutionDetails(String executionId) {
+        String normalizedExecutionId = trim(executionId);
+        if (normalizedExecutionId.isBlank()) {
+            return Map.of();
+        }
+
+        VoiceAgentConfig config = resolveVoiceAgentConfig();
+        String apiKey = firstNonBlank(config.bolnaApiKey(), config.apiKey());
+        if (apiKey.isBlank()) {
+            return Map.of();
+        }
+
+        String apiUrl = normalizeBolnaApiBaseUrl(config.bolnaApiUrl());
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+            for (String path : List.of("/executions/", "/execution/", "/call/", "/v2/execution/", "/v2/call/")) {
+                try {
+                    ResponseEntity<String> response = restTemplate.exchange(
+                        apiUrl + path + normalizedExecutionId,
+                        HttpMethod.GET,
+                        new HttpEntity<>(headers),
+                        String.class
+                    );
+                    Object root = readJsonObject(response.getBody());
+                    if (root instanceof Map<?, ?> map) {
+                        Map<String, Object> result = new LinkedHashMap<>();
+                        map.forEach((key, value) -> result.put(String.valueOf(key), value));
+                        return result;
+                    }
+                } catch (Exception ignored) {
+                    // try the next supported Bolna execution path
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("Failed to fetch Bolna execution {}: {}", normalizedExecutionId, ex.getMessage());
+        }
+        return Map.of();
+    }
+
+    private String normalizeBolnaApiBaseUrl(String value) {
+        String normalized = trim(value);
+        if (normalized.isBlank()) {
+            normalized = "https://api.bolna.ai";
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private String findFirstTextByKeys(Object source, List<String> keys) {
+        if (source == null || keys == null || keys.isEmpty()) {
+            return "";
+        }
+        if (source instanceof Map<?, ?> map) {
+            for (String key : keys) {
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    if (key.equalsIgnoreCase(String.valueOf(entry.getKey()))) {
+                        String value = asText(entry.getValue());
+                        if (!value.isBlank()) {
+                            return value;
+                        }
+                    }
+                }
+            }
+            for (Object value : map.values()) {
+                if (value instanceof Map<?, ?> || value instanceof List<?>) {
+                    String nested = findFirstTextByKeys(value, keys);
+                    if (!nested.isBlank()) {
+                        return nested;
+                    }
+                }
+            }
+        } else if (source instanceof List<?> list) {
+            for (Object item : list) {
+                String nested = findFirstTextByKeys(item, keys);
+                if (!nested.isBlank()) {
+                    return nested;
+                }
+            }
+        }
+        return "";
+    }
+
+    private Integer firstInteger(String value) {
+        String normalized = trim(value);
+        if (normalized.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(normalized);
+        } catch (NumberFormatException ignored) {
+            try {
+                return (int) Math.round(Double.parseDouble(normalized));
+            } catch (NumberFormatException ignoredAgain) {
+                return null;
+            }
+        }
     }
 
     private String toJsonSafe(Object value) {
