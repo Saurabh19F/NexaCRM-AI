@@ -4,6 +4,7 @@ import com.nexacrm.dto.DealDTO;
 import com.nexacrm.dto.LeadDTO;
 import com.nexacrm.dto.dashboard.DashboardOverviewDTO;
 import com.nexacrm.dto.dashboard.DashboardWidgetSnapshotDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacrm.model.CommunicationRecord;
 import com.nexacrm.model.Deal;
 import com.nexacrm.model.Lead;
@@ -41,6 +42,7 @@ public class DashboardAnalyticsService {
     private static final int WIDGET_LEAD_LIMIT = 250;
     private static final int WIDGET_DEAL_LIMIT = 100;
     private static final int DASHBOARD_MONTHS = 6;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final List<DashboardStage> DASHBOARD_STAGES = List.of(
         new DashboardStage("NEW", "New Leads", "#7c3aed"),
         new DashboardStage("CONTACTED", "Contacted", "#9333ea"),
@@ -87,7 +89,7 @@ public class DashboardAnalyticsService {
             List.of(),
             buildFastInsights(List.of()),
             List.of(),
-            List.of(),
+            buildRecentCallSnapshots(),
             LocalDateTime.now().toString()
         );
     }
@@ -483,45 +485,57 @@ public class DashboardAnalyticsService {
         return row;
     }
 
-    private List<Map<String, Object>> buildRecentCallSnapshots(List<LeadDTO> leads) {
-        List<LeadDTO> sortedLeads = leads.stream()
-            .sorted(Comparator.comparing(this::leadTimestamp, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-            .limit(5)
-            .toList();
-
-        Set<String> leadIds = sortedLeads.stream().map(LeadDTO::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+    private List<Map<String, Object>> buildRecentCallSnapshots() {
         Query callQ = new Query();
-        callQ.addCriteria(Criteria.where("lead_id").in(leadIds));
+        callQ.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         callQ.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
         callQ.with(Sort.by(Sort.Direction.DESC, "created_at"));
+        callQ.limit(50);
         List<CommunicationRecord> allCalls = mongoTemplate.find(callQ, CommunicationRecord.class);
 
-        Map<String, List<CommunicationRecord>> callsByLead = new LinkedHashMap<>();
+        Map<String, CommunicationRecord> latestCallByLead = new LinkedHashMap<>();
         for (CommunicationRecord c : allCalls) {
-            callsByLead.computeIfAbsent(c.getLeadId(), k -> new ArrayList<>()).add(c);
+            String leadId = safeText(c.getLeadId(), "");
+            if (!leadId.isBlank()) {
+                latestCallByLead.putIfAbsent(leadId, c);
+            }
+            if (latestCallByLead.size() >= 10) {
+                break;
+            }
         }
 
+        Map<String, LeadDTO> leadsById = fetchCallSnapshotLeads(latestCallByLead.keySet());
         List<Map<String, Object>> snapshots = new ArrayList<>();
-        for (LeadDTO lead : sortedLeads) {
-            List<CommunicationRecord> calls = callsByLead.getOrDefault(lead.getId(), List.of());
-            if (calls.isEmpty()) {
-                continue;
-            }
-
+        for (Map.Entry<String, CommunicationRecord> entry : latestCallByLead.entrySet()) {
             try {
-                CommunicationRecord latest = calls.get(0);
+                String leadId = entry.getKey();
+                CommunicationRecord latest = entry.getValue();
+                LeadDTO lead = leadsById.get(leadId);
                 String summary = extractCallSummaryFromRecord(latest);
                 String recordingUrl = extractFieldFromRawPayload(latest.getRawPayload(), List.of("recording_url", "recordingUrl", "recording"));
-                String verdict = lead.getScore() != null ? lead.getScore().name() : "UNCERTAIN";
-                int confidence = lead.getAiScoreValue() != null ? lead.getAiScoreValue() : 0;
+                String callStatus = safeText(latest.getStatus(), "");
+                String verdict = lead != null && lead.getScore() != null ? lead.getScore().name() : safeText(callStatus, "UNCERTAIN");
+                int confidence = lead != null && lead.getAiScoreValue() != null
+                    ? lead.getAiScoreValue()
+                    : confidenceFromCallStatus(callStatus);
+                Integer attemptNumber = lead != null && lead.getAutomatedCallingAttempt() != null
+                    ? lead.getAutomatedCallingAttempt()
+                    : firstInteger(extractFieldFromRawPayload(latest.getRawPayload(), List.of("attemptNumber", "attempt_number")));
+                String nextScheduledAttempt = lead != null && lead.getNextAutomatedCallAt() != null
+                    ? lead.getNextAutomatedCallAt().toString()
+                    : extractFieldFromRawPayload(latest.getRawPayload(), List.of("nextScheduledAttempt", "next_scheduled_attempt"));
 
                 Map<String, Object> snapshot = new LinkedHashMap<>();
-                snapshot.put("leadId", lead.getId());
-                snapshot.put("leadName", safeText(lead.getName(), "Unknown"));
-                snapshot.put("company", safeText(lead.getCompany(), ""));
-                snapshot.put("currentStatus", safeText(lead.getAutomatedCallingStatusLabel(), lead.getStatus() != null ? lead.getStatus().name() : "NEW"));
-                snapshot.put("attemptNumber", lead.getAutomatedCallingAttempt() != null ? lead.getAutomatedCallingAttempt() : calls.size());
-                snapshot.put("nextScheduledAttempt", lead.getNextAutomatedCallAt() != null ? lead.getNextAutomatedCallAt().toString() : "");
+                snapshot.put("leadId", leadId);
+                snapshot.put("leadName", lead != null
+                    ? safeText(lead.getName(), "Unknown")
+                    : safeText(extractFieldFromRawPayload(latest.getRawPayload(), List.of("lead_name", "leadName")), safeText(latest.getContactName(), "Unknown")));
+                snapshot.put("company", lead != null ? safeText(lead.getCompany(), "") : "");
+                snapshot.put("currentStatus", lead != null
+                    ? safeText(lead.getAutomatedCallingStatusLabel(), lead.getStatus() != null ? lead.getStatus().name() : callStatus)
+                    : safeText(callStatus, "CALL"));
+                snapshot.put("attemptNumber", attemptNumber != null ? attemptNumber : 1);
+                snapshot.put("nextScheduledAttempt", safeText(nextScheduledAttempt, ""));
                 snapshot.put("verdict", verdict);
                 snapshot.put("confidence", confidence);
                 snapshot.put("summary", safeText(summary, "No summary available yet."));
@@ -539,13 +553,40 @@ public class DashboardAnalyticsService {
         return snapshots;
     }
 
+    private Map<String, LeadDTO> fetchCallSnapshotLeads(Set<String> leadIds) {
+        List<org.bson.types.ObjectId> objectIds = leadIds.stream()
+            .filter(org.bson.types.ObjectId::isValid)
+            .map(org.bson.types.ObjectId::new)
+            .toList();
+        if (objectIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Query leadQ = new Query();
+        leadQ.addCriteria(Criteria.where("tenant_id").is(tenantId()));
+        leadQ.addCriteria(Criteria.where("deleted").is(false));
+        leadQ.addCriteria(Criteria.where("_id").in(objectIds));
+        includeDashboardLeadFields(leadQ);
+        List<org.bson.Document> leadDocs = mongoTemplate.find(leadQ, org.bson.Document.class, "leads");
+        Map<String, String> assignments = extractAssignments(leadDocs);
+        return leadDocs.stream()
+            .map(doc -> docToLeadDTO(doc, assignments))
+            .collect(Collectors.toMap(LeadDTO::getId, lead -> lead, (first, ignored) -> first, LinkedHashMap::new));
+    }
+
     private String extractCallSummaryFromRecord(CommunicationRecord call) {
         String raw = call.getRawPayload();
         if (raw != null && !raw.isBlank()) {
-            for (String key : List.of("summary", "note", "message")) {
-                String value = extractFieldFromRawPayload(raw, List.of(key));
-                if (!value.isBlank()) return value;
-            }
+            String value = extractFieldFromRawPayload(raw, List.of(
+                "summary",
+                "call_summary",
+                "callSummary",
+                "note",
+                "transcript_text",
+                "transcriptText",
+                "transcript"
+            ));
+            if (!value.isBlank()) return value.length() > 320 ? value.substring(0, 320) + "..." : value;
         }
         String body = call.getBody();
         if (body != null && !body.isBlank()) {
@@ -558,14 +599,61 @@ public class DashboardAnalyticsService {
         if (rawPayload == null || rawPayload.isBlank()) return "";
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> parsed = new com.fasterxml.jackson.databind.ObjectMapper().readValue(rawPayload, Map.class);
-            for (String key : keys) {
-                Object value = parsed.get(key);
-                if (value instanceof String text && !text.isBlank()) return text.trim();
-            }
+            Map<String, Object> parsed = OBJECT_MAPPER.readValue(rawPayload, Map.class);
+            return findFirstNestedText(parsed, keys);
         } catch (Exception ignored) {
         }
         return "";
+    }
+
+    private String findFirstNestedText(Object source, List<String> keys) {
+        if (source == null || keys == null || keys.isEmpty()) {
+            return "";
+        }
+        if (source instanceof Map<?, ?> map) {
+            for (String key : keys) {
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    if (key.equalsIgnoreCase(String.valueOf(entry.getKey()))) {
+                        String value = scalarText(entry.getValue());
+                        if (!value.isBlank()) return value;
+                    }
+                }
+            }
+            for (Object value : map.values()) {
+                String nested = findFirstNestedText(value, keys);
+                if (!nested.isBlank()) return nested;
+            }
+        } else if (source instanceof List<?> list) {
+            for (Object item : list) {
+                String nested = findFirstNestedText(item, keys);
+                if (!nested.isBlank()) return nested;
+            }
+        }
+        return "";
+    }
+
+    private String scalarText(Object value) {
+        if (value instanceof String text) return text.trim();
+        if (value instanceof Number || value instanceof Boolean) return String.valueOf(value);
+        return "";
+    }
+
+    private Integer firstInteger(String value) {
+        String normalized = safeText(value, "");
+        if (normalized.isBlank()) return null;
+        try {
+            return Integer.parseInt(normalized);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private int confidenceFromCallStatus(String status) {
+        String normalized = safeText(status, "").toUpperCase(Locale.ROOT);
+        if (normalized.contains("COMPLETED") || normalized.contains("CONNECTED") || normalized.contains("ANSWERED")) return 80;
+        if (normalized.contains("QUEUED") || normalized.contains("CALLING")) return 35;
+        if (normalized.contains("BUSY") || normalized.contains("FAILED") || normalized.contains("MISSED")) return 20;
+        return 0;
     }
 
     private DashboardWidgetSnapshotDTO.AgingCounts buildAgingCounts(List<Lead> leads) {
