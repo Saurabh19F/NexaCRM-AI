@@ -1733,7 +1733,8 @@ export default function LeadsPage() {
                       <td className="py-2.5 px-3">
                         <div>
                           <p className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[250px]">{lead.name}</p>
-                          <p className="text-xs text-slate-500 truncate max-w-[250px]">{lead.company || lead.email}</p>
+                          <p className="text-xs text-slate-500 truncate max-w-[250px]">{lead.email}</p>
+                          {lead.phone && <p className="text-xs text-slate-400 truncate max-w-[250px] flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</p>}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
