@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { dashboardAPI, tasksAPI } from '../../../services/api'
 import { useAuthStore } from '../../../store/authStore'
+import { parseNotificationCreatedAt } from '../../../store/notificationStore'
 import PaginatedSelect from '../../ui/PaginatedSelect'
 import DashboardIcon from '../DashboardIcon'
 
@@ -91,6 +92,7 @@ const ACTIVITY_PAGE_SIZE = 8
 const ACTIVITY_FETCH_LIMIT = 32
 const EMPLOYEE_PAGE_SIZE = 6
 const FOLLOW_UP_PAGE_SIZE = 5
+const INDIA_TIME_ZONE = 'Asia/Kolkata'
 
 const SPARKLINE_ACCESSORS = {
   totalLeads: (row) => Number(row.leadCount || 0),
@@ -235,9 +237,16 @@ function ChartEmptyState({ label }) {
 
 const formatActivityTime = (value) => {
   if (!value) return 'Just now'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Just now'
-  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  const date = parseNotificationCreatedAt(value, null)
+  if (!date || Number.isNaN(date.getTime())) return 'Just now'
+  return date.toLocaleString('en-IN', {
+    timeZone: INDIA_TIME_ZONE,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
 }
 
 const unwrapList = (payload) => {
@@ -248,27 +257,31 @@ const unwrapList = (payload) => {
 
 const toDateKey = (value) => {
   if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  const date = parseNotificationCreatedAt(value, null)
+  if (!date || Number.isNaN(date.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: INDIA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${byType.year}-${byType.month}-${byType.day}`
 }
 
-const startOfLocalDay = (value = new Date()) => {
-  const date = new Date(value)
-  date.setHours(0, 0, 0, 0)
-  return date
+const shiftedDateKey = (offsetDays = 0, value = new Date()) => {
+  const date = parseNotificationCreatedAt(value, new Date())
+  date.setUTCDate(date.getUTCDate() + offsetDays)
+  return toDateKey(date)
 }
 
-const getLocalWeekRange = () => {
-  const start = startOfLocalDay()
-  const day = start.getDay()
+const getIndianWeekKeys = () => {
+  const now = new Date()
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: INDIA_TIME_ZONE, weekday: 'short' }).format(now)
+  const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday)
+  const day = dayIndex >= 0 ? dayIndex : 0
   const diffToMonday = day === 0 ? -6 : 1 - day
-  start.setDate(start.getDate() + diffToMonday)
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  end.setHours(23, 59, 59, 999)
-  return { start, end }
+  return new Set(Array.from({ length: 7 }, (_, index) => shiftedDateKey(diffToMonday + index, now)))
 }
 
 const isOpenFollowUpTask = (task) => {
@@ -475,28 +488,26 @@ export default function LeadConversionDashboard() {
   const followUpSnapshot = useMemo(() => {
     const now = new Date()
     const todayKey = toDateKey(now)
-    const yesterday = new Date(now)
-    yesterday.setDate(now.getDate() - 1)
-    const yesterdayKey = toDateKey(yesterday)
-    const { start: weekStart, end: weekEnd } = getLocalWeekRange()
+    const yesterdayKey = shiftedDateKey(-1, now)
+    const weekKeys = getIndianWeekKeys()
 
     const rows = followUpTasks
       .filter(isOpenFollowUpTask)
       .filter((task) => Boolean(task?.dueDate))
-      .sort((a, b) => new Date(a.dueDate || 0) - new Date(b.dueDate || 0))
+      .sort((a, b) => parseNotificationCreatedAt(a.dueDate || 0, new Date(0)) - parseNotificationCreatedAt(b.dueDate || 0, new Date(0)))
 
     const today = rows.filter((task) => toDateKey(task.dueDate) === todayKey)
     const yesterdayRows = rows.filter((task) => toDateKey(task.dueDate) === yesterdayKey)
     const thisWeek = rows.filter((task) => {
-      const due = new Date(task.dueDate)
-      return !Number.isNaN(due.getTime()) && due >= weekStart && due <= weekEnd
+      const dueKey = toDateKey(task.dueDate)
+      return dueKey && weekKeys.has(dueKey)
     })
     const listById = new Map()
     ;[...yesterdayRows, ...today, ...thisWeek].forEach((task) => {
       if (task?.id && !listById.has(task.id)) listById.set(task.id, task)
     })
     const list = Array.from(listById.values())
-      .sort((a, b) => new Date(a.dueDate || 0) - new Date(b.dueDate || 0))
+      .sort((a, b) => parseNotificationCreatedAt(a.dueDate || 0, new Date(0)) - parseNotificationCreatedAt(b.dueDate || 0, new Date(0)))
 
     return { today, yesterday: yesterdayRows, thisWeek, list }
   }, [followUpTasks])
