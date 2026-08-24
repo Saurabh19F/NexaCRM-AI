@@ -130,6 +130,21 @@ public class Lead extends BaseEntity {
     @Field("activity_logs")
     private List<String> activityLogs;
 
+    @Builder.Default
+    @Field("do_not_call")
+    private Boolean doNotCall = false;
+
+    @Builder.Default
+    @Field("automated_calling_status")
+    private AutomatedCallingStatus automatedCallingStatus = AutomatedCallingStatus.NEW_LEAD;
+
+    @Builder.Default
+    @Field("automated_calling_attempt")
+    private Integer automatedCallingAttempt = 0;
+
+    @Field("next_automated_call_at")
+    private LocalDateTime nextAutomatedCallAt;
+
     // Facebook Lead Ads tracking
     @Indexed(unique = true, partialFilter = "{ 'facebook_lead_id': { '$type': 'string', '$gt': '' } }")
     @Field("facebook_lead_id")
@@ -149,6 +164,16 @@ public class Lead extends BaseEntity {
     public enum LeadStatus { NEW, CONTACTED, QUALIFIED, PROPOSAL, NEGOTIATION, WON, LOST }
     public enum LeadScore  { HOT, WARM, COLD }
     public enum LeadPriority { HIGH, MEDIUM, LOW }
+    public enum AutomatedCallingStatus {
+        NEW_LEAD,
+        CALLING,
+        NO_ANSWER,
+        RETRY_SCHEDULED,
+        CONNECTED,
+        COMPLETED,
+        STOPPED,
+        FAILED
+    }
     public enum ExpectedCloseTimeline {
         DAYS_1_3,   // 1-3 days → HOT
         DAYS_7_10,  // 7-10 days → WARM

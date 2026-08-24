@@ -56,6 +56,7 @@ public class CallAgentService {
     private final UserRepository userRepository;
     private final LeadActivityRepository leadActivityRepository;
     private final CommunicationService communicationService;
+    private final LeadCallAutomationService leadCallAutomationService;
     private final IntegrationService integrationService;
     private final AIService aiService;
     private final NotificationPublisher notificationPublisher;
@@ -176,6 +177,23 @@ public class CallAgentService {
             }
         }
 
+        boolean tenantSetForWebhook = false;
+        if (TenantContext.currentTenantIdOrNull() == null) {
+            Long resolvedTenantId = callRecord
+                .map(CommunicationRecord::getTenantId)
+                .orElseGet(() -> firstLong(
+                    payload.get("tenantId"),
+                    payload.get("tenant_id"),
+                    metadata.get("tenantId"),
+                    metadata.get("tenant_id")
+                ));
+            if (resolvedTenantId != null) {
+                TenantContext.setCurrentTenantId(resolvedTenantId);
+                tenantSetForWebhook = true;
+            }
+        }
+
+        try {
         Lead lead = null;
         if (!leadId.isBlank()) {
             lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId())
@@ -218,10 +236,26 @@ public class CallAgentService {
             } else if ("WARM".equals(hotSignal) && lead.getScore() == Lead.LeadScore.COLD) {
                 lead.setScore(Lead.LeadScore.WARM);
             }
+            if (isDoNotCallSignal(status, outcome, payload, metadata)) {
+                lead.setDoNotCall(true);
+            }
 
             leadRepository.save(lead);
             saveLeadCallActivity(lead, status, outcome, externalId, summary, transcript, payload);
             applyCallIntelligenceToLead(lead, currentCallRow);
+        }
+
+        String resolvedLeadId = lead != null ? lead.getId() : leadId;
+        try {
+            leadCallAutomationService.handleCallResult(
+                resolvedLeadId,
+                status,
+                outcome,
+                extractDurationSeconds(payload, metadata),
+                externalId
+            );
+        } catch (Exception ex) {
+            log.warn("Could not update automated call workflow for lead {}: {}", resolvedLeadId, ex.getMessage());
         }
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -233,14 +267,34 @@ public class CallAgentService {
         response.put("transcript", transcript);
         response.put("assignedHotLead", assignedLead);
         return response;
+        } finally {
+            if (tenantSetForWebhook) {
+                TenantContext.clear();
+            }
+        }
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getLeadCallHistory(String leadId) {
-        ensureLeadExists(leadId);
+        Lead lead = ensureLeadExists(leadId);
         List<CommunicationRecord> calls = communicationRecordRepository
             .findTop50ByLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc(leadId, "CALL");
-        return calls.stream().map(this::toCallHistoryRow).toList();
+        Optional<com.nexacrm.model.LeadCallAutomation> workflow = leadCallAutomationService.findForLead(leadId);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        int total = calls.size();
+        for (int i = 0; i < calls.size(); i++) {
+            Map<String, Object> row = toCallHistoryRow(calls.get(i));
+            row.put("leadName", lead.getName());
+            row.put("contactNumber", lead.getPhone());
+            row.put("leadSource", lead.getSource() != null ? lead.getSource().name() : "OTHER");
+            row.put("attemptNumber", resolveAttemptNumber(row, total - i));
+            row.put("callDateTime", row.get("createdAt"));
+            row.put("callStatus", row.get("status"));
+            row.put("callDuration", row.get("durationSeconds"));
+            row.put("nextScheduledAttempt", workflow.map(com.nexacrm.model.LeadCallAutomation::getNextScheduledAt).orElse(null));
+            rows.add(row);
+        }
+        return rows;
     }
 
     @Transactional(readOnly = true)
@@ -1187,6 +1241,68 @@ public class CallAgentService {
             || normalized.contains("SUCCESS");
     }
 
+    private boolean isDoNotCallSignal(String status, String outcome, Map<String, Object> payload, Map<String, Object> metadata) {
+        String combined = String.join(" ",
+            normalizeStatus(status),
+            normalizeStatus(outcome),
+            normalizeStatus(stringValue(payload.get("disposition"))),
+            normalizeStatus(stringValue(payload.get("result"))),
+            normalizeStatus(stringValue(metadata.get("call_outcome"))),
+            normalizeStatus(stringValue(metadata.get("outcome")))
+        );
+        return combined.contains("DNC")
+            || combined.contains("DO_NOT_CALL")
+            || combined.contains("OPT_OUT")
+            || combined.contains("UNSUBSCRIBE")
+            || combined.contains("UNAVAILABLE");
+    }
+
+    private Integer extractDurationSeconds(Map<String, Object> payload, Map<String, Object> metadata) {
+        Integer direct = firstInteger(
+            payload.get("durationSeconds"),
+            payload.get("duration_seconds"),
+            payload.get("callDurationSeconds"),
+            payload.get("call_duration_seconds"),
+            payload.get("duration"),
+            metadata.get("durationSeconds"),
+            metadata.get("duration_seconds"),
+            metadata.get("callDurationSeconds"),
+            metadata.get("call_duration_seconds")
+        );
+        return direct == null || direct < 0 ? null : direct;
+    }
+
+    private Integer firstInteger(Object... values) {
+        for (Object value : values) {
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            Integer parsed = parseInteger(stringValue(value));
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    private Long firstLong(Object... values) {
+        for (Object value : values) {
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            String raw = stringValue(value);
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            try {
+                return Long.parseLong(raw.trim());
+            } catch (NumberFormatException ignored) {
+                // try next value
+            }
+        }
+        return null;
+    }
+
     private String normalizeStatus(String status) {
         String normalized = trim(status)
             .toUpperCase(Locale.ROOT)
@@ -1281,7 +1397,44 @@ public class CallAgentService {
         row.put("transcript", transcript);
         row.put("recordingUrl", recordingUrl);
         row.put("summary", summary);
+        row.put("durationSeconds", extractDurationSeconds(rawPayload));
         return row;
+    }
+
+    private int resolveAttemptNumber(Map<String, Object> row, int fallback) {
+        Object rawPayload = row.get("rawPayload");
+        if (rawPayload instanceof String raw && !raw.isBlank()) {
+            try {
+                Object root = objectMapper.readValue(raw, Object.class);
+                Integer parsed = firstInteger(
+                    findFirstTextByKeys(root, List.of("attemptNumber", "attempt_number", "callAttempt", "call_attempt"))
+                );
+                if (parsed != null && parsed > 0) {
+                    return parsed;
+                }
+            } catch (Exception ignored) {
+                // fall back to sequence below
+            }
+        }
+        return fallback;
+    }
+
+    private Integer extractDurationSeconds(String rawPayload) {
+        String raw = trim(rawPayload);
+        if (raw.isBlank()) return null;
+        try {
+            Object root = objectMapper.readValue(raw, Object.class);
+            Integer parsed = firstInteger(findFirstTextByKeys(root, List.of(
+                "durationSeconds",
+                "duration_seconds",
+                "callDurationSeconds",
+                "call_duration_seconds",
+                "duration"
+            )));
+            return parsed == null || parsed < 0 ? null : parsed;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private Map<String, Object> buildWebhookAnalysisCallRow(

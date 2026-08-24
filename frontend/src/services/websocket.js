@@ -19,6 +19,11 @@ const normalizeJwtToken = (token) => {
   return null
 }
 
+function emitRealtimeNotification(payload) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('nexacrm:notification', { detail: payload }))
+}
+
 function resolveWebSocketUrl() {
   const explicit = String(import.meta.env.VITE_WS_URL ?? '').trim()
   const fromApiBase = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
@@ -78,13 +83,17 @@ export function connectWebSocket(onNotification) {
 
       stompClient.subscribe('/user/queue/notifications', (msg) => {
         try {
-          onNotification(JSON.parse(msg.body))
+          const payload = JSON.parse(msg.body)
+          emitRealtimeNotification(payload)
+          onNotification(payload)
         } catch { /* ignore malformed */ }
       })
 
       stompClient.subscribe('/topic/notifications', (msg) => {
         try {
-          onNotification(JSON.parse(msg.body))
+          const payload = JSON.parse(msg.body)
+          emitRealtimeNotification(payload)
+          onNotification(payload)
         } catch { /* ignore malformed */ }
       })
     },

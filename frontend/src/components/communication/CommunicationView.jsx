@@ -287,6 +287,7 @@ export default function CommunicationPage() {
   const [composeSending, setComposeSending] = useState(false)
   const [replyToMessage, setReplyToMessage] = useState(null)
   const [emojiPickerMessageId, setEmojiPickerMessageId] = useState(null)
+  const [communicationRefreshTick, setCommunicationRefreshTick] = useState(0)
   const messagesEndRef                = useRef(null)
   const inputRef                      = useRef(null)
 
@@ -295,6 +296,19 @@ export default function CommunicationPage() {
       fetchIntegrations()
     }
   }, [fetchIntegrations, integrationsLoaded])
+
+  useEffect(() => {
+    const handleRealtimeNotification = (event) => {
+      const incoming = event?.detail || {}
+      const type = String(incoming.type || incoming.entityType || '').toLowerCase()
+      const actionUrl = String(incoming.actionUrl || incoming.action_url || '')
+      if (type === 'communication' || actionUrl.includes('/communication')) {
+        setCommunicationRefreshTick((tick) => tick + 1)
+      }
+    }
+    window.addEventListener('nexacrm:notification', handleRealtimeNotification)
+    return () => window.removeEventListener('nexacrm:notification', handleRealtimeNotification)
+  }, [])
 
   const isChannelConnected = (channel) => {
     if (channel === 'email' || channel === 'whatsapp') {
@@ -394,7 +408,7 @@ export default function CommunicationPage() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [])
+  }, [communicationRefreshTick])
 
   // ── Facebook conversations sync ───────────────────────────────
   useEffect(() => {
@@ -439,7 +453,7 @@ export default function CommunicationPage() {
     syncFacebookConversations()
     const timer = setInterval(syncFacebookConversations, 10000)
     return () => { cancelled = true; clearInterval(timer) }
-  }, [])
+  }, [communicationRefreshTick])
 
   // ── Instagram conversations sync ──────────────────────────────
   useEffect(() => {
@@ -515,7 +529,7 @@ export default function CommunicationPage() {
     syncMessages()
     const timer = setInterval(syncMessages, 5000)
     return () => { cancelled = true; clearInterval(timer) }
-  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient])
+  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient, communicationRefreshTick])
 
   // ── Instagram message sync ────────────────────────────────────
   useEffect(() => {
@@ -546,7 +560,7 @@ export default function CommunicationPage() {
     syncMessages()
     const timer = setInterval(syncMessages, 5000)
     return () => { cancelled = true; clearInterval(timer) }
-  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient])
+  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient, communicationRefreshTick])
 
   useEffect(() => {
     if (!activeConv || activeConv.channel !== 'whatsapp') return
@@ -582,7 +596,7 @@ export default function CommunicationPage() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient, activeConv?.phone, activeConv?.name])
+  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient, activeConv?.phone, activeConv?.name, communicationRefreshTick])
 
 
 

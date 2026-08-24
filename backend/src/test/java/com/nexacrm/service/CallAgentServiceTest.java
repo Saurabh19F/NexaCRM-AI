@@ -56,6 +56,9 @@ class CallAgentServiceTest {
     private CommunicationService communicationService;
 
     @Mock
+    private LeadCallAutomationService leadCallAutomationService;
+
+    @Mock
     private IntegrationService integrationService;
 
     @Mock
@@ -79,12 +82,14 @@ class CallAgentServiceTest {
             userRepository,
             leadActivityRepository,
             communicationService,
+            leadCallAutomationService,
             integrationService,
             aiService,
             notificationPublisher,
             objectMapper,
             restTemplate
         );
+        org.mockito.Mockito.lenient().when(leadCallAutomationService.findForLead(any())).thenReturn(Optional.empty());
     }
 
     @Test

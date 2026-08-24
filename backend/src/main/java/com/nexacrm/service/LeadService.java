@@ -78,6 +78,7 @@ public class LeadService {
     private final NotificationService notificationService;
     private final WorkflowEngine workflowEngine;
     private final CommunicationService communicationService;
+    private final LeadCallAutomationService leadCallAutomationService;
     private final IntegrationService integrationService;
     private final LeadAutoAssignService leadAutoAssignService;
     private final LeadActivityService leadActivityService;
@@ -296,15 +297,7 @@ public class LeadService {
             "status", saved.getStatus() != null ? saved.getStatus().name() : "NEW"
         ));
         Long currentTenantId = TenantContext.currentTenantId();
-        communicationService.autoCallNewLeadAsync(
-            saved.getId(),
-            saved.getName(),
-            saved.getPhone(),
-            saved.getCompany(),
-            saved.getService(),
-            saved.getAssignedTo() != null ? saved.getAssignedTo().getName() : null,
-            currentTenantId
-        );
+        leadCallAutomationService.startForNewLeadAsync(saved, currentTenantId);
         communicationService.autoWhatsAppNewLeadAsync(
             saved.getId(),
             saved.getName(),
@@ -358,6 +351,7 @@ public class LeadService {
         lead.setService(dto.getService());
         lead.setSpecialization(dto.getSpecialization());
         if (dto.getStatus() != null) lead.setStatus(dto.getStatus());
+        if (dto.getDoNotCall() != null) lead.setDoNotCall(dto.getDoNotCall());
         if (dto.getScore() != null)  lead.setScore(dto.getScore());
         if (dto.getPriority() != null) lead.setPriority(dto.getPriority());
         if (dto.getExpectedCloseTimeline() != null) {
@@ -397,7 +391,13 @@ public class LeadService {
         validateLostReason(lead);
 
         try {
-            return toDTO(leadRepository.save(lead));
+            Lead saved = leadRepository.save(lead);
+            if (Boolean.TRUE.equals(saved.getDoNotCall())
+                || saved.getStatus() == Lead.LeadStatus.WON
+                || saved.getStatus() == Lead.LeadStatus.LOST) {
+                leadCallAutomationService.stopForLead(saved.getId(), "Lead is unavailable or marked Do Not Call");
+            }
+            return toDTO(saved);
         } catch (DuplicateKeyException ex) {
             throw new IllegalStateException("Lead already exists with that email, phone, or external ID", ex);
         }
@@ -418,6 +418,7 @@ public class LeadService {
         ensureLeadVisible(lead);
         lead.setDeleted(true);
         leadRepository.save(lead);
+        leadCallAutomationService.stopForLead(lead.getId(), "Lead deleted or unavailable");
     }
 
     @Caching(evict = {
@@ -440,6 +441,7 @@ public class LeadService {
             .toList();
         leads.forEach(l -> l.setDeleted(true));
         leadRepository.saveAll(leads);
+        leads.forEach(l -> leadCallAutomationService.stopForLead(l.getId(), "Lead deleted or unavailable"));
         return leads.size();
     }
 
@@ -2215,6 +2217,11 @@ public class LeadService {
             .reminder60SentAt(l.getReminder60SentAt())
             .escalatedAt(l.getEscalatedAt())
             .reassignedAt(l.getReassignedAt())
+            .doNotCall(Boolean.TRUE.equals(l.getDoNotCall()))
+            .automatedCallingStatus(l.getAutomatedCallingStatus())
+            .automatedCallingStatusLabel(LeadCallAutomationService.statusLabel(l.getAutomatedCallingStatus()))
+            .automatedCallingAttempt(l.getAutomatedCallingAttempt())
+            .nextAutomatedCallAt(l.getNextAutomatedCallAt())
             .createdAt(l.getCreatedAt())
             .updatedAt(l.getUpdatedAt())
             .lastContactedAt(l.getLastContactedAt())
@@ -2260,6 +2267,7 @@ public class LeadService {
             .lostReason(dto.getLostReason())
             .followUpDate(dto.getFollowUpDate())
             .revenueValue(dto.getRevenueValue())
+            .doNotCall(Boolean.TRUE.equals(dto.getDoNotCall()))
             .activityLogs(dto.getActivityLogs());
 
         if (dto.getAssignedToId() != null && !dto.getAssignedToId().isBlank()) {

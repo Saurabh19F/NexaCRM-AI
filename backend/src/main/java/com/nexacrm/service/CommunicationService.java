@@ -128,6 +128,9 @@ public class CommunicationService {
     @Value("${nexacrm.call-agent.provider:bolna}")
     private String defaultCallAgentProvider;
 
+    @Value("${nexacrm.webhooks.default-tenant-id:1}")
+    private Long defaultWebhookTenantId;
+
     private Long tenantId() {
         return TenantContext.currentTenantId();
     }
@@ -242,6 +245,10 @@ public class CommunicationService {
         }
         if (!trim(leadName).isBlank()) {
             mergedMetadata.put("leadName", trim(leadName));
+        }
+        Long currentTenantId = TenantContext.currentTenantIdOrNull();
+        if (currentTenantId != null) {
+            mergedMetadata.put("tenantId", currentTenantId);
         }
         sendVoiceCall(
             resolveVoiceAgentConfig(),
@@ -566,51 +573,62 @@ public class CommunicationService {
     }
 
     public Map<String, Object> processWhatsAppWebhook(Map<String, Object> payload) {
-        JsonNode root = objectMapper.valueToTree(payload);
-        List<JsonNode> candidates = collectCandidates(root);
-        int saved = 0;
-
-        for (JsonNode candidate : candidates) {
-            String contact = extractContact(candidate);
-            String text = extractText(candidate);
-            String direction = extractDirection(candidate);
-            String externalId = extractExternalId(candidate);
-            String status = extractStatus(candidate);
-
-            if (contact.isBlank() || text.isBlank()) {
-                continue;
-            }
-            if (!"IN".equals(direction)) {
-                continue;
-            }
-            if (isDuplicateInboundEvent("WHATSAPP", externalId)) {
-                continue;
-            }
-
-            boolean persisted = tryPersistCommunication(
-                "WHATSAPP",
-                direction,
-                contact,
-                text,
-                status,
-                externalId,
-                toJson(candidate),
-                "aiadrika"
-            );
-            if (persisted) {
-                saved++;
-                notificationService.notifyInboundMessage("whatsapp", contact, text);
-                sendAutoReplySafely("whatsapp", contact);
-            }
+        boolean tenantWasMissing = TenantContext.currentTenantIdOrNull() == null;
+        if (tenantWasMissing) {
+            TenantContext.setCurrentTenantId(defaultWebhookTenantId);
         }
 
-        if (saved == 0) {
-            log.info("WhatsApp webhook received, no inbound messages detected.");
-        } else {
-            log.info("WhatsApp webhook processed, inbound saved={}", saved);
-        }
+        try {
+            JsonNode root = objectMapper.valueToTree(payload);
+            List<JsonNode> candidates = collectCandidates(root);
+            int saved = 0;
 
-        return Map.of("ok", true, "saved", saved);
+            for (JsonNode candidate : candidates) {
+                String contact = extractContact(candidate);
+                String text = extractText(candidate);
+                String direction = extractDirection(candidate);
+                String externalId = extractExternalId(candidate);
+                String status = extractStatus(candidate);
+
+                if (contact.isBlank() || text.isBlank()) {
+                    continue;
+                }
+                if (!"IN".equals(direction)) {
+                    continue;
+                }
+                if (isDuplicateInboundEvent("WHATSAPP", externalId)) {
+                    continue;
+                }
+
+                boolean persisted = tryPersistCommunication(
+                    "WHATSAPP",
+                    direction,
+                    contact,
+                    text,
+                    status,
+                    externalId,
+                    toJson(candidate),
+                    "aiadrika"
+                );
+                if (persisted) {
+                    saved++;
+                    notificationService.notifyInboundMessage("whatsapp", contact, text);
+                    sendAutoReplySafely("whatsapp", contact);
+                }
+            }
+
+            if (saved == 0) {
+                log.info("WhatsApp webhook received, no inbound messages detected.");
+            } else {
+                log.info("WhatsApp webhook processed, inbound saved={}", saved);
+            }
+
+            return Map.of("ok", true, "saved", saved);
+        } finally {
+            if (tenantWasMissing) {
+                TenantContext.clear();
+            }
+        }
     }
 
     private void sendSocialMessage(String channel, String recipient, String body) {

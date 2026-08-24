@@ -52,7 +52,10 @@ class LeadServiceTest {
     @Mock private NotificationService notificationService;
     @Mock private WorkflowEngine workflowEngine;
     @Mock private CommunicationService communicationService;
+    @Mock private LeadCallAutomationService leadCallAutomationService;
     @Mock private IntegrationService integrationService;
+    @Mock private LeadAutoAssignService leadAutoAssignService;
+    @Mock private LeadActivityService leadActivityService;
     @Mock private RestTemplate restTemplate;
     @Mock private ObjectMapper objectMapper;
 
@@ -99,7 +102,7 @@ class LeadServiceTest {
         assertTrue(ex.getMessage().contains("already exists"));
         verify(leadRepository, never()).save(any(Lead.class));
         verify(notificationService, never()).notifyLeadCreated(any(), any(), any());
-        verify(communicationService, never()).autoCallNewLeadAsync(any(), any(), any(), any(), any(), any());
+        verify(leadCallAutomationService, never()).startForNewLeadAsync(any(), any());
     }
 
     @Test
@@ -125,15 +128,7 @@ class LeadServiceTest {
         ArgumentCaptor<Map<String, Object>> contextCaptor = ArgumentCaptor.forClass(Map.class);
         verify(workflowEngine).processEvent(eq("LEAD_CREATED"), contextCaptor.capture());
         assertEquals("9876543210", contextCaptor.getValue().get("leadPhone"));
-        verify(communicationService).autoCallNewLeadAsync(
-            eq("lead-100"),
-            eq("New Lead"),
-            eq("9876543210"),
-            any(),
-            any(),
-            any(),
-            eq(1L)
-        );
+        verify(leadCallAutomationService).startForNewLeadAsync(any(Lead.class), eq(1L));
     }
 
     @Test

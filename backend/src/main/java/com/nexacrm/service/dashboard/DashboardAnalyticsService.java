@@ -10,6 +10,7 @@ import com.nexacrm.model.Lead;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.User;
 import com.nexacrm.security.TenantContext;
+import com.nexacrm.service.LeadCallAutomationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -151,6 +152,10 @@ public class DashboardAnalyticsService {
             .include("lost_reason")
             .include("follow_up_date")
             .include("revenue_value")
+            .include("do_not_call")
+            .include("automated_calling_status")
+            .include("automated_calling_attempt")
+            .include("next_automated_call_at")
             .include("facebook_lead_id")
             .include("facebook_form_id")
             .include("facebook_ad_id")
@@ -233,6 +238,11 @@ public class DashboardAnalyticsService {
             .convertedAt(docDate(d, "converted_at")).lostReason(d.getString("lost_reason"))
             .followUpDate(docDate(d, "follow_up_date"))
             .revenueValue(d.get("revenue_value") != null ? new BigDecimal(d.get("revenue_value").toString()) : null)
+            .doNotCall(Boolean.TRUE.equals(d.getBoolean("do_not_call")))
+            .automatedCallingStatus(enumOrNull(Lead.AutomatedCallingStatus.class, d.getString("automated_calling_status")))
+            .automatedCallingStatusLabel(LeadCallAutomationService.statusLabel(enumOrNull(Lead.AutomatedCallingStatus.class, d.getString("automated_calling_status"))))
+            .automatedCallingAttempt(d.getInteger("automated_calling_attempt"))
+            .nextAutomatedCallAt(docDate(d, "next_automated_call_at"))
             .facebookLeadId(d.getString("facebook_lead_id")).facebookFormId(d.getString("facebook_form_id")).facebookAdId(d.getString("facebook_ad_id"))
             .reminder15SentAt(docDate(d, "reminder_15_sent_at")).reminder45SentAt(docDate(d, "reminder_45_sent_at"))
             .reminder60SentAt(docDate(d, "reminder_60_sent_at")).escalatedAt(docDate(d, "escalated_at"))
@@ -511,7 +521,9 @@ public class DashboardAnalyticsService {
                 snapshot.put("leadId", lead.getId());
                 snapshot.put("leadName", safeText(lead.getName(), "Unknown"));
                 snapshot.put("company", safeText(lead.getCompany(), ""));
-                snapshot.put("currentStatus", lead.getStatus() != null ? lead.getStatus().name() : "NEW");
+                snapshot.put("currentStatus", safeText(lead.getAutomatedCallingStatusLabel(), lead.getStatus() != null ? lead.getStatus().name() : "NEW"));
+                snapshot.put("attemptNumber", lead.getAutomatedCallingAttempt() != null ? lead.getAutomatedCallingAttempt() : calls.size());
+                snapshot.put("nextScheduledAttempt", lead.getNextAutomatedCallAt() != null ? lead.getNextAutomatedCallAt().toString() : "");
                 snapshot.put("verdict", verdict);
                 snapshot.put("confidence", confidence);
                 snapshot.put("summary", safeText(summary, "No summary available yet."));

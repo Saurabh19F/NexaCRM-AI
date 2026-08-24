@@ -23,6 +23,18 @@ const INSIGHT_ROUTES = {
 
 const tintStyle = (rgb) => ({ '--dashboard-card-rgb': rgb })
 
+const formatNextAttempt = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -165,6 +177,10 @@ export default function DashboardPage() {
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mt-1.5 line-clamp-2">
                     {item.summary || 'No summary available.'}
                   </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                    {item.attemptNumber ? <span>Attempt {item.attemptNumber}</span> : null}
+                    {formatNextAttempt(item.nextScheduledAttempt) ? <span>Next {formatNextAttempt(item.nextScheduledAttempt)}</span> : null}
+                  </div>
                   <div className="mt-2">
                     <LinearProgress value={item.confidence} color={item.confidence >= 70 ? 'success' : item.confidence >= 40 ? 'warning' : 'error'} size="xs" />
                   </div>
