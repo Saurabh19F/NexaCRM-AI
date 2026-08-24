@@ -53,6 +53,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
@@ -409,8 +410,7 @@ public class LeadService {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
         ensureLeadVisible(lead);
-        lead.setDeleted(true);
-        leadRepository.save(lead);
+        hardDeleteLeadData(List.of(lead), tenantId());
     }
 
     @Caching(evict = {
@@ -431,9 +431,35 @@ public class LeadService {
             .flatMap(Optional::stream)
             .filter(this::canCurrentUserAccess)
             .toList();
-        leads.forEach(l -> l.setDeleted(true));
-        leadRepository.saveAll(leads);
+        hardDeleteLeadData(leads, tenantId);
         return leads.size();
+    }
+
+    private void hardDeleteLeadData(Collection<Lead> leads, Long tenantId) {
+        if (leads == null || leads.isEmpty()) {
+            return;
+        }
+        List<String> leadIds = leads.stream()
+            .map(Lead::getId)
+            .filter(id -> id != null && !id.isBlank())
+            .distinct()
+            .toList();
+        if (leadIds.isEmpty()) {
+            return;
+        }
+
+        Query leadScoped = new Query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds));
+        mongoTemplate.remove(leadScoped, "communications");
+        mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "lead_activities");
+        mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "lead_call_automations");
+        mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "ai_calls");
+        mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "follow_ups");
+        mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "tasks");
+        mongoTemplate.remove(
+            Query.query(Criteria.where("tenant_id").is(tenantId).and("entity_type").is("lead").and("entity_id").in(leadIds)),
+            "notifications"
+        );
+        leadRepository.deleteAll(leads);
     }
 
     @Transactional(readOnly = true)

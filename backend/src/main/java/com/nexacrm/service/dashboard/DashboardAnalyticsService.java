@@ -11,6 +11,7 @@ import com.nexacrm.model.Lead;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.User;
 import com.nexacrm.security.TenantContext;
+import com.nexacrm.service.CommunicationService;
 import com.nexacrm.service.LeadCallAutomationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -78,6 +79,7 @@ public class DashboardAnalyticsService {
     );
 
     private final MongoTemplate mongoTemplate;
+    private final CommunicationService communicationService;
 
     private Long tenantId() {
         return TenantContext.currentTenantId();
@@ -490,46 +492,51 @@ public class DashboardAnalyticsService {
         callQ.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         callQ.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
         callQ.with(Sort.by(Sort.Direction.DESC, "created_at"));
-        callQ.limit(50);
+        callQ.limit(75);
         List<CommunicationRecord> allCalls = mongoTemplate.find(callQ, CommunicationRecord.class);
 
-        Map<String, CommunicationRecord> latestCallByLead = new LinkedHashMap<>();
+        Set<String> leadIds = allCalls.stream()
+            .map(CommunicationRecord::getLeadId)
+            .filter(id -> !safeText(id, "").isBlank())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, LeadDTO> leadsById = fetchCallSnapshotLeads(leadIds);
+
+        Set<String> usedLeadIds = new LinkedHashSet<>();
+        List<Map<String, Object>> snapshots = new ArrayList<>();
         for (CommunicationRecord c : allCalls) {
             String leadId = safeText(c.getLeadId(), "");
-            if (!leadId.isBlank()) {
-                latestCallByLead.putIfAbsent(leadId, c);
+            if (leadId.isBlank() || usedLeadIds.contains(leadId)) {
+                continue;
             }
-            if (latestCallByLead.size() >= 10) {
-                break;
+            LeadDTO lead = leadsById.get(leadId);
+            if (lead == null) {
+                continue;
             }
-        }
 
-        Map<String, LeadDTO> leadsById = fetchCallSnapshotLeads(latestCallByLead.keySet());
-        List<Map<String, Object>> snapshots = new ArrayList<>();
-        for (Map.Entry<String, CommunicationRecord> entry : latestCallByLead.entrySet()) {
             try {
-                String leadId = entry.getKey();
-                CommunicationRecord latest = entry.getValue();
-                LeadDTO lead = leadsById.get(leadId);
-                String summary = extractCallSummaryFromRecord(latest);
-                String recordingUrl = extractFieldFromRawPayload(latest.getRawPayload(), List.of("recording_url", "recordingUrl", "recording"));
-                String callStatus = safeText(latest.getStatus(), "");
+                CommunicationService.VoiceCallDetails details = communicationService.syncVoiceCallDetails(c).orElse(null);
+                String transcript = details != null ? safeText(details.transcript(), "") : extractCallTranscriptFromRecord(c);
+                String recordingUrl = details != null ? safeText(details.recordingUrl(), "") : extractFieldFromRawPayload(c.getRawPayload(), List.of("recording_url", "recordingUrl", "recording"));
+                if (transcript.isBlank() && recordingUrl.isBlank()) {
+                    continue;
+                }
+
+                String summary = details != null ? safeText(details.summary(), "") : extractCallSummaryFromRecord(c);
+                String callStatus = details != null ? safeText(details.status(), "") : safeText(c.getStatus(), "");
                 String verdict = lead != null && lead.getScore() != null ? lead.getScore().name() : safeText(callStatus, "UNCERTAIN");
                 int confidence = lead != null && lead.getAiScoreValue() != null
                     ? lead.getAiScoreValue()
                     : confidenceFromCallStatus(callStatus);
                 Integer attemptNumber = lead != null && lead.getAutomatedCallingAttempt() != null
                     ? lead.getAutomatedCallingAttempt()
-                    : firstInteger(extractFieldFromRawPayload(latest.getRawPayload(), List.of("attemptNumber", "attempt_number")));
+                    : firstInteger(extractFieldFromRawPayload(c.getRawPayload(), List.of("attemptNumber", "attempt_number")));
                 String nextScheduledAttempt = lead != null && lead.getNextAutomatedCallAt() != null
                     ? lead.getNextAutomatedCallAt().toString()
-                    : extractFieldFromRawPayload(latest.getRawPayload(), List.of("nextScheduledAttempt", "next_scheduled_attempt"));
+                    : extractFieldFromRawPayload(c.getRawPayload(), List.of("nextScheduledAttempt", "next_scheduled_attempt"));
 
                 Map<String, Object> snapshot = new LinkedHashMap<>();
                 snapshot.put("leadId", leadId);
-                snapshot.put("leadName", lead != null
-                    ? safeText(lead.getName(), "Unknown")
-                    : safeText(extractFieldFromRawPayload(latest.getRawPayload(), List.of("lead_name", "leadName")), safeText(latest.getContactName(), "Unknown")));
+                snapshot.put("leadName", safeText(lead.getName(), "Unknown"));
                 snapshot.put("company", lead != null ? safeText(lead.getCompany(), "") : "");
                 snapshot.put("currentStatus", lead != null
                     ? safeText(lead.getAutomatedCallingStatusLabel(), lead.getStatus() != null ? lead.getStatus().name() : callStatus)
@@ -540,8 +547,11 @@ public class DashboardAnalyticsService {
                 snapshot.put("confidence", confidence);
                 snapshot.put("summary", safeText(summary, "No summary available yet."));
                 snapshot.put("recordingUrl", safeText(recordingUrl, ""));
-                snapshot.put("calledAt", latest.getCreatedAt() != null ? latest.getCreatedAt().toString() : "");
+                snapshot.put("transcript", safeText(transcript, ""));
+                snapshot.put("durationSeconds", details != null ? details.durationSeconds() : null);
+                snapshot.put("calledAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
                 snapshots.add(snapshot);
+                usedLeadIds.add(leadId);
             } catch (Exception ignored) {
             }
 
@@ -593,6 +603,17 @@ public class DashboardAnalyticsService {
             return body.length() > 320 ? body.substring(0, 320) + "..." : body;
         }
         return "";
+    }
+
+    private String extractCallTranscriptFromRecord(CommunicationRecord call) {
+        return extractFieldFromRawPayload(call.getRawPayload(), List.of(
+            "transcript",
+            "final_transcript",
+            "full_transcript",
+            "conversation_transcript",
+            "transcriptText",
+            "transcript_text"
+        ));
     }
 
     private String extractFieldFromRawPayload(String rawPayload, List<String> keys) {

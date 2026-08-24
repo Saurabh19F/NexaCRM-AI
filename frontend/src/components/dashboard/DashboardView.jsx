@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Sparkles, PlayCircle, ExternalLink, Mic, Phone, ArrowUpRight, Radio, BrainCircuit, ShieldCheck,
+  FileText,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { analyticsAPI } from '../../services/api'
@@ -177,9 +178,21 @@ export default function DashboardPage() {
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed mt-1.5 line-clamp-2">
                     {item.summary || 'No summary available.'}
                   </p>
+                  {item.transcript ? (
+                    <details className="mt-2 rounded-lg border border-cyan-100/80 bg-white/40 px-2 py-1.5 dark:border-cyan-900/40 dark:bg-slate-900/30">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-300">
+                        <FileText className="h-3 w-3" />
+                        Transcript
+                      </summary>
+                      <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-[10px] leading-relaxed text-slate-600 dark:text-slate-300 custom-scrollbar">
+                        {item.transcript}
+                      </p>
+                    </details>
+                  ) : null}
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
                     {item.attemptNumber ? <span>Attempt {item.attemptNumber}</span> : null}
                     {formatNextAttempt(item.nextScheduledAttempt) ? <span>Next {formatNextAttempt(item.nextScheduledAttempt)}</span> : null}
+                    {item.durationSeconds ? <span>{item.durationSeconds}s</span> : null}
                   </div>
                   <div className="mt-2">
                     <LinearProgress value={item.confidence} color={item.confidence >= 70 ? 'success' : item.confidence >= 40 ? 'warning' : 'error'} size="xs" />
@@ -197,9 +210,7 @@ export default function DashboardPage() {
                         Play
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
-                    ) : (
-                      <span className="text-[10px] text-slate-400">No recording</span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))}

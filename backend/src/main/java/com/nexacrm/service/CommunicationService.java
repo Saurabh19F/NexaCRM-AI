@@ -59,6 +59,16 @@ public class CommunicationService {
         String externalId
     ) {}
 
+    public record VoiceCallDetails(
+        String status,
+        String outcome,
+        Integer durationSeconds,
+        String externalId,
+        String transcript,
+        String recordingUrl,
+        String summary
+    ) {}
+
     private final JavaMailSender mailSender;
     private final IntegrationService integrationService;
     private final CommunicationRecordRepository communicationRecordRepository;
@@ -327,6 +337,91 @@ public class CommunicationService {
         }
 
         return Optional.empty();
+    }
+
+    @Transactional
+    public Optional<VoiceCallDetails> syncVoiceCallDetails(CommunicationRecord call) {
+        if (call == null || !"CALL".equalsIgnoreCase(trim(call.getChannel()))) {
+            return Optional.empty();
+        }
+
+        String provider = trim(call.getProvider()).toLowerCase(Locale.ROOT);
+        String externalId = trim(call.getExternalId());
+        Object rawRoot = readJsonObject(call.getRawPayload());
+
+        String transcript = extractTranscriptFromNode(rawRoot);
+        String recordingUrl = findFirstTextByKeys(rawRoot, List.of("recording_url", "recordingUrl", "recording"));
+        String summary = firstNonBlank(
+            findFirstTextByKeys(rawRoot, List.of("summary", "call_summary", "callSummary", "note", "description")),
+            transcript.length() > 320 ? transcript.substring(0, 320) + "..." : transcript
+        );
+        String status = firstNonBlank(
+            findFirstTextByKeys(rawRoot, List.of("status", "call_status", "callStatus", "state", "execution_status", "executionStatus")),
+            call.getStatus()
+        );
+        String outcome = findFirstTextByKeys(rawRoot, List.of("outcome", "call_outcome", "callOutcome", "disposition", "result", "answered_by", "answeredBy"));
+        Integer durationSeconds = firstInteger(findFirstTextByKeys(rawRoot, List.of("durationSeconds", "duration_seconds", "callDurationSeconds", "call_duration_seconds", "duration")));
+
+        Map<String, Object> bolnaExecution = Map.of();
+        if ("bolna".equals(provider) && !externalId.isBlank()
+            && (transcript.isBlank() || recordingUrl.isBlank() || summary.isBlank() || isQueuedLike(status))) {
+            bolnaExecution = fetchBolnaExecutionDetails(externalId);
+            if (!bolnaExecution.isEmpty()) {
+                transcript = firstNonBlank(extractTranscriptFromNode(bolnaExecution), transcript);
+                recordingUrl = firstNonBlank(
+                    findFirstTextByKeys(bolnaExecution, List.of("recording_url", "recordingUrl", "recording")),
+                    recordingUrl
+                );
+                summary = firstNonBlank(
+                    findFirstTextByKeys(bolnaExecution, List.of("summary", "call_summary", "callSummary", "note", "description")),
+                    summary
+                );
+                status = firstNonBlank(
+                    findFirstTextByKeys(bolnaExecution, List.of("status", "call_status", "callStatus", "state", "execution_status", "executionStatus")),
+                    status
+                );
+                outcome = firstNonBlank(
+                    findFirstTextByKeys(bolnaExecution, List.of("outcome", "call_outcome", "callOutcome", "disposition", "result", "answered_by", "answeredBy")),
+                    outcome
+                );
+                durationSeconds = firstNonNull(
+                    firstInteger(findFirstTextByKeys(bolnaExecution, List.of("durationSeconds", "duration_seconds", "callDurationSeconds", "call_duration_seconds", "duration"))),
+                    durationSeconds
+                );
+            }
+        }
+
+        if (summary.isBlank() && !transcript.isBlank()) {
+            summary = transcript.length() > 320 ? transcript.substring(0, 320) + "..." : transcript;
+        }
+
+        if (!bolnaExecution.isEmpty() || !transcript.isBlank() || !recordingUrl.isBlank()) {
+            Map<String, Object> enriched = rawRoot instanceof Map<?, ?> map ? new LinkedHashMap<>() : new LinkedHashMap<>();
+            if (rawRoot instanceof Map<?, ?> map) {
+                map.forEach((key, value) -> enriched.put(String.valueOf(key), value));
+            }
+            if (!bolnaExecution.isEmpty()) enriched.put("bolnaExecution", bolnaExecution);
+            if (!transcript.isBlank()) enriched.put("transcript", transcript);
+            if (!recordingUrl.isBlank()) enriched.put("recordingUrl", recordingUrl);
+            if (!summary.isBlank()) enriched.put("summary", summary);
+            if (!outcome.isBlank()) enriched.put("outcome", outcome);
+            if (durationSeconds != null) enriched.put("durationSeconds", durationSeconds);
+            call.setRawPayload(toJsonSafe(enriched));
+            if (!status.isBlank() && !isQueuedLike(status)) {
+                call.setStatus(normalizeCallStatus(status));
+            }
+            communicationRecordRepository.save(call);
+        }
+
+        return Optional.of(new VoiceCallDetails(
+            normalizeCallStatus(status),
+            outcome,
+            durationSeconds,
+            externalId,
+            transcript,
+            recordingUrl,
+            summary
+        ));
     }
 
     public void autoCallNewLeadAsync(
@@ -1595,6 +1690,109 @@ public class CommunicationService {
         return "";
     }
 
+    private String extractTranscriptFromNode(Object source) {
+        if (source == null) {
+            return "";
+        }
+        if (source instanceof Map<?, ?> map) {
+            String direct = firstNonBlank(
+                scalarText(map.get("transcript")),
+                scalarText(map.get("final_transcript")),
+                scalarText(map.get("full_transcript")),
+                scalarText(map.get("conversation_transcript")),
+                scalarText(map.get("transcriptText")),
+                scalarText(map.get("transcript_text"))
+            );
+            if (!direct.isBlank()) {
+                return direct;
+            }
+
+            String rows = firstNonBlank(
+                mergeTranscriptRows(map.get("transcripts")),
+                mergeTranscriptRows(map.get("conversation")),
+                mergeTranscriptRows(map.get("messages"))
+            );
+            if (!rows.isBlank()) {
+                return rows;
+            }
+
+            for (Object value : map.values()) {
+                if (value instanceof Map<?, ?> || value instanceof List<?>) {
+                    String nested = extractTranscriptFromNode(value);
+                    if (!nested.isBlank()) {
+                        return nested;
+                    }
+                }
+            }
+        } else if (source instanceof List<?> list) {
+            String merged = mergeTranscriptRows(list);
+            if (!merged.isBlank()) {
+                return merged;
+            }
+            for (Object item : list) {
+                String nested = extractTranscriptFromNode(item);
+                if (!nested.isBlank()) {
+                    return nested;
+                }
+            }
+        }
+        return "";
+    }
+
+    private String mergeTranscriptRows(Object rows) {
+        if (!(rows instanceof List<?> list) || list.isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (Object row : list) {
+            if (row instanceof String text) {
+                String clean = trim(text);
+                if (!clean.isBlank()) lines.add(clean);
+                continue;
+            }
+            if (row instanceof Map<?, ?> map) {
+                String text = firstNonBlank(
+                    scalarText(map.get("text")),
+                    scalarText(map.get("content")),
+                    scalarText(map.get("message")),
+                    scalarText(map.get("utterance")),
+                    scalarText(map.get("reply")),
+                    scalarText(map.get("transcript"))
+                );
+                if (text.isBlank()) {
+                    continue;
+                }
+                String speaker = firstNonBlank(
+                    scalarText(map.get("speaker")),
+                    scalarText(map.get("role")),
+                    scalarText(map.get("sender"))
+                );
+                lines.add(speaker.isBlank() ? text : speaker + ": " + text);
+            }
+        }
+        return String.join("\n", lines).trim();
+    }
+
+    private String scalarText(Object value) {
+        if (value instanceof String text) return trim(text);
+        if (value instanceof Number || value instanceof Boolean) return String.valueOf(value);
+        return "";
+    }
+
+    private boolean isQueuedLike(String status) {
+        String normalized = normalizeCallStatus(status);
+        return normalized.isBlank()
+            || normalized.contains("QUEUED")
+            || normalized.contains("CALLING")
+            || normalized.contains("IN_PROGRESS")
+            || normalized.contains("RINGING")
+            || normalized.contains("INITIATED");
+    }
+
+    private String normalizeCallStatus(String status) {
+        return trim(status).toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+    }
+
     private Integer firstInteger(String value) {
         String normalized = trim(value);
         if (normalized.isBlank()) {
@@ -1609,6 +1807,10 @@ public class CommunicationService {
                 return null;
             }
         }
+    }
+
+    private <T> T firstNonNull(T first, T second) {
+        return first != null ? first : second;
     }
 
     private String toJsonSafe(Object value) {
