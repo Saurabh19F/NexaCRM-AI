@@ -2292,11 +2292,10 @@ public class CommunicationService {
 
     private String resolveWhatsAppDisplayName(CommunicationRecord row) {
         String existing = trim(row.getContactName());
-        if (!existing.isBlank()) {
+        String contact = normalizeContact(row.getContactIdentifier());
+        if (!existing.isBlank() && !isPhoneOnlyName(existing, contact)) {
             return existing;
         }
-
-        String contact = normalizeContact(row.getContactIdentifier());
         if (contact.isBlank()) {
             return "";
         }
@@ -2319,6 +2318,12 @@ public class CommunicationService {
         }
 
         return "+" + contact;
+    }
+
+    private boolean isPhoneOnlyName(String name, String phone) {
+        String normalizedName = normalizeContact(name);
+        String normalizedPhone = normalizeContact(phone);
+        return !normalizedName.isBlank() && normalizedName.equals(normalizedPhone);
     }
 
     private List<String> phoneLookupCandidates(String contact) {
