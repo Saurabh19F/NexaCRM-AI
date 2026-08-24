@@ -1033,6 +1033,8 @@ public class LeadService {
             Map.of(
                 "leadId", lead.getId(),
                 "leadName", lead.getName() != null ? lead.getName() : "",
+                "company", lead.getCompany() != null ? lead.getCompany() : "",
+                "service", lead.getService() != null ? lead.getService() : "",
                 "source", lead.getSource() != null ? lead.getSource().name() : "OTHER"
             )
         );

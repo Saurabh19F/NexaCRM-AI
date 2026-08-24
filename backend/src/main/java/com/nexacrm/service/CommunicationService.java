@@ -1300,6 +1300,13 @@ public class CommunicationService {
         }
         userData.put("trigger_source", trim(triggerSource));
         userData.put("call_script", callScript);
+        putIfPresent(userData, "lead_company", metadataValue(metadata, "company"));
+        putIfPresent(userData, "service_interest", metadataValue(metadata, "service"));
+        putIfPresent(userData, "lead_source", firstNonBlank(
+            metadataValue(metadata, "source"),
+            metadataValue(metadata, "leadSource")
+        ));
+        putIfPresent(userData, "assigned_to", metadataValue(metadata, "assignedTo"));
         userData.put("agent_instructions", buildAgentInstructions(leadName, metadata));
         String callbackWebhookUrl = resolveCallAgentWebhookUrl(config);
         if (!callbackWebhookUrl.isBlank()) {
@@ -1511,9 +1518,12 @@ public class CommunicationService {
 
     private String buildAgentInstructions(String leadName, Map<String, Object> metadata) {
         String name = trim(leadName).isBlank() ? "Sir/Ma'am" : trim(leadName);
-        String company = metadata != null ? trim(String.valueOf(metadata.getOrDefault("company", ""))) : "";
-        String service = metadata != null ? trim(String.valueOf(metadata.getOrDefault("service", ""))) : "";
-        String source = metadata != null ? trim(String.valueOf(metadata.getOrDefault("source", ""))) : "";
+        String company = metadataValue(metadata, "company");
+        String service = metadataValue(metadata, "service");
+        String source = firstNonBlank(
+            metadataValue(metadata, "source"),
+            metadataValue(metadata, "leadSource")
+        );
 
         String sourceContext = "website";
         if (!source.isBlank()) {
@@ -1537,10 +1547,16 @@ public class CommunicationService {
             - Service Interest: %s
             - Inquiry Source: %s
 
+            CRM DATA RULES:
+            - Use the lead name, company, service interest, and inquiry source from LEAD CONTEXT as already-known CRM data.
+            - Do not ask the lead to repeat their name, company, service interest, or source when those values are available.
+            - If a known value is useful, mention it naturally instead of asking for it.
+            - Ask only for missing details or deeper requirement information that is not already present in CRM.
+
             CALL FLOW:
-            1. INTRO: Confirm identity and inquiry source. Ask permission for 2 minutes.
+            1. INTRO: Confirm you are speaking with %s and mention the known inquiry context. Ask permission for 2 minutes.
             2. RAPPORT: "Main aapki requirement thoda better samajhna chahti hoon, taaki hum exactly wahi solution suggest kar sakein."
-            3. DISCOVERY: Ask about business type, current requirement, biggest challenge, and expected timeline.
+            3. DISCOVERY: Use known CRM details first, then ask only for missing/deeper details such as current requirement, biggest challenge, expected timeline, and preferred callback/demo time.
             4. TIMELINE SCORING: Based on their expected close timeline:
                - 1-3 days = HOT lead (ready now)
                - 7-10 days = WARM lead (interested but not urgent)
@@ -1553,7 +1569,28 @@ public class CommunicationService {
             DATA TO CAPTURE: business_type, requirement, challenge, timeline, demo_scheduled, preferred_channel, call_outcome (HOT/WARM/COLD/NO_ANSWER/BUSY/FAILED), summary.
 
             GUARDRAILS: Never argue. Never invent info. Never quote pricing. Always confirm before finalizing. End politely if the lead is not interested.
-            """.formatted(name, company, service, sourceContext);
+            """.formatted(
+                name,
+                company,
+                service,
+                sourceContext,
+                name
+            );
+    }
+
+    private void putIfPresent(Map<String, Object> target, String key, String value) {
+        String normalized = trim(value);
+        if (!normalized.isBlank()) {
+            target.put(key, normalized);
+        }
+    }
+
+    private String metadataValue(Map<String, Object> metadata, String key) {
+        if (metadata == null || key == null || !metadata.containsKey(key)) {
+            return "";
+        }
+        Object value = metadata.get(key);
+        return value == null ? "" : trim(String.valueOf(value));
     }
 
     private String extractExternalIdFromRawResponse(String responseBody) {

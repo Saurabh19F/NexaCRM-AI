@@ -229,6 +229,9 @@ public class LeadCallAutomationService {
                     "leadId", workflow.getLeadId(),
                     "leadName", workflow.getLeadName(),
                     "leadSource", workflow.getLeadSource(),
+                    "company", lead != null ? trim(lead.getCompany()) : "",
+                    "service", lead != null ? trim(lead.getService()) : "",
+                    "source", firstNonBlank(workflow.getLeadSource(), lead != null && lead.getSource() != null ? lead.getSource().name() : ""),
                     "automatedCallWorkflowId", workflow.getId(),
                     "attemptNumber", nextAttempt,
                     "nextScheduledAttempt", workflow.getNextScheduledAt().toString()
