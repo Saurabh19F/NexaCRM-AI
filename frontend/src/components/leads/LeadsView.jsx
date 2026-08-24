@@ -12,6 +12,12 @@ import {
 import toast from 'react-hot-toast'
 import LeadActivitiesModal from '../../components/LeadActivitiesModal'
 import { sendWhatsApp } from '../../utils/whatsapp'
+import {
+  KRISCEL_WHATSAPP_FOLLOW_UP_MESSAGE,
+  KRISCEL_WHATSAPP_PROPOSAL_MESSAGE,
+  KRISCEL_WHATSAPP_THANK_YOU_MESSAGE,
+  KRISCEL_WHATSAPP_WELCOME_MESSAGE,
+} from '../../utils/whatsappTemplates'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
 import { getLeadAgingMeta, getLeadAgeMinutes } from '../../utils/leadSla'
@@ -825,10 +831,10 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
 }
 
 const WA_TEMPLATES = [
-  { label: '👋 Welcome', text: 'Hi {name}! Welcome to our services. We\'re excited to connect with you. How can we help you today?' },
-  { label: '📞 Follow Up', text: 'Hi {name}, this is a quick follow-up from our earlier conversation. Are you available for a brief call to discuss your requirements?' },
-  { label: '💼 Proposal', text: 'Hi {name}, we\'ve prepared a customized proposal based on your needs. Would you like to schedule a meeting to walk you through the details?' },
-  { label: '🎉 Thank You', text: 'Hi {name}, thank you for your time today! It was great speaking with you. We\'ll send over the next steps shortly.' },
+  { label: '👋 Welcome', text: KRISCEL_WHATSAPP_WELCOME_MESSAGE },
+  { label: '📞 Follow Up', text: KRISCEL_WHATSAPP_FOLLOW_UP_MESSAGE },
+  { label: '💼 Proposal', text: KRISCEL_WHATSAPP_PROPOSAL_MESSAGE },
+  { label: '🎉 Thank You', text: KRISCEL_WHATSAPP_THANK_YOU_MESSAGE },
 ]
 
 function WhatsAppModal({ lead, onClose }) {

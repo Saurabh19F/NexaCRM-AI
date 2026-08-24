@@ -317,26 +317,39 @@ public class CommunicationService {
                 log.info("Auto-WhatsApp skipped for lead {} because phone number is missing", trim(leadId));
                 return;
             }
-            String name = trim(leadName).isBlank() ? "" : trim(leadName);
-            String comp = trim(company).isBlank() ? "" : trim(company);
-            String svc = trim(service).isBlank() ? "" : trim(service);
-            String src = trim(source).isBlank() ? "" : trim(source);
+            String message = String.join("\n",
+                "🚀 *KRISCEL TECH PVT. LTD.*",
+                "*Smart Technology. Automated Business. Digital Growth.*",
+                "",
+                "Transform your business with *smart automation & digital marketing solutions* that help you *save time, improve efficiency & grow faster.*",
+                "",
+                "⚙️ *BUSINESS AUTOMATION*",
+                "CRM • Inventory • Production • Purchase • HR • Custom Solutions",
+                "",
+                "📈 *DIGITAL GROWTH*",
+                "SEO • Performance Marketing • Social Media • Branding • Lead Generation • E-commerce",
+                "",
+                "✨ *Why Kriscel?*",
+                "✅ Automate & streamline operations",
+                "✅ Improve business efficiency",
+                "✅ Grow your online presence",
+                "✅ Generate quality leads",
+                "",
+                "📩 *Tell us your requirement — we’ll suggest the right solution!*",
+                "",
+                "🌐 *Website:* https://kriscel.com/",
+                "📁 *Portfolio:* https://drive.google.com/file/d/1ZPtJS1yPIFev2XymUHlClL1l7tFgEVYH/view?usp=sharing",
+                "📘 *Facebook:* https://www.facebook.com/KriscelTech",
+                "📸 *Instagram:* https://www.instagram.com/krisceltech/",
+                "🔗 *LinkedIn:* https://www.linkedin.com/company/kriscel-tech-pvt-ltd/?originalSubdomain=in",
+                "",
+                "📞 *+91 89854 19420*",
+                "",
+                "🚀 *Let’s Automate. Optimize. Grow.*",
+                "*Kriscel Tech Pvt. Ltd.*"
+            );
 
-            StringBuilder msg = new StringBuilder();
-            msg.append("Hello");
-            if (!name.isBlank()) msg.append(" ").append(name);
-            msg.append("! 👋\n\n");
-            msg.append("Welcome to *Automation by SJ*! We received your enquiry");
-            if (!svc.isBlank()) msg.append(" regarding *").append(svc).append("*");
-            if (!src.isBlank()) msg.append(" via ").append(src);
-            msg.append(".\n\n");
-            if (!comp.isBlank()) msg.append("Company: ").append(comp).append("\n");
-            msg.append("We have assigned a dedicated team member to assist you. ");
-            msg.append("Our AI calling agent will reach out to you shortly to understand your requirements in detail.\n\n");
-            msg.append("In the meantime, feel free to reply here with any questions or additional details you'd like to share.\n\n");
-            msg.append("Looking forward to working with you! 🙏");
-
-            sendChannelMessage("whatsapp", leadPhone, "", msg.toString());
+            sendChannelMessage("whatsapp", leadPhone, "", message);
             log.info("Auto-WhatsApp welcome sent to lead {}", trim(leadId));
         } catch (Exception ex) {
             log.warn("Auto-WhatsApp failed for lead {}: {}", trim(leadId), ex.getMessage());

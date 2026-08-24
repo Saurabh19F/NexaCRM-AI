@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { automationAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import LoadingState from '../ui/LoadingState'
+import { KRISCEL_WHATSAPP_WELCOME_MESSAGE } from '../../utils/whatsappTemplates'
 
 const CATEGORY_COLORS = {
   'Lead Management': 'bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-400',
@@ -78,7 +79,7 @@ const ADVANCED_TEMPLATES = [
     priority: 'high',
     steps: [
       { type: 'IF', text: 'trigger: LEAD_CREATED' },
-      { type: 'THEN', text: 'send_whatsapp:|Hi {{name}}, thank you for reaching out! Our team will connect with you shortly.' },
+      { type: 'THEN', text: `send_whatsapp:|${KRISCEL_WHATSAPP_WELCOME_MESSAGE}` },
       { type: 'THEN', text: 'set_lead_status:CONTACTED' },
       { type: 'THEN', text: 'notify:Auto WhatsApp + Bolna AI call triggered for new lead' },
     ],
@@ -160,7 +161,7 @@ const RULE_EXAMPLES = [
   { label: 'Broadcast Notify', type: 'THEN', text: 'notify:Lead requires immediate follow-up' },
   { label: 'Send Email', type: 'THEN', text: 'send_email:ops@example.com|Workflow Alert|Lead entered high-priority stage' },
   { label: 'Send Call', type: 'THEN', text: 'send_call:+919876543210|Hi, this is NexaCRM calling about your enquiry.' },
-  { label: 'Send WhatsApp', type: 'THEN', text: 'send_whatsapp:+919876543210|Hi {{name}}, thank you for your interest!' },
+  { label: 'Send WhatsApp', type: 'THEN', text: `send_whatsapp:+919876543210|${KRISCEL_WHATSAPP_WELCOME_MESSAGE}` },
 ]
 
 export default function AutomationPage() {
