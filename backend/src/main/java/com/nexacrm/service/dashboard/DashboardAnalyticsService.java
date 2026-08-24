@@ -491,8 +491,9 @@ public class DashboardAnalyticsService {
         Query callQ = new Query();
         callQ.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         callQ.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
+        callQ.addCriteria(Criteria.where("status").regex("^(COMPLETED|CONNECTED|ANSWERED|SUCCESS)$", "i"));
         callQ.with(Sort.by(Sort.Direction.DESC, "created_at"));
-        callQ.limit(75);
+        callQ.limit(25);
         List<CommunicationRecord> allCalls = mongoTemplate.find(callQ, CommunicationRecord.class);
 
         Set<String> leadIds = allCalls.stream()
