@@ -1548,11 +1548,11 @@ public class CommunicationService {
             5. SOFT CLOSE: Offer a short demo/discussion with expert team. Suggest today evening or tomorrow morning.
             6. PRICE OBJECTION: Never quote pricing. Say "Pricing aapki exact requirement par depend karti hai, pehle requirement samajhte hain."
             7. CLOSURE: Note details, confirm callback time, thank them warmly.
-            8. DNC: If "not interested" or "do not call", mark DNC immediately and end politely.
+            8. CLOSING PREFERENCE: If the lead is not interested, end politely and capture the reason without changing lead calling eligibility.
 
-            DATA TO CAPTURE: business_type, requirement, challenge, timeline, demo_scheduled, preferred_channel, call_outcome (HOT/WARM/COLD/DNC), summary.
+            DATA TO CAPTURE: business_type, requirement, challenge, timeline, demo_scheduled, preferred_channel, call_outcome (HOT/WARM/COLD/NO_ANSWER/BUSY/FAILED), summary.
 
-            GUARDRAILS: Never argue. Never invent info. Never quote pricing. Always confirm before finalizing. Respect DNC immediately.
+            GUARDRAILS: Never argue. Never invent info. Never quote pricing. Always confirm before finalizing. End politely if the lead is not interested.
             """.formatted(name, company, service, sourceContext);
     }
 
