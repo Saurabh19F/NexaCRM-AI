@@ -149,17 +149,6 @@ public class LeadCallAutomationService {
         workflow.setLastExternalId(trim(externalId));
 
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(normalizedLeadId, tenantId).orElse(null);
-        if (shouldStopForLead(lead)) {
-            stopWorkflow(workflow, lead, "Lead is unavailable or marked Do Not Call");
-            return;
-        }
-        if (containsAny(normalizedStatus + " " + normalizedOutcome, "DNC", "DO_NOT_CALL", "OPT_OUT", "UNSUBSCRIBE", "UNAVAILABLE")) {
-            if (lead != null) {
-                lead.setDoNotCall(true);
-            }
-            stopWorkflow(workflow, lead, "Lead opted out or is unavailable");
-            return;
-        }
         if (isConnected(normalizedStatus, normalizedOutcome)) {
             workflow.setStatus(Lead.AutomatedCallingStatus.CONNECTED);
             workflow.setNextScheduledAt(null);
@@ -211,10 +200,6 @@ public class LeadCallAutomationService {
 
     private LeadCallAutomation queueAttemptIfAllowed(LeadCallAutomation workflow, String triggerSource) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(workflow.getLeadId(), workflow.getTenantId()).orElse(null);
-        if (shouldStopForLead(lead)) {
-            return stopWorkflow(workflow, lead, "Lead is unavailable or marked Do Not Call");
-        }
-
         String phone = firstNonBlank(trim(workflow.getContactNumber()), lead != null ? trim(lead.getPhone()) : "");
         if (phone.isBlank()) {
             return stopWorkflow(workflow, lead, "Lead phone number is missing");
@@ -291,13 +276,6 @@ public class LeadCallAutomationService {
         lead.setAutomatedCallingAttempt(workflow.getAttemptCount());
         lead.setNextAutomatedCallAt(workflow.getNextScheduledAt());
         leadRepository.save(lead);
-    }
-
-    private boolean shouldStopForLead(Lead lead) {
-        if (lead == null || Boolean.TRUE.equals(lead.getDeleted()) || Boolean.TRUE.equals(lead.getDoNotCall())) {
-            return true;
-        }
-        return lead.getStatus() == Lead.LeadStatus.WON || lead.getStatus() == Lead.LeadStatus.LOST;
     }
 
     private boolean isActive(Lead.AutomatedCallingStatus status) {

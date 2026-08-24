@@ -131,10 +131,6 @@ public class Lead extends BaseEntity {
     private List<String> activityLogs;
 
     @Builder.Default
-    @Field("do_not_call")
-    private Boolean doNotCall = false;
-
-    @Builder.Default
     @Field("automated_calling_status")
     private AutomatedCallingStatus automatedCallingStatus = AutomatedCallingStatus.NEW_LEAD;
 

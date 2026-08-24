@@ -236,10 +236,6 @@ public class CallAgentService {
             } else if ("WARM".equals(hotSignal) && lead.getScore() == Lead.LeadScore.COLD) {
                 lead.setScore(Lead.LeadScore.WARM);
             }
-            if (isDoNotCallSignal(status, outcome, payload, metadata)) {
-                lead.setDoNotCall(true);
-            }
-
             leadRepository.save(lead);
             saveLeadCallActivity(lead, status, outcome, externalId, summary, transcript, payload);
             applyCallIntelligenceToLead(lead, currentCallRow);
@@ -1239,22 +1235,6 @@ public class CallAgentService {
             || normalized.contains("ANSWERED")
             || normalized.contains("COMPLETED")
             || normalized.contains("SUCCESS");
-    }
-
-    private boolean isDoNotCallSignal(String status, String outcome, Map<String, Object> payload, Map<String, Object> metadata) {
-        String combined = String.join(" ",
-            normalizeStatus(status),
-            normalizeStatus(outcome),
-            normalizeStatus(stringValue(payload.get("disposition"))),
-            normalizeStatus(stringValue(payload.get("result"))),
-            normalizeStatus(stringValue(metadata.get("call_outcome"))),
-            normalizeStatus(stringValue(metadata.get("outcome")))
-        );
-        return combined.contains("DNC")
-            || combined.contains("DO_NOT_CALL")
-            || combined.contains("OPT_OUT")
-            || combined.contains("UNSUBSCRIBE")
-            || combined.contains("UNAVAILABLE");
     }
 
     private Integer extractDurationSeconds(Map<String, Object> payload, Map<String, Object> metadata) {
