@@ -168,6 +168,11 @@ public class LeadCallAutomationService {
         workflow.setLastExternalId(trim(externalId));
 
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(normalizedLeadId, tenantId).orElse(null);
+        if (lead == null) {
+            stopWorkflow(workflow, null, "Lead no longer exists");
+            return;
+        }
+
         if (isConnected(normalizedStatus, normalizedOutcome)) {
             workflow.setStatus(Lead.AutomatedCallingStatus.CONNECTED);
             workflow.setNextScheduledAt(null);
@@ -219,6 +224,10 @@ public class LeadCallAutomationService {
 
     private LeadCallAutomation queueAttemptIfAllowed(LeadCallAutomation workflow, String triggerSource) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(workflow.getLeadId(), workflow.getTenantId()).orElse(null);
+        if (lead == null) {
+            return stopWorkflow(workflow, null, "Lead no longer exists");
+        }
+
         String phone = firstNonBlank(trim(workflow.getContactNumber()), lead != null ? trim(lead.getPhone()) : "");
         if (phone.isBlank()) {
             return stopWorkflow(workflow, lead, "Lead phone number is missing");

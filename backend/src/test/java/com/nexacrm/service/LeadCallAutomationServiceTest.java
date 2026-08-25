@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -150,5 +151,39 @@ class LeadCallAutomationServiceTest {
         assertEquals(Lead.AutomatedCallingStatus.RETRY_SCHEDULED, saved.getStatus());
         assertEquals("NOT_CONNECTED", saved.getLastCallStatus());
         assertTrue(saved.getNextScheduledAt().isAfter(LocalDateTime.now()));
+    }
+
+    @Test
+    void processDueWorkflow_shouldStopWithoutCallingWhenLeadWasDeleted() {
+        LeadCallAutomation workflow = LeadCallAutomation.builder()
+            .leadId("deleted-lead")
+            .leadName("Deleted Lead")
+            .contactNumber("+919876543210")
+            .leadSource("WEBSITE")
+            .status(Lead.AutomatedCallingStatus.RETRY_SCHEDULED)
+            .attemptCount(2)
+            .lastCallStatus("NO_ANSWER")
+            .nextScheduledAt(LocalDateTime.now().minusMinutes(1))
+            .build();
+        workflow.setId("workflow-1");
+        workflow.setTenantId(1L);
+
+        when(leadCallAutomationRepository.findByTenantIdAndLeadId(1L, "deleted-lead"))
+            .thenReturn(Optional.of(workflow));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("deleted-lead", 1L))
+            .thenReturn(Optional.empty());
+        when(leadCallAutomationRepository.save(any(LeadCallAutomation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.processDueWorkflow(workflow);
+
+        verify(communicationService, never()).sendLeadVoiceCall(any(), any(), any(), any(), any(), anyMap());
+
+        ArgumentCaptor<LeadCallAutomation> workflowCaptor = ArgumentCaptor.forClass(LeadCallAutomation.class);
+        verify(leadCallAutomationRepository).save(workflowCaptor.capture());
+        LeadCallAutomation saved = workflowCaptor.getValue();
+        assertEquals(Lead.AutomatedCallingStatus.STOPPED, saved.getStatus());
+        assertEquals("Lead no longer exists", saved.getStopReason());
+        assertNull(saved.getNextScheduledAt());
     }
 }
