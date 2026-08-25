@@ -419,6 +419,23 @@ public class CallAgentService {
         );
     }
 
+    /**
+     * Trigger call intelligence analysis + WhatsApp notifications for a lead.
+     * Called by the scheduler when it detects a connected/completed call via Bolna polling,
+     * as a belt-and-suspenders fallback for when the webhook callback path is missed.
+     */
+    public void triggerCallIntelligenceForLead(String leadId) {
+        String normalizedLeadId = trim(leadId);
+        if (normalizedLeadId.isBlank()) return;
+        Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(normalizedLeadId, tenantId()).orElse(null);
+        if (lead == null) return;
+        try {
+            applyCallIntelligenceToLead(lead, null);
+        } catch (Exception ex) {
+            log.warn("Scheduled call intelligence failed for lead {}: {}", normalizedLeadId, ex.getMessage());
+        }
+    }
+
     private Lead ensureLeadExists(String leadId) {
         return leadRepository.findByIdAndTenantIdAndDeletedFalse(leadId, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + leadId));

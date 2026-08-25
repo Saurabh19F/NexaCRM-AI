@@ -7,7 +7,9 @@ import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -44,6 +46,10 @@ public class LeadCallAutomationService {
     private final LeadCallAutomationRepository leadCallAutomationRepository;
     private final LeadRepository leadRepository;
     private final CommunicationService communicationService;
+
+    @Autowired
+    @Lazy
+    private CallAgentService callAgentService;
 
     @Value("${nexacrm.lead-call-automation.enabled:true}")
     private boolean enabled;
@@ -184,6 +190,13 @@ public class LeadCallAutomationService {
                 lead.setAutomatedCallingAttempt(workflow.getAttemptCount());
                 lead.setNextAutomatedCallAt(null);
                 leadRepository.save(lead);
+            }
+            // Belt-and-suspenders: trigger call intelligence + WhatsApp notifications
+            // via the scheduler path (in case the Bolna webhook callback was missed)
+            try {
+                callAgentService.triggerCallIntelligenceForLead(normalizedLeadId);
+            } catch (Exception ex) {
+                log.warn("Scheduler-triggered call intelligence failed for lead {}: {}", normalizedLeadId, ex.getMessage());
             }
             return;
         }
