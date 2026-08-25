@@ -361,7 +361,7 @@ public class LeadController {
         if (leadgenId != null && !leadgenId.isBlank()) {
             notes.append(" | Leadgen ID: ").append(leadgenId.trim());
         }
-        notes.append(" | Received At: ").append(LocalDateTime.now());
+        notes.append(" | Received At: ").append(LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
         notes.append("\n\nRaw Payload:\n");
         notes.append(toPrettyJson(payload));
         return notes.toString();

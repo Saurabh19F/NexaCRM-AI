@@ -1064,7 +1064,7 @@ public class CallAgentService {
         String score = lead.getScore() != null ? lead.getScore().name() : "";
         String source = lead.getSource() != null ? lead.getSource().name() : "";
         String assignedTo = lead.getAssignedTo() != null ? trim(lead.getAssignedTo().getName()) : "Unassigned";
-        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"));
+        String now = LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"));
 
         StringBuilder msg = new StringBuilder();
         msg.append("📞 *CALL INTELLIGENCE REPORT*\n");

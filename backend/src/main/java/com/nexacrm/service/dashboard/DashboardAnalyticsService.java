@@ -92,7 +92,7 @@ public class DashboardAnalyticsService {
             buildFastInsights(List.of()),
             List.of(),
             buildRecentCallSnapshots(),
-            LocalDateTime.now().toString()
+            LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")).toString()
         );
     }
 
@@ -106,7 +106,7 @@ public class DashboardAnalyticsService {
             List.of(),
             buildFunnelDataFromCounts(),
             buildLeadSourcesFromCounts(total),
-            LocalDateTime.now().toString()
+            LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")).toString()
         );
     }
 
