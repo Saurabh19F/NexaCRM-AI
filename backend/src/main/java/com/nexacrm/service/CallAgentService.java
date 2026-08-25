@@ -45,6 +45,12 @@ import java.util.Optional;
 public class CallAgentService {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+    private static final List<String> CONNECTED_TERMINAL_STATUSES = List.of(
+        "COMPLETED",
+        "CONNECTED",
+        "ANSWERED",
+        "SUCCESS"
+    );
 
     private Long tenantId() {
         return TenantContext.currentTenantId();
@@ -1287,11 +1293,7 @@ public class CallAgentService {
     }
 
     private boolean isConnectedStatus(String status) {
-        String normalized = normalizeStatus(status);
-        return normalized.contains("CONNECTED")
-            || normalized.contains("ANSWERED")
-            || normalized.contains("COMPLETED")
-            || normalized.contains("SUCCESS");
+        return CONNECTED_TERMINAL_STATUSES.contains(normalizeStatus(status));
     }
 
     private Integer extractDurationSeconds(Map<String, Object> payload, Map<String, Object> metadata) {

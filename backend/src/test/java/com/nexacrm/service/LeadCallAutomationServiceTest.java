@@ -4,6 +4,8 @@ import com.nexacrm.model.Lead;
 import com.nexacrm.model.LeadCallAutomation;
 import com.nexacrm.repository.LeadCallAutomationRepository;
 import com.nexacrm.repository.LeadRepository;
+import com.nexacrm.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +48,12 @@ class LeadCallAutomationServiceTest {
             communicationService
         );
         ReflectionTestUtils.setField(service, "retryMinutes", 60L);
+        TenantContext.setCurrentTenantId(1L);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test
@@ -98,6 +106,49 @@ class LeadCallAutomationServiceTest {
         LeadCallAutomation saved = workflowCaptor.getValue();
         assertEquals(Lead.AutomatedCallingStatus.CALLING, saved.getStatus());
         assertEquals(2, saved.getAttemptCount());
+        assertTrue(saved.getNextScheduledAt().isAfter(LocalDateTime.now()));
+    }
+
+    @Test
+    void handleCallResult_shouldRetryWhenStatusIsNotConnected() {
+        Lead lead = Lead.builder()
+            .name("Retry Lead")
+            .phone("+919876543210")
+            .source(Lead.LeadSource.WEBSITE)
+            .status(Lead.LeadStatus.NEW)
+            .build();
+        lead.setId("lead-1");
+        lead.setTenantId(1L);
+
+        LeadCallAutomation workflow = LeadCallAutomation.builder()
+            .leadId("lead-1")
+            .leadName("Retry Lead")
+            .contactNumber("+919876543210")
+            .leadSource("WEBSITE")
+            .status(Lead.AutomatedCallingStatus.CALLING)
+            .attemptCount(1)
+            .lastCallStatus("QUEUED")
+            .nextScheduledAt(LocalDateTime.now().minusMinutes(1))
+            .build();
+        workflow.setId("workflow-1");
+        workflow.setTenantId(1L);
+
+        when(leadCallAutomationRepository.findByTenantIdAndLeadId(1L, "lead-1"))
+            .thenReturn(Optional.of(workflow));
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-1", 1L))
+            .thenReturn(Optional.of(lead));
+        when(leadCallAutomationRepository.save(any(LeadCallAutomation.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(leadRepository.save(any(Lead.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.handleCallResult("lead-1", "NOT_CONNECTED", "", 0, "ext-1");
+
+        ArgumentCaptor<LeadCallAutomation> workflowCaptor = ArgumentCaptor.forClass(LeadCallAutomation.class);
+        verify(leadCallAutomationRepository).save(workflowCaptor.capture());
+        LeadCallAutomation saved = workflowCaptor.getValue();
+        assertEquals(Lead.AutomatedCallingStatus.RETRY_SCHEDULED, saved.getStatus());
+        assertEquals("NOT_CONNECTED", saved.getLastCallStatus());
         assertTrue(saved.getNextScheduledAt().isAfter(LocalDateTime.now()));
     }
 }

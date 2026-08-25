@@ -692,10 +692,10 @@ public class DashboardAnalyticsService {
     }
 
     private int confidenceFromCallStatus(String status) {
-        String normalized = safeText(status, "").toUpperCase(Locale.ROOT);
-        if (normalized.contains("COMPLETED") || normalized.contains("CONNECTED") || normalized.contains("ANSWERED")) return 80;
+        String normalized = normalizeStatusLabel(status);
+        if (List.of("COMPLETED", "CONNECTED", "ANSWERED", "SUCCESS").contains(normalized)) return 80;
         if (normalized.contains("QUEUED") || normalized.contains("CALLING")) return 35;
-        if (normalized.contains("BUSY") || normalized.contains("FAILED") || normalized.contains("MISSED")) return 20;
+        if (normalized.contains("BUSY") || normalized.contains("FAILED") || normalized.contains("MISSED") || normalized.contains("NOT_CONNECTED")) return 20;
         return 0;
     }
 

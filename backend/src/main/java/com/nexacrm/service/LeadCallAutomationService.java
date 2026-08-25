@@ -34,6 +34,12 @@ public class LeadCallAutomationService {
         Lead.AutomatedCallingStatus.RETRY_SCHEDULED,
         Lead.AutomatedCallingStatus.FAILED
     );
+    private static final List<String> CONNECTED_TERMINAL_STATUSES = List.of(
+        "COMPLETED",
+        "CONNECTED",
+        "ANSWERED",
+        "SUCCESS"
+    );
 
     private final LeadCallAutomationRepository leadCallAutomationRepository;
     private final LeadRepository leadRepository;
@@ -314,8 +320,11 @@ public class LeadCallAutomationService {
     }
 
     private boolean isConnected(String status, String outcome) {
-        String combined = normalize(status + " " + outcome);
-        return containsAny(combined, "CONNECTED", "ANSWERED", "COMPLETED", "SUCCESS");
+        return isConnectedTerminalStatus(status) || isConnectedTerminalStatus(outcome);
+    }
+
+    private boolean isConnectedTerminalStatus(String value) {
+        return CONNECTED_TERMINAL_STATUSES.contains(normalize(value));
     }
 
     private boolean isTerminalNonConnected(String status, String outcome) {
