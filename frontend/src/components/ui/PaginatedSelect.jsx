@@ -68,7 +68,7 @@ export default function PaginatedSelect({
   }
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <div ref={rootRef} className={`relative ${open ? 'z-50' : ''} ${className}`}>
       <button
         type="button"
         disabled={disabled}
