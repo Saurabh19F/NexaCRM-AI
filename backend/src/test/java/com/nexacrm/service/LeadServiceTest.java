@@ -24,6 +24,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -129,6 +131,27 @@ class LeadServiceTest {
         verify(workflowEngine).processEvent(eq("LEAD_CREATED"), contextCaptor.capture());
         assertEquals("9876543210", contextCaptor.getValue().get("leadPhone"));
         verify(leadCallAutomationService).startForNewLeadAsync(any(Lead.class), eq(1L));
+    }
+
+    @Test
+    void delete_shouldCancelPendingBolnaCallsBeforeDeletingLead() {
+        Lead lead = Lead.builder()
+            .name("Delete Me")
+            .email("delete@example.com")
+            .phone("+919876543210")
+            .source(Lead.LeadSource.WEBSITE)
+            .build();
+        lead.setId("lead-delete");
+        lead.setTenantId(1L);
+
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-delete", 1L))
+            .thenReturn(Optional.of(lead));
+
+        leadService.delete("lead-delete");
+
+        var ordered = inOrder(communicationService, leadRepository);
+        ordered.verify(communicationService).cancelPendingLeadVoiceCalls("lead-delete");
+        ordered.verify(leadRepository).deleteAll(List.of(lead));
     }
 
     @Test

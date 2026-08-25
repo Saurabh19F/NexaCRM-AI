@@ -453,6 +453,7 @@ public class LeadService {
         }
 
         rememberDeletedExternalLeads(leads, tenantId);
+        leadIds.forEach(communicationService::cancelPendingLeadVoiceCalls);
 
         Query leadScoped = new Query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds));
         mongoTemplate.remove(leadScoped, "communications");

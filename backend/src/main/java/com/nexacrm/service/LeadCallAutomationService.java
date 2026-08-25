@@ -294,6 +294,7 @@ public class LeadCallAutomationService {
     }
 
     private LeadCallAutomation stopWorkflow(LeadCallAutomation workflow, Lead lead, String reason) {
+        communicationService.cancelPendingLeadVoiceCalls(workflow.getLeadId(), workflow.getLastExternalId());
         workflow.setStatus(Lead.AutomatedCallingStatus.STOPPED);
         workflow.setNextScheduledAt(null);
         workflow.setStoppedAt(LocalDateTime.now());

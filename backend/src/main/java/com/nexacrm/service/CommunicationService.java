@@ -43,10 +43,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -428,6 +430,37 @@ public class CommunicationService {
             recordingUrl,
             summary
         ));
+    }
+
+    public void cancelPendingLeadVoiceCalls(String leadId) {
+        cancelPendingLeadVoiceCalls(leadId, "");
+    }
+
+    public void cancelPendingLeadVoiceCalls(String leadId, String executionId) {
+        Set<String> executionIds = new LinkedHashSet<>();
+        String normalizedExecutionId = trim(executionId);
+        if (!normalizedExecutionId.isBlank()) {
+            executionIds.add(normalizedExecutionId);
+        }
+
+        String normalizedLeadId = trim(leadId);
+        if (!normalizedLeadId.isBlank()) {
+            List<CommunicationRecord> calls = communicationRecordRepository
+                .findTop50ByTenantIdAndLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc(
+                    TenantContext.currentTenantId(),
+                    normalizedLeadId,
+                    "CALL"
+                );
+            calls.stream()
+                .filter(call -> "bolna".equals(trim(call.getProvider()).toLowerCase(Locale.ROOT)))
+                .filter(call -> isQueuedLike(call.getStatus()))
+                .map(CommunicationRecord::getExternalId)
+                .map(this::trim)
+                .filter(id -> !id.isBlank())
+                .forEach(executionIds::add);
+        }
+
+        executionIds.forEach(this::stopBolnaExecution);
     }
 
     public void autoCallNewLeadAsync(
@@ -1651,6 +1684,42 @@ public class CommunicationService {
         return Map.of();
     }
 
+    private void stopBolnaExecution(String executionId) {
+        String normalizedExecutionId = trim(executionId);
+        if (normalizedExecutionId.isBlank()) {
+            return;
+        }
+
+        VoiceAgentConfig config = resolveVoiceAgentConfig();
+        String apiKey = firstNonBlank(config.bolnaApiKey(), config.apiKey());
+        if (apiKey.isBlank()) {
+            log.warn("Cannot stop Bolna call {} because API key is missing", normalizedExecutionId);
+            return;
+        }
+
+        String apiUrl = normalizeBolnaApiBaseUrl(config.bolnaApiUrl());
+        String stopUrl = UriComponentsBuilder
+            .fromHttpUrl(apiUrl)
+            .pathSegment("call", normalizedExecutionId, "stop")
+            .toUriString();
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(apiKey);
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+            restTemplate.exchange(
+                stopUrl,
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                String.class
+            );
+            log.info("Requested Bolna stop for execution {}", normalizedExecutionId);
+        } catch (HttpStatusCodeException ex) {
+            log.warn("Bolna stop failed for execution {}: {}", normalizedExecutionId, trim(ex.getResponseBodyAsString()));
+        } catch (Exception ex) {
+            log.warn("Bolna stop failed for execution {}: {}", normalizedExecutionId, ex.getMessage());
+        }
+    }
+
     private String normalizeBolnaApiBaseUrl(String value) {
         String normalized = trim(value);
         if (normalized.isBlank()) {
@@ -1789,6 +1858,7 @@ public class CommunicationService {
         String normalized = normalizeCallStatus(status);
         return normalized.isBlank()
             || normalized.contains("QUEUED")
+            || normalized.contains("SCHEDULED")
             || normalized.contains("CALLING")
             || normalized.contains("IN_PROGRESS")
             || normalized.contains("RINGING")
