@@ -976,6 +976,10 @@ public class CallAgentService {
 
     private void sendPostCallIntelligenceWhatsApp(Lead lead, Map<String, Object> analysis, Lead.LeadStatus resolvedStatus) {
         String phone = trim(lead.getPhone());
+        if (phone.isBlank()) {
+            // Fallback: resolve phone from call automation workflow or communication records
+            phone = resolveLeadPhoneFallback(lead.getId());
+        }
         if (phone.isBlank()) return;
 
         String verdict = trim(stringValue(analysis.get("leadVerdict"))).toUpperCase(Locale.ROOT);
@@ -1139,6 +1143,27 @@ public class CallAgentService {
         } catch (Exception ex) {
             log.warn("Admin call intelligence WhatsApp failed for lead {}: {}", lead.getId(), ex.getMessage());
         }
+    }
+
+    private String resolveLeadPhoneFallback(String leadId) {
+        // Try call automation workflow's contact number
+        try {
+            Optional<com.nexacrm.model.LeadCallAutomation> workflow = leadCallAutomationService.findForLead(leadId);
+            if (workflow.isPresent()) {
+                String contact = trim(workflow.get().getContactNumber());
+                if (!contact.isBlank()) return contact;
+            }
+        } catch (Exception ignored) {}
+        // Try most recent outbound CALL communication record
+        try {
+            List<CommunicationRecord> calls = communicationRecordRepository
+                .findTop50ByLeadIdAndChannelIgnoreCaseOrderByCreatedAtDesc(leadId, "CALL");
+            for (CommunicationRecord call : calls) {
+                String contact = trim(call.getContactIdentifier());
+                if (!contact.isBlank()) return contact;
+            }
+        } catch (Exception ignored) {}
+        return "";
     }
 
     private String resolveAdminNotificationPhone() {
