@@ -127,15 +127,17 @@ public class LeadCallAutomationService {
             return;
         }
 
-        syncLatestProviderResult(fresh);
-        fresh = leadCallAutomationRepository
-            .findByTenantIdAndLeadId(workflow.getTenantId(), workflow.getLeadId())
-            .orElse(null);
-        if (fresh == null || !isActive(fresh.getStatus())) {
-            return;
-        }
-        if (fresh.getNextScheduledAt() == null || fresh.getNextScheduledAt().isAfter(LocalDateTime.now())) {
-            return;
+        if (fresh.getStatus() == Lead.AutomatedCallingStatus.CALLING) {
+            syncLatestProviderResult(fresh);
+            fresh = leadCallAutomationRepository
+                .findByTenantIdAndLeadId(workflow.getTenantId(), workflow.getLeadId())
+                .orElse(null);
+            if (fresh == null || !isActive(fresh.getStatus())) {
+                return;
+            }
+            if (fresh.getNextScheduledAt() == null || fresh.getNextScheduledAt().isAfter(LocalDateTime.now())) {
+                return;
+            }
         }
 
         queueAttemptIfAllowed(fresh, "scheduled_retry");
