@@ -150,7 +150,7 @@ export default function DashboardPage() {
           {!extrasLoading && recentCallSnapshots.length === 0 && (
             <div className="flex flex-col items-center justify-center py-6 text-center">
               <Phone className="h-5 w-5 text-slate-300 dark:text-slate-600" />
-              <p className="mt-1.5 text-xs text-slate-400">No call recordings yet</p>
+              <p className="mt-1.5 text-xs text-slate-400">No call attempts yet</p>
             </div>
           )}
 
@@ -158,7 +158,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {recentCallSnapshots.map((item) => (
                 <div
-                  key={item.leadId}
+                  key={item.callId || `${item.leadId}-${item.calledAt}-${item.attemptNumber || ''}`}
                   className="dashboard-color-card rounded-xl px-3 py-2.5"
                   style={{
                     ...tintStyle('6, 182, 212'),
@@ -210,7 +210,9 @@ export default function DashboardPage() {
                         Play
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
-                    ) : null}
+                    ) : (
+                      <span className="text-[10px] text-slate-400">No recording yet</span>
+                    )}
                   </div>
                 </div>
               ))}

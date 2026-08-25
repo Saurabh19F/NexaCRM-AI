@@ -491,9 +491,8 @@ public class DashboardAnalyticsService {
         Query callQ = new Query();
         callQ.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         callQ.addCriteria(Criteria.where("channel").regex("^CALL$", "i"));
-        callQ.addCriteria(Criteria.where("status").regex("^(COMPLETED|CONNECTED|ANSWERED|SUCCESS)$", "i"));
         callQ.with(Sort.by(Sort.Direction.DESC, "created_at"));
-        callQ.limit(25);
+        callQ.limit(50);
         List<CommunicationRecord> allCalls = mongoTemplate.find(callQ, CommunicationRecord.class);
 
         Set<String> leadIds = allCalls.stream()
@@ -502,11 +501,10 @@ public class DashboardAnalyticsService {
             .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<String, LeadDTO> leadsById = fetchCallSnapshotLeads(leadIds);
 
-        Set<String> usedLeadIds = new LinkedHashSet<>();
         List<Map<String, Object>> snapshots = new ArrayList<>();
         for (CommunicationRecord c : allCalls) {
             String leadId = safeText(c.getLeadId(), "");
-            if (leadId.isBlank() || usedLeadIds.contains(leadId)) {
+            if (leadId.isBlank()) {
                 continue;
             }
             LeadDTO lead = leadsById.get(leadId);
@@ -518,12 +516,10 @@ public class DashboardAnalyticsService {
                 CommunicationService.VoiceCallDetails details = communicationService.syncVoiceCallDetails(c).orElse(null);
                 String transcript = details != null ? safeText(details.transcript(), "") : extractCallTranscriptFromRecord(c);
                 String recordingUrl = details != null ? safeText(details.recordingUrl(), "") : extractFieldFromRawPayload(c.getRawPayload(), List.of("recording_url", "recordingUrl", "recording"));
-                if (transcript.isBlank() && recordingUrl.isBlank()) {
-                    continue;
-                }
 
                 String summary = details != null ? safeText(details.summary(), "") : extractCallSummaryFromRecord(c);
                 String callStatus = details != null ? safeText(details.status(), "") : safeText(c.getStatus(), "");
+                String outcome = extractFieldFromRawPayload(c.getRawPayload(), List.of("outcome", "call_outcome", "callOutcome", "disposition", "result", "answered_by", "answeredBy"));
                 String verdict = lead != null && lead.getScore() != null ? lead.getScore().name() : safeText(callStatus, "UNCERTAIN");
                 int confidence = lead != null && lead.getAiScoreValue() != null
                     ? lead.getAiScoreValue()
@@ -536,32 +532,57 @@ public class DashboardAnalyticsService {
                     : extractFieldFromRawPayload(c.getRawPayload(), List.of("nextScheduledAttempt", "next_scheduled_attempt"));
 
                 Map<String, Object> snapshot = new LinkedHashMap<>();
+                snapshot.put("callId", c.getId());
                 snapshot.put("leadId", leadId);
                 snapshot.put("leadName", safeText(lead.getName(), "Unknown"));
                 snapshot.put("company", lead != null ? safeText(lead.getCompany(), "") : "");
-                snapshot.put("currentStatus", lead != null
-                    ? safeText(lead.getAutomatedCallingStatusLabel(), lead.getStatus() != null ? lead.getStatus().name() : callStatus)
-                    : safeText(callStatus, "CALL"));
+                snapshot.put("currentStatus", formatCallAttemptStatus(callStatus, outcome));
                 snapshot.put("attemptNumber", attemptNumber != null ? attemptNumber : 1);
                 snapshot.put("nextScheduledAttempt", safeText(nextScheduledAttempt, ""));
                 snapshot.put("verdict", verdict);
                 snapshot.put("confidence", confidence);
-                snapshot.put("summary", safeText(summary, "No summary available yet."));
+                snapshot.put("summary", safeText(summary, fallbackCallAttemptSummary(callStatus, outcome)));
                 snapshot.put("recordingUrl", safeText(recordingUrl, ""));
                 snapshot.put("transcript", safeText(transcript, ""));
                 snapshot.put("durationSeconds", details != null ? details.durationSeconds() : null);
                 snapshot.put("calledAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
                 snapshots.add(snapshot);
-                usedLeadIds.add(leadId);
             } catch (Exception ignored) {
             }
 
-            if (snapshots.size() >= 3) {
+            if (snapshots.size() >= 10) {
                 break;
             }
         }
 
         return snapshots;
+    }
+
+    private String formatCallAttemptStatus(String status, String outcome) {
+        String value = safeText(outcome, "").isBlank() ? safeText(status, "CALL") : safeText(outcome, status);
+        String normalized = value.replace('_', ' ').replace('-', ' ').trim();
+        if (normalized.isBlank()) {
+            return "Call Attempt";
+        }
+        return Arrays.stream(normalized.split("\\s+"))
+            .filter(part -> !part.isBlank())
+            .map(part -> part.substring(0, 1).toUpperCase(Locale.ROOT) + part.substring(1).toLowerCase(Locale.ROOT))
+            .collect(Collectors.joining(" "));
+    }
+
+    private String fallbackCallAttemptSummary(String status, String outcome) {
+        String label = formatCallAttemptStatus(status, outcome);
+        return switch (normalizeStatusLabel(label)) {
+            case "QUEUED" -> "Call queued with Bolna. Waiting for provider result.";
+            case "BUSY" -> "Lead line was busy. Retry remains scheduled if the lead is not connected.";
+            case "NO_ANSWER", "MISSED", "NOT_CONNECTED" -> "Lead did not answer. Retry remains scheduled.";
+            case "FAILED" -> "Call attempt failed. Check provider details or retry schedule.";
+            default -> "Call attempt captured. Transcript and recording will appear when available.";
+        };
+    }
+
+    private String normalizeStatusLabel(String value) {
+        return safeText(value, "").toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
     }
 
     private Map<String, LeadDTO> fetchCallSnapshotLeads(Set<String> leadIds) {
