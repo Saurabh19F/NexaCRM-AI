@@ -47,6 +47,9 @@ class CallAgentServiceTest {
     private LeadRepository leadRepository;
 
     @Mock
+    private com.nexacrm.repository.TenantRepository tenantRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -79,6 +82,7 @@ class CallAgentServiceTest {
             communicationRecordRepository,
             dealRepository,
             leadRepository,
+            tenantRepository,
             userRepository,
             leadActivityRepository,
             communicationService,
