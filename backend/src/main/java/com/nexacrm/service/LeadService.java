@@ -312,6 +312,17 @@ public class LeadService {
             saved.getSource() != null ? saved.getSource().name() : null,
             currentTenantId
         );
+        communicationService.sendAdminNewLeadNotificationAsync(
+            saved.getId(),
+            saved.getName(),
+            saved.getPhone(),
+            saved.getEmail(),
+            saved.getCompany(),
+            saved.getService(),
+            saved.getSource() != null ? saved.getSource().name() : null,
+            saved.getDealValue() != null ? saved.getDealValue().toPlainString() : null,
+            currentTenantId
+        );
 
         log.info("Lead created: id={}, name={}", saved.getId(), saved.getName());
         return toDTO(saved);

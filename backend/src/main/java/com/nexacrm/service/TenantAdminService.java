@@ -82,6 +82,15 @@ public class TenantAdminService {
             .isActive(bool(body.get("isActive"), true))
             .maxUsers(number(body.get("maxUsers"), 5))
             .logoUrl(string(body.get("logoUrl"), null))
+            .industry(string(body.get("industry"), null))
+            .website(string(body.get("website"), null))
+            .contactName(string(body.get("contactName"), null))
+            .contactEmail(string(body.get("contactEmail"), null))
+            .contactPhone(string(body.get("contactPhone"), null))
+            .country(string(body.get("country"), null))
+            .timezone(string(body.get("timezone"), null))
+            .currency(string(body.get("currency"), null))
+            .notes(string(body.get("notes"), null))
             .billingStatus(string(body.get("billingStatus"), "TRIAL"))
             .trialEndsAt(parseDateTime(body.get("trialEndsAt")))
             .subscriptionStartedAt(parseDateTime(body.get("subscriptionStartedAt")))
@@ -138,6 +147,15 @@ public class TenantAdminService {
         if (body.containsKey("isActive")) tenant.setIsActive(bool(body.get("isActive"), tenant.getIsActive()));
         if (body.containsKey("maxUsers")) tenant.setMaxUsers(number(body.get("maxUsers"), tenant.getMaxUsers()));
         if (body.containsKey("logoUrl")) tenant.setLogoUrl(string(body.get("logoUrl"), tenant.getLogoUrl()));
+        if (body.containsKey("industry")) tenant.setIndustry(string(body.get("industry"), tenant.getIndustry()));
+        if (body.containsKey("website")) tenant.setWebsite(string(body.get("website"), tenant.getWebsite()));
+        if (body.containsKey("contactName")) tenant.setContactName(string(body.get("contactName"), tenant.getContactName()));
+        if (body.containsKey("contactEmail")) tenant.setContactEmail(string(body.get("contactEmail"), tenant.getContactEmail()));
+        if (body.containsKey("contactPhone")) tenant.setContactPhone(string(body.get("contactPhone"), tenant.getContactPhone()));
+        if (body.containsKey("country")) tenant.setCountry(string(body.get("country"), tenant.getCountry()));
+        if (body.containsKey("timezone")) tenant.setTimezone(string(body.get("timezone"), tenant.getTimezone()));
+        if (body.containsKey("currency")) tenant.setCurrency(string(body.get("currency"), tenant.getCurrency()));
+        if (body.containsKey("notes")) tenant.setNotes(string(body.get("notes"), tenant.getNotes()));
         if (body.containsKey("billingStatus")) tenant.setBillingStatus(string(body.get("billingStatus"), tenant.getBillingStatus()));
         if (body.containsKey("trialEndsAt")) tenant.setTrialEndsAt(parseDateTime(body.get("trialEndsAt")));
         if (body.containsKey("subscriptionStartedAt")) tenant.setSubscriptionStartedAt(parseDateTime(body.get("subscriptionStartedAt")));
@@ -565,6 +583,15 @@ public class TenantAdminService {
         row.put("isActive", tenant.getIsActive());
         row.put("maxUsers", tenant.getMaxUsers());
         row.put("logoUrl", tenant.getLogoUrl());
+        row.put("industry", tenant.getIndustry());
+        row.put("website", tenant.getWebsite());
+        row.put("contactName", tenant.getContactName());
+        row.put("contactEmail", tenant.getContactEmail());
+        row.put("contactPhone", tenant.getContactPhone());
+        row.put("country", tenant.getCountry());
+        row.put("timezone", tenant.getTimezone());
+        row.put("currency", tenant.getCurrency());
+        row.put("notes", tenant.getNotes());
         row.put("trialEndsAt", tenant.getTrialEndsAt());
         row.put("subscriptionStartedAt", tenant.getSubscriptionStartedAt());
         row.put("subscriptionEndsAt", tenant.getSubscriptionEndsAt());

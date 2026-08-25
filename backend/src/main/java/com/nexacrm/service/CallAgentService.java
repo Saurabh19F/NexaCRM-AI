@@ -12,6 +12,7 @@ import com.nexacrm.repository.CommunicationRecordRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadActivityRepository;
 import com.nexacrm.repository.LeadRepository;
+import com.nexacrm.repository.TenantRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import com.nexacrm.websocket.NotificationPublisher;
@@ -29,6 +30,7 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -59,6 +61,7 @@ public class CallAgentService {
     private final CommunicationRecordRepository communicationRecordRepository;
     private final DealRepository dealRepository;
     private final LeadRepository leadRepository;
+    private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final LeadActivityRepository leadActivityRepository;
     private final CommunicationService communicationService;
@@ -911,6 +914,7 @@ public class CallAgentService {
         }
 
         sendPostCallIntelligenceWhatsApp(lead, analysis, resolvedStatus);
+        sendAdminCallIntelligenceWhatsApp(lead, analysis, resolvedStatus, currentCallRow);
     }
 
     private void saveAiLeadReviewActivity(
@@ -1006,6 +1010,132 @@ public class CallAgentService {
         } catch (Exception ex) {
             log.warn("Post-call intelligence WhatsApp failed for lead {}: {}", lead.getId(), ex.getMessage());
         }
+    }
+
+    private void sendAdminCallIntelligenceWhatsApp(
+        Lead lead,
+        Map<String, Object> analysis,
+        Lead.LeadStatus resolvedStatus,
+        Map<String, Object> currentCallRow
+    ) {
+        String adminPhone = resolveAdminNotificationPhone();
+        if (adminPhone.isBlank()) return;
+
+        String verdict = trim(stringValue(analysis.get("leadVerdict")));
+        int confidence = safeConfidence(analysis);
+        String aiSummary = trim(stringValue(analysis.get("summary")));
+        String reasoning = trim(stringValue(analysis.get("reasoning")));
+        String nextAction = trim(stringValue(analysis.get("nextBestAction")));
+        List<String> positiveSignals = readStringList(analysis.get("positiveSignals"));
+        List<String> riskSignals = readStringList(analysis.get("riskSignals"));
+
+        String callStatus = currentCallRow != null ? trim(stringValue(currentCallRow.get("status"))) : "";
+        String callOutcome = currentCallRow != null ? trim(stringValue(currentCallRow.get("outcome"))) : "";
+        String transcript = currentCallRow != null ? trim(stringValue(currentCallRow.get("transcript"))) : "";
+        String recordingUrl = currentCallRow != null ? trim(stringValue(currentCallRow.get("recordingUrl"))) : "";
+
+        String name = trim(lead.getName());
+        String phone = trim(lead.getPhone());
+        String company = trim(lead.getCompany());
+        String service = trim(lead.getService());
+        String email = trim(lead.getEmail());
+        String dealValue = lead.getDealValue() != null ? "₹" + lead.getDealValue().toPlainString() : "";
+        String score = lead.getScore() != null ? lead.getScore().name() : "";
+        String source = lead.getSource() != null ? lead.getSource().name() : "";
+        String assignedTo = lead.getAssignedTo() != null ? trim(lead.getAssignedTo().getName()) : "Unassigned";
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"));
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("📞 *CALL INTELLIGENCE REPORT*\n");
+        msg.append("━━━━━━━━━━━━━━━━━━━━━━\n");
+        msg.append("📅 ").append(now).append("\n\n");
+
+        msg.append("👤 *Lead Details:*\n");
+        if (!name.isBlank()) msg.append("• Name: *").append(name).append("*\n");
+        if (!phone.isBlank()) msg.append("• Phone: ").append(phone).append("\n");
+        if (!email.isBlank()) msg.append("• Email: ").append(email).append("\n");
+        if (!company.isBlank()) msg.append("• Company: ").append(company).append("\n");
+        if (!service.isBlank()) msg.append("• Requirement: ").append(service).append("\n");
+        if (!dealValue.isBlank()) msg.append("• Budget: ").append(dealValue).append("\n");
+        if (!source.isBlank()) msg.append("• Source: ").append(source).append("\n");
+        msg.append("\n");
+
+        msg.append("📊 *Call Status:*\n");
+        if (!callStatus.isBlank()) msg.append("• Status: ").append(callStatus).append("\n");
+        if (!callOutcome.isBlank()) msg.append("• Outcome: ").append(callOutcome).append("\n");
+        msg.append("• Lead Score: ").append(score.isBlank() ? "—" : score).append("\n");
+        msg.append("• Lead Stage: ").append(resolvedStatus != null ? resolvedStatus.name() : "—").append("\n");
+        msg.append("• Assigned To: ").append(assignedTo).append("\n");
+        msg.append("\n");
+
+        msg.append("🤖 *AI Verdict:* ").append(verdict.isBlank() ? "UNCERTAIN" : verdict.toUpperCase(Locale.ROOT));
+        msg.append(" (").append(confidence).append("% confidence)\n\n");
+
+        if (!aiSummary.isBlank()) {
+            msg.append("📝 *Call Summary:*\n");
+            String shortSummary = aiSummary.length() > 500 ? aiSummary.substring(0, 500) + "..." : aiSummary;
+            msg.append(shortSummary).append("\n\n");
+        }
+
+        if (!reasoning.isBlank()) {
+            msg.append("💡 *AI Reasoning:*\n");
+            String shortReasoning = reasoning.length() > 300 ? reasoning.substring(0, 300) + "..." : reasoning;
+            msg.append(shortReasoning).append("\n\n");
+        }
+
+        if (!positiveSignals.isEmpty()) {
+            msg.append("✅ *Positive Signals:*\n");
+            for (String signal : positiveSignals) {
+                msg.append("  • ").append(signal).append("\n");
+            }
+            msg.append("\n");
+        }
+
+        if (!riskSignals.isEmpty()) {
+            msg.append("⚠️ *Risk Signals:*\n");
+            for (String signal : riskSignals) {
+                msg.append("  • ").append(signal).append("\n");
+            }
+            msg.append("\n");
+        }
+
+        if (!nextAction.isBlank()) {
+            msg.append("🎯 *Next Best Action:*\n").append(nextAction).append("\n\n");
+        }
+
+        if (!transcript.isBlank()) {
+            msg.append("🗣️ *Call Transcript:*\n");
+            String shortTranscript = transcript.length() > 1500 ? transcript.substring(0, 1500) + "...\n_(truncated)_" : transcript;
+            msg.append(shortTranscript).append("\n\n");
+        }
+
+        if (!recordingUrl.isBlank()) {
+            msg.append("🔊 *Recording:* ").append(recordingUrl).append("\n\n");
+        }
+
+        msg.append("━━━━━━━━━━━━━━━━━━━━━━\n");
+        msg.append("_NexaCRM Call Intelligence_");
+
+        try {
+            communicationService.sendChannelMessage("whatsapp", adminPhone, "", msg.toString());
+            log.info("Admin call intelligence WhatsApp sent for lead {} to {}", lead.getId(), adminPhone);
+        } catch (Exception ex) {
+            log.warn("Admin call intelligence WhatsApp failed for lead {}: {}", lead.getId(), ex.getMessage());
+        }
+    }
+
+    private String resolveAdminNotificationPhone() {
+        String configPhone = trim(integrationService.getConfig("voice_call_agent").get("adminNotificationPhone"));
+        if (!configPhone.isBlank()) {
+            return configPhone;
+        }
+        Long currentTenantId = TenantContext.currentTenantIdOrNull();
+        if (currentTenantId != null) {
+            return tenantRepository.findByTenantIdAndDeletedFalse(currentTenantId)
+                .map(t -> trim(t.getContactPhone()))
+                .orElse("");
+        }
+        return "";
     }
 
     private Lead.LeadStatus resolveLeadStatusFromAnalysis(

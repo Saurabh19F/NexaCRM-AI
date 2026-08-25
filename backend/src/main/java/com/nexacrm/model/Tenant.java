@@ -43,6 +43,33 @@ public class Tenant extends BaseEntity {
     @Field("logo_url")
     private String logoUrl;
 
+    @Field("industry")
+    private String industry;
+
+    @Field("website")
+    private String website;
+
+    @Field("contact_name")
+    private String contactName;
+
+    @Field("contact_email")
+    private String contactEmail;
+
+    @Field("contact_phone")
+    private String contactPhone;
+
+    @Field("country")
+    private String country;
+
+    @Field("timezone")
+    private String timezone;
+
+    @Field("currency")
+    private String currency;
+
+    @Field("notes")
+    private String notes;
+
     @Field("billing_status")
     private String billingStatus = "TRIAL";
 

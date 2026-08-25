@@ -12,6 +12,7 @@ import com.nexacrm.model.Lead;
 import com.nexacrm.repository.CommunicationRecordRepository;
 import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.LeadRepository;
+import com.nexacrm.repository.TenantRepository;
 import com.nexacrm.security.TenantContext;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -80,6 +81,7 @@ public class CommunicationService {
     private final CommunicationRecordRepository communicationRecordRepository;
     private final LeadRepository leadRepository;
     private final CustomerRepository customerRepository;
+    private final TenantRepository tenantRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
@@ -567,6 +569,69 @@ public class CommunicationService {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    @Async
+    public void sendAdminNewLeadNotificationAsync(String leadId, String leadName, String leadPhone,
+            String leadEmail, String company, String service, String source, String dealValue, Long tenantId) {
+        if (tenantId != null) TenantContext.setCurrentTenantId(tenantId);
+        try {
+            String adminPhone = resolveAdminNotificationPhone();
+            if (adminPhone.isBlank()) {
+                log.debug("Admin new-lead WhatsApp skipped — no admin notification phone configured");
+                return;
+            }
+
+            String now = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"));
+
+            StringBuilder msg = new StringBuilder();
+            msg.append("🔔 *NEW LEAD ALERT*\n");
+            msg.append("━━━━━━━━━━━━━━━━━━━━━━\n");
+            msg.append("📅 ").append(now).append("\n\n");
+
+            msg.append("👤 *Lead Details:*\n");
+            if (!trim(leadName).isBlank()) msg.append("• Name: *").append(trim(leadName)).append("*\n");
+            if (!trim(leadPhone).isBlank()) msg.append("• Phone: ").append(trim(leadPhone)).append("\n");
+            if (!trim(leadEmail).isBlank()) msg.append("• Email: ").append(trim(leadEmail)).append("\n");
+            if (!trim(company).isBlank()) msg.append("• Company: ").append(trim(company)).append("\n");
+            if (!trim(service).isBlank()) msg.append("• Requirement: ").append(trim(service)).append("\n");
+            if (!trim(dealValue).isBlank()) msg.append("• Budget: ₹").append(trim(dealValue)).append("\n");
+            if (!trim(source).isBlank()) msg.append("• Source: ").append(trim(source)).append("\n");
+            msg.append("\n");
+
+            msg.append("⚡ *Automated Actions:*\n");
+            msg.append("✅ AI Call initiated\n");
+            msg.append("✅ WhatsApp welcome sent to lead\n");
+            msg.append("✅ Lead added to CRM pipeline\n\n");
+
+            msg.append("📌 *Status:* NEW\n");
+            msg.append("🤖 AI will analyze the call and send you a detailed report after the conversation.\n\n");
+
+            msg.append("━━━━━━━━━━━━━━━━━━━━━━\n");
+            msg.append("_NexaCRM Lead Alert_");
+
+            sendChannelMessage("whatsapp", adminPhone, "", msg.toString());
+            log.info("Admin new-lead WhatsApp sent for lead {} to {}", trim(leadId), adminPhone);
+        } catch (Exception ex) {
+            log.warn("Admin new-lead WhatsApp failed for lead {}: {}", trim(leadId), ex.getMessage());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private String resolveAdminNotificationPhone() {
+        String configPhone = trim(integrationService.getConfig("voice_call_agent").get("adminNotificationPhone"));
+        if (!configPhone.isBlank()) {
+            return configPhone;
+        }
+        Long currentTenantId = TenantContext.currentTenantIdOrNull();
+        if (currentTenantId != null) {
+            return tenantRepository.findByTenantIdAndDeletedFalse(currentTenantId)
+                .map(t -> trim(t.getContactPhone()))
+                .orElse("");
+        }
+        return "";
     }
 
     public List<WhatsAppMessageResponse> getWhatsAppMessages(@NonNull String contact) {

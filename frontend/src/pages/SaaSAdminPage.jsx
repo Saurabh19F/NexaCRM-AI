@@ -5,7 +5,8 @@ import {
   Sparkles, BarChart3, FileText, Pencil, Plus, Trash2, Users, Lock,
   Activity, Eye, UserX, UserCheck, Crown, Search, ChevronDown, ToggleLeft,
   ToggleRight, ShieldCheck, ShieldAlert, KeyRound, Globe, Server, Database,
-  Layers, Zap, Settings, X
+  Layers, Zap, Settings, X, Phone, Mail, MapPin, Clock, DollarSign,
+  StickyNote, Briefcase, Link as LinkIcon, User as UserIcon
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
@@ -30,11 +31,14 @@ const parseJson = (value) => {
 }
 
 const EMPTY_FORM = {
-  id: '', name: '', slug: '', plan: 'TRIAL', billingStatus: 'TRIAL',
-  isActive: true, maxUsers: 5, logoUrl: '',
-  trialEndsAt: '', subscriptionStartedAt: '', subscriptionEndsAt: '',
+  id: '', name: '', slug: '', industry: '', website: '', logoUrl: '',
+  contactName: '', contactEmail: '', contactPhone: '', country: '',
+  plan: 'TRIAL', billingStatus: 'TRIAL', trialEndsAt: '', maxUsers: 5,
+  subscriptionStartedAt: '', subscriptionEndsAt: '',
+  timezone: '', currency: 'INR',
   featureFlagsJson: '{}', usageLimitsJson: '{}',
   adminName: '', adminEmail: '', adminPassword: '',
+  isActive: true, notes: '',
 }
 
 
@@ -93,6 +97,40 @@ const SectionCard = ({ title, subtitle, icon: Icon, iconColor = 'text-brand-500'
     {children}
   </div>
 )
+
+// ── Form Section ───────────────────────────────────────────────
+const FormSection = ({ title, icon: Icon, iconColor = 'text-brand-500', children, accent }) => (
+  <div className={`rounded-xl border p-4 ${accent || 'border-slate-200/70 bg-white/50 dark:border-slate-800/60 dark:bg-slate-950/30'}`}>
+    <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+      {Icon && <Icon className={`h-3.5 w-3.5 ${iconColor}`} />} {title}
+    </p>
+    {children}
+  </div>
+)
+
+const INDUSTRIES = [
+  'Technology', 'Healthcare', 'Finance', 'Real Estate', 'Education',
+  'Retail', 'Manufacturing', 'Consulting', 'Marketing', 'Legal',
+  'Hospitality', 'Logistics', 'Media', 'Telecom', 'Other',
+]
+
+const COUNTRIES = [
+  'India', 'United States', 'United Kingdom', 'Canada', 'Australia',
+  'Germany', 'Singapore', 'UAE', 'Japan', 'France', 'Other',
+]
+
+const TIMEZONES = [
+  'Asia/Kolkata', 'America/New_York', 'America/Chicago', 'America/Denver',
+  'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Asia/Singapore',
+  'Asia/Tokyo', 'Asia/Dubai', 'Australia/Sydney', 'Pacific/Auckland',
+]
+
+const CURRENCIES = [
+  { code: 'INR', label: '₹ INR' }, { code: 'USD', label: '$ USD' },
+  { code: 'EUR', label: '€ EUR' }, { code: 'GBP', label: '£ GBP' },
+  { code: 'AUD', label: 'A$ AUD' }, { code: 'SGD', label: 'S$ SGD' },
+  { code: 'AED', label: 'د.إ AED' }, { code: 'JPY', label: '¥ JPY' },
+]
 
 // ═════════════════════════════════════════════════════════════════
 //  OVERVIEW TAB
@@ -274,92 +312,167 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
       </div>
 
       {/* Edit / Create form */}
-      {showForm && <SectionCard title={form.id ? 'Edit Company' : 'Create Company'} subtitle="Manage plan, limits, flags and lifecycle" icon={Sparkles} iconColor="text-brand-500"
+      {showForm && <SectionCard title={form.id ? 'Edit Company' : 'Create Company'} subtitle="Fill in company details, contact, subscription and admin" icon={Sparkles} iconColor="text-brand-500"
         actions={<button type="button" onClick={handleCloseForm} className="btn-ghost h-8 px-2.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"><X className="h-4 w-4" /></button>}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Company name</label>
-              <input name="name" value={form.name} onChange={updateForm} className="input" required />
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[calc(100vh-14rem)] overflow-y-auto custom-scrollbar pr-1">
+
+          {/* ── 1. Company Details ──────────────────────────────── */}
+          <FormSection title="Company Details" icon={Building2} iconColor="text-brand-500">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="label">Company Name <span className="text-rose-500">*</span></label>
+                <input name="name" value={form.name} onChange={updateForm} className="input" placeholder="Acme Corp" required />
+              </div>
+              <div>
+                <label className="label">Slug / ID <span className="text-rose-500">*</span></label>
+                <input name="slug" value={form.slug} onChange={updateForm} className="input" placeholder="acme-corp" />
+              </div>
+              <div>
+                <label className="label">Industry</label>
+                <select name="industry" value={form.industry} onChange={updateForm} className="input">
+                  <option value="">Select industry...</option>
+                  {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Website</label>
+                <input name="website" value={form.website} onChange={updateForm} className="input" placeholder="https://acme.com" type="url" />
+              </div>
+              <div>
+                <label className="label">Logo URL</label>
+                <input name="logoUrl" value={form.logoUrl} onChange={updateForm} className="input" placeholder="https://..." />
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Slug</label>
-              <input name="slug" value={form.slug} onChange={updateForm} className="input" placeholder="acme-crm" />
+          </FormSection>
+
+          {/* ── 2. Primary Contact ──────────────────────────────── */}
+          <FormSection title="Primary Contact" icon={UserIcon} iconColor="text-cyan-500">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Contact Name <span className="text-rose-500">*</span></label>
+                <input name="contactName" value={form.contactName} onChange={updateForm} className="input" placeholder="John Doe" />
+              </div>
+              <div>
+                <label className="label">Email <span className="text-rose-500">*</span></label>
+                <input name="contactEmail" type="email" value={form.contactEmail} onChange={updateForm} className="input" placeholder="john@acme.com" />
+              </div>
+              <div>
+                <label className="label">Phone</label>
+                <input name="contactPhone" value={form.contactPhone} onChange={updateForm} className="input" placeholder="+91 98765 43210" />
+              </div>
+              <div>
+                <label className="label">Country</label>
+                <select name="country" value={form.country} onChange={updateForm} className="input">
+                  <option value="">Select country...</option>
+                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Plan</label>
-              <select name="plan" value={form.plan} onChange={updateForm} className="input">
-                {['TRIAL', 'STARTER', 'BUSINESS', 'ENTERPRISE'].map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+          </FormSection>
+
+          {/* ── 3. Subscription ─────────────────────────────────── */}
+          <FormSection title="Subscription" icon={BadgeDollarSign} iconColor="text-emerald-500">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Plan <span className="text-rose-500">*</span></label>
+                <select name="plan" value={form.plan} onChange={updateForm} className="input">
+                  {['TRIAL', 'STARTER', 'BUSINESS', 'ENTERPRISE'].map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Billing Cycle</label>
+                <select name="billingStatus" value={form.billingStatus} onChange={updateForm} className="input">
+                  {['TRIAL', 'MONTHLY', 'QUARTERLY', 'ANNUAL'].map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Trial Ends</label>
+                <input name="trialEndsAt" type="datetime-local" value={form.trialEndsAt} onChange={updateForm} className="input" />
+              </div>
+              <div>
+                <label className="label">User / Seat Limit</label>
+                <input name="maxUsers" type="number" min="1" value={form.maxUsers} onChange={updateForm} className="input" />
+              </div>
+              <div>
+                <label className="label">Subscription Starts</label>
+                <input name="subscriptionStartedAt" type="datetime-local" value={form.subscriptionStartedAt} onChange={updateForm} className="input" />
+              </div>
+              <div>
+                <label className="label">Subscription Ends</label>
+                <input name="subscriptionEndsAt" type="datetime-local" value={form.subscriptionEndsAt} onChange={updateForm} className="input" />
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Billing Status</label>
-              <input name="billingStatus" value={form.billingStatus} onChange={updateForm} className="input" />
+          </FormSection>
+
+          {/* ── 4. Configuration ────────────────────────────────── */}
+          <FormSection title="Configuration" icon={Settings} iconColor="text-violet-500">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Time Zone</label>
+                <select name="timezone" value={form.timezone} onChange={updateForm} className="input">
+                  <option value="">Select timezone...</option>
+                  {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Currency</label>
+                <select name="currency" value={form.currency} onChange={updateForm} className="input">
+                  {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Feature Flags</label>
+                <textarea name="featureFlagsJson" rows={4} value={form.featureFlagsJson} onChange={updateForm} className="input font-mono text-xs" placeholder='{"ai_engine": true}' />
+              </div>
+              <div>
+                <label className="label">Usage Limits</label>
+                <textarea name="usageLimitsJson" rows={4} value={form.usageLimitsJson} onChange={updateForm} className="input font-mono text-xs" placeholder='{"maxLeads": 1000}' />
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Max Users</label>
-              <input name="maxUsers" type="number" min="1" value={form.maxUsers} onChange={updateForm} className="input" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Logo URL</label>
-              <input name="logoUrl" value={form.logoUrl} onChange={updateForm} className="input" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Trial ends</label>
-              <input name="trialEndsAt" type="datetime-local" value={form.trialEndsAt} onChange={updateForm} className="input" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Subscription starts</label>
-              <input name="subscriptionStartedAt" type="datetime-local" value={form.subscriptionStartedAt} onChange={updateForm} className="input" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Subscription ends</label>
-              <input name="subscriptionEndsAt" type="datetime-local" value={form.subscriptionEndsAt} onChange={updateForm} className="input" />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Feature flags JSON</label>
-              <textarea name="featureFlagsJson" rows={8} value={form.featureFlagsJson} onChange={updateForm} className="input font-mono text-xs" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Usage limits JSON</label>
-              <textarea name="usageLimitsJson" rows={8} value={form.usageLimitsJson} onChange={updateForm} className="input font-mono text-xs" />
-            </div>
-          </div>
-          {/* Company Admin credentials — only shown when creating a new company */}
+          </FormSection>
+
+          {/* ── 5. Initial Admin — only on create ───────────────── */}
           {!form.id && (
-            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/30 p-4 dark:border-emerald-900/30 dark:bg-emerald-950/20">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                <Crown className="h-3.5 w-3.5" /> Company Admin Account
-              </p>
+            <FormSection title="Initial Admin" icon={Crown} iconColor="text-amber-500"
+              accent="border-emerald-200/70 bg-emerald-50/30 dark:border-emerald-900/30 dark:bg-emerald-950/20">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Admin Name</label>
+                  <label className="label">Admin Name <span className="text-rose-500">*</span></label>
                   <input name="adminName" value={form.adminName} onChange={updateForm} className="input" placeholder="John Doe" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Admin Email <span className="text-rose-500">*</span></label>
+                  <label className="label">Admin Email <span className="text-rose-500">*</span></label>
                   <input name="adminEmail" type="email" value={form.adminEmail} onChange={updateForm} className="input" placeholder="admin@company.com" required />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Password <span className="text-rose-500">*</span></label>
+                  <label className="label">Password <span className="text-rose-500">*</span></label>
                   <input name="adminPassword" type="text" value={form.adminPassword} onChange={updateForm} className="input" placeholder="Min 6 characters" required minLength={6} />
                 </div>
               </div>
               <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">This user will be the first Company Admin and can log in at the company login page.</p>
-            </div>
+            </FormSection>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" name="isActive" checked={form.isActive} onChange={updateForm} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-            Active company
-          </label>
-          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+          {/* ── 6. Status ───────────────────────────────────────── */}
+          <FormSection title="Status" icon={Activity} iconColor="text-rose-500">
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input type="checkbox" name="isActive" checked={form.isActive} onChange={updateForm} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Active company
+              </label>
+              <div>
+                <label className="label">Internal Notes</label>
+                <textarea name="notes" rows={2} value={form.notes} onChange={updateForm} className="input text-xs" placeholder="Internal notes about this company..." />
+              </div>
+            </div>
+          </FormSection>
+
+          {/* ── Actions ─────────────────────────────────────────── */}
+          <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/80 sm:flex-row">
             <button type="button" onClick={handleCloseForm} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" className="btn-primary flex-1" disabled={saving}>
-              {saving ? 'Saving...' : form.id ? 'Update company' : 'Create company'}
+              {saving ? 'Saving...' : form.id ? 'Save & Update Company' : 'Save & Create Company'}
             </button>
           </div>
         </form>
@@ -947,12 +1060,18 @@ export default function SaaSAdminPage() {
     setSelectedTenant(tenant)
     setForm({
       id: tenant?.id || '', name: tenant?.name || '', slug: tenant?.slug || '',
+      industry: tenant?.industry || '', website: tenant?.website || '', logoUrl: tenant?.logoUrl || '',
+      contactName: tenant?.contactName || '', contactEmail: tenant?.contactEmail || '',
+      contactPhone: tenant?.contactPhone || '', country: tenant?.country || '',
       plan: tenant?.plan || 'TRIAL', billingStatus: tenant?.billingStatus || 'TRIAL',
-      isActive: Boolean(tenant?.isActive), maxUsers: tenant?.maxUsers ?? 5, logoUrl: tenant?.logoUrl || '',
       trialEndsAt: tenant?.trialEndsAt ? String(tenant.trialEndsAt).slice(0, 16) : '',
+      maxUsers: tenant?.maxUsers ?? 5,
       subscriptionStartedAt: tenant?.subscriptionStartedAt ? String(tenant.subscriptionStartedAt).slice(0, 16) : '',
       subscriptionEndsAt: tenant?.subscriptionEndsAt ? String(tenant.subscriptionEndsAt).slice(0, 16) : '',
+      timezone: tenant?.timezone || '', currency: tenant?.currency || 'INR',
       featureFlagsJson: stringifyJson(tenant?.featureFlags), usageLimitsJson: stringifyJson(tenant?.usageLimits),
+      adminName: '', adminEmail: '', adminPassword: '',
+      isActive: Boolean(tenant?.isActive), notes: tenant?.notes || '',
     })
     if (tenant) navigate('/admin/saas?tab=companies', { replace: true })
   }
@@ -968,11 +1087,17 @@ export default function SaaSAdminPage() {
     try {
       const payload = {
         name: form.name, slug: form.slug, plan: form.plan,
+        industry: form.industry || null, website: form.website || null,
+        logoUrl: form.logoUrl || null,
+        contactName: form.contactName || null, contactEmail: form.contactEmail || null,
+        contactPhone: form.contactPhone || null, country: form.country || null,
         billingStatus: form.billingStatus, isActive: form.isActive,
-        maxUsers: Number(form.maxUsers) || 5, logoUrl: form.logoUrl || null,
+        maxUsers: Number(form.maxUsers) || 5,
         trialEndsAt: form.trialEndsAt || null,
         subscriptionStartedAt: form.subscriptionStartedAt || null,
         subscriptionEndsAt: form.subscriptionEndsAt || null,
+        timezone: form.timezone || null, currency: form.currency || null,
+        notes: form.notes || null,
         featureFlags: parseJson(form.featureFlagsJson),
         usageLimits: parseJson(form.usageLimitsJson),
       }
