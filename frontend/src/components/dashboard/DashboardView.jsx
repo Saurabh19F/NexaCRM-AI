@@ -29,6 +29,7 @@ const formatNextAttempt = (value) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -90,7 +91,7 @@ export default function DashboardPage() {
               <GradientText>{getGreeting()}, {firstName}</GradientText>
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[460px]">

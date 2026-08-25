@@ -71,7 +71,7 @@ export default function TaskCalendar({ tasks = [], selectedDate = null, onDateSe
 
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          {cursor.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+          {cursor.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long', year: 'numeric' })}
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {taskBuckets.size} active date{taskBuckets.size === 1 ? '' : 's'}

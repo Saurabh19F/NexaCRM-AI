@@ -109,7 +109,7 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '🔥', '🙏', '😮']
 
 // ── Utility ───────────────────────────────────────────────────
 function nowTime() {
-  return new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+  return new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 }
 function cleanPhone(p) { return String(p || '').replace(/\D/g, '') }
 function isNumericScopedId(value) { return /^\d+$/.test(String(value || '').trim()) }
@@ -134,7 +134,7 @@ function formatMessageTime(iso) {
   if (!iso) return nowTime()
   const dt = new Date(iso)
   if (Number.isNaN(dt.getTime())) return nowTime()
-  return dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+  return dt.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 }
 function getErrorMessage(err, fallback) {
   if (typeof err === 'string' && err.trim()) return err

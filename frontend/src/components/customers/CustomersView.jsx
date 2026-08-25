@@ -71,7 +71,7 @@ function formatDate(value) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function formatTimeAgo(value) {
@@ -80,7 +80,7 @@ function formatTimeAgo(value) {
   try {
     return formatDistanceToNowStrict(date, { addSuffix: true })
   } catch {
-    return date.toLocaleDateString('en-IN')
+    return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
   }
 }
 
@@ -381,7 +381,7 @@ function formatFieldValue(key, value) {
   if (key === 'created_time') {
     const d = new Date(value)
     if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
   }
   return String(value)

@@ -30,7 +30,7 @@ function StatusBar() {
         </div>
         <div className="flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-slate-400" />
-          <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>{time.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
       </div>
       <div className="flex items-center gap-1.5">

@@ -761,7 +761,7 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
                         Call #{index + 1} · {call.status || 'Unknown'}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        {call.createdAt ? new Date(call.createdAt).toLocaleString() : 'No timestamp'}
+                        {call.createdAt ? new Date(call.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'No timestamp'}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -1410,7 +1410,7 @@ export default function LeadsPage() {
     if (!value) return 'Just now'
     const d = new Date(value)
     if (Number.isNaN(d.getTime())) return String(value)
-    return d.toLocaleString()
+    return d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   }
 
   const mapLeadActivityToHistoryEvent = (row) => {

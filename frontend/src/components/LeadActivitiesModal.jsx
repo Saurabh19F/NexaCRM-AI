@@ -149,7 +149,8 @@ const formatDateTime = (value) => {
   if (!value) return 'Auto'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

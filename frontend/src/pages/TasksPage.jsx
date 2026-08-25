@@ -40,6 +40,7 @@ const formatDateTime = (value) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'No due date'
   return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -460,7 +461,7 @@ export default function TasksPage() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {selectedDate ? `Tasks on ${new Date(selectedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : 'Selected day'}
+                  {selectedDate ? `Tasks on ${new Date(selectedDate).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' })}` : 'Selected day'}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Click a day in the calendar to inspect its tasks</p>
               </div>

@@ -31,6 +31,7 @@ const formatWhen = (value) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Just now'
   return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

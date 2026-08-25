@@ -2411,8 +2411,10 @@ public class CommunicationService {
             .build();
     }
 
+    private static final java.time.ZoneId IST = java.time.ZoneId.of("Asia/Kolkata");
+
     private OffsetDateTime asUtcOffsetDateTime(Instant timestamp) {
-        return timestamp == null ? null : timestamp.atOffset(ZoneOffset.UTC);
+        return timestamp == null ? null : timestamp.atZone(IST).toOffsetDateTime();
     }
 
     private String resolveFacebookDisplayName(CommunicationRecord row) {
