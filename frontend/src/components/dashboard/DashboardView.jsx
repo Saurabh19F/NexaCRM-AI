@@ -155,7 +155,7 @@ export default function DashboardPage() {
           )}
 
           {recentCallSnapshots.length > 0 && (
-            <div className="space-y-2">
+            <div className="max-h-[540px] space-y-2 overflow-y-auto pr-1 custom-scrollbar">
               {recentCallSnapshots.map((item) => (
                 <div
                   key={item.callId || `${item.leadId}-${item.calledAt}-${item.attemptNumber || ''}`}

@@ -550,7 +550,7 @@ public class DashboardAnalyticsService {
             } catch (Exception ignored) {
             }
 
-            if (snapshots.size() >= 10) {
+            if (snapshots.size() >= 50) {
                 break;
             }
         }
