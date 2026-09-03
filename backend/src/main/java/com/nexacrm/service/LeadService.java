@@ -17,6 +17,11 @@ import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -971,6 +976,7 @@ public class LeadService {
 
         String normalized = format == null ? "csv" : format.trim().toLowerCase(Locale.ROOT);
         if ("xlsx".equals(normalized)) return exportAsXlsx(leads);
+        if ("pdf".equals(normalized)) return exportAsPdf(leads);
         return exportAsCsv(leads);
     }
 
@@ -2018,6 +2024,83 @@ public class LeadService {
             return out.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException("Failed to export leads as XLSX", e);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private byte[] exportAsPdf(List<Lead> leads) {
+        try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            String[] headers = {"Name","Email","Phone","Company","Score","Status","Value","Source"};
+            float[] colW = {90, 120, 80, 90, 45, 60, 55, 60};
+            float pageW = PDRectangle.A4.getHeight(); // landscape
+            float pageH = PDRectangle.A4.getWidth();
+            float margin = 30;
+            float rowH = 16;
+            float headerH = 20;
+            float yStart = pageH - margin;
+            PDType1Font fontBold = PDType1Font.HELVETICA_BOLD;
+            PDType1Font fontNormal = PDType1Font.HELVETICA;
+            float fontSize = 7.5f;
+
+            int idx = 0;
+            while (idx < leads.size() || idx == 0) {
+                PDPage page = new PDPage(new PDRectangle(pageW, pageH));
+                doc.addPage(page);
+                PDPageContentStream cs = new PDPageContentStream(doc, page);
+                float y = yStart;
+
+                // title
+                cs.beginText();
+                cs.setFont(fontBold, 14);
+                cs.newLineAtOffset(margin, y);
+                cs.showText("Leads Export — " + java.time.LocalDate.now());
+                cs.endText();
+                y -= 28;
+
+                // header row
+                float x = margin;
+                for (int i = 0; i < headers.length; i++) {
+                    cs.beginText();
+                    cs.setFont(fontBold, fontSize);
+                    cs.newLineAtOffset(x, y);
+                    cs.showText(headers[i]);
+                    cs.endText();
+                    x += colW[i];
+                }
+                y -= headerH;
+
+                // data rows
+                while (idx < leads.size() && y > margin + rowH) {
+                    Lead lead = leads.get(idx);
+                    x = margin;
+                    String[] vals = {
+                        safe(lead.getName()), safe(lead.getEmail()), safe(lead.getPhone()),
+                        safe(lead.getCompany()),
+                        lead.getScore() != null ? lead.getScore().name() : "",
+                        lead.getStatus() != null ? lead.getStatus().name() : "",
+                        lead.getDealValue() != null ? lead.getDealValue().toPlainString() : "0",
+                        lead.getSource() != null ? lead.getSource().name() : ""
+                    };
+                    for (int i = 0; i < vals.length; i++) {
+                        String v = vals[i];
+                        if (v.length() > (int)(colW[i] / 4)) v = v.substring(0, (int)(colW[i] / 4)) + "…";
+                        cs.beginText();
+                        cs.setFont(fontNormal, fontSize);
+                        cs.newLineAtOffset(x, y);
+                        cs.showText(v);
+                        cs.endText();
+                        x += colW[i];
+                    }
+                    y -= rowH;
+                    idx++;
+                }
+                cs.close();
+                if (idx == 0) break; // empty list, one blank page
+            }
+            doc.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to export leads as PDF", e);
         }
     }
 

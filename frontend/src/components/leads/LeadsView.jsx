@@ -1281,16 +1281,17 @@ export default function LeadsPage() {
     }
   }
 
-  const handleExport = () => {
+  const handleExport = (format = 'csv') => {
     if (!canExport) {
       toast.error('You do not have permission to export leads.')
       return
     }
-    leadsAPI.export({ format: 'csv', status: statusFilter === 'all' ? undefined : statusFilter })
+    const ext = format === 'xlsx' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv'
+    leadsAPI.export({ format, status: statusFilter === 'all' ? undefined : statusFilter })
       .then((blob) => {
         const a = document.createElement('a')
         a.href = URL.createObjectURL(blob)
-        a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`
+        a.download = `leads-${new Date().toISOString().slice(0, 10)}.${ext}`
         a.click()
         URL.revokeObjectURL(a.href)
         toast.success('Leads exported successfully.')
@@ -1585,9 +1586,14 @@ export default function LeadsPage() {
             </>
           )}
           {canExport && (
-            <button onClick={handleExport} className="btn-secondary text-xs gap-1.5">
-              <Download className="w-3.5 h-3.5" /> Export
-            </button>
+            <>
+              <button onClick={() => handleExport('pdf')} className="btn-secondary text-xs gap-1.5">
+                <FileText className="w-3.5 h-3.5" /> PDF
+              </button>
+              <button onClick={() => handleExport('xlsx')} className="btn-secondary text-xs gap-1.5">
+                <Download className="w-3.5 h-3.5" /> Excel
+              </button>
+            </>
           )}
           {canCreate && (
             <button onClick={() => setShowAddModal(true)} className="btn-primary text-xs gap-1.5">

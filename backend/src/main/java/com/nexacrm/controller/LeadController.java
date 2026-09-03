@@ -215,8 +215,14 @@ public class LeadController {
             @RequestParam(defaultValue = "csv") String format,
             @RequestParam(required = false) String status) {
         byte[] data = leadService.export(format, status);
-        String contentType = "csv".equals(format) ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        String filename = "leads." + format;
+        String normalized = format == null ? "csv" : format.trim().toLowerCase(java.util.Locale.ROOT);
+        String contentType;
+        switch (normalized) {
+            case "pdf":  contentType = "application/pdf"; break;
+            case "xlsx": contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; break;
+            default:     contentType = "text/csv"; normalized = "csv"; break;
+        }
+        String filename = "leads." + normalized;
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=" + filename)
                 .header("Content-Type", contentType)

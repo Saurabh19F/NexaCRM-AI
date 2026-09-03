@@ -34,5 +34,8 @@
       "Bash(cmd.exe /c \"for /f \\\\\"tokens=5\\\\\" %a in \\('netstat -aon ^| findstr \\\\\":3002 \\\\\"'\\) do taskkill /F /PID %a\")",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Saura\\\\OneDrive\\\\Desktop\\\\NexaCRM AI\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\nexacrm\" -Recurse -Directory)"
     ]
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
   }
 }
