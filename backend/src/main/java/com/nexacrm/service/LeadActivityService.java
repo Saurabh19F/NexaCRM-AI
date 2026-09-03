@@ -163,6 +163,48 @@ public class LeadActivityService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Map<String, Integer> getMaxStageByLeadIds(Collection<String> requestedLeadIds) {
+        Set<String> leadIds = requestedLeadIds == null
+            ? Set.of()
+            : requestedLeadIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .map(String::trim)
+                .limit(500)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<String, Integer> result = new LinkedHashMap<>();
+        leadIds.forEach(id -> result.put(id, -1));
+        if (leadIds.isEmpty()) return result;
+
+        // Lightweight aggregation: just $match + $group/$max — no $sort, no $replaceRoot
+        List<Document> pipeline = List.of(
+            new Document("$match", new Document("tenant_id", tenantId())
+                .append("deleted", false)
+                .append("lead_id", new Document("$in", new ArrayList<>(leadIds)))),
+            new Document("$group", new Document("_id", "$lead_id")
+                .append("maxIdx", new Document("$max", "$activity_index")))
+        );
+
+        try {
+            mongoTemplate.getCollection("lead_activities")
+                .aggregate(pipeline)
+                .maxTime(4, TimeUnit.SECONDS)
+                .forEach(doc -> {
+                    String leadId = doc.getString("_id");
+                    Integer maxIdx = doc.getInteger("maxIdx");
+                    if (leadId != null && maxIdx != null) {
+                        result.put(leadId, maxIdx);
+                    }
+                });
+        } catch (RuntimeException ex) {
+            org.slf4j.LoggerFactory.getLogger(LeadActivityService.class).warn(
+                "Stage aggregation failed for {} leads: {}", leadIds.size(), ex.getMessage());
+        }
+
+        return result;
+    }
+
     @CacheEvict(value = "pipeline-board", allEntries = true)
     public LeadActivityDTO create(String leadId, LeadActivityDTO dto) {
         Lead lead = ensureLeadExists(leadId);

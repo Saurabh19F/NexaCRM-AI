@@ -87,6 +87,15 @@ public class LeadController {
         return ResponseEntity.ok(leadActivityService.listByLeadIds(leadIds));
     }
 
+    @PostMapping("/activities/stages")
+    @PreAuthorize("hasAuthority('leads.read') or hasAuthority('tasks.read')")
+    @Operation(summary = "Get max activity stage index per lead (lightweight)")
+    public ResponseEntity<Map<String, Integer>> getLeadActivityStages(
+            @RequestBody Map<String, List<String>> body) {
+        List<String> leadIds = body != null ? body.get("leadIds") : List.of();
+        return ResponseEntity.ok(leadActivityService.getMaxStageByLeadIds(leadIds));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('leads.read')")
     @Operation(summary = "Get lead by ID")
