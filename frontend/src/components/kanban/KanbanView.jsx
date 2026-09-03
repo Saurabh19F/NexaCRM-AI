@@ -15,7 +15,7 @@ import {
   Plus, Filter, Search, IndianRupee, Calendar,
   User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X,
   ChevronLeft, ChevronRight, RefreshCw,
-  Phone, AtSign, Tag, PhoneCall, MessageCircle, ClipboardList
+  Phone, AtSign, Tag, PhoneCall, MessageCircle, ClipboardList, Clock, Trophy
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useLeadsStore } from '../../store/leadsStore'
@@ -113,6 +113,18 @@ const SCORE_CONFIG = {
   hot:  { icon: Flame,        color: 'text-red-500',   label: 'Hot',  cls: 'badge-hot' },
   warm: { icon: Thermometer,  color: 'text-amber-500', label: 'Warm', cls: 'badge-warm' },
   cold: { icon: Snowflake,    color: 'text-sky-500',   label: 'Cold', cls: 'badge-cold' },
+}
+
+const STAGE_ICON_DEFS = [
+  { icon: Phone,  bg: 'bg-red-500',     ring: 'ring-red-400/40' },
+  { icon: Clock,  bg: 'bg-blue-500',    ring: 'ring-blue-400/40' },
+  { icon: Trophy, bg: 'bg-emerald-500', ring: 'ring-emerald-400/40' },
+]
+function getLeadCurrentStage(activityState) {
+  if (!activityState?.saved) return -1
+  let max = -1
+  activityState.saved.forEach((s, i) => { if (s) max = i })
+  return max
 }
 
 const LEAD_SOURCES = [
@@ -363,7 +375,9 @@ function LeadCard({
   onCall,
   onWhatsApp,
   onActivities,
+  onHistory,
   callingLeadId,
+  activityState,
 }) {
   const scoreCfg = SCORE_CONFIG[lead.score] || SCORE_CONFIG.warm
   const ScoreIcon = scoreCfg.icon
@@ -371,10 +385,15 @@ function LeadCard({
   const latestActivity = Array.isArray(lead.activityLogs) && lead.activityLogs.length > 0
     ? String(lead.activityLogs[0]).split(' | ').slice(1).join(' · ')
     : ''
+  const currentStage = getLeadCurrentStage(activityState)
+  const stageDef = currentStage >= 0 ? STAGE_ICON_DEFS[Math.min(currentStage, 2)] : null
 
   return (
-    <div className={`deal-card select-none relative ${isDragging ? 'opacity-50 rotate-2 shadow-2xl' : ''}`}>
-      {/* Name + menu */}
+    <div
+      className={`deal-card select-none relative cursor-pointer ${isDragging ? 'opacity-50 rotate-2 shadow-2xl' : ''}`}
+      onClick={() => onHistory?.(lead)}
+    >
+      {/* Name + menu + stage icon */}
       <div className="flex items-start justify-between mb-1.5">
         <div className="min-w-0 flex-1 pr-2">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight line-clamp-1">
@@ -432,8 +451,16 @@ function LeadCard({
         )}
       </AnimatePresence>
 
-      {/* Score badge + aging */}
+      {/* Score badge + stage icon + aging */}
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        {stageDef && (() => {
+          const StIcon = stageDef.icon
+          return (
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full ${stageDef.bg} text-white ring-1 ${stageDef.ring}`}>
+              <StIcon className="w-2.5 h-2.5" />
+            </span>
+          )
+        })()}
         <span className={`${scoreCfg.cls} text-[10px]`}>
           <ScoreIcon className="w-3 h-3" /> {scoreCfg.label}
         </span>
@@ -535,7 +562,7 @@ function LeadCard({
 /* ── Sortable wrapper for lead cards ───────────────────────── */
 function SortableLeadCard({
   lead, stage, isMenuOpen, onToggleMenu, onMoveLead, onDeleteLead,
-  agingMeta, canMoveLead, canDeleteLead, onCall, onWhatsApp, onActivities, callingLeadId,
+  agingMeta, canMoveLead, canDeleteLead, onCall, onWhatsApp, onActivities, onHistory, callingLeadId, activityState,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(lead.id),
@@ -569,7 +596,9 @@ function SortableLeadCard({
         onCall={onCall}
         onWhatsApp={onWhatsApp}
         onActivities={onActivities}
+        onHistory={onHistory}
         callingLeadId={callingLeadId}
+        activityState={activityState}
       />
     </div>
   )
@@ -579,7 +608,7 @@ function SortableLeadCard({
 function KanbanColumn({
   stage, leads: columnLeads, onAddLead, openMenuId, onToggleMenu,
   onMoveLead, onDeleteLead, canCreateLead, canMoveLead, canDeleteLead,
-  onCall, onWhatsApp, onActivities, callingLeadId,
+  onCall, onWhatsApp, onActivities, onHistory, callingLeadId, activityStateByLeadId,
 }) {
   const totalValue = columnLeads.reduce((s, l) => s + (l.value || 0), 0)
   const dropId = `${STAGE_DROP_PREFIX}${stage.key}`
@@ -640,7 +669,9 @@ function KanbanColumn({
               onCall={onCall}
               onWhatsApp={onWhatsApp}
               onActivities={onActivities}
+              onHistory={onHistory}
               callingLeadId={callingLeadId}
+              activityState={activityStateByLeadId?.[lead.id]}
             />
           ))}
           {columnLeads.length === 0 && (
@@ -1270,7 +1301,9 @@ export default function KanbanPage() {
               onCall={canCall ? handleCallLead : null}
               onWhatsApp={handleWhatsApp}
               onActivities={openActivitiesLead}
+              onHistory={(lead) => setActivitiesLead(lead)}
               callingLeadId={callingLeadId}
+              activityStateByLeadId={activityStateByLeadId}
             />
           ))}
         </div>
@@ -1291,7 +1324,9 @@ export default function KanbanPage() {
               onCall={() => {}}
               onWhatsApp={() => {}}
               onActivities={() => {}}
+              onHistory={() => {}}
               callingLeadId={null}
+              activityState={activeLead ? activityStateByLeadId[activeLead.id] : null}
             />
           ) : null}
         </DragOverlay>

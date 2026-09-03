@@ -7,7 +7,7 @@ import {
   Snowflake, ExternalLink, X, History,
   PhoneCall, Mail, MessageSquare, UserCheck,
   FileText, DollarSign, AlertCircle, Building2,
-  Tag, Calendar, User, Phone, AtSign, TrendingUp, ClipboardList, MessageCircle, Sparkles, BadgeCheck, Brain
+  Tag, Calendar, User, Phone, AtSign, TrendingUp, ClipboardList, MessageCircle, Sparkles, BadgeCheck, Brain, Clock, Trophy
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LeadActivitiesModal from '../../components/LeadActivitiesModal'
@@ -39,6 +39,12 @@ const STATUS_BADGE = {
   won:          { label: 'Won',          cls: 'badge-won' },
   lost:         { label: 'Lost',         cls: 'badge-lost' },
 }
+
+const STAGE_ICON_DEFS = [
+  { icon: Phone,  label: 'Welcome Call',      bg: 'bg-red-500',     ring: 'ring-red-400/40' },
+  { icon: Clock,  label: 'Follow-up Meeting', bg: 'bg-blue-500',    ring: 'ring-blue-400/40' },
+  { icon: Trophy, label: 'Meeting Outcome',   bg: 'bg-emerald-500', ring: 'ring-emerald-400/40' },
+]
 
 const LEAD_SOURCES = [
   'Facebook', 'Instagram', 'LinkedIn', 'Website', 'WhatsApp',
@@ -1106,6 +1112,7 @@ export default function LeadsPage() {
   const [callOutcomeByLeadId, setCallOutcomeByLeadId] = useState({})
   const [activityTabByLeadId, setActivityTabByLeadId] = useState({})
   const [callingLeadId, setCallingLeadId] = useState(null)
+  const [leadStages, setLeadStages] = useState({})
   const [timeTick, setTimeTick]             = useState(Date.now())
   const importRef                           = useRef(null)
   const canCreate = hasPermission(user, PERMISSIONS.LEADS_CREATE)
@@ -1154,6 +1161,15 @@ export default function LeadsPage() {
   useEffect(() => {
     setSelected([])
   }, [currentPage, debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
+
+  // Load lightweight activity stages for leads
+  useEffect(() => {
+    const ids = leads.map((l) => l.id).filter(Boolean)
+    if (!ids.length) return
+    leadsAPI.getActivityStages(ids).then((data) => {
+      if (data && typeof data === 'object') setLeadStages((prev) => ({ ...prev, ...data }))
+    }).catch(() => {})
+  }, [leads])
 
   const reloadCurrentPage = async () => {
     return fetchLeads({
@@ -1700,6 +1716,7 @@ export default function LeadsPage() {
                   <input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0} onChange={toggleAll}
                     className="rounded border-slate-300 text-brand-600" />
                 </th>
+                <th className="py-2.5 px-2 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 w-10">Stage</th>
                 {[
                   { key: 'name',      label: 'Name' },
                   { key: 'score',     label: 'Score' },
@@ -1728,13 +1745,26 @@ export default function LeadsPage() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      onClick={() => setDetailLead(lead)}
+                      onClick={() => setHistoryLead(lead)}
                       className={`cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/25 transition-colors
                         ${selected.includes(lead.id) ? 'bg-brand-50/40 dark:bg-brand-950/10' : ''}`}
                     >
                       <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" checked={selected.includes(lead.id)} onChange={() => toggleSelect(lead.id)}
                           className="rounded border-slate-300 text-brand-600" />
+                      </td>
+                      <td className="py-2.5 px-2 text-center">
+                        {(() => {
+                          const stageIdx = leadStages[lead.id] != null ? Math.min(Math.max(leadStages[lead.id], 0), 2) : -1
+                          const sDef = stageIdx >= 0 ? STAGE_ICON_DEFS[stageIdx] : null
+                          if (!sDef) return <span className="text-slate-300 dark:text-slate-600">—</span>
+                          const SIcon = sDef.icon
+                          return (
+                            <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${sDef.bg} text-white ring-1 ${sDef.ring}`} title={sDef.label}>
+                              <SIcon className="w-3 h-3" />
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="py-2.5 px-3">
                         <div>

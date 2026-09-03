@@ -261,47 +261,20 @@ const activityNote = (activity) => {
     .join(' | ') || 'Activity saved'
 }
 
-function ActivityStepper({ stageStatuses, currentStage }) {
+function StageIcon({ currentStage }) {
+  const stageIdx = currentStage <= 0 ? 0 : currentStage >= 3 ? 2 : Math.min(currentStage, 2)
+  const def = ACTIVITY_DEFS[stageIdx]
+  if (!def) return null
+  const Icon = def.icon
+  const colors = COLOR_MAP[def.color]
   return (
-    <div className="flex items-center gap-0.5">
-      {ACTIVITY_DEFS.map((def, i) => {
-        const status = stageStatuses[i]
-        const isCurrent = i === currentStage
-        const isDone = status !== 'not_started'
-        const Icon = def.icon
-        const colors = COLOR_MAP[def.color]
-        return (
-          <div key={def.id} className="flex items-center">
-            <div className="group relative flex flex-col items-center">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
-                  isDone
-                    ? isCurrent
-                      ? `${colors.dot} text-white ring-2 ${colors.ring} shadow-sm`
-                      : `${colors.dot}/80 text-white`
-                    : 'bg-slate-200 text-slate-400 dark:bg-slate-700 dark:text-slate-500'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </div>
-              <div className="pointer-events-none absolute -bottom-10 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 shadow-lg group-hover:block dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <span className="font-semibold">{def.title}</span>
-                <br />
-                <span className={getStatusColor(status) + ' mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px]'}>
-                  {getStatusLabel(i, status)}
-                </span>
-              </div>
-            </div>
-            {i < 3 && (
-              <div className={`mx-0.5 h-0.5 w-4 rounded-full transition-all ${
-                stageStatuses[i + 1] !== 'not_started'
-                  ? 'bg-emerald-400 dark:bg-emerald-500'
-                  : 'bg-slate-200 dark:bg-slate-700'
-              }`} />
-            )}
-          </div>
-        )
-      })}
+    <div className="group relative flex flex-col items-center">
+      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${colors.dot} text-white shadow-sm ring-2 ${colors.ring}`}>
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="pointer-events-none absolute -bottom-8 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 shadow-lg group-hover:block dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        {def.title}
+      </div>
     </div>
   )
 }
@@ -852,8 +825,14 @@ export default function TaskFollowUpPage() {
                       return (
                         <div
                           key={lead.id}
-                          className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
+                          onClick={() => openHistoryLead(lead)}
+                          className="flex cursor-pointer flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
                         >
+                          {/* Stage Icon */}
+                          <div className="flex-shrink-0">
+                            <StageIcon currentStage={lead.currentStage} />
+                          </div>
+
                           {/* Lead Info */}
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -925,22 +904,9 @@ export default function TaskFollowUpPage() {
                             </div>
                           </div>
 
-                          {/* Activity Progress */}
-                          <div className="flex items-center gap-4">
-                            <ActivityStepper stageStatuses={lead.stageStatuses} currentStage={lead.currentStage} />
-                          </div>
-
                           {/* Actions */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openHistoryLead(lead)}
-                              className="btn-secondary h-9 px-3 text-xs"
-                            >
-                              <History className="h-3.5 w-3.5" />
-                              History
-                            </button>
-                            {lead.leadExists !== false && (
+                          {lead.leadExists !== false && (
+                            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
                                 onClick={() => setActivitiesLead(lead)}
@@ -949,8 +915,8 @@ export default function TaskFollowUpPage() {
                                 <Eye className="h-3.5 w-3.5" />
                                 Open Activities
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -963,8 +929,14 @@ export default function TaskFollowUpPage() {
                     return (
                       <div
                         key={lead.id}
-                        className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
+                        onClick={() => openHistoryLead(lead)}
+                        className="flex cursor-pointer flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
                       >
+                        {/* Stage Icon */}
+                        <div className="flex-shrink-0">
+                          <StageIcon currentStage={lead.currentStage} />
+                        </div>
+
                         {/* Lead Info */}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1046,21 +1018,11 @@ export default function TaskFollowUpPage() {
                             </div>
                           )}
 
-                          {/* Activity Progress (completed) */}
-                          <ActivityStepper stageStatuses={lead.stageStatuses} currentStage={lead.currentStage} />
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openHistoryLead(lead)}
-                            className="btn-primary h-9 px-3 text-xs"
-                          >
-                            <History className="h-3.5 w-3.5" />
-                            History
-                          </button>
-                          {lead.leadExists !== false && (
+                        {lead.leadExists !== false && (
+                          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => setActivitiesLead(lead)}
@@ -1069,8 +1031,8 @@ export default function TaskFollowUpPage() {
                               <Eye className="h-3.5 w-3.5" />
                               View Details
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
