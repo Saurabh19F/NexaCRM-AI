@@ -121,6 +121,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const [data, setData] = useState(initialData || [{},{},{}])
   const [saving, setSaving] = useState(false)
   const leadIdRef = useRef(lead?.id)
+  const onTabChangeRef = useRef(onActiveTabChange)
+  onTabChangeRef.current = onActiveTabChange
 
   useEffect(() => {
     if (leadIdRef.current === lead?.id) return
@@ -131,10 +133,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   }, [lead?.id, initialActiveTab, initialData, initialSaved])
 
   useEffect(() => {
-    if (typeof onActiveTabChange === 'function') {
-      onActiveTabChange(lead?.id, activeTab)
-    }
-  }, [activeTab, lead?.id, onActiveTabChange])
+    onTabChangeRef.current?.(lead?.id, activeTab)
+  }, [activeTab, lead?.id])
 
   const act = ACTIVITIES[activeTab]
   const Icon = act.icon
