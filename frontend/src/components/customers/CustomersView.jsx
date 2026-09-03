@@ -9,7 +9,6 @@ import {
   MessageSquare, GitMerge, RotateCcw, Sheet, Megaphone,
   ClipboardList, StickyNote, Code2,
 } from 'lucide-react'
-import { formatDistanceToNowStrict } from 'date-fns'
 import toast from 'react-hot-toast'
 import { leadsAPI, customersAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
@@ -74,14 +73,14 @@ function formatDate(value) {
   return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+const RTF = new Intl.RelativeTimeFormat('en', { numeric: 'always' })
 function formatTimeAgo(value) {
   const date = value ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return null
-  try {
-    return formatDistanceToNowStrict(date, { addSuffix: true })
-  } catch {
-    return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
-  }
+  const sec = Math.round((date - Date.now()) / 1000)
+  const abs = Math.abs(sec)
+  const [div, unit] = abs < 60 ? [1, 'second'] : abs < 3600 ? [60, 'minute'] : abs < 86400 ? [3600, 'hour'] : abs < 2592000 ? [86400, 'day'] : abs < 31536000 ? [2592000, 'month'] : [31536000, 'year']
+  return RTF.format(Math.round(sec / div), unit)
 }
 
 const EMPTY_FORM = { name: '', contact: '', email: '', phone: '', industry: 'IT', status: 'active', revenue: '' }

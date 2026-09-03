@@ -1,13 +1,12 @@
-import { Fragment, useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, Send, Bot, User, Flame, Thermometer, Snowflake,
   TrendingUp, Brain, MessageSquare, Wand2, RefreshCw, Copy,
-  Target, Mail, BarChart3, CheckCircle2, AlertCircle, Check, ChevronDown
+  Target, Mail, BarChart3, CheckCircle2, AlertCircle
 } from 'lucide-react'
 import { aiAPI, customersAPI, leadsAPI, dealsAPI } from '../../services/api'
 import toast from 'react-hot-toast'
-import { Listbox, Transition } from '@headlessui/react'
 
 const SCORE_STYLE = {
   hot: { icon: Flame, cls: 'text-red-600 bg-red-50 dark:bg-red-900/20', bar: 'bg-red-500' },
@@ -290,43 +289,20 @@ function LeadScoring() {
 }
 
 function LeadSelect({ value, onChange, options, loading }) {
-  const selected = options.find((o) => String(o.id) === String(value))
   return (
     <div>
       <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Lead</label>
-      <Listbox value={value} onChange={onChange} disabled={loading || options.length === 0}>
-        <div className="relative">
-          <Listbox.Button className="input text-sm w-full flex items-center justify-between disabled:opacity-60">
-            <span className="truncate">
-              {loading ? 'Loading customers...' : selected ? `${selected.name} - ${selected.company}` : 'No customers found'}
-            </span>
-            <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
-          </Listbox.Button>
-          <Transition
-            as={Fragment}
-            leave="transition ease-in duration-100"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <Listbox.Options className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg custom-scrollbar">
-              {options.map((option) => (
-                <Listbox.Option
-                  key={option.id}
-                  value={String(option.id)}
-                  className={({ active }) => `cursor-pointer select-none px-3 py-2 text-sm ${active ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
-                >
-                  {({ selected: isSelected }) => (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate">{option.name} - {option.company}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />}
-                    </div>
-                  )}
-                </Listbox.Option>
-              ))}
-            </Listbox.Options>
-          </Transition>
-        </div>
-      </Listbox>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={loading || options.length === 0}
+        className="input text-sm w-full disabled:opacity-60"
+      >
+        <option value="">{loading ? 'Loading customers...' : 'Select a customer'}</option>
+        {options.map((o) => (
+          <option key={o.id} value={String(o.id)}>{o.name} - {o.company}</option>
+        ))}
+      </select>
     </div>
   )
 }
@@ -492,43 +468,17 @@ function DealPredictor() {
       <div className="flex gap-3 items-end">
         <div className="flex-1">
           <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Select Deal</label>
-          <Listbox value={deal} onChange={setDeal} disabled={loadingLeads || dealOptions.length === 0}>
-            <div className="relative">
-              <Listbox.Button className="input text-sm w-full flex items-center justify-between disabled:opacity-60">
-                <span className="truncate">
-                  {loadingLeads
-                    ? 'Loading deals...'
-                    : selectedDeal
-                    ? `${selectedDeal.title} - ${selectedDeal.company} (₹${selectedDeal.value?.toLocaleString()})`
-                    : 'No deals found'}
-                </span>
-                <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" />
-              </Listbox.Button>
-              <Transition
-                as={Fragment}
-                leave="transition ease-in duration-100"
-                leaveFrom="opacity-100"
-                leaveTo="opacity-0"
-              >
-                <Listbox.Options className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg custom-scrollbar">
-                  {dealOptions.map((option) => (
-                    <Listbox.Option
-                      key={option.id}
-                      value={String(option.id)}
-                      className={({ active }) => `cursor-pointer select-none px-3 py-2 text-sm ${active ? 'bg-brand-50 dark:bg-brand-900/30' : ''}`}
-                    >
-                      {({ selected: isSelected }) => (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate">{option.title} - {option.company} (₹{option.value?.toLocaleString()})</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />}
-                        </div>
-                      )}
-                    </Listbox.Option>
-                  ))}
-                </Listbox.Options>
-              </Transition>
-            </div>
-          </Listbox>
+          <select
+            value={deal}
+            onChange={(e) => setDeal(e.target.value)}
+            disabled={loadingLeads || dealOptions.length === 0}
+            className="input text-sm w-full disabled:opacity-60"
+          >
+            <option value="">{loadingLeads ? 'Loading deals...' : 'Select a deal'}</option>
+            {dealOptions.map((o) => (
+              <option key={o.id} value={String(o.id)}>{o.title} - {o.company} (₹{o.value?.toLocaleString()})</option>
+            ))}
+          </select>
         </div>
         <button onClick={predict} disabled={loading || loadingLeads || !selectedDeal} className="btn-primary text-xs gap-2 disabled:opacity-60 flex-shrink-0"><TrendingUp className={`w-3.5 h-3.5 ${loading ? 'animate-pulse' : ''}`} />{loading ? 'Analyzing...' : 'Predict'}</button>
       </div>

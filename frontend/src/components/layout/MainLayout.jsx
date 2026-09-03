@@ -5,9 +5,6 @@ import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import Breadcrumb from './Breadcrumb'
 import SpeedDial from '../ui/SpeedDial'
-import Aurora from '../reactbits/Aurora'
-import ClickSpark from '../reactbits/ClickSpark'
-import ShinyText from '../reactbits/ShinyText'
 
 function StatusBar() {
   const [time, setTime] = useState(new Date())
@@ -35,7 +32,7 @@ function StatusBar() {
       </div>
       <div className="flex items-center gap-1.5">
         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-        <ShinyText className="font-medium">System Status: All Good</ShinyText>
+        <span className="font-medium">System Status: All Good</span>
       </div>
     </div>
   )
@@ -72,8 +69,6 @@ export default function MainLayout() {
 
   return (
     <div className="nexa-compact relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
-      <Aurora className="absolute inset-0 z-0" />
-      <ClickSpark />
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}
