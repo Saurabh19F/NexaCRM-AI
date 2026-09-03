@@ -366,7 +366,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
         onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
-        className="relative w-full max-w-3xl z-10 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+        className="relative w-full max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto z-10 rounded-2xl border border-slate-200/70 dark:border-slate-700/50 bg-white dark:bg-slate-900 shadow-2xl">
 
         {/* Header — uses page background, not brand gradient */}
         <div className="px-5 py-4 border-b border-slate-200/70 dark:border-slate-700/40 flex items-start justify-between gap-4">
