@@ -11,16 +11,12 @@ import {
   CheckCircle2,
   XCircle,
   X,
-  ChevronRight,
   Building2,
   CalendarDays,
-  AlertTriangle,
-  Filter,
   Eye,
   History,
   IndianRupee,
   Tag,
-  ArrowUpRight,
   FileText,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -35,8 +31,10 @@ const unwrapList = (payload) => {
 }
 
 const TABS = [
-  { key: 'pending', label: 'Follow-up Pending' },
-  { key: 'completed', label: 'Completed Leads' },
+  { key: 'welcome_call', label: 'Welcome Call', stageIdx: 0 },
+  { key: 'followup_meeting', label: 'Follow-up Meeting', stageIdx: 1 },
+  { key: 'meeting_outcome', label: 'Meeting Outcome', stageIdx: 2 },
+  { key: 'completed', label: 'Completed Leads', stageIdx: null },
 ]
 
 const LEADS_PER_PAGE = 8
@@ -316,9 +314,8 @@ export default function TaskFollowUpPage() {
   const [loadingActivities, setLoadingActivities] = useState(false)
   const [loadingCompletedTasks, setLoadingCompletedTasks] = useState(false)
   const [completedTasksLoaded, setCompletedTasksLoaded] = useState(false)
-  const [activeTab, setActiveTab] = useState('pending')
+  const [activeTab, setActiveTab] = useState('welcome_call')
   const [searchQuery, setSearchQuery] = useState('')
-  const [stageFilter, setStageFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [historyLead, setHistoryLead] = useState(null)
@@ -466,7 +463,7 @@ export default function TaskFollowUpPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, searchQuery, stageFilter])
+  }, [activeTab, searchQuery])
 
   const ensureLeadActivities = useCallback(async (leadId) => {
     if (!leadId || leadActivities[leadId]) return
@@ -520,11 +517,12 @@ export default function TaskFollowUpPage() {
     })
   }, [leads, leadActivities, tasks])
 
-  const pendingLeads = useMemo(() => {
-    let filtered = enrichedLeads.filter((l) => (tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted))
+  const stageLeads = useMemo(() => {
+    const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
+    let pendingAll = enrichedLeads.filter(isPending)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
-      filtered = filtered.filter(
+      pendingAll = pendingAll.filter(
         (l) =>
           (l.name || '').toLowerCase().includes(q) ||
           (l.company || '').toLowerCase().includes(q) ||
@@ -532,12 +530,13 @@ export default function TaskFollowUpPage() {
           (l.nextTask?.title || '').toLowerCase().includes(q)
       )
     }
-    if (stageFilter) {
-      const idx = Number(stageFilter)
-      filtered = filtered.filter((l) => l.currentStage === idx)
+    const sorter = (a, b) => timestampMs(a.nextTask?.dueDate || a.followUpDate || a.createdAt) - timestampMs(b.nextTask?.dueDate || b.followUpDate || b.createdAt)
+    return {
+      welcome_call: pendingAll.filter((l) => l.currentStage <= 0).sort(sorter),
+      followup_meeting: pendingAll.filter((l) => l.currentStage === 1).sort(sorter),
+      meeting_outcome: pendingAll.filter((l) => l.currentStage === 2 || l.currentStage === 3).sort(sorter),
     }
-    return filtered.sort((a, b) => timestampMs(a.nextTask?.dueDate || a.followUpDate || a.createdAt) - timestampMs(b.nextTask?.dueDate || b.followUpDate || b.createdAt))
-  }, [enrichedLeads, searchQuery, stageFilter, tasks.length])
+  }, [enrichedLeads, searchQuery, tasks.length])
 
   const completedLeads = useMemo(() => {
     let filtered = enrichedLeads.filter((l) => (
@@ -559,19 +558,23 @@ export default function TaskFollowUpPage() {
   }, [enrichedLeads, searchQuery, tasks.length])
 
   const stats = useMemo(() => {
-    const pending = tasks.length ? enrichedLeads.filter((l) => l.pendingTaskCount > 0) : enrichedLeads.filter((l) => !l.isCompleted)
+    const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
+    const pending = enrichedLeads.filter(isPending)
     const completed = tasks.length
       ? enrichedLeads.filter((l) => l.pendingTaskCount === 0 && (l.completedTaskCount > 0 || l.isCompleted))
       : enrichedLeads.filter((l) => l.isCompleted)
     const won = completed.filter((l) => l.outcome === 'Won')
     const lost = completed.filter((l) => l.outcome === 'Lost')
     const totalRevenue = won.reduce((sum, l) => sum + Number(l.finalPrice || 0), 0)
-    const stageCount = [0, 0, 0, 0]
-    const notStarted = pending.filter((l) => l.currentStage === -1).length
-    pending.forEach((l) => {
-      if (l.currentStage >= 0) stageCount[l.currentStage]++
-    })
-    return { pending: pending.length, completed: completed.length, won: won.length, lost: lost.length, totalRevenue, stageCount, notStarted }
+    return {
+      welcomeCall: pending.filter((l) => l.currentStage <= 0).length,
+      followupMeeting: pending.filter((l) => l.currentStage === 1).length,
+      meetingOutcome: pending.filter((l) => l.currentStage === 2 || l.currentStage === 3).length,
+      completed: completed.length,
+      won: won.length,
+      lost: lost.length,
+      totalRevenue,
+    }
   }, [enrichedLeads, tasks.length])
 
   const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
@@ -614,7 +617,7 @@ export default function TaskFollowUpPage() {
     }
   }
 
-  const displayLeads = activeTab === 'pending' ? pendingLeads : completedLeads
+  const displayLeads = activeTab === 'completed' ? completedLeads : (stageLeads[activeTab] || [])
   const totalPages = Math.max(1, Math.ceil(displayLeads.length / LEADS_PER_PAGE))
   const safeCurrentPage = Math.min(currentPage, totalPages)
   const pageStart = displayLeads.length ? (safeCurrentPage - 1) * LEADS_PER_PAGE + 1 : 0
@@ -695,67 +698,82 @@ export default function TaskFollowUpPage() {
 
       {/* KPI Row */}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="kpi-card">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pending Follow-ups</p>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.pending}</h3>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads in progress</p>
-        </div>
-        <div className="kpi-card">
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">By Activity</p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {ACTIVITY_DEFS.map((def, i) => (
-                  <span key={def.id} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${COLOR_MAP[def.color].badge}`}>
-                    <def.icon className="h-3 w-3" />
-                    {stats.stageCount[i]}
-                  </span>
-                ))}
-              </div>
+        <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-red-300 dark:hover:ring-red-700" onClick={() => setActiveTab('welcome_call')}>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+              <Phone className="h-4 w-4" />
             </div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-red-600 dark:text-red-400">Welcome Call</p>
           </div>
-          {stats.notStarted > 0 && (
-            <p className="mt-1 text-[11px] text-slate-400">{stats.notStarted} not started</p>
-          )}
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.welcomeCall}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads awaiting first call</p>
         </div>
-        <div className="kpi-card">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Won</p>
-          <h3 className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.won}</h3>
+        <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700" onClick={() => setActiveTab('followup_meeting')}>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+              <Clock className="h-4 w-4" />
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Follow-up Meeting</p>
+          </div>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.followupMeeting}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads awaiting meeting</p>
+        </div>
+        <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-emerald-300 dark:hover:ring-emerald-700" onClick={() => setActiveTab('meeting_outcome')}>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <Trophy className="h-4 w-4" />
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Meeting Outcome</p>
+          </div>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.meetingOutcome}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads pending outcome</p>
+        </div>
+        <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-brand-300 dark:hover:ring-brand-700" onClick={() => setActiveTab('completed')}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Completed</p>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.completed}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            {stats.totalRevenue > 0 ? `₹${stats.totalRevenue.toLocaleString('en-IN')} revenue` : 'Completed leads'}
+            Won: {stats.won} · Lost: {stats.lost}
+            {stats.totalRevenue > 0 ? ` · ₹${stats.totalRevenue.toLocaleString('en-IN')}` : ''}
           </p>
-        </div>
-        <div className="kpi-card">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">Lost</p>
-          <h3 className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.lost}</h3>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{stats.completed} total completed</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="glass-card overflow-hidden">
         <div className="flex border-b border-slate-200/70 dark:border-slate-800/70">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`relative flex-1 px-4 py-3.5 text-sm font-semibold transition-colors sm:flex-none sm:px-8 ${
-                activeTab === tab.key
-                  ? 'text-brand-600 dark:text-brand-400'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              {tab.label}
-              {activeTab === tab.key && (
-                <motion.div
-                  layoutId="tab-underline"
-                  className="absolute inset-x-0 bottom-0 h-0.5 bg-brand-500"
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const tabCount = tab.key === 'completed'
+              ? completedLeads.length
+              : (stageLeads[tab.key] || []).length
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`relative flex-1 px-4 py-3.5 text-sm font-semibold transition-colors sm:flex-none sm:px-8 ${
+                  activeTab === tab.key
+                    ? 'text-brand-600 dark:text-brand-400'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                {tab.label}
+                <span className={`ml-1.5 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  activeTab === tab.key
+                    ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
+                  {tabCount}
+                </span>
+                {activeTab === tab.key && (
+                  <motion.div
+                    layoutId="tab-underline"
+                    className="absolute inset-x-0 bottom-0 h-0.5 bg-brand-500"
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* Filters */}
@@ -769,23 +787,6 @@ export default function TaskFollowUpPage() {
               placeholder="Search by name, company, or email..."
             />
           </div>
-          {activeTab === 'pending' && (
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-slate-400" />
-              <select
-                value={stageFilter}
-                onChange={(e) => setStageFilter(e.target.value)}
-                className="input w-auto min-w-[160px]"
-              >
-                <option value="">All activities</option>
-                {ACTIVITY_DEFS.map((def) => (
-                  <option key={def.id} value={String(def.idx)}>
-                    {def.label} — {def.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {/* Content */}
@@ -797,9 +798,10 @@ export default function TaskFollowUpPage() {
           </div>
         ) : displayLeads.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400">
-            {activeTab === 'pending'
-              ? 'No pending follow-up leads found.'
-              : 'No completed leads found.'}
+            {activeTab === 'welcome_call' && 'No leads at the welcome call stage.'}
+            {activeTab === 'followup_meeting' && 'No leads awaiting follow-up meeting.'}
+            {activeTab === 'meeting_outcome' && 'No leads pending meeting outcome.'}
+            {activeTab === 'completed' && 'No completed leads found.'}
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -810,110 +812,137 @@ export default function TaskFollowUpPage() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
             >
-              {activeTab === 'pending' ? (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {paginatedLeads.map((lead) => (
-                    <div
-                      key={lead.id}
-                      className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
-                    >
-                      {/* Lead Info */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {lead.name || 'Unnamed Lead'}
-                          </h3>
-                          {lead.company && (
-                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                              <Building2 className="h-3 w-3" />
-                              {lead.company}
-                            </span>
-                          )}
-                          {lead.currentStage >= 0 && (
-                            <span className={`badge text-[10px] ${COLOR_MAP[ACTIVITY_DEFS[lead.currentStage].color].badge}`}>
-                              {ACTIVITY_DEFS[lead.currentStage].title}
-                            </span>
-                          )}
-                          {lead.currentStage === -1 && (
-                            <span className="badge bg-slate-100 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                              {lead.taskDriven ? 'Task follow-up' : 'Not Started'}
-                            </span>
-                          )}
-                          {lead.missingLead && (
-                            <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
-                              Lead missing
-                            </span>
-                          )}
-                          {lead.pendingTaskCount > 0 && (
-                            <span className="badge bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                              {lead.pendingTaskCount} open task{lead.pendingTaskCount === 1 ? '' : 's'}
-                            </span>
-                          )}
-                        </div>
-                        {lead.nextTask?.title && (
-                          <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
-                            {lead.nextTask.title}
-                          </p>
-                        )}
-                        {lead.missingLead && (
-                          <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
-                            This is a real follow-up task, but its linked lead record is deleted or not accessible.
-                          </p>
-                        )}
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                          {lead.assignedToName && (
-                            <span className="inline-flex items-center gap-1">
-                              <User className="h-3 w-3" /> {lead.assignedToName}
-                            </span>
-                          )}
-                          {(lead.nextTask?.dueDate || lead.followUpDate) && (
-                            <span className="inline-flex items-center gap-1">
-                              <CalendarDays className="h-3 w-3" /> {formatDate(lead.nextTask?.dueDate || lead.followUpDate)}
-                            </span>
-                          )}
-                          {lead.email && (
-                            <span className="truncate max-w-[180px]">{lead.email}</span>
-                          )}
-                        </div>
-                      </div>
+              {activeTab !== 'completed' ? (() => {
+                const tabDef = TABS.find((t) => t.key === activeTab)
+                const tabStageIdx = tabDef?.stageIdx ?? 0
+                const tabActivityDef = ACTIVITY_DEFS[tabStageIdx]
+                const tabColor = tabActivityDef ? COLOR_MAP[tabActivityDef.color] : COLOR_MAP.red
 
-                      {/* Activity Progress */}
-                      <div className="flex items-center gap-4">
-                        <ActivityStepper stageStatuses={lead.stageStatuses} currentStage={lead.currentStage} />
+                const formatValueKey = (key) =>
+                  key
+                    .replace(/([A-Z])/g, ' $1')
+                    .replace(/[_-]+/g, ' ')
+                    .replace(/^\w/, (c) => c.toUpperCase())
+                    .trim()
 
-                        {/* Current Stage Status Badge */}
-                        {lead.currentStage >= 0 && (
-                          <span className={`badge text-[10px] ${getStatusColor(lead.stageStatuses[lead.currentStage])}`}>
-                            {getStatusLabel(lead.currentStage, lead.stageStatuses[lead.currentStage])}
-                          </span>
-                        )}
-                      </div>
+                return (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {paginatedLeads.map((lead) => {
+                      const stageIdx = lead.currentStage === 3 && tabStageIdx === 2 ? 3 : tabStageIdx
+                      const stageStatus = lead.stageStatuses[stageIdx]
+                      const stageVals = lead.stageValues?.[stageIdx] || {}
+                      const valEntries = Object.entries(stageVals)
+                        .filter(([, v]) => v != null && String(v).trim() !== '')
+                        .slice(0, 5)
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openHistoryLead(lead)}
-                          className="btn-secondary h-9 px-3 text-xs"
+                      return (
+                        <div
+                          key={lead.id}
+                          className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
                         >
-                          <History className="h-3.5 w-3.5" />
-                          History
-                        </button>
-                        {lead.leadExists !== false && (
-                          <button
-                            type="button"
-                            onClick={() => setActivitiesLead(lead)}
-                            className="btn-primary h-9 px-3 text-xs"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Open Activities
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+                          {/* Lead Info */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                {lead.name || 'Unnamed Lead'}
+                              </h3>
+                              {lead.company && (
+                                <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <Building2 className="h-3 w-3" />
+                                  {lead.company}
+                                </span>
+                              )}
+                              {/* Stage-specific status badge */}
+                              {stageStatus && stageStatus !== 'not_started' ? (
+                                <span className={`badge text-[10px] font-bold ${getStatusColor(stageStatus)}`}>
+                                  {getStatusLabel(stageIdx, stageStatus)}
+                                </span>
+                              ) : (
+                                <span className="badge bg-slate-100 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                  {lead.taskDriven ? 'Task follow-up' : 'Not Started'}
+                                </span>
+                              )}
+                              {lead.missingLead && (
+                                <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                                  Lead missing
+                                </span>
+                              )}
+                              {lead.pendingTaskCount > 0 && (
+                                <span className="badge bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                                  {lead.pendingTaskCount} open task{lead.pendingTaskCount === 1 ? '' : 's'}
+                                </span>
+                              )}
+                            </div>
+                            {lead.nextTask?.title && (
+                              <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                {lead.nextTask.title}
+                              </p>
+                            )}
+                            {lead.missingLead && (
+                              <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
+                                This is a real follow-up task, but its linked lead record is deleted or not accessible.
+                              </p>
+                            )}
+                            {/* Stage-specific values */}
+                            {valEntries.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {valEntries.map(([k, v]) => (
+                                  <span key={k} className="inline-flex gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-slate-800">
+                                    <span className="font-medium text-slate-500 dark:text-slate-400">{formatValueKey(k)}:</span>
+                                    <span className="text-slate-700 dark:text-slate-200">{String(v)}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                              {lead.assignedToName && (
+                                <span className="inline-flex items-center gap-1">
+                                  <User className="h-3 w-3" /> {lead.assignedToName}
+                                </span>
+                              )}
+                              {(lead.nextTask?.dueDate || lead.followUpDate) && (
+                                <span className="inline-flex items-center gap-1">
+                                  <CalendarDays className="h-3 w-3" /> {formatDate(lead.nextTask?.dueDate || lead.followUpDate)}
+                                </span>
+                              )}
+                              {lead.email && (
+                                <span className="truncate max-w-[180px]">{lead.email}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Activity Progress */}
+                          <div className="flex items-center gap-4">
+                            <ActivityStepper stageStatuses={lead.stageStatuses} currentStage={lead.currentStage} />
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openHistoryLead(lead)}
+                              className="btn-secondary h-9 px-3 text-xs"
+                            >
+                              <History className="h-3.5 w-3.5" />
+                              History
+                            </button>
+                            {lead.leadExists !== false && (
+                              <button
+                                type="button"
+                                onClick={() => setActivitiesLead(lead)}
+                                className="btn-primary h-9 px-3 text-xs"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Open Activities
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })() : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
                   {paginatedLeads.map((lead) => {
                     const isWon = lead.outcome === 'Won'
