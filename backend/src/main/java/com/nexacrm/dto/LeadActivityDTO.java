@@ -23,8 +23,8 @@ public class LeadActivityDTO implements Serializable {
     private String leadId;
 
     @NotNull(message = "Activity index is required")
-    @Min(value = 0, message = "Activity index must be between 0 and 3")
-    @Max(value = 3, message = "Activity index must be between 0 and 3")
+    @Min(value = 0, message = "Activity index must be between 0 and 2")
+    @Max(value = 2, message = "Activity index must be between 0 and 2")
     private Integer activityIndex;
 
     private String activityId;

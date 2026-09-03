@@ -244,31 +244,35 @@ public class LeadActivityService {
             stringValue(values.get("status")),
             stringValue(values.get("connectionStatus")),
             stringValue(values.get("callOutcome")),
-            stringValue(values.get("meetingStatus")),
             stringValue(values.get("outcome")),
             stringValue(values.get("remarkStatus"))
         ));
+        String interestStatus = normalizeStatusText(stringValue(values.get("interestStatus")));
 
         if (activityIndex == 0) {
-            if (containsAny(status, "not interested", "not_interested")) return Lead.LeadStatus.LOST;
-            if (containsAny(status, "connected", "not connected", "non connected", "no answer", "callback", "busy", "wrong number", "done")) return Lead.LeadStatus.CONTACTED;
+            // Connected + Not Interested → LOST
+            if (containsAny(status, "connected") && containsAny(interestStatus, "not interested", "not_interested")) {
+                return Lead.LeadStatus.LOST;
+            }
+            // Connected + Interested → CONTACTED (will advance to Activity 02)
+            if (containsAny(status, "connected") && containsAny(interestStatus, "interested")) {
+                return Lead.LeadStatus.CONTACTED;
+            }
+            // Not Connected → CONTACTED (stays at Activity 01 with follow-up)
+            if (containsAny(status, "not connected", "non connected", "no answer", "callback", "busy", "wrong number")) {
+                return Lead.LeadStatus.CONTACTED;
+            }
             return null;
         }
         if (activityIndex == 1) {
-            if (containsAny(status, "not interested", "not_interested")) return Lead.LeadStatus.LOST;
-            if (containsAny(status, "meeting")) return Lead.LeadStatus.QUALIFIED;
+            if (containsAny(status, "allowed person", "meeting")) return Lead.LeadStatus.QUALIFIED;
             if (containsAny(status, "follow")) return Lead.LeadStatus.CONTACTED;
             return null;
         }
         if (activityIndex == 2) {
-            if (containsAny(status, "success")) return Lead.LeadStatus.PROPOSAL;
-            if (containsAny(status, "reschedule", "fail")) return Lead.LeadStatus.QUALIFIED;
-            return null;
-        }
-        if (activityIndex == 3) {
             if (containsAny(status, "won", "win", "closed won")) return Lead.LeadStatus.WON;
             if (containsAny(status, "lost", "closed lost")) return Lead.LeadStatus.LOST;
-            if (containsAny(status, "negoti", "pending", "pending review", "follow", "hold", "no response")) return Lead.LeadStatus.NEGOTIATION;
+            if (containsAny(status, "negoti")) return Lead.LeadStatus.NEGOTIATION;
         }
         return null;
     }
@@ -310,8 +314,6 @@ public class LeadActivityService {
                 applyActivityTwoDefaults(lead, values, savedAt, assignedTo);
             } else if (dto.getActivityIndex() != null && dto.getActivityIndex() == 2) {
                 applyActivityThreeDefaults(lead, values, savedAt, assignedTo);
-            } else if (dto.getActivityIndex() != null && dto.getActivityIndex() == 3) {
-                applyActivityFourDefaults(lead, values, savedAt, assignedTo);
             }
             return;
         }
@@ -324,6 +326,12 @@ public class LeadActivityService {
                 stringValue(values.get("connectionStatus")),
                 stringValue(values.get("callOutcome")),
                 stringValue(values.get("status"))
+            )
+        );
+        String interestStatus = normalizeInterestStatus(
+            firstNonBlank(
+                stringValue(values.get("interestStatus")),
+                stringValue(values.get("interest"))
             )
         );
         String remarks = firstNonBlank(
@@ -350,6 +358,9 @@ public class LeadActivityService {
         if (connectionStatus != null && !connectionStatus.isBlank()) {
             values.put("connectionStatus", connectionStatus);
             values.put("callOutcome", connectionStatus);
+        }
+        if (interestStatus != null && !interestStatus.isBlank()) {
+            values.put("interestStatus", interestStatus);
         }
         if (remarks != null && !remarks.isBlank()) {
             values.put("remark", remarks);
@@ -407,52 +418,18 @@ public class LeadActivityService {
             .orElseGet(() -> lead.getCreatedAt() != null ? lead.getCreatedAt() : savedAt);
         String status = normalizeActivityThreeStatus(firstNonBlank(
             stringValue(values.get("status")),
-            stringValue(values.get("meetingStatus"))
-        ));
-        String remark = firstNonBlank(stringValue(values.get("remark")), stringValue(values.get("remarks")), stringValue(values.get("note")));
-        double delayHours = Math.abs(Duration.between(plannedDate, savedAt).toMinutes() / 60.0);
-
-        values.put("plannedDate", plannedDate.toString());
-        values.put("actualDate", savedAt.toString());
-        values.put("actual", savedAt.toString());
-        values.put("delayHours", roundOneDecimal(delayHours));
-        values.put("delay", roundOneDecimal(delayHours));
-        values.put("actualDateStatus", computeActualDateStatus(plannedDate, savedAt));
-        values.put("assignedTo", assignedTo);
-
-        if (status != null && !status.isBlank()) {
-            values.put("status", status);
-            values.put("meetingStatus", status);
-        }
-        if (remark != null && !remark.isBlank()) {
-            values.put("remark", remark);
-            values.put("remarks", remark);
-        }
-    }
-
-    private void applyActivityFourDefaults(Lead lead, Map<String, Object> values, LocalDateTime savedAt, String assignedTo) {
-        LocalDateTime plannedDate = resolvePreviousActivityActualDate(lead.getId(), 2)
-            .orElseGet(() -> lead.getCreatedAt() != null ? lead.getCreatedAt() : savedAt);
-        String status = normalizeActivityFourStatus(firstNonBlank(
-            stringValue(values.get("status")),
             stringValue(values.get("outcome"))
         ));
         String remark = firstNonBlank(
             stringValue(values.get("remark")),
             stringValue(values.get("remarks")),
             stringValue(values.get("note")),
-            stringValue(values.get("remarkFollowUp")),
             stringValue(values.get("remarkWon")),
             stringValue(values.get("remarkLost"))
-        );
-        String followUpDate = firstNonBlank(
-            stringValue(values.get("followUpDate")),
-            stringValue(values.get("nextFollowUpDate"))
         );
         String lostCategory = firstNonBlank(stringValue(values.get("lostCategory")));
         String paymentReceived = firstNonBlank(stringValue(values.get("paymentReceived")));
         String meetingPriceFinal = firstNonBlank(stringValue(values.get("meetingPriceFinal")));
-        String calendarStatus = firstNonBlank(stringValue(values.get("calendarStatus")));
         double delayHours = Math.abs(Duration.between(plannedDate, savedAt).toMinutes() / 60.0);
 
         values.put("plannedDate", plannedDate.toString());
@@ -469,10 +446,6 @@ public class LeadActivityService {
         if (remark != null && !remark.isBlank()) {
             values.put("remark", remark);
             values.put("remarks", remark);
-        }
-        if (followUpDate != null && !followUpDate.isBlank()) {
-            values.put("followUpDate", followUpDate);
-            values.put("nextFollowUpDate", followUpDate);
         }
         if (lostCategory != null && !lostCategory.isBlank()) {
             values.put("lostCategory", lostCategory);
@@ -482,9 +455,6 @@ public class LeadActivityService {
         }
         if (meetingPriceFinal != null && !meetingPriceFinal.isBlank()) {
             values.put("meetingPriceFinal", meetingPriceFinal);
-        }
-        if (calendarStatus != null && !calendarStatus.isBlank()) {
-            values.put("calendarStatus", calendarStatus);
         }
     }
 
@@ -541,28 +511,26 @@ public class LeadActivityService {
         return "";
     }
 
+    private String normalizeInterestStatus(String value) {
+        String normalized = stringValue(value).toLowerCase(Locale.ROOT);
+        if (normalized.contains("not interested") || normalized.contains("not_interested")) return "Not Interested";
+        if (normalized.contains("interested")) return "Interested";
+        return "";
+    }
+
     private String normalizeActivityTwoStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
+        if (normalized.contains("allowed person")) return "Allowed Person for Meeting";
         if (normalized.contains("meeting")) return "Meeting";
         if (normalized.contains("follow")) return "Follow Up";
-        if (normalized.contains("not")) return "Not Interested";
         return "";
     }
 
     private String normalizeActivityThreeStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
-        if (normalized.contains("success")) return "Successful";
-        if (normalized.contains("reschedule") || normalized.contains("fail")) return "Reschedule";
-        return "";
-    }
-
-    private String normalizeActivityFourStatus(String value) {
-        String normalized = stringValue(value).toLowerCase(Locale.ROOT);
-        if (normalized.contains("negoti")) return "Negotiation";
-        if (normalized.contains("pending")) return "Pending Review";
         if (normalized.contains("won") || normalized.contains("win")) return "Won";
         if (normalized.contains("lost")) return "Lost";
-        if (normalized.contains("hold") || normalized.contains("follow") || normalized.contains("no response")) return "Hold";
+        if (normalized.contains("negoti")) return "Negotiation";
         return "";
     }
 

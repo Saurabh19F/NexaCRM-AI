@@ -1,102 +1,38 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, Clock, Phone, Users, Trophy, ChevronRight, AlertCircle } from 'lucide-react'
+import { X, CheckCircle2, Clock, Phone, Trophy, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-/* ── Activity definitions matching your Excel workflow ── */
+/* ── Activity definitions — 3-step workflow ── */
 const ACTIVITIES = [
   {
     id: 'act01',
     label: 'Activity 01',
     title: 'Welcome Call',
-    description: 'Call With Client and Fix meeting if interested',
+    description: 'Call the client — if connected, check interest; if not, schedule follow-up',
     hours: 1,
     icon: Phone,
     color: { bg: '#fff0f0', border: '#fca5a5', header: '#ef4444', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', step: 'bg-red-500' },
-    fields: [
-      { key: 'type',               label: 'Type',                        type: 'select', options: ['Inbound','Outbound','Referral','Walk-in'] },
-      { key: 'source',             label: 'Source',                      type: 'select', options: ['Facebook','Instagram','LinkedIn','Website','WhatsApp','Cold Call','Other'] },
-      { key: 'date',               label: 'Date',                        type: 'date' },
-      { key: 'serviceRequirement', label: 'Which Type of Service Requirement', type: 'text' },
-      { key: 'whatsappMessage',    label: 'WhatsApp Message',            type: 'textarea' },
-      { key: 'plannedDate',        label: 'Planned / Click Date for Link', type: 'datetime-local' },
-      { key: 'actual',             label: 'Actual Date',                 type: 'datetime-local' },
-      { key: 'delay',              label: 'Delay (hrs)',                 type: 'number' },
-      { key: 'status',             label: 'Status',                      type: 'select', options: ['Connected','Not Connected'] },
-      { key: 'remark',             label: 'Remark if any',               type: 'textarea' },
-      { key: 'actualDateStatus',   label: 'Actual Date Status',          type: 'select', options: ['On Time','Delayed','Early','Missed'] },
-    ],
   },
   {
     id: 'act02',
     label: 'Activity 02',
     title: 'Follow Up for Meeting',
-    description: 'Follow up Client for meeting and fill Follow up forms',
+    description: 'Follow up with the client to schedule a meeting',
     hours: 2,
     icon: Clock,
     color: { bg: '#eff6ff', border: '#93c5fd', header: '#3b82f6', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', step: 'bg-blue-500' },
-    fields: [
-      { key: 'plannedDate',      label: 'Planned Date',     type: 'datetime-local' },
-      { key: 'status',           label: 'Status',           type: 'select', options: ['Not Interested', 'Meeting', 'Follow Up'] },
-      { key: 'nextFollowUpDate', label: 'Next Follow-Up Date', type: 'date' },
-      { key: 'remark',           label: 'Remark',           type: 'textarea' },
-    ],
   },
   {
     id: 'act03',
     label: 'Activity 03',
-    title: 'Allowed Person for Meeting',
-    description: 'Fill Details for Meeting person and share details',
-    hours: null,
-    icon: Users,
-    color: { bg: '#eff6ff', border: '#93c5fd', header: '#0ea5e9', badge: 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300', step: 'bg-brand-500' },
-    fields: [
-      { key: 'personName',       label: 'Person Name',                   type: 'text' },
-      { key: 'personDesignation',label: 'Designation',                   type: 'text' },
-      { key: 'meetingDate',      label: 'Meeting Date',                 type: 'datetime-local' },
-      { key: 'meetingMode',      label: 'Meeting Mode',                  type: 'select', options: ['In-Person','Video Call','Phone Call'] },
-      { key: 'status',           label: 'Meeting Status',               type: 'select', options: ['Successful', 'Reschedule'] },
-      { key: 'remark',           label: 'Remark',                        type: 'textarea' },
-    ],
-  },
-  {
-    id: 'act04',
-    label: 'Activity 04',
     title: 'Meeting Outcome',
-    description: 'Fill Meeting Outcome and Requirement Details',
+    description: 'Record the meeting outcome — Won, Lost, or Negotiation',
     hours: null,
     icon: Trophy,
     color: { bg: '#f0fdf4', border: '#86efac', header: '#16a34a', badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', step: 'bg-green-500' },
-    fields: [
-      { key: 'plannedDate',      label: 'Planned / Click Date for Link', type: 'datetime-local' },
-      { key: 'actual',           label: 'Actual Date',                   type: 'datetime-local' },
-      { key: 'delay',            label: 'Delay (hrs)',                   type: 'number' },
-      { key: 'status',           label: 'Status',                        type: 'select', options: ['Negotiation','Lost','Won','Hold','Pending Review'] },
-      { key: 'followUpDate',     label: 'Follow-Up Date',                type: 'date' },
-      { key: 'meetingPriceFinal',label: 'Meeting Price Final (₹)',        type: 'number' },
-      { key: 'remarkFollowUp',   label: 'Remark of Follow-Up',           type: 'textarea' },
-      { key: 'remarkWon',        label: 'Remark of Won',                 type: 'textarea' },
-      { key: 'lostCategory',     label: 'Lost Category',                 type: 'select', options: ['Price','Competition','No Need','Timing','Budget','Other'] },
-      { key: 'remarkLost',       label: 'Remark of Lost',                type: 'textarea' },
-      { key: 'actualDateStatus', label: 'Actual Date Status',            type: 'select', options: ['On Time','Delayed','Early','Missed'] },
-      { key: 'calendarStatus',   label: 'Calendar Status',               type: 'select', options: ['Scheduled','Completed','Cancelled','Rescheduled'] },
-    ],
   },
 ]
-
-function FieldInput({ field, value, onChange }) {
-  const base = 'w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition'
-  if (field.type === 'textarea')
-    return <textarea rows={2} value={value||''} onChange={e=>onChange(e.target.value)} className={base + ' resize-none'} />
-  if (field.type === 'select')
-    return (
-      <select value={value||''} onChange={e=>onChange(e.target.value)} className={base}>
-        <option value=''>— select —</option>
-        {field.options.map(o=><option key={o} value={o}>{o}</option>)}
-      </select>
-    )
-  return <input type={field.type} value={value||''} onChange={e=>onChange(e.target.value)} className={base} />
-}
 
 const normalizeOutcome = (value) => String(value || '').trim().toLowerCase()
 
@@ -104,44 +40,35 @@ const canonicalConnectionStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'connected') return 'Connected'
-  if (['not connected', 'non connected', 'no answer', 'busy', 'callback requested', 'wrong number', 'not interested'].includes(normalized)) {
+  if (['not connected', 'non connected', 'no answer', 'busy', 'callback requested', 'wrong number'].includes(normalized)) {
     return 'Not Connected'
   }
+  return ''
+}
+
+const canonicalInterestStatus = (value) => {
+  const normalized = normalizeOutcome(value)
+  if (!normalized) return ''
+  if (normalized === 'interested') return 'Interested'
+  if (normalized === 'not interested' || normalized === 'not_interested') return 'Not Interested'
   return ''
 }
 
 const canonicalActivityTwoStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
+  if (normalized === 'allowed person for meeting' || normalized === 'allowed person' || normalized === 'allowed_person') return 'Allowed Person for Meeting'
   if (normalized === 'meeting') return 'Meeting'
   if (normalized === 'follow up' || normalized === 'follow-up' || normalized === 'followup') return 'Follow Up'
-  if (normalized === 'not interested' || normalized === 'not_interested') return 'Not Interested'
   return ''
 }
 
 const canonicalActivityThreeStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
-  if (normalized === 'successful' || normalized === 'success') return 'Successful'
-  if (normalized === 'reschedule' || normalized === 'rescheduled' || normalized === 'failed' || normalized === 'failure') return 'Reschedule'
-  return ''
-}
-
-const canonicalActivityFourStatus = (value) => {
-  const normalized = normalizeOutcome(value)
-  if (!normalized) return ''
-  if (normalized === 'negotiation') return 'Negotiation'
-  if (normalized === 'pending' || normalized === 'pending decision' || normalized === 'pending review') return 'Pending Review'
   if (normalized === 'won' || normalized === 'win' || normalized === 'closed won') return 'Won'
   if (normalized === 'lost' || normalized === 'close lost' || normalized === 'closed lost') return 'Lost'
-  if (
-    normalized === 'hold' ||
-    normalized === 'follow up' ||
-    normalized === 'follow-up' ||
-    normalized === 'follow-up required' ||
-    normalized === 'follow up required' ||
-    normalized === 'no response'
-  ) return 'Hold'
+  if (normalized === 'negotiation') return 'Negotiation'
   return ''
 }
 
@@ -190,8 +117,8 @@ const humanizeLabel = (value) => {
 
 export default function LeadActivitiesModal({ lead, onClose, onPersist, initialData, initialSaved, initialActiveTab = 0, onActiveTabChange }) {
   const [activeTab, setActiveTab] = useState(initialActiveTab || 0)
-  const [saved, setSaved] = useState(initialSaved || [false, false, false, false])
-  const [data, setData] = useState(initialData || [{},{},{},{}])
+  const [saved, setSaved] = useState(initialSaved || [false, false, false])
+  const [data, setData] = useState(initialData || [{},{},{}])
   const [saving, setSaving] = useState(false)
   const leadIdRef = useRef(lead?.id)
 
@@ -199,8 +126,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     if (leadIdRef.current === lead?.id) return
     leadIdRef.current = lead?.id
     setActiveTab(initialActiveTab || 0)
-    setSaved(initialSaved || [false, false, false, false])
-    setData(initialData || [{},{},{},{}])
+    setSaved(initialSaved || [false, false, false])
+    setData(initialData || [{},{},{}])
   }, [lead?.id, initialActiveTab, initialData, initialSaved])
 
   useEffect(() => {
@@ -211,16 +138,15 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
 
   const act = ACTIVITIES[activeTab]
   const Icon = act.icon
+
+  /* ── Activity 01 computed values ── */
   const activityOneValues = data[0] || {}
-  const activityTwoValues = data[1] || {}
-  const activityThreeValues = data[2] || {}
-  const activityFourValues = data[3] || {}
-  const activityOneStatus = normalizeOutcome(canonicalConnectionStatus(activityOneValues.connectionStatus || activityOneValues.callOutcome || activityOneValues.status))
-  const activityTwoStatus = canonicalActivityTwoStatus(activityTwoValues.status)
-  const activityThreeStatus = canonicalActivityThreeStatus(activityThreeValues.status)
-  const activityFourStatus = canonicalActivityFourStatus(activityFourValues.status)
-  const isActivityOneConnected = activityOneStatus === 'connected'
-  const isActivityOneNonConnected = activityOneStatus === 'not connected'
+  const activityOneConnectionStatus = canonicalConnectionStatus(activityOneValues.connectionStatus || activityOneValues.callOutcome || activityOneValues.status)
+  const activityOneInterestStatus = canonicalInterestStatus(activityOneValues.interestStatus || activityOneValues.interest)
+  const isConnected = normalizeOutcome(activityOneConnectionStatus) === 'connected'
+  const isNotConnected = normalizeOutcome(activityOneConnectionStatus) === 'not connected'
+  const isInterested = normalizeOutcome(activityOneInterestStatus) === 'interested'
+  const isNotInterested = normalizeOutcome(activityOneInterestStatus) === 'not interested'
   const leadSource = humanizeLabel(lead?.source || activityOneValues.source)
   const serviceRequirement = humanizeLabel(lead?.service || lead?.specialization || activityOneValues.serviceRequirement)
   const plannedDate = lead?.createdAt || activityOneValues.plannedDate || lead?.followUpDate || null
@@ -228,6 +154,10 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const delayMeta = computeDelayMeta(plannedDate, actualDate)
   const assignedTeamMember = humanizeLabel(lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || activityOneValues.assignedTo || 'Auto assigned')
   const remarksValue = activityOneValues.remark || activityOneValues.remarks || activityOneValues.note || ''
+
+  /* ── Activity 02 computed values ── */
+  const activityTwoValues = data[1] || {}
+  const activityTwoStatus = canonicalActivityTwoStatus(activityTwoValues.status)
   const activityTwoPlannedDate = activityOneValues.actualDate || activityOneValues.actual || activityOneValues.savedAt || lead?.followUpDate || lead?.createdAt || null
   const activityTwoActualDate = new Date().toISOString()
   const activityTwoDelayMeta = computeDelayMeta(activityTwoPlannedDate, activityTwoActualDate)
@@ -235,7 +165,28 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const activityTwoRemark = activityTwoValues.remark || activityTwoValues.remarks || activityTwoValues.note || ''
   const isActivityTwoMeeting = normalizeOutcome(activityTwoStatus) === 'meeting'
   const isActivityTwoFollowUp = normalizeOutcome(activityTwoStatus) === 'follow up'
-  const isActivityTwoNotInterested = normalizeOutcome(activityTwoStatus) === 'not interested'
+  const isActivityTwoAllowedPerson = normalizeOutcome(activityTwoStatus) === 'allowed person for meeting'
+  const activityTwoPersonName = activityTwoValues.personName || ''
+  const activityTwoPersonDesignation = activityTwoValues.personDesignation || ''
+  const activityTwoMeetingDate = activityTwoValues.meetingDate || ''
+  const activityTwoMeetingMode = activityTwoValues.meetingMode || ''
+
+  /* ── Activity 03 computed values ── */
+  const activityThreeValues = data[2] || {}
+  const activityThreeStatus = canonicalActivityThreeStatus(activityThreeValues.status)
+  const activityThreePlannedDate = activityTwoValues.actualDate || activityTwoValues.actual || activityTwoValues.savedAt || activityTwoValues.plannedDate || lead?.createdAt || null
+  const activityThreeActualDate = new Date().toISOString()
+  const activityThreeDelayMeta = computeDelayMeta(activityThreePlannedDate, activityThreeActualDate)
+  const activityThreeAssignedTeamMember = humanizeLabel(activityTwoValues.assignedTo || activityOneValues.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || 'Auto assigned')
+  const activityThreeMeetingPriceFinal = activityThreeValues.meetingPriceFinal || ''
+  const activityThreePaymentReceived = activityThreeValues.paymentReceived || ''
+  const activityThreeLostCategory = activityThreeValues.lostCategory || ''
+  const activityThreeRemark = activityThreeValues.remark || activityThreeValues.remarks || activityThreeValues.note || ''
+  const activityThreeRemarkWon = activityThreeValues.remarkWon || activityThreeRemark
+  const activityThreeRemarkLost = activityThreeValues.remarkLost || activityThreeRemark
+  const isActivityThreeWon = normalizeOutcome(activityThreeStatus) === 'won'
+  const isActivityThreeLost = normalizeOutcome(activityThreeStatus) === 'lost'
+  const isActivityThreeNegotiation = normalizeOutcome(activityThreeStatus) === 'negotiation'
 
   const updateField = (key, val) => {
     setData(prev => {
@@ -254,68 +205,72 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   }
 
   const handleSave = async () => {
+    /* ── Activity 01 validation ── */
     if (activeTab === 0) {
-      if (!activityOneStatus) {
+      if (!activityOneConnectionStatus) {
         toast.error('Please select Connected or Not Connected.')
         return false
       }
-      if (isActivityOneNonConnected && !String(activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || '').trim()) {
+      if (isNotConnected && !String(activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || '').trim()) {
         toast.error('Please select a follow-up date for the non-connected lead.')
         return false
       }
+      if (isConnected && !activityOneInterestStatus) {
+        toast.error('Please select Interested or Not Interested.')
+        return false
+      }
     }
+    /* ── Activity 02 validation ── */
     if (activeTab === 1) {
       if (!activityTwoStatus) {
-        toast.error('Please select Meeting, Follow Up, or Not Interested.')
+        toast.error('Please select a status.')
         return false
       }
       if (isActivityTwoFollowUp && !String(activityTwoValues.nextFollowUpDate || activityTwoValues.followUpDate || '').trim()) {
         toast.error('Please select a next follow-up date.')
         return false
       }
+      if (isActivityTwoAllowedPerson) {
+        if (!String(activityTwoPersonName).trim()) {
+          toast.error('Please enter the person name.')
+          return false
+        }
+        if (!String(activityTwoPersonDesignation).trim()) {
+          toast.error('Please enter the designation.')
+          return false
+        }
+        if (!String(activityTwoMeetingDate).trim()) {
+          toast.error('Please select the meeting date.')
+          return false
+        }
+        if (!String(activityTwoMeetingMode).trim()) {
+          toast.error('Please select the meeting mode.')
+          return false
+        }
+      }
     }
-    if (activeTab === 3) {
-      if (!activityFourStatus) {
-        toast.error('Please select a status for Activity 04.')
+    /* ── Activity 03 validation ── */
+    if (activeTab === 2) {
+      if (!activityThreeStatus) {
+        toast.error('Please select a status for Activity 03.')
         return false
       }
-      if (isActivityFourLost && !String(activityFourLostCategory).trim()) {
+      if (isActivityThreeLost && !String(activityThreeLostCategory).trim()) {
         toast.error('Please select a lost category.')
         return false
       }
-      if (isActivityFourWon) {
-        if (!String(activityFourMeetingPriceFinal).trim()) {
+      if (isActivityThreeWon) {
+        if (!String(activityThreeMeetingPriceFinal).trim()) {
           toast.error('Please enter the meeting price final.')
           return false
         }
-        if (!String(activityFourPaymentReceived).trim()) {
+        if (!String(activityThreePaymentReceived).trim()) {
           toast.error('Please select payment received yes or no.')
           return false
         }
       }
-      if (isActivityFourHold && !String(activityFourFollowUpDate).trim()) {
-        toast.error('Please select a follow-up date.')
-        return false
-      }
     }
-    if (activeTab === 2) {
-      if (!String(activityThreePersonName).trim()) {
-        toast.error('Please enter the person name.')
-        return false
-      }
-      if (!String(activityThreePersonDesignation).trim()) {
-        toast.error('Please enter the designation.')
-        return false
-      }
-      if (!String(activityThreeMeetingDate).trim()) {
-        toast.error('Please select the meeting date.')
-        return false
-      }
-      if (!String(activityThreeMeetingMode).trim()) {
-        toast.error('Please select the meeting mode.')
-        return false
-      }
-    }
+
     setSaving(true)
     try {
       if (onPersist) {
@@ -340,13 +295,19 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
 
   const isComplete = (idx) => saved[idx]
 
+  /* ── Activity 01 handlers ── */
   const handleActivityOneChange = (key, val) => {
     if (key === 'connectionStatus') {
       patchCurrentActivity({
         connectionStatus: val,
         callOutcome: val,
-        ...(normalizeOutcome(val) === 'connected' ? { nextFollowUpDate: '', followUpDate: '' } : {}),
+        // Reset interest when switching connection status
+        ...(normalizeOutcome(val) !== 'connected' ? { interestStatus: '', interest: '', nextFollowUpDate: '', followUpDate: '' } : { nextFollowUpDate: '', followUpDate: '' }),
       })
+      return
+    }
+    if (key === 'interestStatus') {
+      patchCurrentActivity({ interestStatus: val, interest: val })
       return
     }
     if (key === 'nextFollowUpDate') {
@@ -360,6 +321,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     updateField(key, val)
   }
 
+  /* ── Activity 02 handlers ── */
   const handleActivityTwoChange = (key, val) => {
     if (key === 'status') {
       patchCurrentActivity({
@@ -383,57 +345,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     updateField(key, val)
   }
 
-  const handleActivityTwoPrimaryAction = async () => {
-    const ok = await handleSave()
-    if (!ok) return
-    if (isActivityTwoMeeting) {
-      setActiveTab(2)
-      return
-    }
-    if (isActivityTwoNotInterested) {
-      onClose()
-      return
-    }
-  }
-
-  const activityTwoPrimaryLabel = isActivityTwoMeeting
-    ? 'Next Activity →'
-    : isActivityTwoFollowUp
-      ? 'Save Follow Up'
-      : isActivityTwoNotInterested
-        ? 'Close Lead'
-        : 'Save & Continue'
-
-  const activityThreePlannedDate = activityTwoValues.actualDate || activityTwoValues.actual || activityTwoValues.savedAt || activityTwoValues.plannedDate || lead?.createdAt || null
-  const activityThreeActualDate = new Date().toISOString()
-  const activityThreeDelayMeta = computeDelayMeta(activityThreePlannedDate, activityThreeActualDate)
-  const activityThreeAssignedTeamMember = humanizeLabel(activityTwoValues.assignedTo || activityOneValues.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || 'Auto assigned')
-  const activityThreePersonName = activityThreeValues.personName || ''
-  const activityThreePersonDesignation = activityThreeValues.personDesignation || ''
-  const activityThreeMeetingDate = activityThreeValues.meetingDate || activityThreeActualDate
-  const activityThreeMeetingMode = activityThreeValues.meetingMode || ''
-  const activityThreeRemark = activityThreeValues.remark || activityThreeValues.remarks || activityThreeValues.note || ''
-  const isActivityThreeSuccessful = normalizeOutcome(activityThreeStatus) === 'successful'
-  const isActivityThreeFailed = normalizeOutcome(activityThreeStatus) === 'reschedule'
-  const activityFourPlannedDate = activityThreeValues.actualDate || activityThreeValues.actual || activityThreeValues.savedAt || activityThreeValues.plannedDate || lead?.createdAt || null
-  const activityFourActualDate = new Date().toISOString()
-  const activityFourDelayMeta = computeDelayMeta(activityFourPlannedDate, activityFourActualDate)
-  const activityFourAssignedTeamMember = humanizeLabel(activityThreeValues.assignedTo || activityTwoValues.assignedTo || activityOneValues.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || 'Auto assigned')
-  const activityFourFollowUpDate = activityFourValues.followUpDate || activityFourValues.nextFollowUpDate || ''
-  const activityFourMeetingPriceFinal = activityFourValues.meetingPriceFinal || ''
-  const activityFourPaymentReceived = activityFourValues.paymentReceived || ''
-  const activityFourLostCategory = activityFourValues.lostCategory || ''
-  const activityFourCalendarStatus = activityFourValues.calendarStatus || ''
-  const activityFourRemark = activityFourValues.remark || activityFourValues.remarks || activityFourValues.note || ''
-  const activityFourRemarkFollowUp = activityFourValues.remarkFollowUp || activityFourRemark
-  const activityFourRemarkWon = activityFourValues.remarkWon || activityFourRemark
-  const activityFourRemarkLost = activityFourValues.remarkLost || activityFourRemark
-  const isActivityFourNegotiation = normalizeOutcome(activityFourStatus) === 'negotiation'
-  const isActivityFourLost = normalizeOutcome(activityFourStatus) === 'lost'
-  const isActivityFourWon = normalizeOutcome(activityFourStatus) === 'won'
-  const isActivityFourHold = normalizeOutcome(activityFourStatus) === 'hold'
-  const isActivityFourPending = normalizeOutcome(activityFourStatus) === 'pending review'
-
+  /* ── Activity 03 handlers ── */
   const handleActivityThreeChange = (key, val) => {
     if (key === 'status') {
       patchCurrentActivity({
@@ -441,80 +353,57 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         remark: '',
         remarks: '',
         note: '',
+        remarkWon: '',
+        remarkLost: '',
       })
       return
     }
-    if (key === 'remark') {
-      patchCurrentActivity({ remark: val, remarks: val, note: val })
-      return
-    }
-    updateField(key, val)
-  }
-
-  const handleActivityThreePrimaryAction = async () => {
-    const ok = await handleSave()
-    if (!ok) return
-    if (isActivityThreeSuccessful) {
-      setActiveTab(3)
-      return
-    }
-    if (isActivityThreeFailed) {
-      setActiveTab(1)
-    }
-  }
-
-  const activityThreePrimaryLabel = isActivityThreeSuccessful
-    ? 'Next Activity →'
-    : isActivityThreeFailed
-      ? 'Back to Follow Up'
-      : 'Save & Continue'
-
-  const handleActivityFourChange = (key, val) => {
-    if (key === 'status') {
-      patchCurrentActivity({
-        status: val,
-        remark: '',
-        remarks: '',
-        note: '',
-      })
-      return
-    }
-    if (key === 'remark' || key === 'remarkFollowUp' || key === 'remarkWon' || key === 'remarkLost') {
+    if (key === 'remark' || key === 'remarkWon' || key === 'remarkLost') {
       patchCurrentActivity({ [key]: val, remark: val, remarks: val, note: val })
       return
     }
     updateField(key, val)
   }
 
-  const handleActivityFourPrimaryAction = async () => {
+  /* ── Primary action routing ── */
+  const handleActivityOnePrimaryAction = async () => {
     const ok = await handleSave()
     if (!ok) return
-    if (isActivityFourNegotiation) {
-      setActiveTab(2)
+    if (isConnected && isInterested) {
+      setActiveTab(1) // advance to Activity 02
       return
     }
-    if (isActivityFourHold) {
-      setActiveTab(1)
+    if (isConnected && isNotInterested) {
+      onClose() // CLOSE lead
       return
     }
-    if (isActivityFourLost || isActivityFourWon) {
-      onClose()
-    }
+    // Not Connected → stay
   }
 
-  const activityFourPrimaryLabel = isActivityFourNegotiation
-    ? 'Go to Meeting →'
-    : isActivityFourLost
-      ? 'Close Lead'
-      : isActivityFourWon
-        ? 'Complete Lead'
-        : isActivityFourHold
-          ? 'Back to Follow Up'
-          : isActivityFourPending
-            ? 'Save Pending'
-          : 'Save & Continue'
+  const handleActivityTwoPrimaryAction = async () => {
+    const ok = await handleSave()
+    if (!ok) return
+    if (isActivityTwoMeeting || isActivityTwoAllowedPerson) {
+      setActiveTab(2) // advance to Activity 03
+      return
+    }
+    // Follow Up → stay
+  }
+
+  const handleActivityThreePrimaryAction = async () => {
+    const ok = await handleSave()
+    if (!ok) return
+    if (isActivityThreeWon || isActivityThreeLost) {
+      onClose() // CLOSE lead
+    }
+    // Negotiation → stay at Activity 03
+  }
 
   const handleCurrentPrimaryAction = async () => {
+    if (activeTab === 0) {
+      await handleActivityOnePrimaryAction()
+      return
+    }
     if (activeTab === 1) {
       await handleActivityTwoPrimaryAction()
       return
@@ -523,29 +412,36 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
       await handleActivityThreePrimaryAction()
       return
     }
-    if (activeTab === 3) {
-      await handleActivityFourPrimaryAction()
-      return
-    }
-    const ok = await handleSave()
-    if (!ok) return
-    if (activeTab === 0 && !isActivityOneConnected) return
-    if (activeTab < ACTIVITIES.length - 1) {
-      setActiveTab(t => t + 1)
-      return
-    }
-    onClose()
   }
 
-  const currentPrimaryLabel = activeTab === 1
-    ? activityTwoPrimaryLabel
-    : activeTab === 2
-      ? activityThreePrimaryLabel
-      : activeTab === 3
-        ? activityFourPrimaryLabel
-        : activeTab === 0 && !isActivityOneConnected
-          ? 'Save Follow-Up'
-          : 'Next Activity →'
+  /* ── Primary button labels ── */
+  const activityOnePrimaryLabel = isConnected && isInterested
+    ? 'Next Activity →'
+    : isConnected && isNotInterested
+      ? 'Close Lead'
+      : isNotConnected
+        ? 'Save Follow-Up'
+        : 'Save & Continue'
+
+  const activityTwoPrimaryLabel = isActivityTwoMeeting || isActivityTwoAllowedPerson
+    ? 'Next Activity →'
+    : isActivityTwoFollowUp
+      ? 'Save Follow Up'
+      : 'Save & Continue'
+
+  const activityThreePrimaryLabel = isActivityThreeWon
+    ? 'Complete Lead'
+    : isActivityThreeLost
+      ? 'Close Lead'
+      : isActivityThreeNegotiation
+        ? 'Save Negotiation'
+        : 'Save & Continue'
+
+  const currentPrimaryLabel = activeTab === 0
+    ? activityOnePrimaryLabel
+    : activeTab === 1
+      ? activityTwoPrimaryLabel
+      : activityThreePrimaryLabel
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Lead activities">
@@ -626,8 +522,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                 </div>
               </div>
 
-              {/* Fields Grid */}
-              {activeTab === 0 ? (
+              {/* ═══════════════ Activity 01 — Welcome Call ═══════════════ */}
+              {activeTab === 0 && (
                 <div className="px-4 sm:px-6 py-4 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
                     {[
@@ -647,12 +543,13 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Connection Status */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                         Status <span className="text-red-400">*</span>
                       </label>
                       <select
-                        value={canonicalConnectionStatus(activityOneValues.connectionStatus || activityOneValues.callOutcome || activityOneValues.status)}
+                        value={activityOneConnectionStatus}
                         onChange={e => handleActivityOneChange('connectionStatus', e.target.value)}
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                       >
@@ -662,7 +559,26 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       </select>
                     </div>
 
-                    {isActivityOneNonConnected && (
+                    {/* Interest Status — shown only when Connected */}
+                    {isConnected && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Interest Status <span className="text-red-400">*</span>
+                        </label>
+                        <select
+                          value={activityOneInterestStatus}
+                          onChange={e => handleActivityOneChange('interestStatus', e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                        >
+                          <option value="">— Select interest —</option>
+                          <option value="Interested">Interested</option>
+                          <option value="Not Interested">Not Interested</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Follow-Up Date — shown only when Not Connected */}
+                    {isNotConnected && (
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                           Next Follow-Up Date <span className="text-red-400">*</span>
@@ -678,29 +594,51 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {isActivityOneConnected ? 'Remarks for Connected Lead' : 'Remarks for Not Connected Lead'}
+                        {isConnected && isInterested
+                          ? 'Remarks for Interested Lead'
+                          : isConnected && isNotInterested
+                            ? 'Reason for Not Interested'
+                            : isNotConnected
+                              ? 'Remarks for Not Connected Lead'
+                              : 'Remarks'}
                       </label>
                       <textarea
                         rows={3}
                         value={remarksValue}
                         onChange={e => handleActivityOneChange('remark', e.target.value)}
                         placeholder={
-                          isActivityOneConnected
+                          isConnected && isInterested
                             ? 'Add next steps or the conversation summary'
-                            : 'Add the reason and next follow-up context'
+                            : isConnected && isNotInterested
+                              ? 'Add the reason for not being interested'
+                              : isNotConnected
+                                ? 'Add the reason and next follow-up context'
+                                : 'Add remarks'
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
                       />
                     </div>
                   </div>
 
-                  <div className={`rounded-xl border px-4 py-3 text-sm ${isActivityOneConnected ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300' : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300'}`}>
-                    {isActivityOneConnected
-                      ? 'Connected leads become eligible for the next activity.'
-                      : 'Non connected leads should be scheduled for the next follow-up date.'}
+                  <div className={`rounded-xl border px-4 py-3 text-sm ${
+                    isConnected && isInterested
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300'
+                      : isConnected && isNotInterested
+                        ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-300'
+                        : isNotConnected
+                          ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
+                  }`}>
+                    {isConnected && isInterested && 'Interested lead — will advance to Follow Up for Meeting.'}
+                    {isConnected && isNotInterested && 'Not Interested — saving will close this lead as Lost.'}
+                    {isNotConnected && 'Not Connected — schedule the next follow-up date.'}
+                    {!isConnected && !isNotConnected && 'Select a connection status to continue.'}
                   </div>
                 </div>
-              ) : activeTab === 1 ? (
+              )}
+
+              {/* ═══════════════ Activity 02 — Follow Up for Meeting ═══════════════ */}
+              {activeTab === 1 && (
                 <div className="px-4 sm:px-6 py-4 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
                     {[
@@ -728,9 +666,9 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                       >
                         <option value="">— Select status —</option>
-                        <option value="Not Interested">Not Interested</option>
                         <option value="Meeting">Meeting</option>
                         <option value="Follow Up">Follow Up</option>
+                        <option value="Allowed Person for Meeting">Allowed Person for Meeting</option>
                       </select>
                     </div>
 
@@ -747,14 +685,78 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         />
                       </div>
                     )}
+                  </div>
 
+                  {/* Allowed Person for Meeting — person detail fields */}
+                  {isActivityTwoAllowedPerson && (
+                    <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 px-4 py-4 space-y-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Meeting Person Details</p>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Person name, designation, meeting date, and mode.</p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Person Name <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={activityTwoPersonName}
+                            onChange={e => handleActivityTwoChange('personName', e.target.value)}
+                            placeholder="Enter person name"
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Designation <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={activityTwoPersonDesignation}
+                            onChange={e => handleActivityTwoChange('personDesignation', e.target.value)}
+                            placeholder="Enter designation"
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Meeting Date <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={activityTwoMeetingDate}
+                            onChange={e => handleActivityTwoChange('meetingDate', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Meeting Mode <span className="text-red-400">*</span>
+                          </label>
+                          <select
+                            value={activityTwoMeetingMode}
+                            onChange={e => handleActivityTwoChange('meetingMode', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          >
+                            <option value="">— Select meeting mode —</option>
+                            <option value="In-Person">In-Person</option>
+                            <option value="Video Call">Video Call</option>
+                            <option value="Phone Call">Phone Call</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                         {isActivityTwoMeeting
                           ? 'Meeting Remarks'
-                          : isActivityTwoFollowUp
-                            ? 'Follow Up Remarks'
-                            : 'Reason for Not Interested'}
+                          : isActivityTwoAllowedPerson
+                            ? 'Meeting Person Remarks'
+                            : 'Follow Up Remarks'}
                       </label>
                       <textarea
                         rows={3}
@@ -763,9 +765,9 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         placeholder={
                           isActivityTwoMeeting
                             ? 'Add meeting context or outcome'
-                            : isActivityTwoFollowUp
-                              ? 'Add next-step notes for the follow-up'
-                              : 'Add the reason for closing this lead'
+                            : isActivityTwoAllowedPerson
+                              ? 'Add notes about the meeting person or agenda'
+                              : 'Add next-step notes for the follow-up'
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
                       />
@@ -773,18 +775,22 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   </div>
 
                   <div className={`rounded-xl border px-4 py-3 text-sm ${
-                    isActivityTwoMeeting
+                    isActivityTwoMeeting || isActivityTwoAllowedPerson
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300'
                       : isActivityTwoFollowUp
                         ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300'
-                        : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
                   }`}>
-                    {isActivityTwoMeeting && 'Meeting selected. This lead can move to the next activity.'}
-                    {isActivityTwoFollowUp && 'Follow Up selected. This lead stays here until the next follow-up is completed.'}
-                    {isActivityTwoNotInterested && 'Not Interested selected. Saving this will close the flow for this lead.'}
+                    {isActivityTwoMeeting && 'Meeting selected — will advance to Meeting Outcome.'}
+                    {isActivityTwoAllowedPerson && 'Allowed Person for Meeting — capture meeting person details, then advance to Meeting Outcome.'}
+                    {isActivityTwoFollowUp && 'Follow Up selected — stays here until the next follow-up is completed.'}
+                    {!isActivityTwoMeeting && !isActivityTwoFollowUp && !isActivityTwoAllowedPerson && 'Select a status to continue.'}
                   </div>
                 </div>
-              ) : activeTab === 2 ? (
+              )}
+
+              {/* ═══════════════ Activity 03 — Meeting Outcome ═══════════════ */}
+              {activeTab === 2 && (
                 <div className="px-4 sm:px-6 py-4 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
                     {[
@@ -793,131 +799,6 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       { label: 'Delay', value: activityThreeDelayMeta.label },
                       { label: 'Actual Date Status', value: activityThreeDelayMeta.status },
                       { label: 'Assigned To', value: activityThreeAssignedTeamMember },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{item.label}</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200 break-words">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 px-4 py-4 space-y-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Meeting Details</p>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Person name, designation, meeting date, and mode are captured here.</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Person Name
-                        </label>
-                        <input
-                          type="text"
-                          value={activityThreePersonName}
-                          onChange={e => handleActivityThreeChange('personName', e.target.value)}
-                          placeholder="Enter person name"
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Designation
-                        </label>
-                        <input
-                          type="text"
-                          value={activityThreePersonDesignation}
-                          onChange={e => handleActivityThreeChange('personDesignation', e.target.value)}
-                          placeholder="Enter designation"
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Meeting Date
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={activityThreeMeetingDate}
-                          onChange={e => handleActivityThreeChange('meetingDate', e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Meeting Mode
-                        </label>
-                        <select
-                          value={activityThreeMeetingMode}
-                          onChange={e => handleActivityThreeChange('meetingMode', e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        >
-                          <option value="">— Select meeting mode —</option>
-                          <option value="In-Person">In-Person</option>
-                          <option value="Video Call">Video Call</option>
-                          <option value="Phone Call">Phone Call</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        Meeting Status <span className="text-red-400">*</span>
-                      </label>
-                      <select
-                        value={activityThreeStatus}
-                        onChange={e => handleActivityThreeChange('status', e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                      >
-                        <option value="">— Select status —</option>
-                        <option value="Successful">Successful</option>
-                        <option value="Reschedule">Reschedule</option>
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {isActivityThreeSuccessful ? 'Successful Meeting Remarks' : 'Reschedule Remarks'}
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={activityThreeRemark}
-                        onChange={e => handleActivityThreeChange('remark', e.target.value)}
-                        placeholder={
-                          isActivityThreeSuccessful
-                            ? 'Add meeting success notes or next step'
-                            : 'Add the reschedule reason and next step'
-                        }
-                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className={`rounded-xl border px-4 py-3 text-sm ${
-                    isActivityThreeSuccessful
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300'
-                      : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-300'
-                  }`}>
-                    {isActivityThreeSuccessful && 'Meeting successful. This lead can move to the next activity.'}
-                    {isActivityThreeFailed && 'Meeting rescheduled. Saving this will send the flow back to Activity 02 follow up.'}
-                  </div>
-                </div>
-              ) : activeTab === 3 ? (
-                <div className="px-4 sm:px-6 py-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-                    {[
-                      { label: 'Planned Date', value: formatDateTime(activityFourPlannedDate) },
-                      { label: 'Actual Date', value: formatDateTime(activityFourActualDate) },
-                      { label: 'Delay', value: activityFourDelayMeta.label },
-                      { label: 'Actual Date Status', value: activityFourDelayMeta.status },
-                      { label: 'Assigned To', value: activityFourAssignedTeamMember },
                     ].map((item) => (
                       <div key={item.label} className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{item.label}</p>
@@ -932,69 +813,19 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         Status <span className="text-red-400">*</span>
                       </label>
                       <select
-                        value={activityFourStatus}
-                        onChange={e => handleActivityFourChange('status', e.target.value)}
+                        value={activityThreeStatus}
+                        onChange={e => handleActivityThreeChange('status', e.target.value)}
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                       >
                         <option value="">— Select status —</option>
-                        <option value="Negotiation">Negotiation</option>
-                        <option value="Lost">Lost</option>
                         <option value="Won">Won</option>
-                        <option value="Hold">Hold</option>
-                        <option value="Pending Review">Pending Review</option>
-                        </select>
-                      </div>
-
-                    <div className="sm:col-span-2 flex flex-wrap gap-2">
-                      {isActivityFourHold && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300">
-                          <Clock className="w-3.5 h-3.5" /> Hold routing
-                        </span>
-                      )}
-                      {isActivityFourPending && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-                          <AlertCircle className="w-3.5 h-3.5" /> Pending review
-                        </span>
-                      )}
-                      {isActivityFourNegotiation && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Negotiation
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        Calendar Status
-                      </label>
-                      <select
-                        value={activityFourCalendarStatus}
-                        onChange={e => handleActivityFourChange('calendarStatus', e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                      >
-                        <option value="">— Select calendar status —</option>
-                        <option value="Scheduled">Scheduled</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                        <option value="Rescheduled">Rescheduled</option>
+                        <option value="Lost">Lost</option>
+                        <option value="Negotiation">Negotiation</option>
                       </select>
                     </div>
 
-                    {(isActivityFourHold || isActivityFourNegotiation) && (
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Follow-Up Date {isActivityFourHold ? <span className="text-red-400">*</span> : null}
-                        </label>
-                        <input
-                          type="date"
-                          value={activityFourFollowUpDate}
-                          onChange={e => handleActivityFourChange('followUpDate', e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        />
-                      </div>
-                    )}
-
-                    {isActivityFourWon && (
+                    {/* Won fields */}
+                    {isActivityThreeWon && (
                       <>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
@@ -1002,23 +833,22 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                           </label>
                           <input
                             type="number"
-                            value={activityFourMeetingPriceFinal}
-                            onChange={e => handleActivityFourChange('meetingPriceFinal', e.target.value)}
+                            value={activityThreeMeetingPriceFinal}
+                            onChange={e => handleActivityThreeChange('meetingPriceFinal', e.target.value)}
                             placeholder="Enter final meeting price"
                             className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                           />
                         </div>
-
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                             Payment Received <span className="text-red-400">*</span>
                           </label>
                           <select
-                            value={activityFourPaymentReceived}
-                            onChange={e => handleActivityFourChange('paymentReceived', e.target.value)}
+                            value={activityThreePaymentReceived}
+                            onChange={e => handleActivityThreeChange('paymentReceived', e.target.value)}
                             className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                           >
-                            <option value="">— Select payment received —</option>
+                            <option value="">— Select —</option>
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
                           </select>
@@ -1026,14 +856,15 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       </>
                     )}
 
-                    {isActivityFourLost && (
+                    {/* Lost fields */}
+                    {isActivityThreeLost && (
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                           Lost Category <span className="text-red-400">*</span>
                         </label>
                         <select
-                          value={activityFourLostCategory}
-                          onChange={e => handleActivityFourChange('lostCategory', e.target.value)}
+                          value={activityThreeLostCategory}
+                          onChange={e => handleActivityThreeChange('lostCategory', e.target.value)}
                           className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                         >
                           <option value="">— Select lost category —</option>
@@ -1049,43 +880,35 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
 
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {isActivityFourWon
+                        {isActivityThreeWon
                           ? 'Won Remarks'
-                          : isActivityFourLost
+                          : isActivityThreeLost
                             ? 'Lost Remarks'
-                            : isActivityFourHold
-                              ? 'Follow Up Remarks'
-                              : 'Negotiation Remarks'}
+                            : 'Negotiation Remarks'}
                       </label>
                       <textarea
                         rows={3}
                         value={
-                          isActivityFourWon
-                            ? activityFourRemarkWon
-                            : isActivityFourLost
-                              ? activityFourRemarkLost
-                              : isActivityFourHold
-                                ? activityFourRemarkFollowUp
-                                : activityFourRemark
+                          isActivityThreeWon
+                            ? activityThreeRemarkWon
+                            : isActivityThreeLost
+                              ? activityThreeRemarkLost
+                              : activityThreeRemark
                         }
-                        onChange={e => handleActivityFourChange(
-                          isActivityFourWon
+                        onChange={e => handleActivityThreeChange(
+                          isActivityThreeWon
                             ? 'remarkWon'
-                            : isActivityFourLost
+                            : isActivityThreeLost
                               ? 'remarkLost'
-                              : isActivityFourHold
-                                ? 'remarkFollowUp'
-                                : 'remark',
+                              : 'remark',
                           e.target.value
                         )}
                         placeholder={
-                          isActivityFourWon
+                          isActivityThreeWon
                             ? 'Add win summary, payment notes, or next step'
-                            : isActivityFourLost
+                            : isActivityThreeLost
                               ? 'Add the reason the lead was lost'
-                              : isActivityFourHold
-                                ? 'Add follow-up notes and next touchpoint'
-                                : 'Add negotiation notes and next step'
+                              : 'Add negotiation notes and next step'
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
                       />
@@ -1093,32 +916,19 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   </div>
 
                   <div className={`rounded-xl border px-4 py-3 text-sm ${
-                    isActivityFourWon
+                    isActivityThreeWon
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300'
-                      : isActivityFourLost
+                      : isActivityThreeLost
                         ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-300'
-                        : isActivityFourHold
-                          ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300'
-                          : isActivityFourPending
-                            ? 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300'
-                            : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300'
+                        : isActivityThreeNegotiation
+                          ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
                   }`}>
-                    {isActivityFourNegotiation && 'Negotiation selected. This lead can move to Activity 03 meeting.'}
-                    {isActivityFourLost && 'Lost selected. Saving this will close the activity after capturing the lost category.'}
-                    {isActivityFourWon && 'Won selected. Capture final price and payment received, then complete the lead.'}
-                    {isActivityFourHold && 'Hold selected. Saving this will send the flow back to Activity 02 follow up.'}
-                    {isActivityFourPending && 'Pending review selected. This stays neutral until the next routing step.'}
-                    {!isActivityFourNegotiation && !isActivityFourLost && !isActivityFourWon && !isActivityFourHold && !isActivityFourPending && 'Select a status to continue.'}
+                    {isActivityThreeWon && 'Won — capture final price and payment, then complete the lead.'}
+                    {isActivityThreeLost && 'Lost — select a lost category and add remarks, then close the lead.'}
+                    {isActivityThreeNegotiation && 'Negotiation — stays here until a final outcome is decided.'}
+                    {!isActivityThreeWon && !isActivityThreeLost && !isActivityThreeNegotiation && 'Select a status to continue.'}
                   </div>
-                </div>
-              ) : (
-                <div className="px-4 sm:px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {act.fields.map(field => (
-                    <div key={field.key} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{field.label}</label>
-                      <FieldInput field={field} value={data[activeTab][field.key]} onChange={val => updateField(field.key, val)} />
-                    </div>
-                  ))}
                 </div>
               )}
 
@@ -1143,19 +953,21 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
           <div className="flex gap-2">
             <button
               onClick={handleCurrentPrimaryAction}
-              disabled={saving || (activeTab === 3 && !activityFourStatus) || (activeTab === 2 && !activityThreeStatus) || (activeTab === 1 && !activityTwoStatus)}
+              disabled={saving
+                || (activeTab === 0 && !activityOneConnectionStatus)
+                || (activeTab === 1 && !activityTwoStatus)
+                || (activeTab === 2 && !activityThreeStatus)
+              }
               className={`btn-primary text-xs gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed ${
-                activeTab === 3
-                  ? isActivityFourWon
+                activeTab === 2
+                  ? isActivityThreeWon
                     ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : isActivityFourLost
+                    : isActivityThreeLost
                       ? 'bg-rose-600 hover:bg-rose-700'
-                      : isActivityFourHold
-                        ? 'bg-blue-600 hover:bg-blue-700'
-                        : isActivityFourPending
-                          ? 'bg-slate-600 hover:bg-slate-700'
-                        : 'bg-brand-600 hover:bg-brand-700'
-                  : 'bg-brand-600 hover:bg-brand-700'
+                      : 'bg-brand-600 hover:bg-brand-700'
+                  : activeTab === 0 && isConnected && isNotInterested
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-brand-600 hover:bg-brand-700'
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" /> {currentPrimaryLabel}

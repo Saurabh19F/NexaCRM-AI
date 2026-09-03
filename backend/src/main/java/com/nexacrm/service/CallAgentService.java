@@ -1039,8 +1039,8 @@ public class CallAgentService {
         Lead.LeadStatus resolvedStatus,
         Map<String, Object> currentCallRow
     ) {
-        String adminPhone = resolveAdminNotificationPhone();
-        if (adminPhone.isBlank()) return;
+        java.util.List<String> adminPhones = resolveAdminNotificationPhones();
+        if (adminPhones.isEmpty()) return;
 
         String verdict = trim(stringValue(analysis.get("leadVerdict")));
         int confidence = safeConfidence(analysis);
@@ -1137,11 +1137,14 @@ public class CallAgentService {
         msg.append("━━━━━━━━━━━━━━━━━━━━━━\n");
         msg.append("_NexaCRM Call Intelligence_");
 
-        try {
-            communicationService.sendChannelMessage("whatsapp", adminPhone, "", msg.toString());
-            log.info("Admin call intelligence WhatsApp sent for lead {} to {}", lead.getId(), adminPhone);
-        } catch (Exception ex) {
-            log.warn("Admin call intelligence WhatsApp failed for lead {}: {}", lead.getId(), ex.getMessage());
+        String message = msg.toString();
+        for (String adminPhone : adminPhones) {
+            try {
+                communicationService.sendChannelMessage("whatsapp", adminPhone, "", message);
+                log.info("Admin call intelligence WhatsApp sent for lead {} to {}", lead.getId(), adminPhone);
+            } catch (Exception ex) {
+                log.warn("Admin call intelligence WhatsApp failed for lead {} to {}: {}", lead.getId(), adminPhone, ex.getMessage());
+            }
         }
     }
 
@@ -1166,18 +1169,25 @@ public class CallAgentService {
         return "";
     }
 
-    private String resolveAdminNotificationPhone() {
+    private java.util.List<String> resolveAdminNotificationPhones() {
         String configPhone = trim(integrationService.getConfig("voice_call_agent").get("adminNotificationPhone"));
+        java.util.List<String> phones = new java.util.ArrayList<>();
         if (!configPhone.isBlank()) {
-            return configPhone;
+            for (String p : configPhone.split("[,;\\s]+")) {
+                String cleaned = trim(p);
+                if (!cleaned.isBlank()) phones.add(cleaned);
+            }
         }
-        Long currentTenantId = TenantContext.currentTenantIdOrNull();
-        if (currentTenantId != null) {
-            return tenantRepository.findByTenantIdAndDeletedFalse(currentTenantId)
-                .map(t -> trim(t.getContactPhone()))
-                .orElse("");
+        if (phones.isEmpty()) {
+            Long currentTenantId = TenantContext.currentTenantIdOrNull();
+            if (currentTenantId != null) {
+                tenantRepository.findByTenantIdAndDeletedFalse(currentTenantId)
+                    .map(t -> trim(t.getContactPhone()))
+                    .filter(p -> !p.isBlank())
+                    .ifPresent(phones::add);
+            }
         }
-        return "";
+        return phones;
     }
 
     private Lead.LeadStatus resolveLeadStatusFromAnalysis(

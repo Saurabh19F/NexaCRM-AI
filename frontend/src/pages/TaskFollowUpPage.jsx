@@ -6,7 +6,6 @@ import {
   Search,
   User,
   Phone,
-  Users,
   Trophy,
   Clock,
   CheckCircle2,
@@ -45,8 +44,7 @@ const LEADS_PER_PAGE = 8
 const ACTIVITY_DEFS = [
   { idx: 0, id: 'act01', label: 'Activity 01', title: 'Welcome Call', icon: Phone, color: 'red' },
   { idx: 1, id: 'act02', label: 'Activity 02', title: 'Follow Up for Meeting', icon: Clock, color: 'blue' },
-  { idx: 2, id: 'act03', label: 'Activity 03', title: 'Allowed Person for Meeting', icon: Users, color: 'sky' },
-  { idx: 3, id: 'act04', label: 'Activity 04', title: 'Meeting Outcome', icon: Trophy, color: 'green' },
+  { idx: 2, id: 'act03', label: 'Activity 03', title: 'Meeting Outcome', icon: Trophy, color: 'green' },
 ]
 
 const COLOR_MAP = {
@@ -1197,8 +1195,8 @@ export default function TaskFollowUpPage() {
             lead={activitiesLead}
             onClose={closeActivitiesModal}
             onPersist={handlePersistActivity}
-            initialData={[{}, {}, {}, {}]}
-            initialSaved={[false, false, false, false]}
+            initialData={[{}, {}, {}]}
+            initialSaved={[false, false, false]}
           />
         )}
       </AnimatePresence>

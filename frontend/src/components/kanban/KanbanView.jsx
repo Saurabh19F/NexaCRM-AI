@@ -30,30 +30,20 @@ import PaginatedSelect from '../ui/PaginatedSelect'
 /* ── Pipeline stages — exact activity workflow ──────────────── */
 const STAGES = [
   { key: 'new', label: 'New', group: 'Lead', color: 'bg-slate-400' },
-  { key: 'welcome_connected', label: 'Connected', group: 'Welcome Call', color: 'bg-sky-400' },
   { key: 'welcome_not_connected', label: 'Not Connected', group: 'Welcome Call', color: 'bg-cyan-500' },
-  { key: 'followup_not_interested', label: 'Not Interested', group: 'Follow Up for Meeting', color: 'bg-red-400' },
-  { key: 'followup_meeting', label: 'Meeting', group: 'Follow Up for Meeting', color: 'bg-brand-400' },
-  { key: 'followup_follow_up', label: 'Follow Up', group: 'Follow Up for Meeting', color: 'bg-blue-400' },
-  { key: 'allowed_successful', label: 'Successful', group: 'Allowed Person for Meeting', color: 'bg-emerald-400' },
-  { key: 'allowed_reschedule', label: 'Reschedule', group: 'Allowed Person for Meeting', color: 'bg-amber-400' },
-  { key: 'outcome_negotiation', label: 'Negotiation', group: 'Meeting Outcome', color: 'bg-orange-400' },
-  { key: 'outcome_lost', label: 'Lost', group: 'Meeting Outcome', color: 'bg-red-500' },
-  { key: 'outcome_won', label: 'Won', group: 'Meeting Outcome', color: 'bg-emerald-500' },
-  { key: 'outcome_hold', label: 'Hold', group: 'Meeting Outcome', color: 'bg-indigo-400' },
-  { key: 'outcome_pending_review', label: 'Pending Review', group: 'Meeting Outcome', color: 'bg-slate-500' },
+  { key: 'welcome_connected', label: 'Connected', group: 'Welcome Call', color: 'bg-sky-400' },
+  { key: 'welcome_connected_not_interested', label: 'Not Interested', group: 'Welcome Call', color: 'bg-red-400' },
+  { key: 'welcome_connected_interested', label: 'Interested', group: 'Welcome Call', color: 'bg-emerald-400' },
+  { key: 'followup_follow_up', label: 'Follow Up', group: 'Follow Up', color: 'bg-blue-400' },
+  { key: 'followup_meeting', label: 'Meeting', group: 'Follow Up', color: 'bg-brand-400' },
+  { key: 'outcome_won', label: 'Won', group: 'Outcome', color: 'bg-emerald-500' },
+  { key: 'outcome_negotiation', label: 'Negotiation', group: 'Outcome', color: 'bg-orange-400' },
+  { key: 'outcome_lost', label: 'Lost', group: 'Outcome', color: 'bg-red-500' },
 ]
 
 const PIPELINE_PAGE_SIZE = 50
 
 const ACTIVITY_BY_WORKFLOW_STAGE = {
-  welcome_connected: {
-    activityIndex: 0,
-    activityId: 'act01',
-    activityLabel: 'Activity 01',
-    activityTitle: 'Welcome Call',
-    values: { status: 'Connected', connectionStatus: 'Connected', callOutcome: 'Connected' },
-  },
   welcome_not_connected: {
     activityIndex: 0,
     activityId: 'act01',
@@ -61,19 +51,26 @@ const ACTIVITY_BY_WORKFLOW_STAGE = {
     activityTitle: 'Welcome Call',
     values: { status: 'Not Connected', connectionStatus: 'Not Connected', callOutcome: 'Not Connected' },
   },
-  followup_not_interested: {
-    activityIndex: 1,
-    activityId: 'act02',
-    activityLabel: 'Activity 02',
-    activityTitle: 'Follow Up for Meeting',
-    values: { status: 'Not Interested' },
+  welcome_connected: {
+    activityIndex: 0,
+    activityId: 'act01',
+    activityLabel: 'Activity 01',
+    activityTitle: 'Welcome Call',
+    values: { status: 'Connected', connectionStatus: 'Connected', callOutcome: 'Connected' },
   },
-  followup_meeting: {
-    activityIndex: 1,
-    activityId: 'act02',
-    activityLabel: 'Activity 02',
-    activityTitle: 'Follow Up for Meeting',
-    values: { status: 'Meeting' },
+  welcome_connected_not_interested: {
+    activityIndex: 0,
+    activityId: 'act01',
+    activityLabel: 'Activity 01',
+    activityTitle: 'Welcome Call',
+    values: { status: 'Connected', connectionStatus: 'Connected', callOutcome: 'Connected', interestStatus: 'Not Interested' },
+  },
+  welcome_connected_interested: {
+    activityIndex: 0,
+    activityId: 'act01',
+    activityLabel: 'Activity 01',
+    activityTitle: 'Welcome Call',
+    values: { status: 'Connected', connectionStatus: 'Connected', callOutcome: 'Connected', interestStatus: 'Interested' },
   },
   followup_follow_up: {
     activityIndex: 1,
@@ -82,54 +79,33 @@ const ACTIVITY_BY_WORKFLOW_STAGE = {
     activityTitle: 'Follow Up for Meeting',
     values: { status: 'Follow Up' },
   },
-  allowed_successful: {
-    activityIndex: 2,
-    activityId: 'act03',
-    activityLabel: 'Activity 03',
-    activityTitle: 'Allowed Person for Meeting',
-    values: { status: 'Successful' },
-  },
-  allowed_reschedule: {
-    activityIndex: 2,
-    activityId: 'act03',
-    activityLabel: 'Activity 03',
-    activityTitle: 'Allowed Person for Meeting',
-    values: { status: 'Reschedule' },
+  followup_meeting: {
+    activityIndex: 1,
+    activityId: 'act02',
+    activityLabel: 'Activity 02',
+    activityTitle: 'Follow Up for Meeting',
+    values: { status: 'Meeting' },
   },
   outcome_negotiation: {
-    activityIndex: 3,
-    activityId: 'act04',
-    activityLabel: 'Activity 04',
+    activityIndex: 2,
+    activityId: 'act03',
+    activityLabel: 'Activity 03',
     activityTitle: 'Meeting Outcome',
     values: { status: 'Negotiation' },
   },
   outcome_lost: {
-    activityIndex: 3,
-    activityId: 'act04',
-    activityLabel: 'Activity 04',
+    activityIndex: 2,
+    activityId: 'act03',
+    activityLabel: 'Activity 03',
     activityTitle: 'Meeting Outcome',
     values: { status: 'Lost' },
   },
   outcome_won: {
-    activityIndex: 3,
-    activityId: 'act04',
-    activityLabel: 'Activity 04',
+    activityIndex: 2,
+    activityId: 'act03',
+    activityLabel: 'Activity 03',
     activityTitle: 'Meeting Outcome',
     values: { status: 'Won' },
-  },
-  outcome_hold: {
-    activityIndex: 3,
-    activityId: 'act04',
-    activityLabel: 'Activity 04',
-    activityTitle: 'Meeting Outcome',
-    values: { status: 'Hold' },
-  },
-  outcome_pending_review: {
-    activityIndex: 3,
-    activityId: 'act04',
-    activityLabel: 'Activity 04',
-    activityTitle: 'Meeting Outcome',
-    values: { status: 'Pending Review' },
   },
 }
 
@@ -174,7 +150,7 @@ const formatLeadCreatedDateTime = (lead) => {
   }
 }
 
-const emptyActivityState = () => ({ data: [{}, {}, {}, {}], saved: [false, false, false, false], latestStage: null })
+const emptyActivityState = () => ({ data: [{}, {}, {}], saved: [false, false, false], latestStage: null })
 
 const unwrapActivityRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -183,8 +159,8 @@ const unwrapActivityRows = (payload) => {
 }
 
 const buildActivityModalState = (rows = []) => {
-  const data = [{}, {}, {}, {}]
-  const saved = [false, false, false, false]
+  const data = [{}, {}, {}]
+  const saved = [false, false, false]
   const seen = new Set()
   let latestStage = null
 
@@ -197,7 +173,7 @@ const buildActivityModalState = (rows = []) => {
   for (const row of sortedRows) {
     const idx = Number(row?.activityIndex)
     if (!latestStage) latestStage = getWorkflowStageFromActivityRow(row)
-    if (!(idx >= 0 && idx < 4) || seen.has(idx)) continue
+    if (!(idx >= 0 && idx < 3) || seen.has(idx)) continue
     seen.add(idx)
     data[idx] = {
       ...(row?.values || {}),
@@ -238,30 +214,21 @@ const getWorkflowStageFromActivityRow = (row) => {
   const status = normalizeWorkflowStatus(
     values.status ||
     values.outcome ||
-    values.meetingStatus ||
     values.remarkStatus ||
     values.connectionStatus ||
     values.callOutcome
   )
-
-  if (idx === 3) {
-    if (status.includes('won') || status.includes('win')) return 'outcome_won'
-    if (status.includes('lost')) return 'outcome_lost'
-    if (status.includes('hold') || status.includes('follow') || status.includes('no response')) return 'outcome_hold'
-    if (status.includes('pending')) return 'outcome_pending_review'
-    if (status.includes('negoti')) return 'outcome_negotiation'
-    return 'outcome_pending_review'
-  }
+  const interest = normalizeWorkflowStatus(values.interestStatus || values.interest || '')
 
   if (idx === 2) {
-    if (status.includes('success')) return 'allowed_successful'
-    if (status.includes('reschedule') || status.includes('fail')) return 'allowed_reschedule'
-    return 'allowed_reschedule'
+    if (status.includes('won') || status.includes('win')) return 'outcome_won'
+    if (status.includes('lost')) return 'outcome_lost'
+    if (status.includes('negoti')) return 'outcome_negotiation'
+    return 'outcome_negotiation'
   }
 
   if (idx === 1) {
-    if (status.includes('not interested')) return 'followup_not_interested'
-    if (status.includes('meeting')) return 'followup_meeting'
+    if (status.includes('allowed person') || status.includes('meeting')) return 'followup_meeting'
     if (status.includes('follow')) return 'followup_follow_up'
     return 'followup_follow_up'
   }
@@ -270,7 +237,11 @@ const getWorkflowStageFromActivityRow = (row) => {
     if (status.includes('not connected') || status.includes('non connected') || status.includes('no answer') || status.includes('callback')) {
       return 'welcome_not_connected'
     }
-    if (status.includes('connect')) return 'welcome_connected'
+    if (status.includes('connect')) {
+      if (interest.includes('not interested')) return 'welcome_connected_not_interested'
+      if (interest.includes('interested')) return 'welcome_connected_interested'
+      return 'welcome_connected'
+    }
     return 'welcome_not_connected'
   }
 
@@ -283,37 +254,32 @@ const getWorkflowStageFromActivityState = (state) => {
   const data = state?.data || []
   const saved = state?.saved || []
 
-  if (saved[3]) {
-    const status = normalizeWorkflowStatus(data[3]?.status || data[3]?.outcome)
+  if (saved[2]) {
+    const status = normalizeWorkflowStatus(data[2]?.status || data[2]?.outcome)
     if (status.includes('won') || status.includes('win')) return 'outcome_won'
     if (status.includes('lost')) return 'outcome_lost'
-    if (status.includes('hold') || status.includes('follow') || status.includes('no response')) return 'outcome_hold'
-    if (status.includes('pending')) return 'outcome_pending_review'
     if (status.includes('negoti')) return 'outcome_negotiation'
-    return 'outcome_pending_review'
-  }
-
-  if (saved[2]) {
-    const status = normalizeWorkflowStatus(data[2]?.status || data[2]?.meetingStatus)
-    if (status.includes('success')) return 'allowed_successful'
-    if (status.includes('reschedule') || status.includes('fail')) return 'allowed_reschedule'
-    return 'allowed_reschedule'
+    return 'outcome_negotiation'
   }
 
   if (saved[1]) {
     const status = normalizeWorkflowStatus(data[1]?.status || data[1]?.remarkStatus)
-    if (status.includes('not interested')) return 'followup_not_interested'
-    if (status.includes('meeting')) return 'followup_meeting'
+    if (status.includes('allowed person') || status.includes('meeting')) return 'followup_meeting'
     if (status.includes('follow')) return 'followup_follow_up'
     return 'followup_follow_up'
   }
 
   if (saved[0]) {
     const status = normalizeWorkflowStatus(data[0]?.connectionStatus || data[0]?.callOutcome || data[0]?.status)
+    const interest = normalizeWorkflowStatus(data[0]?.interestStatus || data[0]?.interest || '')
     if (status.includes('not connected') || status.includes('non connected') || status.includes('no answer') || status.includes('callback')) {
       return 'welcome_not_connected'
     }
-    if (status.includes('connect')) return 'welcome_connected'
+    if (status.includes('connect')) {
+      if (interest.includes('not interested')) return 'welcome_connected_not_interested'
+      if (interest.includes('interested')) return 'welcome_connected_interested'
+      return 'welcome_connected'
+    }
     return 'welcome_not_connected'
   }
 

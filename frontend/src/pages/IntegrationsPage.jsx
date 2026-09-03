@@ -128,7 +128,7 @@ const INTEGRATIONS = [
       { key: 'enabled', label: 'Enabled (optional, true/false)', placeholder: 'true' },
       { key: 'autoCallOnLeadCreate', label: 'Auto Call On New Lead (optional, true/false)', placeholder: 'true' },
       { key: 'autoAssignHotLead', label: 'Auto Assign Hot Lead (optional, true/false)', placeholder: 'true' },
-      { key: 'adminNotificationPhone', label: 'Admin WhatsApp Number for Notifications', placeholder: '918985419420', hint: 'Your WhatsApp number to receive new lead alerts + call intelligence reports. Falls back to tenant contact phone if empty.' },
+      { key: 'adminNotificationPhone', label: 'Admin WhatsApp Numbers for Notifications (up to 5)', placeholder: '918985419420, 919876543210', hint: 'Comma-separated WhatsApp numbers (up to 5) to receive new lead alerts + call intelligence reports. Falls back to tenant contact phone if empty.' },
       { key: 'agentName', label: 'Agent Name (optional)', placeholder: 'Riya from NexaCRM' },
       { key: 'scriptTemplate', label: 'Call Script Template (optional)', placeholder: 'Hi {leadName}, this is {agentName}...' },
     ],
