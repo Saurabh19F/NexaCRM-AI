@@ -131,24 +131,36 @@ public class LeadActivityService {
                 .append("saved_at", -1))
         );
 
-        List<LeadActivity> activities = new ArrayList<>();
+        // Try the optimised aggregation (uses lead_activity_bulk_stage_preview_idx)
         try {
+            List<LeadActivity> activities = new ArrayList<>();
             mongoTemplate.getCollection("lead_activities")
                 .aggregate(pipeline)
                 .hintString("lead_activity_bulk_stage_preview_idx")
                 .allowDiskUse(false)
                 .maxTime(8, TimeUnit.SECONDS)
                 .forEach(doc -> activities.add(mongoTemplate.getConverter().read(LeadActivity.class, doc)));
+            return activities;
         } catch (RuntimeException ex) {
-            // The board should still open even if activity previews are temporarily expensive.
-            // A lead's full activity timeline is still loaded on demand when its modal is opened.
             org.slf4j.LoggerFactory.getLogger(LeadActivityService.class).warn(
-                "Bulk activity preview skipped for {} leads: {}",
+                "Bulk activity aggregation failed for {} leads, falling back to simple query: {}",
                 visibleLeadIds.size(),
                 ex.getMessage()
             );
         }
-        return activities;
+
+        // Fallback: simple indexed query — returns all activities (frontend handles dedup)
+        try {
+            return leadActivityRepository.findByLeadIdInAndTenantIdAndDeletedFalseOrderBySavedAtDesc(
+                new ArrayList<>(visibleLeadIds), tenantId());
+        } catch (RuntimeException ex2) {
+            org.slf4j.LoggerFactory.getLogger(LeadActivityService.class).warn(
+                "Bulk activity fallback query also failed for {} leads: {}",
+                visibleLeadIds.size(),
+                ex2.getMessage()
+            );
+            return List.of();
+        }
     }
 
     @CacheEvict(value = "pipeline-board", allEntries = true)
