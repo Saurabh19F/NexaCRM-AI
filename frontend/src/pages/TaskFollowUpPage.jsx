@@ -421,8 +421,8 @@ export default function TaskFollowUpPage() {
 
       setLeads(leadRows)
       setTasks(visiblePendingTaskRows)
-      await loadAllActivities(taskLeadRows)
       setLoading(false)
+      loadAllActivities(taskLeadRows)
 
       setLoadingCompletedTasks(true)
       tasksAPI.getAll({ status: 'COMPLETED' })
@@ -705,7 +705,7 @@ export default function TaskFollowUpPage() {
             </div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-red-600 dark:text-red-400">Welcome Call</p>
           </div>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.welcomeCall}</h3>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loadingActivities ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.welcomeCall}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads awaiting first call</p>
         </div>
         <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-blue-300 dark:hover:ring-blue-700" onClick={() => setActiveTab('followup_meeting')}>
@@ -715,7 +715,7 @@ export default function TaskFollowUpPage() {
             </div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Follow-up Meeting</p>
           </div>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.followupMeeting}</h3>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loadingActivities ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.followupMeeting}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads awaiting meeting</p>
         </div>
         <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-emerald-300 dark:hover:ring-emerald-700" onClick={() => setActiveTab('meeting_outcome')}>
@@ -725,14 +725,14 @@ export default function TaskFollowUpPage() {
             </div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Meeting Outcome</p>
           </div>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.meetingOutcome}</h3>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loadingActivities ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.meetingOutcome}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads pending outcome</p>
         </div>
         <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-brand-300 dark:hover:ring-brand-700" onClick={() => setActiveTab('completed')}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Completed</p>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.completed}</h3>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loadingActivities ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.completed}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            {loading ? <span className="inline-block h-4 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <>Won: {stats.won} · Lost: {stats.lost}{stats.totalRevenue > 0 ? ` · ₹${stats.totalRevenue.toLocaleString('en-IN')}` : ''}</>}
+            {loadingActivities ? <span className="inline-block h-4 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <>Won: {stats.won} · Lost: {stats.lost}{stats.totalRevenue > 0 ? ` · ₹${stats.totalRevenue.toLocaleString('en-IN')}` : ''}</>}
           </p>
         </div>
       </div>
@@ -761,7 +761,7 @@ export default function TaskFollowUpPage() {
                     ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
                     : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                 }`}>
-                  {loading ? '…' : tabCount}
+                  {loadingActivities ? '…' : tabCount}
                 </span>
                 {activeTab === tab.key && (
                   <motion.div
@@ -789,7 +789,7 @@ export default function TaskFollowUpPage() {
         </div>
 
         {/* Content */}
-        {loading || (activeTab === 'completed' && loadingCompletedTasks && !completedTasksLoaded) ? (
+        {loading || (activeTab !== 'completed' && loadingActivities) || (activeTab === 'completed' && loadingCompletedTasks && !completedTasksLoaded) ? (
           <div className="grid gap-3 p-4">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60" />
