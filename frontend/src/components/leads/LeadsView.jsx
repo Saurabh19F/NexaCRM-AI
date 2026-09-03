@@ -1288,12 +1288,16 @@ export default function LeadsPage() {
     }
     const ext = format === 'xlsx' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv'
     leadsAPI.export({ format, status: statusFilter === 'all' ? undefined : statusFilter })
-      .then((blob) => {
+      .then((data) => {
+        const blob = data instanceof Blob ? data : new Blob([data])
+        const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
+        a.href = url
         a.download = `leads-${new Date().toISOString().slice(0, 10)}.${ext}`
+        document.body.appendChild(a)
         a.click()
-        URL.revokeObjectURL(a.href)
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 100)
         toast.success('Leads exported successfully.')
       })
       .catch((err) => {
