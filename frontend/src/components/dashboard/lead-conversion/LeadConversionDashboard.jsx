@@ -311,7 +311,9 @@ export default function LeadConversionDashboard() {
   const [trend, setTrend] = useState([])
   const [followUpTasks, setFollowUpTasks] = useState([])
   const [followUpError, setFollowUpError] = useState('')
-  const [loading, setLoading] = useState(true)
+  // ponytail: per-section loading — each widget renders as its data arrives, no Promise.all blocking
+  const [loadingChunks, setLoadingChunks] = useState({ summary: true, funnel: true, employees: true, sources: true, activities: true, trend: true, followUps: true })
+  const loading = Object.values(loadingChunks).every(Boolean)
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -349,47 +351,52 @@ export default function LeadConversionDashboard() {
   useEffect(() => {
     let mounted = true
     const controller = new AbortController()
+    const markChunk = (key, value) => {
+      if (mounted && !controller.signal.aborted) setLoadingChunks((prev) => ({ ...prev, [key]: value }))
+    }
 
-    const load = async ({ silent = false } = {}) => {
+    const load = ({ silent = false } = {}) => {
       if (!silent) {
-        setLoading(true)
+        setLoadingChunks({ summary: true, funnel: true, employees: true, sources: true, activities: true, trend: true, followUps: true })
         setError('')
       }
-      const followUpPromise = tasksAPI.getAll({ status: 'PENDING' })
-        .then((response) => ({ rows: unwrapList(response), error: '' }))
-        .catch((err) => ({ rows: [], error: err?.message || 'Unable to load follow-ups' }))
-      try {
-        const employeeParams = { ...requestParams, sortBy, sortDir }
-        const [summaryRes, funnelRes, employeesRes, sourcesRes, activitiesRes, trendRes] = await Promise.all([
-          dashboardAPI.getLeadConversionSummary(requestParams),
-          dashboardAPI.getLeadConversionFunnel(requestParams),
-          dashboardAPI.getLeadConversionEmployees(employeeParams),
-          dashboardAPI.getLeadConversionSources(requestParams),
-          dashboardAPI.getLeadConversionActivities({ ...requestParams, limit: ACTIVITY_FETCH_LIMIT }),
-          dashboardAPI.getLeadConversionTrend({ ...requestParams, granularity: trendGranularity }),
-        ])
+      const employeeParams = { ...requestParams, sortBy, sortDir }
 
-        if (!mounted || controller.signal.aborted) return
-        setSummary(summaryRes)
-        setFunnel(Array.isArray(funnelRes) ? funnelRes : [])
-        setEmployees(Array.isArray(employeesRes) ? employeesRes : [])
-        setSources(Array.isArray(sourcesRes) ? sourcesRes : [])
-        setActivities(Array.isArray(activitiesRes) ? activitiesRes : [])
-        setTrend(Array.isArray(trendRes) ? trendRes : [])
-        setLastUpdated(new Date().toISOString())
+      // Each chunk loads independently — first to arrive renders first
+      dashboardAPI.getLeadConversionSummary(requestParams)
+        .then((res) => { if (mounted) { setSummary(res); setLastUpdated(new Date().toISOString()) } })
+        .catch((err) => { if (mounted) setError((prev) => prev || err?.message || 'Failed to load summary') })
+        .finally(() => markChunk('summary', false))
 
-        const followUpResult = await followUpPromise
-        if (!mounted || controller.signal.aborted) return
-        setFollowUpTasks(followUpResult.rows)
-        setFollowUpError(followUpResult.error)
-      } catch (err) {
-        if (!mounted || controller.signal.aborted) return
-        setError(err?.message || 'Failed to load lead conversion dashboard')
-      } finally {
-        if (mounted && !controller.signal.aborted) {
-          setLoading(false)
-        }
-      }
+      dashboardAPI.getLeadConversionFunnel(requestParams)
+        .then((res) => { if (mounted) setFunnel(Array.isArray(res) ? res : []) })
+        .catch(() => {})
+        .finally(() => markChunk('funnel', false))
+
+      dashboardAPI.getLeadConversionEmployees(employeeParams)
+        .then((res) => { if (mounted) setEmployees(Array.isArray(res) ? res : []) })
+        .catch(() => {})
+        .finally(() => markChunk('employees', false))
+
+      dashboardAPI.getLeadConversionSources(requestParams)
+        .then((res) => { if (mounted) setSources(Array.isArray(res) ? res : []) })
+        .catch(() => {})
+        .finally(() => markChunk('sources', false))
+
+      dashboardAPI.getLeadConversionActivities({ ...requestParams, limit: ACTIVITY_FETCH_LIMIT })
+        .then((res) => { if (mounted) setActivities(Array.isArray(res) ? res : []) })
+        .catch(() => {})
+        .finally(() => markChunk('activities', false))
+
+      dashboardAPI.getLeadConversionTrend({ ...requestParams, granularity: trendGranularity })
+        .then((res) => { if (mounted) setTrend(Array.isArray(res) ? res : []) })
+        .catch(() => {})
+        .finally(() => markChunk('trend', false))
+
+      tasksAPI.getAll({ status: 'PENDING' })
+        .then((response) => { if (mounted) { setFollowUpTasks(unwrapList(response)); setFollowUpError('') } })
+        .catch((err) => { if (mounted) setFollowUpError(err?.message || 'Unable to load follow-ups') })
+        .finally(() => markChunk('followUps', false))
     }
 
     load()
@@ -633,25 +640,24 @@ export default function LeadConversionDashboard() {
         </div>
       )}
 
-      {loading && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, index) => <LoadingCard key={index} />)}
-        </div>
-      )}
+      {/* ── KPI Cards — render skeleton per-card until summary+trend arrive ── */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        {loadingChunks.summary
+          ? Array.from({ length: 12 }).map((_, index) => <LoadingCard key={index} />)
+          : KPI_CARDS.map((item) => (
+            <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
+          ))
+        }
+      </div>
 
-      {!loading && (
-        <>
-          {/* ── KPI Cards — all live tiles, 6 + 6 on desktop ── */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-            {KPI_CARDS.map((item) => (
-              <MetricCard key={item.key} item={item} metric={summary?.[item.key]} sparkline={kpiSparklines[item.key]} />
-            ))}
-          </div>
-
-          {/* ── Funnel + Trend ── */}
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
-            <div className="dashboard-color-card glass-card p-3 sm:p-4 xl:col-span-5" style={tintStyle('124, 58, 237')}>
-              <SectionShell
+      {/* ── Funnel + Trend ── */}
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
+        <div className="dashboard-color-card glass-card p-3 sm:p-4 xl:col-span-5" style={tintStyle('124, 58, 237')}>
+          {loadingChunks.funnel ? (
+            <div className="h-[320px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+          ) : (
+            <>
+            <SectionShell
                 title="Lead Conversion Funnel"
                 icon={Target}
                 color="from-brand-500 to-violet-600"
@@ -705,9 +711,15 @@ export default function LeadConversionDashboard() {
               ) : (
                 <ChartEmptyState label="No funnel data available." />
               )}
-            </div>
+            </>
+          )}
+        </div>
 
-            <div className="dashboard-color-card glass-card p-3 sm:p-4 xl:col-span-7" style={tintStyle('6, 182, 212')}>
+        <div className="dashboard-color-card glass-card p-3 sm:p-4 xl:col-span-7" style={tintStyle('6, 182, 212')}>
+          {loadingChunks.trend ? (
+            <div className="h-[280px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+          ) : (
+            <>
               <SectionShell
                 title="Trend Line"
                 icon={LineChartIcon}
@@ -750,12 +762,18 @@ export default function LeadConversionDashboard() {
                   <p className="text-xs text-slate-400">Trends will appear as leads flow in over multiple days.</p>
                 </div>
               )}
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {/* ── #2: Lead Source Analytics ── */}
-            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('16, 185, 129')}>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {/* ── #2: Lead Source Analytics ── */}
+        <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('16, 185, 129')}>
+          {loadingChunks.sources ? (
+            <div className="h-[200px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+          ) : (
+            <>
               <SectionShell
                 title="Lead Source Analytics"
                 icon={Globe2}
@@ -822,10 +840,16 @@ export default function LeadConversionDashboard() {
               ) : (
                 <ChartEmptyState label="No source analytics available." />
               )}
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* ── #3: Status Donut ── */}
-            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('124, 58, 237')}>
+        {/* ── #3: Status Donut ── */}
+        <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('124, 58, 237')}>
+          {loadingChunks.summary ? (
+            <div className="h-[200px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+          ) : (
+            <>
               <SectionShell
                 title="Status Donut"
                 icon={Repeat2}
@@ -878,11 +902,17 @@ export default function LeadConversionDashboard() {
                   </div>
                 )
               })()}
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      </div>
 
-          {/* ── #4: Activity Timeline — compact grid ── */}
-          <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('14, 165, 233')}>
+      {/* ── #4: Activity Timeline — compact grid ── */}
+      <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('14, 165, 233')}>
+        {loadingChunks.activities ? (
+          <div className="h-[160px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+        ) : (
+          <>
             <SectionShell
               title="Lead Activity Timeline"
               icon={CalendarDays}
@@ -953,11 +983,17 @@ export default function LeadConversionDashboard() {
                 })}
               </div>
             )}
-          </div>
+          </>
+        )}
+      </div>
 
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-            {/* ── #5: Follow-up Snapshot ── */}
-            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('245, 158, 11')}>
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        {/* ── #5: Follow-up Snapshot ── */}
+        <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('245, 158, 11')}>
+          {loadingChunks.followUps ? (
+            <div className="h-[200px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+          ) : (
+            <>
               <SectionShell
                 title="Follow-up Snapshot"
                 icon={Clock3}
@@ -1044,10 +1080,16 @@ export default function LeadConversionDashboard() {
                   No open follow-ups due today, yesterday, or this week.
                 </div>
               )}
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* ── #6: Employee Performance — compact leaderboard ── */}
-            <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('244, 63, 94')}>
+        {/* ── #6: Employee Performance — compact leaderboard ── */}
+        <div className="dashboard-color-card glass-card p-3 sm:p-4" style={tintStyle('244, 63, 94')}>
+          {loadingChunks.employees ? (
+            <div className="h-[200px] animate-pulse rounded-xl bg-white/30 dark:bg-slate-800/30" />
+          ) : (
+            <>
               <SectionShell
                 title="Employee Performance"
                 icon={Users}
@@ -1162,10 +1204,10 @@ export default function LeadConversionDashboard() {
             ) : (
               <ChartEmptyState label="No employee data yet." />
             )}
-            </div>
-          </div>
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </div>
     </section>
   )
 }

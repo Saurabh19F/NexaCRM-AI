@@ -70,10 +70,9 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // Load extras after a short delay so they don't compete with the main dashboard API calls
+  // Load extras immediately — dashboard sections load in independent chunks now
   useEffect(() => {
-    const delay = setTimeout(() => loadExtras(), 2000)
-    return () => clearTimeout(delay)
+    loadExtras()
   }, [loadExtras])
 
   return (
