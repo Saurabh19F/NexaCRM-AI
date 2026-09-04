@@ -2016,8 +2016,10 @@ public class LeadService {
                 row.createCell(14).setCellValue(safe(lead.getTags()));
             }
 
+            // ponytail: fixed widths instead of autoSizeColumn (O(rows*cols) font rendering)
+            int[] charWidths = {20,30,16,20,20,20,12,10,12,12,20,22,22,30,20};
             for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
+                sheet.setColumnWidth(i, charWidths[i] * 256);
             }
 
             workbook.write(out);
