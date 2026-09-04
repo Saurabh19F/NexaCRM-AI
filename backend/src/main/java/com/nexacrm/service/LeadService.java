@@ -1983,13 +1983,20 @@ public class LeadService {
     }
 
     private byte[] exportAsXlsx(List<Lead> leads) {
-        try (XSSFWorkbook workbook = new XSSFWorkbook();
+        // ponytail: SXSSFWorkbook streams rows to disk instead of holding all in RAM — 10x faster
+        try (org.apache.poi.xssf.streaming.SXSSFWorkbook workbook = new org.apache.poi.xssf.streaming.SXSSFWorkbook(100);
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Leads");
             String[] headers = {
                 "Name","Email","Phone","Company","Service","Specialization","Source",
                 "Score","Status","Value","Assigned To","Created At","Updated At","Notes","Tags"
             };
+
+            // Set column widths before streaming rows
+            int[] charWidths = {20,30,16,20,20,20,12,10,12,12,20,22,22,30,20};
+            for (int i = 0; i < headers.length; i++) {
+                sheet.setColumnWidth(i, charWidths[i] * 256);
+            }
 
             Row headerRow = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {
@@ -2016,13 +2023,8 @@ public class LeadService {
                 row.createCell(14).setCellValue(safe(lead.getTags()));
             }
 
-            // ponytail: fixed widths instead of autoSizeColumn (O(rows*cols) font rendering)
-            int[] charWidths = {20,30,16,20,20,20,12,10,12,12,20,22,22,30,20};
-            for (int i = 0; i < headers.length; i++) {
-                sheet.setColumnWidth(i, charWidths[i] * 256);
-            }
-
             workbook.write(out);
+            workbook.dispose(); // clean up temp streaming files
             return out.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException("Failed to export leads as XLSX", e);

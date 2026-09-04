@@ -1291,6 +1291,8 @@ export default function LeadsPage() {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
     const qs = new URLSearchParams(params).toString()
 
+    const toastId = toast.loading(`Preparing ${ext.toUpperCase()} export…`)
+
     fetch(`${baseUrl}/leads/export?${qs}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -1308,10 +1310,10 @@ export default function LeadsPage() {
         a.click()
         a.remove()
         setTimeout(() => URL.revokeObjectURL(url), 500)
-        toast.success('Leads exported successfully.')
+        toast.success('Leads exported successfully.', { id: toastId })
       })
       .catch((err) => {
-        toast.error(err?.message || 'Failed to export leads')
+        toast.error(err?.message || 'Failed to export leads', { id: toastId })
       })
   }
 
