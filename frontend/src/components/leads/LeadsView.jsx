@@ -23,6 +23,9 @@ import { useAuthStore } from '../../store/authStore'
 import { getLeadAgingMeta, getLeadAgeMinutes } from '../../utils/leadSla'
 import { callsAPI, leadsAPI, teamAPI } from '../../services/api'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
+import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const SCORE_BADGE = {
   hot:  { label: 'Hot',  icon: Flame,       cls: 'badge-hot' },
@@ -1282,39 +1285,51 @@ export default function LeadsPage() {
       toast.error('You do not have permission to export leads.')
       return
     }
-    const ext = format === 'xlsx' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv'
-    const mimeMap = { pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', csv: 'text/csv' }
-    const params = { format }
-    if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+    try {
+      const headers = ['Name','Email','Phone','Company','Service','Specialization','Source','Score','Status','Value','Assigned To','Created At','Updated At','Notes','Tags']
+      const rows = filtered.map((l) => [
+        l.name || '', l.email || '', l.phone || '', l.company || '',
+        l.service || '', l.specialization || '', l.source || '',
+        l.score || '', l.status || '',
+        l.dealValue ?? 0, l.assignedToName || l.assignedTo?.name || l.assignedTo || '',
+        l.createdAt ? new Date(l.createdAt).toLocaleString() : '',
+        l.updatedAt ? new Date(l.updatedAt).toLocaleString() : '',
+        l.notes || '', l.tags || '',
+      ])
+      const filename = `leads-${new Date().toISOString().slice(0, 10)}`
 
-    const token = useAuthStore.getState().token
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-    const qs = new URLSearchParams(params).toString()
-
-    const toastId = toast.loading(`Preparing ${ext.toUpperCase()} export…`)
-
-    fetch(`${baseUrl}/leads/export?${qs}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Export failed (${res.status})`)
-        return res.blob()
-      })
-      .then((blob) => {
-        const typed = new Blob([blob], { type: mimeMap[ext] || blob.type })
-        const url = URL.createObjectURL(typed)
+      if (format === 'xlsx') {
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Leads')
+        XLSX.writeFile(wb, `${filename}.xlsx`)
+      } else if (format === 'pdf') {
+        const doc = new jsPDF({ orientation: 'landscape' })
+        doc.setFontSize(14)
+        doc.text(`Leads Export — ${new Date().toLocaleDateString()}`, 14, 15)
+        autoTable(doc, {
+          head: [['Name','Email','Phone','Company','Score','Status','Value','Source']],
+          body: rows.map((r) => [r[0],r[1],r[2],r[3],r[7],r[8],r[9],r[6]]),
+          startY: 22,
+          styles: { fontSize: 7 },
+        })
+        doc.save(`${filename}.pdf`)
+      } else {
+        const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+        const blob = new Blob([csv], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `leads-${new Date().toISOString().slice(0, 10)}.${ext}`
+        a.download = `${filename}.csv`
         document.body.appendChild(a)
         a.click()
         a.remove()
         setTimeout(() => URL.revokeObjectURL(url), 500)
-        toast.success('Leads exported successfully.', { id: toastId })
-      })
-      .catch((err) => {
-        toast.error(err?.message || 'Failed to export leads', { id: toastId })
-      })
+      }
+      toast.success('Leads exported successfully.')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to export leads')
+    }
   }
 
   const handleImport = async (e) => {
