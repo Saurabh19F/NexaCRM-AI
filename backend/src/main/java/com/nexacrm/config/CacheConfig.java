@@ -67,6 +67,7 @@ public class CacheConfig implements CachingConfigurer {
                 .withCacheConfiguration("dashboard-activities", dashboardConfig)
                 .withCacheConfiguration("dashboard-trend", dashboardConfig)
                 .withCacheConfiguration("dashboard-widgets", dashboardConfig)
+                .withCacheConfiguration("dashboard-overview", dashboardConfig)
                 .build();
     }
 

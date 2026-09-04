@@ -1,5 +1,7 @@
 package com.nexacrm.config;
 
+import com.nexacrm.model.CommunicationRecord;
+import com.nexacrm.model.Deal;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.Invoice;
 import com.nexacrm.model.Lead;
@@ -60,6 +62,58 @@ public class MongoIndexInitializer {
                 .on("createdAt", Sort.Direction.DESC)
                 .background()
                 .named("lead_tenant_deleted_assigned_created_idx")
+        );
+
+        // Dashboard count queries: status and source grouping
+        mongoTemplate.indexOps(Lead.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("status", Sort.Direction.ASC)
+                .background()
+                .named("lead_tenant_deleted_status_idx")
+        );
+
+        mongoTemplate.indexOps(Lead.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("source", Sort.Direction.ASC)
+                .background()
+                .named("lead_tenant_deleted_source_idx")
+        );
+
+        // Leads list default sort
+        mongoTemplate.indexOps(Lead.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .background()
+                .named("lead_tenant_deleted_created_idx")
+        );
+
+        // Deals: pipeline/kanban queries
+        mongoTemplate.indexOps(Deal.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("stage", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .background()
+                .named("deal_tenant_deleted_stage_created_idx")
+        );
+
+        // Tasks: indexes already defined via @CompoundIndex on Task model
+
+        // Communications: dashboard call snapshots
+        mongoTemplate.indexOps(CommunicationRecord.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("channel", Sort.Direction.ASC)
+                .on("created_at", Sort.Direction.DESC)
+                .background()
+                .named("comm_tenant_channel_created_idx")
         );
 
         log.info("Mongo operational indexes verified");

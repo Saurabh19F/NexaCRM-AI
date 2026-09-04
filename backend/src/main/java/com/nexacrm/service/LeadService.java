@@ -236,6 +236,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO create(LeadDTO dto) {
@@ -342,6 +343,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO update(String id, LeadDTO dto) {
@@ -427,6 +429,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public void delete(String id) {
@@ -444,6 +447,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public int bulkDelete(List<String> ids) {
@@ -558,6 +562,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO merge(String primaryId, String duplicateId) {
@@ -593,6 +598,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO reopen(String id, Map<String, Object> options) {

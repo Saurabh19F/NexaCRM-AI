@@ -16,6 +16,8 @@ import com.nexacrm.service.LeadCallAutomationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.cache.annotation.Cacheable;
@@ -86,6 +88,7 @@ public class DashboardAnalyticsService {
         return TenantContext.currentTenantId();
     }
 
+    @Cacheable(value = "dashboard-overview", key = "T(com.nexacrm.security.TenantContext).currentTenantId()")
     public DashboardOverviewDTO overview() {
         return new DashboardOverviewDTO(
             List.of(),
@@ -353,6 +356,24 @@ public class DashboardAnalyticsService {
         return insights;
     }
 
+    /**
+     * Single aggregation that groups all leads by a field and returns counts.
+     * Replaces N individual countLeads() calls with 1 round-trip.
+     */
+    private Map<String, Long> countByField(String field) {
+        Aggregation agg = Aggregation.newAggregation(
+            Aggregation.match(Criteria.where("tenant_id").is(tenantId()).and("deleted").is(false)),
+            Aggregation.group(field).count().as("count")
+        );
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (org.bson.Document doc : mongoTemplate.aggregate(agg, "leads", org.bson.Document.class).getMappedResults()) {
+            String key = doc.get("_id") != null ? doc.get("_id").toString() : "";
+            long count = doc.get("count") instanceof Number n ? n.longValue() : 0L;
+            if (!key.isBlank()) result.put(key, count);
+        }
+        return result;
+    }
+
     private long countLeads(Criteria... extraCriteria) {
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
@@ -377,15 +398,24 @@ public class DashboardAnalyticsService {
         return mongoTemplate.count(query, "leads");
     }
 
+    // ponytail: single aggregation replaces 10 individual count queries
     private Map.Entry<String, Long> topLeadSource() {
-        Map.Entry<String, Long> top = Map.entry("unknown", 0L);
-        for (Lead.LeadSource source : Lead.LeadSource.values()) {
-            long count = countLeads(Criteria.where("source").is(source));
-            if (count > top.getValue()) {
-                top = Map.entry(sourceLabel(source), count);
-            }
+        Aggregation agg = Aggregation.newAggregation(
+            Aggregation.match(Criteria.where("tenant_id").is(tenantId()).and("deleted").is(false)),
+            Aggregation.group("source").count().as("count"),
+            Aggregation.sort(Sort.by(Sort.Direction.DESC, "count")),
+            Aggregation.limit(1)
+        );
+        List<org.bson.Document> results = mongoTemplate.aggregate(agg, "leads", org.bson.Document.class)
+            .getMappedResults();
+        if (results.isEmpty()) {
+            return Map.entry("unknown", 0L);
         }
-        return top;
+        org.bson.Document top = results.get(0);
+        String sourceKey = top.getString("_id");
+        long count = top.get("count") instanceof Number n ? n.longValue() : 0L;
+        Lead.LeadSource source = enumOrNull(Lead.LeadSource.class, sourceKey);
+        return Map.entry(source != null ? sourceLabel(source) : "Other", count);
     }
 
     private List<Map<String, Object>> buildLocalInsightsFromDTOs(List<LeadDTO> leads) {
@@ -830,11 +860,12 @@ public class DashboardAnalyticsService {
         return stages;
     }
 
+    // ponytail: single aggregation replaces 6 individual count queries
     private List<DashboardWidgetSnapshotDTO.FunnelStage> buildFunnelDataFromCounts() {
+        Map<String, Long> statusCounts = countByField("status");
         List<DashboardWidgetSnapshotDTO.FunnelStage> stages = new ArrayList<>();
         for (DashboardStage stage : dashboardStages()) {
-            Lead.LeadStatus status = enumOrNull(Lead.LeadStatus.class, stage.key());
-            long count = status != null ? countLeads(Criteria.where("status").is(status)) : 0;
+            long count = statusCounts.getOrDefault(stage.key(), 0L);
             stages.add(new DashboardWidgetSnapshotDTO.FunnelStage(stage.label(), count, stage.color()));
         }
         return stages;
@@ -862,16 +893,18 @@ public class DashboardAnalyticsService {
             .toList();
     }
 
+    // ponytail: single aggregation replaces 10 individual count queries
     private List<DashboardWidgetSnapshotDTO.LeadSourceShare> buildLeadSourcesFromCounts(long total) {
         long totalLeads = Math.max(1L, total);
+        Map<String, Long> sourceCounts = countByField("source");
         List<DashboardWidgetSnapshotDTO.LeadSourceShare> rows = new ArrayList<>();
-        for (Lead.LeadSource source : Lead.LeadSource.values()) {
-            long count = countLeads(Criteria.where("source").is(source));
-            if (count <= 0) continue;
-            String label = sourceLabel(source);
+        for (Map.Entry<String, Long> entry : sourceCounts.entrySet()) {
+            if (entry.getValue() <= 0) continue;
+            Lead.LeadSource source = enumOrNull(Lead.LeadSource.class, entry.getKey());
+            String label = source != null ? sourceLabel(source) : "Other";
             rows.add(new DashboardWidgetSnapshotDTO.LeadSourceShare(
                 label,
-                round((count * 100.0) / totalLeads),
+                round((entry.getValue() * 100.0) / totalLeads),
                 leadSourceColor(label)
             ));
         }
