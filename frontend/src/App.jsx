@@ -7,6 +7,7 @@ import { useAuthStore } from './store/authStore'
 import { useThemeStore } from './store/themeStore'
 import { authAPI } from './services/api'
 import { PERMISSIONS, hasPermission } from './utils/permissions'
+import LoadingState from './components/ui/LoadingState'
 
 const pageImports = {
   '/landing': () => import('./pages/LandingPage'),
@@ -57,7 +58,7 @@ const TermsPage = lazy(pageImports['/terms'])
 const PrivacyPage = lazy(pageImports['/privacy'])
 
 function RouteFallback() {
-  return <div className="min-h-screen grid place-items-center text-slate-500">Loading...</div>
+  return <div className="min-h-screen grid place-items-center"><LoadingState /></div>
 }
 
 class ErrorBoundary extends Component {
