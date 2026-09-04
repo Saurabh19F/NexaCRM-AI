@@ -269,6 +269,7 @@ export const commsAPI = {
   sendChannel:      (data)   => api.post('/communications/send-channel', data),
   getWhatsAppConversations:  () => api.get('/communications/whatsapp/conversations'),
   getWhatsAppMessages:       (contact) => api.get('/communications/whatsapp/messages', { params: { contact } }),
+  getAllWhatsAppMessages:     () => api.get('/communications/whatsapp/all-messages'),
   getFacebookConversations:  () => api.get('/communications/facebook/conversations'),
   getFacebookMessages:       (psid) => api.get('/communications/facebook/messages', { params: { psid } }),
   getInstagramConversations: () => api.get('/communications/instagram/conversations'),

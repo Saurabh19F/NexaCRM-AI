@@ -295,6 +295,7 @@ export default function CommunicationPage() {
   const [replyToMessage, setReplyToMessage] = useState(null)
   const [emojiPickerMessageId, setEmojiPickerMessageId] = useState(null)
   const [communicationRefreshTick, setCommunicationRefreshTick] = useState(0)
+  const [allWAMessages, setAllWAMessages] = useState([])
   const messagesEndRef                = useRef(null)
   const inputRef                      = useRef(null)
 
@@ -419,7 +420,20 @@ export default function CommunicationPage() {
     }
   }, [communicationRefreshTick])
 
-
+  // Fetch all WhatsApp messages for the unified panel
+  useEffect(() => {
+    let cancelled = false
+    const fetchAll = async () => {
+      try {
+        const rows = await commsAPI.getAllWhatsAppMessages()
+        if (cancelled) return
+        setAllWAMessages(rows.reverse())
+      } catch { /* ignore */ }
+    }
+    fetchAll()
+    const timer = setInterval(fetchAll, 8000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [communicationRefreshTick])
 
   useEffect(() => {
     if (!activeConv || activeConv.channel !== 'whatsapp') return
@@ -850,6 +864,56 @@ export default function CommunicationPage() {
             })}
           </div>
         </div>
+
+        {/* ── All WhatsApp Messages Panel ── */}
+        {!activeConv && (
+          <div className="flex-1 glass-card flex flex-col overflow-hidden min-h-[420px] lg:min-h-0">
+            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-950/10 dark:to-slate-900">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/30 flex items-center justify-center">
+                <Phone className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-200">All WhatsApp Messages</p>
+                <p className="text-[11px] text-slate-500">{allWAMessages.length} messages across all contacts</p>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
+              {allWAMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
+                  <Phone className="w-12 h-12 opacity-30" />
+                  <p className="text-sm">No WhatsApp messages yet</p>
+                  <p className="text-xs text-center max-w-xs">Select a conversation from the sidebar or start a new WhatsApp chat.</p>
+                </div>
+              ) : (
+                allWAMessages.map((msg) => {
+                  const isIn = String(msg.direction || '').toUpperCase() === 'IN'
+                  const contactLabel = msg.contactName || msg.contact || 'Unknown'
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex ${isIn ? 'justify-start' : 'justify-end'}`}
+                    >
+                      <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
+                        ${isIn
+                          ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm border border-slate-100 dark:border-slate-700'
+                          : 'bg-emerald-500 text-white rounded-tr-sm'}`}
+                      >
+                        <p className={`text-[10px] font-semibold mb-1 ${isIn ? 'text-emerald-600 dark:text-emerald-400' : 'text-white/70'}`}>
+                          {isIn ? contactLabel : 'You'} {isIn ? '' : `→ ${contactLabel}`}
+                        </p>
+                        <p className="whitespace-pre-wrap">{msg.body}</p>
+                        <div className={`flex items-center justify-end gap-1 mt-1 ${isIn ? 'text-slate-400' : 'text-white/60'}`}>
+                          <span className="text-[10px]">{formatMessageTime(msg.createdAt)}</span>
+                          {!isIn && <CheckCheck className="w-3 h-3" />}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Chat Window ── */}
         {activeConv && (

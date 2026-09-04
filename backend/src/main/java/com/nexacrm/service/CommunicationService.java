@@ -2413,10 +2413,19 @@ public class CommunicationService {
         return trimmedSubject + " — " + trimmedBody;
     }
 
+    public List<WhatsAppMessageResponse> getAllWhatsAppMessages() {
+        return communicationRecordRepository
+            .findByTenantIdAndChannelIgnoreCaseOrderByCreatedAtDesc(tenantId(), "WHATSAPP", PageRequest.of(0, 500))
+            .stream()
+            .map(this::toMessageResponse)
+            .toList();
+    }
+
     private WhatsAppMessageResponse toMessageResponse(CommunicationRecord row) {
         return WhatsAppMessageResponse.builder()
             .id(row.getId())
             .contact(row.getContactIdentifier())
+            .contactName(row.getContactName())
             .direction(row.getDirection())
             .body(row.getBody())
             .status(row.getStatus())

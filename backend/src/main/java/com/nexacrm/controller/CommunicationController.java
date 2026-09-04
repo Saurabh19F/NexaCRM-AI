@@ -59,6 +59,13 @@ public class CommunicationController {
         return ResponseEntity.ok(communicationService.getWhatsAppConversations());
     }
 
+    @GetMapping("/whatsapp/all-messages")
+    @PreAuthorize("hasAuthority('communications.read')")
+    @Operation(summary = "Get all WhatsApp messages across all contacts")
+    public ResponseEntity<List<WhatsAppMessageResponse>> getAllWhatsAppMessages() {
+        return ResponseEntity.ok(communicationService.getAllWhatsAppMessages());
+    }
+
     @GetMapping("/facebook/conversations")
     @PreAuthorize("hasAuthority('communications.read')")
     @Operation(summary = "Get Facebook Messenger conversation summaries")

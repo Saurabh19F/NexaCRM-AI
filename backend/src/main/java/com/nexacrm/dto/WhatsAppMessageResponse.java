@@ -14,5 +14,6 @@ public class WhatsAppMessageResponse {
     private String body;
     private String status;
     private String externalId;
+    private String contactName;
     private OffsetDateTime createdAt;
 }
