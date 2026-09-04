@@ -22,7 +22,7 @@ const resolveApiBaseUrl = () => {
 }
 
 const BASE_URL = resolveApiBaseUrl()
-const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 45000)
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 120000)
 const LOGIN_TIMEOUT_MS = Number(import.meta.env.VITE_LOGIN_TIMEOUT_MS || 60000)
 
 const api = axios.create({
