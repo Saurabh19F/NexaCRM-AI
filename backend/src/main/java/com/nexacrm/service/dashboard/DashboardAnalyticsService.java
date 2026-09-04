@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -96,6 +97,7 @@ public class DashboardAnalyticsService {
         );
     }
 
+    @Cacheable(value = "dashboard-widgets", key = "T(com.nexacrm.security.TenantContext).currentTenantId()")
     public DashboardWidgetSnapshotDTO widgets() {
         long total = countLeads();
 

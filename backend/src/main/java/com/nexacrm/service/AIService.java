@@ -434,10 +434,14 @@ public class AIService {
     }
 
     private List<Map<String, Object>> buildFallbackInsights() {
-        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tenantId());
-        long total = leads.size();
-        long qualified = leads.stream().filter(lead -> lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION).count();
-        long won = leads.stream().filter(lead -> lead.getStatus() == Lead.LeadStatus.WON).count();
+        Long tid = tenantId();
+        long total = leadRepository.countByTenantIdAndDeletedFalse(tid);
+        long qualified = leadRepository.countByTenantIdAndDeletedFalseAndStatus(tid, Lead.LeadStatus.QUALIFIED)
+            + leadRepository.countByTenantIdAndDeletedFalseAndStatus(tid, Lead.LeadStatus.PROPOSAL)
+            + leadRepository.countByTenantIdAndDeletedFalseAndStatus(tid, Lead.LeadStatus.NEGOTIATION);
+        long won = leadRepository.countByTenantIdAndDeletedFalseAndStatus(tid, Lead.LeadStatus.WON);
+        // ponytail: stale count & top source still need lead data but only fields: source, lastContactedAt, createdAt
+        List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tid);
         long stale = leads.stream().filter(this::isStaleLead).count();
 
         Map<String, Long> sourceCounts = new LinkedHashMap<>();
@@ -747,9 +751,9 @@ public class AIService {
         }
 
         if (normalized.contains("pipeline")) {
-            long qualifiedCount = leadRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
-                .filter(lead -> lead.getStatus() == Lead.LeadStatus.QUALIFIED || lead.getStatus() == Lead.LeadStatus.PROPOSAL || lead.getStatus() == Lead.LeadStatus.NEGOTIATION)
-                .count();
+            long qualifiedCount = leadRepository.countByTenantIdAndDeletedFalseAndStatus(tenantId(), Lead.LeadStatus.QUALIFIED)
+                + leadRepository.countByTenantIdAndDeletedFalseAndStatus(tenantId(), Lead.LeadStatus.PROPOSAL)
+                + leadRepository.countByTenantIdAndDeletedFalseAndStatus(tenantId(), Lead.LeadStatus.NEGOTIATION);
             return "Your live CRM currently has " + qualifiedCount + " pipeline-ready leads. If the Mistral model is unavailable, I can still help you triage the next best actions.";
         }
 

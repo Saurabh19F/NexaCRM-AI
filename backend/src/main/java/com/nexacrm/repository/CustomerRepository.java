@@ -3,9 +3,12 @@ package com.nexacrm.repository;
 import com.nexacrm.model.Customer;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface CustomerRepository extends MongoRepository<Customer, String> {
+
+    List<Customer> findByTenantIdAndDeletedFalseAndAccountManager_Id(Long tenantId, String accountManagerId);
 
     Optional<Customer> findByIdAndTenantIdAndDeletedFalse(String id, Long tenantId);
 

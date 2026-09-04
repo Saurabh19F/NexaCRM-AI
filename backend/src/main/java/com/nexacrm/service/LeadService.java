@@ -235,6 +235,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO create(LeadDTO dto) {
@@ -340,6 +341,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO update(String id, LeadDTO dto) {
@@ -424,6 +426,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public void delete(String id) {
@@ -440,15 +443,14 @@ public class LeadService {
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public int bulkDelete(List<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
         Long tenantId = tenantId();
-        List<Lead> leads = ids.stream()
-            .filter(id -> id != null && !id.isBlank())
-            .map(id -> leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId))
-            .flatMap(Optional::stream)
+        List<String> validIds = ids.stream().filter(id -> id != null && !id.isBlank()).toList();
+        List<Lead> leads = leadRepository.findByIdInAndTenantIdAndDeletedFalse(validIds, tenantId).stream()
             .filter(this::canCurrentUserAccess)
             .toList();
         hardDeleteLeadData(leads, tenantId);
@@ -531,11 +533,21 @@ public class LeadService {
             return List.of();
         }
 
-        return leadRepository.findByTenantIdAndDeletedFalse(tenantId()).stream()
-            .filter(lead -> excludeId == null || excludeId.isBlank() || !excludeId.equals(lead.getId()))
-            .filter(lead -> matchesDuplicateCandidate(lead, normalizedEmail, normalizedPhone))
-            .map(this::toDTO)
-            .toList();
+        // ponytail: targeted query instead of loading all leads
+        Long tid = tenantId();
+        List<Criteria> orCriteria = new ArrayList<>();
+        if (normalizedEmail != null && !normalizedEmail.isBlank()) {
+            orCriteria.add(Criteria.where("email").is(normalizedEmail));
+        }
+        if (normalizedPhone != null && !normalizedPhone.isBlank()) {
+            orCriteria.add(Criteria.where("phone").is(normalizedPhone));
+        }
+        Query q = new Query(Criteria.where("tenant_id").is(tid).and("deleted").is(false));
+        q.addCriteria(new Criteria().orOperator(orCriteria.toArray(new Criteria[0])));
+        if (excludeId != null && !excludeId.isBlank()) {
+            q.addCriteria(Criteria.where("_id").ne(excludeId));
+        }
+        return mongoTemplate.find(q, Lead.class).stream().map(this::toDTO).toList();
     }
 
     @Caching(evict = {
@@ -545,6 +557,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO merge(String primaryId, String duplicateId) {
@@ -579,6 +592,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-sources", allEntries = true),
         @CacheEvict(value = "dashboard-activities", allEntries = true),
         @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO reopen(String id, Map<String, Object> options) {

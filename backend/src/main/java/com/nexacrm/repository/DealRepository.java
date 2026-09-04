@@ -36,7 +36,5 @@ public interface DealRepository extends MongoRepository<Deal, String> {
 
     long countByTenantIdAndDeletedFalseAndStage(Long tenantId, Deal.DealStage stage);
 
-    long countByOwner_IdAndStageAndDeletedFalse(String userId, Deal.DealStage stage);
-
     List<Deal> findByTenantIdAndStageAndDeletedFalse(Long tenantId, Deal.DealStage stage);
 }

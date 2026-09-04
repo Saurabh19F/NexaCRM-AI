@@ -315,7 +315,8 @@ public class TaskService {
         }
         userRepository.findByIdAndTenantIdAndDeletedFalse(task.getAssignedToId(), tenantId()).ifPresent(user ->
             {
-                boolean alreadyNotified = notificationRepository.existsByUser_IdAndEntityTypeAndEntityIdAndTitleAndDeletedFalse(
+                boolean alreadyNotified = notificationRepository.existsByTenantIdAndUser_IdAndEntityTypeAndEntityIdAndTitleAndDeletedFalse(
+                    tenantId(),
                     user.getId(),
                     "task",
                     task.getId(),
@@ -347,8 +348,8 @@ public class TaskService {
             return Map.of();
         }
         Map<String, String> names = new HashMap<>();
-        userRepository.findByTenantIdAndDeletedFalse(tenantId).stream()
-            .filter(user -> neededUserIds.contains(user.getId()))
+        userRepository.findAllById(neededUserIds).stream()
+            .filter(user -> tenantId.equals(user.getTenantId()) && !Boolean.TRUE.equals(user.getDeleted()))
             .forEach(user -> names.put(user.getId(), user.getName()));
         return names;
     }

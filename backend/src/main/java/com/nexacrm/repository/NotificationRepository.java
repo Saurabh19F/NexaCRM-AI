@@ -10,13 +10,13 @@ import java.util.List;
 
 public interface NotificationRepository extends MongoRepository<Notification, String> {
 
-    Page<Notification> findByUser_IdAndDeletedFalseOrderByCreatedAtDesc(String userId, Pageable pageable);
+    Page<Notification> findByTenantIdAndUser_IdAndDeletedFalseOrderByCreatedAtDesc(Long tenantId, String userId, Pageable pageable);
 
-    long countByUser_IdAndIsReadFalseAndDeletedFalse(String userId);
+    long countByTenantIdAndUser_IdAndIsReadFalseAndDeletedFalse(Long tenantId, String userId);
 
-    List<Notification> findByUser_IdAndIsReadFalseAndDeletedFalse(String userId);
+    List<Notification> findByTenantIdAndUser_IdAndIsReadFalseAndDeletedFalse(Long tenantId, String userId);
 
-    Optional<Notification> findByIdAndUser_IdAndDeletedFalse(String id, String userId);
+    Optional<Notification> findByIdAndTenantIdAndUser_IdAndDeletedFalse(String id, Long tenantId, String userId);
 
-    boolean existsByUser_IdAndEntityTypeAndEntityIdAndTitleAndDeletedFalse(String userId, String entityType, String entityId, String title);
+    boolean existsByTenantIdAndUser_IdAndEntityTypeAndEntityIdAndTitleAndDeletedFalse(Long tenantId, String userId, String entityType, String entityId, String title);
 }

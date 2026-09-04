@@ -23,7 +23,6 @@ public interface InvoiceRepository extends MongoRepository<Invoice, String> {
         String customerId
     );
 
-    List<Invoice> findByStatusAndDueDateBeforeAndDeletedFalse(Invoice.InvoiceStatus status, LocalDate today);
     List<Invoice> findByTenantIdAndDeletedFalseAndStatusInAndDueDateBefore(
         Long tenantId,
         List<Invoice.InvoiceStatus> statuses,

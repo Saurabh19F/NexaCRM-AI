@@ -71,18 +71,31 @@ public class InvoiceService {
         }
 
         User current = currentUser();
-        if (current == null || User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
-            return pageInvoiceQuery(query, pageable);
+        if (current != null && !User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
+            // ponytail: two small lookups to push access filter to DB instead of loading all invoices
+            List<String> myCustomerIds = customerRepository
+                .findByTenantIdAndDeletedFalseAndAccountManager_Id(tenantId(), current.getId())
+                .stream().map(c -> c.getId()).toList();
+            List<String> myDealIds = dealRepository
+                .findByTenantIdAndDeletedFalseAndOwner_Id(tenantId(), current.getId())
+                .stream().map(d -> d.getId()).toList();
+            List<Criteria> accessOr = new ArrayList<>();
+            if (!myCustomerIds.isEmpty()) {
+                accessOr.add(Criteria.where("customer.$id").in(
+                    myCustomerIds.stream().map(id -> new org.bson.types.ObjectId(id)).toList()));
+            }
+            if (!myDealIds.isEmpty()) {
+                accessOr.add(Criteria.where("deal.$id").in(
+                    myDealIds.stream().map(id -> new org.bson.types.ObjectId(id)).toList()));
+            }
+            if (accessOr.isEmpty()) {
+                return PageResponse.<InvoiceDTO>builder()
+                    .content(List.of()).page(pageable.getPageNumber()).size(pageable.getPageSize())
+                    .total(0).totalPages(0).first(true).last(true).build();
+            }
+            query.addCriteria(new Criteria().orOperator(accessOr.toArray(new Criteria[0])));
         }
-
-        List<Invoice> allRows = mongoTemplate.find(query, Invoice.class).stream()
-            .filter(invoice -> canCurrentUserAccess(invoice, current))
-            .toList();
-        int start = Math.min((int) pageable.getOffset(), allRows.size());
-        int end = Math.min(start + pageable.getPageSize(), allRows.size());
-        List<Invoice> rows = start >= end ? List.of() : allRows.subList(start, end);
-        Page<Invoice> page = new PageImpl<>(rows, pageable, allRows.size());
-        return toPageResponse(page);
+        return pageInvoiceQuery(query, pageable);
     }
 
     private PageResponse<InvoiceDTO> pageInvoiceQuery(Query baseQuery, Pageable pageable) {
