@@ -1287,17 +1287,31 @@ export default function LeadsPage() {
       return
     }
     const ext = format === 'xlsx' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv'
-    leadsAPI.export({ format, status: statusFilter === 'all' ? undefined : statusFilter })
-      .then((data) => {
-        const blob = data instanceof Blob ? data : new Blob([data])
-        const url = URL.createObjectURL(blob)
+    const mimeMap = { pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', csv: 'text/csv' }
+    const params = { format }
+    if (statusFilter && statusFilter !== 'all') params.status = statusFilter
+
+    const token = useAuthStore.getState().token
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+    const qs = new URLSearchParams(params).toString()
+
+    fetch(`${baseUrl}/leads/export?${qs}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Export failed (${res.status})`)
+        return res.blob()
+      })
+      .then((blob) => {
+        const typed = new Blob([blob], { type: mimeMap[ext] || blob.type })
+        const url = URL.createObjectURL(typed)
         const a = document.createElement('a')
         a.href = url
         a.download = `leads-${new Date().toISOString().slice(0, 10)}.${ext}`
         document.body.appendChild(a)
         a.click()
         a.remove()
-        setTimeout(() => URL.revokeObjectURL(url), 100)
+        setTimeout(() => URL.revokeObjectURL(url), 500)
         toast.success('Leads exported successfully.')
       })
       .catch((err) => {
