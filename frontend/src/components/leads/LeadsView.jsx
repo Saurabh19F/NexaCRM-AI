@@ -1096,7 +1096,7 @@ export default function LeadsPage() {
   const [scoreFilter, setScoreFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [lastCallFilter, setLastCallFilter] = useState('all')
-  const [currentPage, setCurrentPage] = useState(0)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [sortField, setSortField] = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
   const [showAddModal, setShowAddModal] = useState(false)
@@ -1143,24 +1143,22 @@ export default function LeadsPage() {
   }, [search])
 
   useEffect(() => {
-    setCurrentPage(0)
+    setVisibleCount(PAGE_SIZE)
   }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
 
   useEffect(() => {
     fetchLeads({
-      page: currentPage,
-      size: PAGE_SIZE,
       search: debouncedSearch || undefined,
       score: scoreFilter === 'all' ? undefined : scoreFilter,
       status: statusFilter === 'all' ? undefined : statusFilter,
     }).catch((err) => {
       toast.error(err?.message || 'Failed to load leads')
     })
-  }, [fetchLeads, currentPage, debouncedSearch, scoreFilter, statusFilter])
+  }, [fetchLeads, debouncedSearch, scoreFilter, statusFilter])
 
   useEffect(() => {
     setSelected([])
-  }, [currentPage, debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
+  }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
 
   // Load lightweight activity stages for leads
   useEffect(() => {
@@ -1173,8 +1171,6 @@ export default function LeadsPage() {
 
   const reloadCurrentPage = async () => {
     return fetchLeads({
-      page: currentPage,
-      size: PAGE_SIZE,
       search: debouncedSearch || undefined,
       score: scoreFilter === 'all' ? undefined : scoreFilter,
       status: statusFilter === 'all' ? undefined : statusFilter,
@@ -1227,9 +1223,9 @@ export default function LeadsPage() {
       return 0
     })
 
-  const totalCount = Number(pagination?.total ?? 0)
-  const pageSize = Number(pagination?.size ?? PAGE_SIZE)
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const totalCount = Number(pagination?.total ?? leads.length)
+  const visible = filtered.slice(0, visibleCount)
+  const hasMore = visibleCount < filtered.length
 
   const SortIcon = ({ field }) =>
     sortField === field ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null
@@ -1587,7 +1583,7 @@ export default function LeadsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Leads</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{totalCount} leads total · {leads.filter((l) => l.score === 'hot').length} hot on this page</p>
+          <p className="text-sm text-slate-500 mt-0.5">{totalCount} leads total · {visible.filter((l) => l.score === 'hot').length} hot</p>
         </div>
         <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
           {selected.length > 0 && canDelete && (
@@ -1674,7 +1670,7 @@ export default function LeadsPage() {
             <p className="text-sm mt-1">Try adjusting your filters or add a new lead</p>
           </div>
         ) : (
-          filtered.map((lead) => {
+          visible.map((lead) => {
             const scoreCfg = SCORE_BADGE[lead.score]
             const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
             const ScoreIcon = scoreCfg?.icon
@@ -1708,27 +1704,16 @@ export default function LeadsPage() {
         )}
       </div>
 
-      <div className="sm:hidden flex flex-wrap items-center justify-between gap-2 glass-card px-3 py-2">
-        <p className="text-xs text-slate-500">
-          Page {currentPage + 1} / {totalPages} · {filtered.length} of {totalCount}
-        </p>
-        <div className="flex gap-1">
+      {hasMore && (
+        <div className="sm:hidden flex justify-center glass-card px-3 py-2">
           <button
-            disabled={currentPage <= 0}
-            onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-            className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            className="px-4 h-8 rounded-lg text-xs font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/30 transition-colors"
           >
-            Prev
-          </button>
-          <button
-            disabled={currentPage + 1 >= totalPages}
-            onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-            className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          >
-            Next
+            Load More ({filtered.length - visibleCount} remaining)
           </button>
         </div>
-      </div>
+      )}
 
       {/* Table – minimal: Name, Score, Status, Source, Date, Action */}
       <div className="hidden sm:block glass-card overflow-hidden">
@@ -1758,7 +1743,7 @@ export default function LeadsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/30">
               <AnimatePresence>
-                {filtered.map((lead) => {
+                {visible.map((lead) => {
                   const scoreCfg = SCORE_BADGE[lead.score]
                   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
                   const ScoreIcon = scoreCfg?.icon
@@ -1845,30 +1830,19 @@ export default function LeadsPage() {
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Load More */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-200/60 dark:border-slate-700/40">
           <p className="text-xs text-slate-500">
-            Showing page {currentPage + 1} of {totalPages} · {filtered.length} leads on this page · {totalCount} total
+            Showing {visible.length} of {totalCount} leads
           </p>
-          <div className="flex gap-1">
+          {hasMore && (
             <button
-              disabled={currentPage <= 0}
-              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-              className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              className="px-4 h-8 rounded-lg text-xs font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/30 transition-colors"
             >
-              Prev
+              Load More ({filtered.length - visibleCount} remaining)
             </button>
-            <button className="px-3 h-8 rounded-lg text-xs font-medium bg-brand-600 text-white">
-              {currentPage + 1}
-            </button>
-            <button
-              disabled={currentPage + 1 >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-              className="px-3 h-8 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              Next
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
