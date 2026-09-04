@@ -930,7 +930,8 @@ public class CallAgentService {
             saveAiLeadReviewActivity(lead, beforeStatus, resolvedStatus, analysis, currentCallRow);
         }
 
-        sendPostCallIntelligenceWhatsApp(lead, analysis, resolvedStatus);
+        // ponytail: lead-facing WA disabled by request; re-enable by uncommenting
+        // sendPostCallIntelligenceWhatsApp(lead, analysis, resolvedStatus);
         sendAdminCallIntelligenceWhatsApp(lead, analysis, resolvedStatus, currentCallRow);
     }
 
