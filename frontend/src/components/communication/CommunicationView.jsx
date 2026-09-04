@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  MessageSquare, Mail, Phone, Instagram, Linkedin, Send, Sparkles, Search, Facebook,
+  MessageSquare, Mail, Phone, Send, Sparkles, Search,
   CheckCheck, Check, Clock, AlertCircle, Plus, X, SquarePen, Reply, Forward, Trash2, Smile
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -12,10 +12,6 @@ import { useIntegrationsStore } from '../../store/integrationsStore'
 const CHANNEL_CONFIG = {
   whatsapp:  { icon: Phone,     color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/20',  label: 'WhatsApp',  badge: 'bg-emerald-500' },
   email:     { icon: Mail,      color: 'text-sky-500',     bg: 'bg-sky-50 dark:bg-sky-950/20',          label: 'Email',     badge: 'bg-sky-500' },
-  instagram: { icon: Instagram, color: 'text-pink-500',    bg: 'bg-pink-50 dark:bg-pink-950/20',        label: 'Instagram', badge: 'bg-pink-500' },
-  linkedin:  { icon: Linkedin,  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-950/20',        label: 'LinkedIn',  badge: 'bg-blue-600' },
-  facebook:  { icon: Facebook,  color: 'text-blue-500',    bg: 'bg-blue-50 dark:bg-blue-950/20',        label: 'Facebook',  badge: 'bg-blue-500' },
-  reddit:    { icon: MessageSquare, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/20', label: 'Reddit', badge: 'bg-orange-500' },
 }
 
 // ── Session storage keys ─────────────────────────────────────
@@ -112,10 +108,7 @@ function nowTime() {
   return new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 }
 function cleanPhone(p) { return String(p || '').replace(/\D/g, '') }
-function isNumericScopedId(value) { return /^\d+$/.test(String(value || '').trim()) }
 function convIdForWhatsApp(contact) { return `whatsapp-${cleanPhone(contact)}` }
-function convIdForFacebook(psid) { return `facebook-${psid}` }
-function convIdForInstagram(igsid) { return `instagram-${igsid}` }
 function isPhoneOnlyName(name, phone) {
   const normalizedName = cleanPhone(name)
   const normalizedPhone = cleanPhone(phone)
@@ -426,143 +419,7 @@ export default function CommunicationPage() {
     }
   }, [communicationRefreshTick])
 
-  // ── Facebook conversations sync ───────────────────────────────
-  useEffect(() => {
-    let cancelled = false
-    const syncFacebookConversations = async () => {
-      try {
-        const rows = await commsAPI.getFacebookConversations()
-        if (cancelled) return
-        setConversations((prev) => {
-          const existing = new Map(prev.map((c) => [c.id, c]))
-          const backendFacebook = rows.map((row) => {
-            const psid = String(row.contact || '').trim()
-            const id = convIdForFacebook(psid)
-            const displayName = String(row.name || '').trim()
-            return {
-              id,
-              name: displayName || `PSID: ${psid}`,
-              phone: '',
-              recipient: psid,
-              company: 'Facebook Messenger',
-              channel: 'facebook',
-              unread: 0,
-              lastMessage: row.lastMessage || '',
-            }
-          })
-          for (const conv of backendFacebook) {
-            existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
-          }
-          return Array.from(existing.values())
-        })
-      } catch {
-        // keep local conversations when backend unreachable
-      }
-    }
-    syncFacebookConversations()
-    const timer = setInterval(syncFacebookConversations, 10000)
-    return () => { cancelled = true; clearInterval(timer) }
-  }, [communicationRefreshTick])
 
-  // ── Instagram conversations sync ──────────────────────────────
-  useEffect(() => {
-    let cancelled = false
-    const syncInstagramConversations = async () => {
-      try {
-        const rows = await commsAPI.getInstagramConversations()
-        if (cancelled) return
-        setConversations((prev) => {
-          const existing = new Map(prev.map((c) => [c.id, c]))
-          const backendInstagram = rows.map((row) => {
-            const igsid = String(row.contact || '').trim()
-            const id = convIdForInstagram(igsid)
-            const displayName = String(row.name || '').trim()
-            return {
-              id,
-              name: displayName || `IG: ${igsid}`,
-              phone: '',
-              recipient: igsid,
-              company: 'Instagram',
-              channel: 'instagram',
-              unread: 0,
-              lastMessage: row.lastMessage || '',
-            }
-          })
-          for (const conv of backendInstagram) {
-            existing.set(conv.id, { ...(existing.get(conv.id) || {}), ...conv })
-          }
-          return Array.from(existing.values())
-        })
-      } catch {
-        // keep local conversations when backend unreachable
-      }
-    }
-    syncInstagramConversations()
-    const timer = setInterval(syncInstagramConversations, 10000)
-    return () => { cancelled = true; clearInterval(timer) }
-  }, [])
-
-  // ── Facebook message sync ─────────────────────────────────────
-  useEffect(() => {
-    if (!activeConv || activeConv.channel !== 'facebook') return
-    const psid = String(activeConv.recipient || '').trim()
-    if (!psid) return
-
-    let cancelled = false
-    const syncMessages = async () => {
-      try {
-        const rows = await commsAPI.getFacebookMessages(psid)
-        if (cancelled) return
-        const mapped = rows.map((row) => ({
-          id: `db-${row.id ?? `${psid}-${row.createdAt}`}`,
-          from: String(row.direction || '').toUpperCase() === 'IN' ? 'lead' : 'me',
-          text: row.body || '',
-          time: formatMessageTime(row.createdAt),
-          status: String(row.direction || '').toUpperCase() === 'IN' ? 'read' : 'delivered',
-        }))
-        setHistory((prev) => {
-          const existing = prev[activeConv.id] || []
-          return { ...prev, [activeConv.id]: mergeSyncedMessages(existing, mapped) }
-        })
-      } catch {
-        // keep local fallback when sync fails
-      }
-    }
-    syncMessages()
-    const timer = setInterval(syncMessages, 5000)
-    return () => { cancelled = true; clearInterval(timer) }
-  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient, communicationRefreshTick])
-
-  // ── Instagram message sync ────────────────────────────────────
-  useEffect(() => {
-    if (!activeConv || activeConv.channel !== 'instagram') return
-    const igsid = String(activeConv.recipient || '').trim()
-    if (!igsid) return
-
-    let cancelled = false
-    const syncMessages = async () => {
-      try {
-        const rows = await commsAPI.getInstagramMessages(igsid)
-        if (cancelled) return
-        const mapped = rows.map((row) => ({
-          id: `db-${row.id ?? `${igsid}-${row.createdAt}`}`,
-          from: String(row.direction || '').toUpperCase() === 'IN' ? 'lead' : 'me',
-          text: row.body || '',
-          time: formatMessageTime(row.createdAt),
-          status: String(row.direction || '').toUpperCase() === 'IN' ? 'read' : 'delivered',
-        }))
-        setHistory((prev) => {
-          const existing = prev[activeConv.id] || []
-          return { ...prev, [activeConv.id]: mergeSyncedMessages(existing, mapped) }
-        })
-      } catch {
-        // keep local fallback when sync fails
-      }
-    }
-    syncMessages()
-    const timer = setInterval(syncMessages, 5000)
-    return () => { cancelled = true; clearInterval(timer) }
-  }, [activeConv?.id, activeConv?.channel, activeConv?.recipient, communicationRefreshTick])
 
   useEffect(() => {
     if (!activeConv || activeConv.channel !== 'whatsapp') return
@@ -684,23 +541,6 @@ export default function CommunicationPage() {
         }))
         setSending(false)
         toast.error(`Connect ${channel} in Integrations page first.`)
-        inputRef.current?.focus()
-        return
-      }
-
-      if ((channel === 'instagram' || channel === 'facebook') && !isNumericScopedId(recipient)) {
-        setHistory((prev) => ({
-          ...prev,
-          [activeConv.id]: (prev[activeConv.id] || []).map((m) =>
-            m.id === tempId ? { ...m, status: 'error' } : m
-          ),
-        }))
-        setSending(false)
-        toast.error(
-          channel === 'instagram'
-            ? 'Instagram recipient must be a numeric IGSID. Select a real synced Instagram conversation.'
-            : 'Facebook recipient must be a numeric PSID. Select a real synced Facebook conversation.'
-        )
         inputRef.current?.focus()
         return
       }
@@ -841,14 +681,6 @@ export default function CommunicationPage() {
       toast.error(`Connect ${channel} in Integrations page first.`)
       return
     }
-    if ((channel === 'instagram' || channel === 'facebook') && !isNumericScopedId(recipient)) {
-      toast.error(
-        channel === 'instagram'
-          ? 'Instagram recipient must be a numeric IGSID.'
-          : 'Facebook recipient must be a numeric PSID.'
-      )
-      return
-    }
 
     setComposeSending(true)
     try {
@@ -907,10 +739,6 @@ export default function CommunicationPage() {
     { key: 'all',       label: 'All' },
     { key: 'whatsapp',  label: 'WhatsApp' },
     { key: 'email',     label: 'Email' },
-    { key: 'instagram', label: 'Instagram' },
-    { key: 'linkedin',  label: 'LinkedIn' },
-    { key: 'facebook',  label: 'Facebook' },
-    { key: 'reddit',    label: 'Reddit' },
   ]
 
   return (
@@ -919,17 +747,11 @@ export default function CommunicationPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Communication Hub</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Unified inbox — WhatsApp, Email, Instagram, LinkedIn, Facebook, Reddit</p>
+          <p className="text-sm text-slate-500 mt-0.5">Unified inbox — WhatsApp & Email</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => {
-              setComposeOpen(true)
-              if (activeConv?.channel === 'facebook' || activeConv?.channel === 'instagram') {
-                setComposeChannel(activeConv.channel)
-                setComposeRecipient(activeConv.recipient || '')
-              }
-            }}
+            onClick={() => setComposeOpen(true)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white transition-colors"
           >
             <SquarePen className="w-3.5 h-3.5" /> New Message
@@ -1229,10 +1051,6 @@ export default function CommunicationPage() {
                 >
                   <option value="email">Email</option>
                   <option value="whatsapp">WhatsApp</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="linkedin">LinkedIn</option>
-                  <option value="facebook">Facebook</option>
-                  <option value="reddit">Reddit</option>
                 </select>
               </div>
 
@@ -1241,10 +1059,6 @@ export default function CommunicationPage() {
                 const cfg = {
                   email:     { label: 'Recipient Email',              placeholder: 'name@example.com',            hint: null },
                   whatsapp:  { label: 'WhatsApp Number',              placeholder: '919876543210 (with country code)', hint: 'Include country code, no +, dashes, or spaces.' },
-                  facebook:  { label: 'Facebook Page-Scoped User ID (PSID)', placeholder: '3948201234567890',      hint: 'PSIDs are captured automatically when users message your Facebook Page. Select a Facebook conversation to auto-fill.' },
-                  instagram: { label: 'Instagram-Scoped User ID',    placeholder: '17841400000000000',             hint: 'Linked via Facebook Business Manager → Instagram account.' },
-                  linkedin:  { label: 'LinkedIn Member ID / URN',    placeholder: 'urn:li:person:XXXXXX',          hint: 'e.g. urn:li:person:AbCdEfGhIj (from LinkedIn API).' },
-                  reddit:    { label: 'Reddit Username',             placeholder: 'u/example_user',                 hint: 'Use Reddit username or profile ID from a monitored thread.' },
                 }[composeChannel] || { label: 'Recipient', placeholder: 'Recipient identifier', hint: null }
                 return (
                   <div>
