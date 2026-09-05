@@ -34,6 +34,15 @@ public class TaskController {
         return ResponseEntity.ok(taskService.findAll(status, assignedTo, due, search, leadId));
     }
 
+    @GetMapping("/dashboard-followups")
+    @PreAuthorize("hasAuthority('tasks.read')")
+    @Operation(summary = "List a small pending follow-up preview for dashboards")
+    public ResponseEntity<List<TaskDTO>> dashboardFollowUps(
+        @RequestParam(required = false, defaultValue = "10") Integer limit
+    ) {
+        return ResponseEntity.ok(taskService.dashboardFollowUps(limit != null ? limit : 10));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('tasks.read')")
     @Operation(summary = "Get task by ID")

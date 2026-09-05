@@ -400,7 +400,7 @@ export default function LeadConversionDashboard() {
         .catch(() => {})
         .finally(() => markChunk('trend', false))
 
-      tasksAPI.getAll({ status: 'PENDING' })
+      tasksAPI.getDashboardFollowUps({ limit: 10 })
         .then((response) => { if (mounted) { setFollowUpTasks(unwrapList(response)); setFollowUpError('') } })
         .catch((err) => { if (mounted) setFollowUpError(err?.message || 'Unable to load follow-ups') })
         .finally(() => markChunk('followUps', false))

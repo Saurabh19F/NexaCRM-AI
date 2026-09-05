@@ -17,6 +17,7 @@ import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -47,6 +48,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LeadConversionDashboardService {
+    private static final String CACHE_KEY_PREFIX =
+        "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + " +
+        "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':'";
 
     private static final List<StageDefinition> STAGES = List.of(
         new StageDefinition("NEW", "New Leads"),
@@ -83,6 +87,7 @@ public class LeadConversionDashboardService {
         return TenantContext.currentTenantId();
     }
 
+    @Cacheable(value = "dashboard-summary", key = CACHE_KEY_PREFIX + " + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public LeadConversionSummaryDTO summary(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -145,6 +150,7 @@ public class LeadConversionDashboardService {
         );
     }
 
+    @Cacheable(value = "dashboard-funnel", key = CACHE_KEY_PREFIX + " + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public List<LeadConversionFunnelDTO> funnel(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -166,6 +172,7 @@ public class LeadConversionDashboardService {
         return funnel;
     }
 
+    @Cacheable(value = "dashboard-employees", key = CACHE_KEY_PREFIX + " + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #sortBy + ':' + #sortDir")
     public List<LeadConversionEmployeeDTO> employees(
         String filter,
         String startDate,
@@ -248,6 +255,7 @@ public class LeadConversionDashboardService {
         return rows;
     }
 
+    @Cacheable(value = "dashboard-sources", key = CACHE_KEY_PREFIX + " + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status")
     public List<LeadConversionSourceDTO> sources(String filter, String startDate, String endDate, String employeeId, String status) {
         ResolvedScope scope = resolveScope(employeeId);
         TimeRange range = resolveRange(filter, startDate, endDate);
@@ -295,6 +303,7 @@ public class LeadConversionDashboardService {
             .toList();
     }
 
+    @Cacheable(value = "dashboard-activities", key = CACHE_KEY_PREFIX + " + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #limit")
     public List<LeadConversionActivityDTO> activities(
         String filter,
         String startDate,
@@ -348,6 +357,7 @@ public class LeadConversionDashboardService {
             .toList();
     }
 
+    @Cacheable(value = "dashboard-trend", key = CACHE_KEY_PREFIX + " + #filter + ':' + #startDate + ':' + #endDate + ':' + #employeeId + ':' + #status + ':' + #granularity")
     public List<LeadConversionTrendDTO> trend(
         String filter,
         String startDate,
@@ -846,8 +856,17 @@ public class LeadConversionDashboardService {
     }
 
     private User currentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication != null ? authentication.getPrincipal() : null;
+        Long tenantId = tenantId();
+        if (principal instanceof User user
+            && user.getTenantId() != null
+            && user.getTenantId().equals(tenantId)
+            && !Boolean.TRUE.equals(user.getDeleted())) {
+            return user;
+        }
+        String email = authentication != null ? authentication.getName() : null;
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 

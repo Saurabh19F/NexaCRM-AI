@@ -5,7 +5,9 @@ import com.nexacrm.model.Tenant;
 import com.nexacrm.model.User;
 import com.nexacrm.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.bson.Document;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,6 +34,7 @@ public class TenantAdminService {
     private final IntegrationConfigRepository integrationConfigRepository;
     private final AuditLogRepository auditLogRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MongoTemplate mongoTemplate;
 
     // ── Tenants ─────────────────────────────────────────────────
 
@@ -56,13 +59,21 @@ public class TenantAdminService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listTenants() {
-        return tenantRepository.findAll().stream()
+        List<Tenant> tenants = tenantRepository.findAll().stream()
             .sorted((a, b) -> {
                 LocalDateTime right = b.getCreatedAt() != null ? b.getCreatedAt() : LocalDateTime.MIN;
                 LocalDateTime left = a.getCreatedAt() != null ? a.getCreatedAt() : LocalDateTime.MIN;
                 return right.compareTo(left);
             })
-            .map(this::tenantSummary)
+            .toList();
+
+        Map<Long, Long> userCounts = countByTenant("users");
+        Map<Long, Long> leadCounts = countByTenant("leads");
+        Map<Long, Long> dealCounts = countByTenant("deals");
+        Map<Long, Long> invoiceCounts = countByTenant("invoices");
+
+        return tenants.stream()
+            .map(tenant -> tenantSummary(tenant, userCounts, leadCounts, dealCounts, invoiceCounts))
             .collect(Collectors.toList());
     }
 
@@ -425,22 +436,11 @@ public class TenantAdminService {
                 Collectors.counting()
             ));
 
-        // Count data across all tenants using efficient count queries
-        long totalLeads = 0;
-        long totalDeals = 0;
-        long totalInvoices = 0;
-        long totalWorkflows = 0;
-        long totalIntegrations = 0;
-        for (Tenant t : tenants) {
-            Long tid = t.getTenantId();
-            if (tid != null) {
-                totalLeads += leadRepository.countByTenantIdAndDeletedFalse(tid);
-                totalDeals += dealRepository.countByTenantIdAndDeletedFalse(tid);
-                totalInvoices += invoiceRepository.countByTenantIdAndDeletedFalse(tid);
-                try { totalWorkflows += workflowRepository.countByTenantIdAndDeletedFalse(tid); } catch (Exception ignored) {}
-                try { totalIntegrations += integrationConfigRepository.countByTenantIdAndDeletedFalse(tid); } catch (Exception ignored) {}
-            }
-        }
+        long totalLeads = sumCounts(countByTenant("leads"));
+        long totalDeals = sumCounts(countByTenant("deals"));
+        long totalInvoices = sumCounts(countByTenant("invoices"));
+        long totalWorkflows = sumCounts(countByTenant("workflows"));
+        long totalIntegrations = sumCounts(countByTenant("integration_configs"));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalCompanies", totalCompanies);
@@ -573,6 +573,27 @@ public class TenantAdminService {
         long leadCount = tenantId != null ? leadRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
         long dealCount = tenantId != null ? dealRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
         long invoiceCount = tenantId != null ? invoiceRepository.countByTenantIdAndDeletedFalse(tenantId) : 0L;
+        return tenantSummary(
+            tenant,
+            tenantId != null ? Map.of(tenantId, userCount) : Map.of(),
+            tenantId != null ? Map.of(tenantId, leadCount) : Map.of(),
+            tenantId != null ? Map.of(tenantId, dealCount) : Map.of(),
+            tenantId != null ? Map.of(tenantId, invoiceCount) : Map.of()
+        );
+    }
+
+    private Map<String, Object> tenantSummary(
+        Tenant tenant,
+        Map<Long, Long> userCounts,
+        Map<Long, Long> leadCounts,
+        Map<Long, Long> dealCounts,
+        Map<Long, Long> invoiceCounts
+    ) {
+        Long tenantId = tenant.getTenantId();
+        long userCount = countFor(userCounts, tenantId);
+        long leadCount = countFor(leadCounts, tenantId);
+        long dealCount = countFor(dealCounts, tenantId);
+        long invoiceCount = countFor(invoiceCounts, tenantId);
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", tenant.getId());
         row.put("tenantId", tenant.getTenantId());
@@ -604,6 +625,35 @@ public class TenantAdminService {
         row.put("createdAt", tenant.getCreatedAt());
         row.put("updatedAt", tenant.getUpdatedAt());
         return row;
+    }
+
+    private Map<Long, Long> countByTenant(String collection) {
+        List<Document> pipeline = List.of(
+            new Document("$match", new Document("tenant_id", new Document("$ne", null))
+                .append("deleted", false)),
+            new Document("$group", new Document("_id", "$tenant_id")
+                .append("count", new Document("$sum", 1)))
+        );
+
+        Map<Long, Long> counts = new LinkedHashMap<>();
+        mongoTemplate.getCollection(collection)
+            .aggregate(pipeline)
+            .forEach(doc -> {
+                Object tenantId = doc.get("_id");
+                Object count = doc.get("count");
+                if (tenantId instanceof Number tenantNumber && count instanceof Number countNumber) {
+                    counts.put(tenantNumber.longValue(), countNumber.longValue());
+                }
+            });
+        return counts;
+    }
+
+    private long countFor(Map<Long, Long> counts, Long tenantId) {
+        return tenantId != null ? counts.getOrDefault(tenantId, 0L) : 0L;
+    }
+
+    private long sumCounts(Map<Long, Long> counts) {
+        return counts.values().stream().mapToLong(Long::longValue).sum();
     }
 
     private Map<String, Object> plan(String name, int priceInRupees, int maxUsers, int trialDays, String features) {

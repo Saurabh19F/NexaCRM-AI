@@ -111,8 +111,17 @@ public class LeadService {
     }
 
     private User currentUser() {
-        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication != null ? authentication.getPrincipal() : null;
+        Long tenantId = tenantId();
+        if (principal instanceof User user
+            && user.getTenantId() != null
+            && user.getTenantId().equals(tenantId)
+            && !Boolean.TRUE.equals(user.getDeleted())) {
+            return user;
+        }
+        String email = authentication != null ? authentication.getName() : null;
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 

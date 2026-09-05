@@ -214,6 +214,7 @@ export const leadsAPI = {
 // ──────────────────────────────────────────
 export const tasksAPI = {
   getAll:      (params) => api.get('/tasks', { params }),
+  getDashboardFollowUps: (params) => api.get('/tasks/dashboard-followups', { params }),
   getById:     (id)     => api.get(`/tasks/${id}`),
   getByLead:   (leadId) => api.get(`/tasks/lead/${leadId}`),
   dueToday:    ()       => api.get('/tasks/due-today'),

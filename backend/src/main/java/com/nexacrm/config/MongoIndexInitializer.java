@@ -5,6 +5,11 @@ import com.nexacrm.model.Deal;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.Invoice;
 import com.nexacrm.model.Lead;
+import com.nexacrm.model.Notification;
+import com.nexacrm.model.RefreshToken;
+import com.nexacrm.model.Task;
+import com.nexacrm.model.Tenant;
+import com.nexacrm.model.User;
 import com.nexacrm.service.TenantAdminService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -104,7 +109,83 @@ public class MongoIndexInitializer {
                 .named("deal_tenant_deleted_stage_created_idx")
         );
 
-        // Tasks: indexes already defined via @CompoundIndex on Task model
+        mongoTemplate.indexOps(Task.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("status", Sort.Direction.ASC)
+                .on("due_date", Sort.Direction.ASC)
+                .background()
+                .named("task_tenant_deleted_status_due_idx")
+        );
+
+        mongoTemplate.indexOps(Task.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("assigned_to", Sort.Direction.ASC)
+                .on("status", Sort.Direction.ASC)
+                .on("due_date", Sort.Direction.ASC)
+                .background()
+                .named("task_tenant_deleted_assigned_status_due_idx")
+        );
+
+        mongoTemplate.indexOps(Task.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("created_by_id", Sort.Direction.ASC)
+                .on("status", Sort.Direction.ASC)
+                .on("due_date", Sort.Direction.ASC)
+                .background()
+                .named("task_tenant_deleted_created_by_status_due_idx")
+        );
+
+        mongoTemplate.indexOps(User.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("email", Sort.Direction.ASC)
+                .background()
+                .named("user_tenant_deleted_email_lookup_idx")
+        );
+
+        mongoTemplate.indexOps(Tenant.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .background()
+                .named("tenant_tenant_id_deleted_lookup_idx")
+        );
+
+        mongoTemplate.indexOps(Notification.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("user.$id", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .background()
+                .named("notification_tenant_deleted_user_created_idx")
+        );
+
+        mongoTemplate.indexOps(Notification.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("user.$id", Sort.Direction.ASC)
+                .on("is_read", Sort.Direction.ASC)
+                .background()
+                .named("notification_tenant_deleted_user_read_idx")
+        );
+
+        mongoTemplate.indexOps(RefreshToken.class).ensureIndex(
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("token_hash", Sort.Direction.ASC)
+                .background()
+                .named("refresh_token_tenant_deleted_hash_idx")
+        );
 
         // Communications: dashboard call snapshots
         mongoTemplate.indexOps(CommunicationRecord.class).ensureIndex(

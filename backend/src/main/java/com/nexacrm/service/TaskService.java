@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -199,6 +200,45 @@ public class TaskService {
         return findAll("PENDING", null, null, null, null);
     }
 
+    @Transactional(readOnly = true)
+    public List<TaskDTO> dashboardFollowUps(int limit) {
+        Long tenantId = tenantId();
+        User current = currentUser();
+        int cappedLimit = Math.max(1, Math.min(limit, 20));
+        PageRequest page = PageRequest.of(0, cappedLimit);
+
+        List<Task> tasks;
+        if (User.isAdminLike(current.getRole()) || current.getRole() == User.Role.MANAGER) {
+            tasks = taskRepository.findByTenantIdAndDeletedFalseAndStatusOrderByDueDateAsc(tenantId, "PENDING", page);
+        } else {
+            List<Task> assigned = taskRepository.findByTenantIdAndAssignedToIdAndDeletedFalseAndStatusOrderByDueDateAsc(
+                tenantId,
+                current.getId(),
+                "PENDING",
+                page
+            );
+            List<Task> created = taskRepository.findByTenantIdAndCreatedByIdAndDeletedFalseAndStatusOrderByDueDateAsc(
+                tenantId,
+                current.getId(),
+                "PENDING",
+                page
+            );
+            Map<String, Task> unique = new HashMap<>();
+            assigned.forEach(task -> unique.put(task.getId(), task));
+            created.forEach(task -> unique.put(task.getId(), task));
+            tasks = unique.values().stream()
+                .sorted(Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(Task::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(cappedLimit)
+                .toList();
+        }
+
+        Map<String, String> userNames = userNamesById(tenantId, tasks);
+        return tasks.stream()
+            .map(task -> toDTO(task, userNames))
+            .collect(Collectors.toList());
+    }
+
     private void ensureVisibility(Task task) {
         if (!matchesVisibility(task, currentUser())) {
             throw new ResourceNotFoundException("Task not found: " + task.getId());
@@ -222,8 +262,17 @@ public class TaskService {
     }
 
     private User currentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId())
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication != null ? authentication.getPrincipal() : null;
+        Long tenantId = tenantId();
+        if (principal instanceof User user
+            && user.getTenantId() != null
+            && user.getTenantId().equals(tenantId)
+            && !Boolean.TRUE.equals(user.getDeleted())) {
+            return user;
+        }
+        String email = authentication != null ? authentication.getName() : null;
+        return userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
 
