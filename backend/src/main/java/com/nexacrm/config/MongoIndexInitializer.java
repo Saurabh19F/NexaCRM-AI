@@ -1,5 +1,6 @@
 package com.nexacrm.config;
 
+import com.mongodb.MongoCommandException;
 import com.nexacrm.model.CommunicationRecord;
 import com.nexacrm.model.Deal;
 import com.nexacrm.model.LeadActivity;
@@ -14,6 +15,7 @@ import com.nexacrm.service.TenantAdminService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
@@ -29,7 +31,7 @@ public class MongoIndexInitializer {
 
     @PostConstruct
     public void ensureOperationalIndexes() {
-        mongoTemplate.indexOps(LeadActivity.class).ensureIndex(
+        ensureIndex(LeadActivity.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -39,7 +41,7 @@ public class MongoIndexInitializer {
                 .named("lead_activity_tenant_deleted_lead_saved_idx")
         );
 
-        mongoTemplate.indexOps(LeadActivity.class).ensureIndex(
+        ensureIndex(LeadActivity.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -50,7 +52,7 @@ public class MongoIndexInitializer {
                 .named("lead_activity_bulk_stage_preview_idx")
         );
 
-        mongoTemplate.indexOps(Invoice.class).ensureIndex(
+        ensureIndex(Invoice.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -59,7 +61,7 @@ public class MongoIndexInitializer {
                 .named("invoice_tenant_deleted_created_idx")
         );
 
-        mongoTemplate.indexOps(Lead.class).ensureIndex(
+        ensureIndex(Lead.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -70,7 +72,7 @@ public class MongoIndexInitializer {
         );
 
         // Dashboard count queries: status and source grouping
-        mongoTemplate.indexOps(Lead.class).ensureIndex(
+        ensureIndex(Lead.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -79,7 +81,7 @@ public class MongoIndexInitializer {
                 .named("lead_tenant_deleted_status_idx")
         );
 
-        mongoTemplate.indexOps(Lead.class).ensureIndex(
+        ensureIndex(Lead.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -89,7 +91,7 @@ public class MongoIndexInitializer {
         );
 
         // Leads list default sort
-        mongoTemplate.indexOps(Lead.class).ensureIndex(
+        ensureIndex(Lead.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -99,7 +101,7 @@ public class MongoIndexInitializer {
         );
 
         // Deals: pipeline/kanban queries
-        mongoTemplate.indexOps(Deal.class).ensureIndex(
+        ensureIndex(Deal.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -109,7 +111,7 @@ public class MongoIndexInitializer {
                 .named("deal_tenant_deleted_stage_created_idx")
         );
 
-        mongoTemplate.indexOps(Task.class).ensureIndex(
+        ensureIndex(Task.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -119,7 +121,7 @@ public class MongoIndexInitializer {
                 .named("task_tenant_deleted_status_due_idx")
         );
 
-        mongoTemplate.indexOps(Task.class).ensureIndex(
+        ensureIndex(Task.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -130,7 +132,7 @@ public class MongoIndexInitializer {
                 .named("task_tenant_deleted_assigned_status_due_idx")
         );
 
-        mongoTemplate.indexOps(Task.class).ensureIndex(
+        ensureIndex(Task.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -141,7 +143,7 @@ public class MongoIndexInitializer {
                 .named("task_tenant_deleted_created_by_status_due_idx")
         );
 
-        mongoTemplate.indexOps(User.class).ensureIndex(
+        ensureIndex(User.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -150,7 +152,7 @@ public class MongoIndexInitializer {
                 .named("user_tenant_deleted_email_lookup_idx")
         );
 
-        mongoTemplate.indexOps(Tenant.class).ensureIndex(
+        ensureIndex(Tenant.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -158,7 +160,7 @@ public class MongoIndexInitializer {
                 .named("tenant_tenant_id_deleted_lookup_idx")
         );
 
-        mongoTemplate.indexOps(Notification.class).ensureIndex(
+        ensureIndex(Notification.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -168,7 +170,7 @@ public class MongoIndexInitializer {
                 .named("notification_tenant_deleted_user_created_idx")
         );
 
-        mongoTemplate.indexOps(Notification.class).ensureIndex(
+        ensureIndex(Notification.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -178,7 +180,7 @@ public class MongoIndexInitializer {
                 .named("notification_tenant_deleted_user_read_idx")
         );
 
-        mongoTemplate.indexOps(RefreshToken.class).ensureIndex(
+        ensureIndex(RefreshToken.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("deleted", Sort.Direction.ASC)
@@ -188,7 +190,7 @@ public class MongoIndexInitializer {
         );
 
         // Communications: dashboard call snapshots
-        mongoTemplate.indexOps(CommunicationRecord.class).ensureIndex(
+        ensureIndex(CommunicationRecord.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
                 .on("channel", Sort.Direction.ASC)
@@ -205,5 +207,32 @@ public class MongoIndexInitializer {
         } catch (Exception e) {
             log.warn("Tenant backfill skipped: {}", e.getMessage());
         }
+    }
+
+    private void ensureIndex(Class<?> entityClass, Index index) {
+        try {
+            mongoTemplate.indexOps(entityClass).ensureIndex(index);
+        } catch (DataAccessException e) {
+            if (isEquivalentIndexNameConflict(e)) {
+                log.info("Mongo index already exists for {} with a different name; keeping existing index",
+                    entityClass.getSimpleName());
+                return;
+            }
+            throw e;
+        }
+    }
+
+    private boolean isEquivalentIndexNameConflict(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof MongoCommandException mongoException
+                && mongoException.getErrorCode() == 85
+                && mongoException.getErrorMessage() != null
+                && mongoException.getErrorMessage().contains("Index already exists with a different name")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }
