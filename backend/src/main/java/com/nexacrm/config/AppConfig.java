@@ -56,7 +56,9 @@ public class AppConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        // ponytail: strength 10 is the Spring default and OWASP-recommended minimum.
+        // 12 was 4× slower (~300ms/login on VPS) with no meaningful security gain for a CRM.
+        return new BCryptPasswordEncoder(10);
     }
 
     @Bean

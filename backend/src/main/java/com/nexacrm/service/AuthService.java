@@ -40,21 +40,23 @@ public class AuthService {
         Long tenantId = resolveTenantIdForLogin(request);
         TenantContext.setCurrentTenantId(tenantId);
         try {
-            authenticationManager.authenticate(
+            // ponytail: authenticate() already loads the user via UserDetailsService,
+            // so pull the User from the Authentication principal instead of re-querying.
+            var auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, request.getPassword())
             );
 
-            User user = userRepository.findByEmailAndTenantIdAndDeletedFalse(email, tenantId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            User user = (User) auth.getPrincipal();
 
             // FIX #7: Block login if the user's tenant/company is deactivated
             // (Platform admins are exempt — they manage the platform, not a company)
-            if (user.getRole() != User.Role.PLATFORM_ADMIN && user.getTenantId() != null) {
-                Tenant tenant = tenantRepository.findByTenantIdAndDeletedFalse(user.getTenantId())
+            Tenant tenant = null;
+            if (user.getTenantId() != null) {
+                tenant = tenantRepository.findByTenantIdAndDeletedFalse(user.getTenantId())
                     .orElse(null);
-                if (tenant != null && !Boolean.TRUE.equals(tenant.getIsActive())) {
-                    throw new UnauthorizedException("Your company account has been deactivated. Please contact the platform administrator.");
-                }
+            }
+            if (user.getRole() != User.Role.PLATFORM_ADMIN && tenant != null && !Boolean.TRUE.equals(tenant.getIsActive())) {
+                throw new UnauthorizedException("Your company account has been deactivated. Please contact the platform administrator.");
             }
 
             String accessToken  = jwtService.generateToken(Map.of("tenantId", user.getTenantId()), user);
@@ -63,12 +65,25 @@ public class AuthService {
 
             log.info("User logged in: {}", user.getEmail());
 
+            // Reuse tenant fetched above — avoids second lookup in toUserDTO
+            String tenantName = tenant != null ? tenant.getName() : null;
+
             return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getJwtExpiration())
-                .user(toUserDTO(user))
+                .user(UserDTO.builder()
+                    .id(user.getId())
+                    .name(user.getName())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .phone(user.getPhone())
+                    .avatarUrl(user.getAvatarUrl())
+                    .isActive(user.getIsActive())
+                    .tenantId(user.getTenantId())
+                    .tenantName(tenantName)
+                    .build())
                 .build();
         } finally {
             TenantContext.clear();
