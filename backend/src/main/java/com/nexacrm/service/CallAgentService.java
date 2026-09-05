@@ -104,7 +104,8 @@ public class CallAgentService {
                 trim(defaultWebhookSecret)
             );
             if (expectedSecret.isBlank()) {
-                return isKnownCallWebhookPayload(payload, metadata);
+                log.warn("Call agent webhook rejected because nexacrm.call-agent.webhook-secret is not configured");
+                return false;
             }
 
             String payloadSecret = trim(stringValue(payload.get("secret")));

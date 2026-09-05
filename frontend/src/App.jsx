@@ -282,15 +282,13 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme, isDark])
 
-  // ponytail: only call /auth/me when state is genuinely corrupted (isAuthenticated
-  // but token missing). After login() or a valid hydration, skip the round-trip —
-  // the 401 interceptor handles expired tokens on the first real API call.
+  // Only call /auth/me when persisted auth needs server validation.
   useEffect(() => {
     if (authBootstrapped) return
     let alive = true
     // Check persisted state after hydration
     const s = useAuthStore.getState()
-    // Valid-looking session: trust it, skip /auth/me
+    // Valid-looking in-memory session: trust it, skip /auth/me.
     if (s.isAuthenticated && s.token && s.user) {
       markAuthBootstrapped()
       return
@@ -300,8 +298,8 @@ export default function App() {
       markAuthBootstrapped()
       return
     }
-    // Corrupted: claims authenticated but missing token/user — validate server-side
-    ;(async () => {
+    // Cookie-backed session: validate server-side.
+    void (async () => {
       try {
         const me = await authAPI.me()
         if (alive) setSessionFromUser(me)

@@ -252,7 +252,7 @@ export const useLeadsStore = create((set, get) => ({
           totalPages: firstPage?.totalPages ?? 1,
           last: Boolean(firstPage?.last),
         },
-        hasMore: !Boolean(firstPage?.last),
+        hasMore: firstPage?.last !== true,
       }
     } catch (err) {
       set({ loading: false, error: err?.message || 'Failed to fetch pipeline board' })

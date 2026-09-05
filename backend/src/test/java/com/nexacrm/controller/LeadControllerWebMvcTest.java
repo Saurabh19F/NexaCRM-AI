@@ -1,6 +1,7 @@
 package com.nexacrm.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexacrm.dto.LeadActivityDTO;
 import com.nexacrm.dto.LeadDTO;
 import com.nexacrm.dto.PageResponse;
 import com.nexacrm.exception.GlobalExceptionHandler;
@@ -186,7 +187,7 @@ class LeadControllerWebMvcTest {
     }
 
     @Test
-    void addLeadActivity_shouldFailWhenAssignedToMissing() throws Exception {
+    void addLeadActivity_shouldAllowServiceDefaultWhenAssignedToMissing() throws Exception {
         Map<String, Object> body = Map.of(
             "activityIndex", 0,
             "activityId", "act01",
@@ -194,15 +195,25 @@ class LeadControllerWebMvcTest {
             "activityTitle", "Welcome Call",
             "summary", "No assignee"
         );
+        LeadActivityDTO saved = LeadActivityDTO.builder()
+            .id("activity-1")
+            .leadId("lead-1")
+            .activityIndex(0)
+            .activityId("act01")
+            .activityLabel("Activity 01")
+            .activityTitle("Welcome Call")
+            .summary("No assignee")
+            .assignedTo("Sales Team")
+            .build();
+        when(leadActivityService.create(eq("lead-1"), any(LeadActivityDTO.class))).thenReturn(saved);
 
         mockMvc.perform(post("/api/leads/lead-1/activities")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(testObjectMapper.writeValueAsString(body)))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("Validation Failed"))
-            .andExpect(jsonPath("$.fieldErrors.assignedTo").exists());
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.assignedTo").value("Sales Team"));
 
-        verify(leadActivityService, never()).create(any(), any());
+        verify(leadActivityService).create(eq("lead-1"), any(LeadActivityDTO.class));
     }
 
     @Test

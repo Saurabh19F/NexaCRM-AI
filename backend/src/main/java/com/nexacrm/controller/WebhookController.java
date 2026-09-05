@@ -2,6 +2,7 @@ package com.nexacrm.controller;
 
 import com.nexacrm.service.CommunicationService;
 import com.nexacrm.service.LeadService;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +36,8 @@ import java.util.Objects;
 @Tag(name = "Webhooks", description = "Inbound channel webhooks")
 public class WebhookController {
 
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+
     private final CommunicationService communicationService;
     private final LeadService leadService;
     private final ObjectMapper objectMapper;
@@ -44,6 +47,9 @@ public class WebhookController {
 
     @Value("${meta.webhook-token}")
     private String metaWebhookToken;
+
+    @Value("${nexacrm.whatsapp.webhook-token:${meta.webhook-token:}}")
+    private String whatsappWebhookToken;
 
     @GetMapping({"", "/"})
     @Operation(summary = "Webhook root health/check endpoint")
@@ -61,13 +67,39 @@ public class WebhookController {
 
     @PostMapping("/whatsapp")
     @Operation(summary = "Receive inbound WhatsApp webhook events")
-    public ResponseEntity<Map<String, Object>> receiveWhatsAppWebhook(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, Object>> receiveWhatsAppWebhook(
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
+            @RequestHeader(value = "X-Webhook-Token", required = false) String webhookToken,
+            @RequestHeader(value = "X-WhatsApp-Webhook-Token", required = false) String whatsappToken,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody String rawBody) {
+        if (!isValidWhatsAppJsonWebhook(rawBody, signature, webhookToken, whatsappToken, bearerToken(authorization))) {
+            log.warn("WhatsApp webhook rejected: invalid signature/token");
+            return ResponseEntity.status(403).body(Map.of("ok", false, "error", "Forbidden"));
+        }
+
+        Map<String, Object> payload;
+        try {
+            payload = objectMapper.readValue(rawBody, MAP_TYPE);
+        } catch (Exception e) {
+            log.warn("WhatsApp webhook rejected: invalid JSON payload");
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "Invalid JSON payload"));
+        }
         return ResponseEntity.ok(communicationService.processWhatsAppWebhook(payload));
     }
 
     @PostMapping(value = "/whatsapp", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     @Operation(summary = "Receive inbound WhatsApp webhook events (form payload)")
-    public ResponseEntity<Map<String, Object>> receiveWhatsAppWebhookForm(@RequestParam MultiValueMap<String, String> form) {
+    public ResponseEntity<Map<String, Object>> receiveWhatsAppWebhookForm(
+            @RequestHeader(value = "X-Webhook-Token", required = false) String webhookToken,
+            @RequestHeader(value = "X-WhatsApp-Webhook-Token", required = false) String whatsappToken,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam MultiValueMap<String, String> form) {
+        if (!isValidWebhookToken(webhookToken, whatsappToken, bearerToken(authorization))) {
+            log.warn("WhatsApp form webhook rejected: invalid token");
+            return ResponseEntity.status(403).body(Map.of("ok", false, "error", "Forbidden"));
+        }
+
         Map<String, Object> payload = new HashMap<>();
         form.forEach((key, value) -> {
             if (value != null && !value.isEmpty()) {
@@ -166,6 +198,10 @@ public class WebhookController {
     }
 
     private boolean isValidFacebookSignature(String body, String signatureHeader) {
+        if (!isConfiguredSecret(metaAppSecret)) {
+            log.warn("Facebook/Meta webhook signature rejected: meta.app-secret is not configured");
+            return false;
+        }
         if (signatureHeader == null || !signatureHeader.startsWith("sha256=")) {
             return false;
         }
@@ -224,6 +260,49 @@ public class WebhookController {
     }
 
     // ── WhatsApp helpers ──────────────────────────────────────────
+
+    private boolean isValidWhatsAppJsonWebhook(String body, String signatureHeader, String... tokenCandidates) {
+        return isValidFacebookSignature(body, signatureHeader) || isValidWebhookToken(tokenCandidates);
+    }
+
+    private boolean isValidWebhookToken(String... tokenCandidates) {
+        if (!isConfiguredSecret(whatsappWebhookToken)) {
+            log.warn("WhatsApp webhook token is not configured");
+            return false;
+        }
+        String expected = trim(whatsappWebhookToken);
+        for (String candidate : tokenCandidates) {
+            String actual = trim(candidate);
+            if (actual == null || actual.isBlank()) {
+                continue;
+            }
+            if (MessageDigest.isEqual(
+                    expected.getBytes(StandardCharsets.UTF_8),
+                    actual.getBytes(StandardCharsets.UTF_8))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String bearerToken(String authorization) {
+        String header = trim(authorization);
+        if (header == null || !header.toLowerCase().startsWith("bearer ")) {
+            return null;
+        }
+        return header.substring("bearer ".length()).trim();
+    }
+
+    private boolean isConfiguredSecret(String value) {
+        String trimmed = trim(value);
+        if (trimmed == null || trimmed.isBlank()) {
+            return false;
+        }
+        String lower = trimmed.toLowerCase();
+        return !lower.startsWith("your-")
+            && !lower.startsWith("replace-with")
+            && !lower.equals("changeme");
+    }
 
     private Map<String, Object> inflateJsonFields(Map<String, Object> payload) {
         Map<String, Object> inflated = new HashMap<>(payload);

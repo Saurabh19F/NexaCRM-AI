@@ -64,11 +64,10 @@ let refreshPromise = null
 const refreshSession = async () => {
   const { refreshToken } = useAuthStore.getState()
   const jwt = normalizeJwtToken(refreshToken)
-  if (!jwt) return null
 
   if (!refreshPromise) {
     refreshPromise = authClient
-      .post('/auth/refresh', { refreshToken: jwt })
+      .post('/auth/refresh', jwt ? { refreshToken: jwt } : {})
       .then((res) => res.data)
       .finally(() => {
         refreshPromise = null

@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.client.RestTemplate;
@@ -374,7 +375,7 @@ class LeadServiceTest {
             .build();
         phoneMatch.setId("lead-phone");
 
-        when(leadRepository.findByTenantIdAndDeletedFalse(1L)).thenReturn(java.util.List.of(emailMatch, phoneMatch));
+        when(mongoTemplate.find(any(Query.class), eq(Lead.class))).thenReturn(java.util.List.of(emailMatch, phoneMatch));
 
         var duplicates = leadService.findDuplicates("dup@example.com", "9999999999", null);
 

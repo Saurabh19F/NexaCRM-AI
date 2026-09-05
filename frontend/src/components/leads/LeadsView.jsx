@@ -23,7 +23,6 @@ import { useAuthStore } from '../../store/authStore'
 import { getLeadAgingMeta, getLeadAgeMinutes } from '../../utils/leadSla'
 import { callsAPI, leadsAPI, teamAPI } from '../../services/api'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
-import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -1280,12 +1279,29 @@ export default function LeadsPage() {
     }
   }
 
-  const handleExport = (format = 'csv') => {
+  const handleExport = async (format = 'csv') => {
     if (!canExport) {
       toast.error('You do not have permission to export leads.')
       return
     }
     try {
+      const filename = `leads-${new Date().toISOString().slice(0, 10)}`
+      if (format === 'xlsx') {
+        const params = { format: 'xlsx' }
+        if (statusFilter !== 'all') params.status = statusFilter.toUpperCase()
+        const blob = await leadsAPI.export(params)
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${filename}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 500)
+        toast.success('Leads exported successfully.')
+        return
+      }
+
       const headers = ['Name','Email','Phone','Company','Service','Specialization','Source','Score','Status','Value','Assigned To','Created At','Updated At','Notes','Tags']
       const rows = filtered.map((l) => [
         l.name || '', l.email || '', l.phone || '', l.company || '',
@@ -1296,14 +1312,8 @@ export default function LeadsPage() {
         l.updatedAt ? new Date(l.updatedAt).toLocaleString() : '',
         l.notes || '', l.tags || '',
       ])
-      const filename = `leads-${new Date().toISOString().slice(0, 10)}`
 
-      if (format === 'xlsx') {
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
-        const wb = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(wb, ws, 'Leads')
-        XLSX.writeFile(wb, `${filename}.xlsx`)
-      } else if (format === 'pdf') {
+      if (format === 'pdf') {
         const doc = new jsPDF({ orientation: 'landscape' })
         doc.setFontSize(14)
         doc.text(`Leads Export — ${new Date().toLocaleDateString()}`, 14, 15)

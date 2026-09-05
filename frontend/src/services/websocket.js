@@ -55,11 +55,6 @@ function resolveWebSocketUrl() {
     base = `wss://${base.slice('ws://'.length)}`
   }
 
-  const token = normalizeJwtToken(useAuthStore.getState().token)
-  if (token) {
-    const joiner = base.includes('?') ? '&' : '?'
-    base = `${base}${joiner}access_token=${encodeURIComponent(token)}`
-  }
   return base
 }
 

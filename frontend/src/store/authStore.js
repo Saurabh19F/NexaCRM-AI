@@ -66,7 +66,7 @@ export const useAuthStore = create(
     {
       name: AUTH_STORAGE_KEY,
       storage: createJSONStorage(() => authStorage),
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
         if (!persistedState || typeof persistedState !== 'object') return persistedState
         // Repair older persisted sessions that marked auth=true without storing tokens.
@@ -80,12 +80,21 @@ export const useAuthStore = create(
             authBootstrapped: false,
           }
         }
-        return persistedState
+        if (version < 3) {
+          return {
+            ...persistedState,
+            token: null,
+            refreshToken: null,
+          }
+        }
+        return {
+          ...persistedState,
+          token: null,
+          refreshToken: null,
+        }
       },
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
         authBootstrapped: state.authBootstrapped,
       }),

@@ -87,7 +87,6 @@ class TaskServiceTest {
             .thenReturn(Optional.of(employee));
         when(taskRepository.findByTenantIdAndDeletedFalseOrderByDueDateAsc(1L))
             .thenReturn(List.of(assignedTask, createdTask, hiddenTask));
-        when(userRepository.findByTenantIdAndDeletedFalse(1L)).thenReturn(List.of(employee));
 
         List<TaskDTO> visibleTasks = taskService.findAll(null, null, null, null);
 
@@ -121,7 +120,6 @@ class TaskServiceTest {
             .thenReturn(Optional.of(manager));
         when(taskRepository.findByTenantIdAndDeletedFalseAndStatusOrderByDueDateAsc(1L, "PENDING"))
             .thenReturn(List.of(pendingTask));
-        when(userRepository.findByTenantIdAndDeletedFalse(1L)).thenReturn(List.of(manager));
 
         List<TaskDTO> visibleTasks = taskService.findAll("PENDING", null, null, null);
 
