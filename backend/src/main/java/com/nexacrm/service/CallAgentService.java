@@ -84,6 +84,20 @@ public class CallAgentService {
     @Transactional(readOnly = true)
     public boolean isWebhookAuthorized(String secretHeader, String authorizationHeader, Map<String, Object> payload) {
         Map<String, Object> metadata = readMetadata(payload);
+        String payloadSecret = trim(stringValue(payload.get("secret")));
+        if (payloadSecret.isBlank()) {
+            payloadSecret = trim(stringValue(payload.get("webhookSecret")));
+        }
+
+        String bearer = trim(authorizationHeader);
+        if (bearer.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
+            bearer = trim(bearer.substring("bearer ".length()));
+        }
+
+        if (trim(secretHeader).isBlank() && payloadSecret.isBlank() && bearer.isBlank()) {
+            return false;
+        }
+
         boolean tenantSetForWebhook = false;
         if (TenantContext.currentTenantIdOrNull() == null) {
             Long resolvedTenantId = firstLong(
@@ -99,23 +113,16 @@ public class CallAgentService {
         }
 
         try {
-            String expectedSecret = firstNonBlank(
-                trim(integrationService.getConfig("voice_call_agent").get("webhookSecret")),
-                trim(defaultWebhookSecret)
-            );
+            String expectedSecret = trim(defaultWebhookSecret);
+            if (TenantContext.currentTenantIdOrNull() != null) {
+                expectedSecret = firstNonBlank(
+                    trim(integrationService.getConfig("voice_call_agent").get("webhookSecret")),
+                    expectedSecret
+                );
+            }
             if (expectedSecret.isBlank()) {
                 log.warn("Call agent webhook rejected because nexacrm.call-agent.webhook-secret is not configured");
                 return false;
-            }
-
-            String payloadSecret = trim(stringValue(payload.get("secret")));
-            if (payloadSecret.isBlank()) {
-                payloadSecret = trim(stringValue(payload.get("webhookSecret")));
-            }
-
-            String bearer = trim(authorizationHeader);
-            if (bearer.toLowerCase(Locale.ROOT).startsWith("bearer ")) {
-                bearer = trim(bearer.substring("bearer ".length()));
             }
 
             return expectedSecret.equals(trim(secretHeader))
