@@ -355,11 +355,18 @@ export default function LeadConversionDashboard() {
       if (mounted && !controller.signal.aborted) setLoadingChunks((prev) => ({ ...prev, [key]: value }))
     }
 
+    // ponytail: 60s poll instead of 15s, skip silent refetch if data arrived <30s ago
+    let lastFetchedAt = 0
+    const POLL_INTERVAL = 60 * 1000
+    const SKIP_IF_FRESH = 30 * 1000
+
     const load = ({ silent = false } = {}) => {
+      if (silent && Date.now() - lastFetchedAt < SKIP_IF_FRESH) return
       if (!silent) {
         setLoadingChunks({ summary: true, funnel: true, employees: true, sources: true, activities: true, trend: true, followUps: true })
         setError('')
       }
+      lastFetchedAt = Date.now()
       const employeeParams = { ...requestParams, sortBy, sortDir }
 
       // Each chunk loads independently — first to arrive renders first
@@ -400,7 +407,7 @@ export default function LeadConversionDashboard() {
     }
 
     load()
-    const id = window.setInterval(() => load({ silent: true }), 15 * 1000)
+    const id = window.setInterval(() => load({ silent: true }), POLL_INTERVAL)
 
     return () => {
       mounted = false

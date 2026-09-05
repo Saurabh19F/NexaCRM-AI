@@ -253,7 +253,7 @@ const resetColorHoverPointer = (event) => {
 
 export default function App() {
   const { theme } = useThemeStore()
-  const { authBootstrapped, isAuthenticated, token, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
+  const { authBootstrapped, setSessionFromUser, markAuthBootstrapped } = useAuthStore()
   const isDark = theme === 'dark'
 
   useEffect(() => {
@@ -282,33 +282,44 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme, isDark])
 
+  // ponytail: only call /auth/me when state is genuinely corrupted (isAuthenticated
+  // but token missing). After login() or a valid hydration, skip the round-trip —
+  // the 401 interceptor handles expired tokens on the first real API call.
   useEffect(() => {
-    const needsValidation = !authBootstrapped || (isAuthenticated && !token)
-    if (!needsValidation) return
+    if (authBootstrapped) return
     let alive = true
+    // Check persisted state after hydration
+    const s = useAuthStore.getState()
+    // Valid-looking session: trust it, skip /auth/me
+    if (s.isAuthenticated && s.token && s.user) {
+      markAuthBootstrapped()
+      return
+    }
+    // Not authenticated at all: just mark bootstrapped so guards redirect to login
+    if (!s.isAuthenticated) {
+      markAuthBootstrapped()
+      return
+    }
+    // Corrupted: claims authenticated but missing token/user — validate server-side
     ;(async () => {
       try {
         const me = await authAPI.me()
-        if (!alive) return
-        if (useAuthStore.getState().authBootstrapped) return
-        setSessionFromUser(me)
+        if (alive) setSessionFromUser(me)
       } catch (err) {
         if (!alive) return
-        if (useAuthStore.getState().authBootstrapped) return
-        const state = useAuthStore.getState()
         const isNetworkError =
           err?.code === 'ERR_NETWORK' ||
           err?.code === 'ECONNABORTED' ||
           (typeof err?.message === 'string' && err.message.toLowerCase().includes('network'))
-        if (isNetworkError && state.isAuthenticated) {
+        if (isNetworkError && useAuthStore.getState().isAuthenticated) {
           markAuthBootstrapped()
-          return
+        } else {
+          setSessionFromUser(null)
         }
-        setSessionFromUser(null)
       }
     })()
     return () => { alive = false }
-  }, [authBootstrapped, isAuthenticated, token, markAuthBootstrapped, setSessionFromUser])
+  }, [authBootstrapped, markAuthBootstrapped, setSessionFromUser])
 
   return (
     <ErrorBoundary>
