@@ -152,6 +152,14 @@ public class MongoIndexInitializer {
                 .named("user_tenant_deleted_email_lookup_idx")
         );
 
+        ensureIndex(User.class,
+            new Index()
+                .on("email", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .background()
+                .named("user_email_deleted_login_lookup_idx")
+        );
+
         ensureIndex(Tenant.class,
             new Index()
                 .on("tenant_id", Sort.Direction.ASC)
