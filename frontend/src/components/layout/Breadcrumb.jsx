@@ -11,7 +11,6 @@ const ROUTE_LABELS = {
   '/communication':  'Messages',
   '/ai-engine':      'AI Engine',
   '/automation':     'Automation',
-  '/invoices':       'Invoices',
   '/analytics':      'Analytics',
   '/team':           'Team',
   '/settings':       'Settings',

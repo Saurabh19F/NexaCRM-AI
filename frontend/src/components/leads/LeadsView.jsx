@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Download, Upload, Trash2,
@@ -47,6 +48,22 @@ const STAGE_ICON_DEFS = [
   { icon: Clock,  label: 'Follow-up Meeting', bg: 'bg-blue-500',    ring: 'ring-blue-400/40' },
   { icon: Trophy, label: 'Meeting Outcome',   bg: 'bg-emerald-500', ring: 'ring-emerald-400/40' },
 ]
+
+function ScreenModalPortal({ children }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
+  if (!mounted) return null
+  return createPortal(children, document.body)
+}
 
 const LEAD_SOURCES = [
   'Facebook', 'Instagram', 'LinkedIn', 'Website', 'WhatsApp',
@@ -583,15 +600,15 @@ function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) 
   const totalCalls = remoteCalls.length || calls
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end" role="dialog" aria-modal="true" aria-label="Lead history and call intelligence">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Lead history and call intelligence">
       {/* Backdrop */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
-      {/* Drawer */}
-      <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+      {/* Centered panel */}
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="relative z-10 w-full max-w-sm h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-700">
+        className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
 
         {/* Header */}
         <div className="flex items-start justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
@@ -1117,6 +1134,7 @@ export default function LeadsPage() {
   const [leadStages, setLeadStages] = useState({})
   const [timeTick, setTimeTick]             = useState(Date.now())
   const importRef                           = useRef(null)
+  const selectAllRef                        = useRef(null)
   const canCreate = hasPermission(user, PERMISSIONS.LEADS_CREATE)
   const canUpdate = hasPermission(user, PERMISSIONS.LEADS_UPDATE)
   const canDelete = hasPermission(user, PERMISSIONS.LEADS_DELETE)
@@ -1245,7 +1263,16 @@ export default function LeadsPage() {
 
   const totalCount = Number(pagination?.total ?? leads.length)
   const visible = filtered.slice(0, visibleCount)
+  const visibleIds = visible.map((lead) => lead.id).filter(Boolean)
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id))
+  const someVisibleSelected = visibleIds.some((id) => selected.includes(id))
   const hasMore = visibleCount < filtered.length || leads.length < totalCount
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected
+    }
+  }, [allVisibleSelected, someVisibleSelected])
 
   const loadMoreLeads = async () => {
     const nextCount = visibleCount + PAGE_SIZE
@@ -1267,7 +1294,17 @@ export default function LeadsPage() {
     sortField === field ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null
 
   const toggleSelect = (id) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id])
-  const toggleAll = () => setSelected(selected.length === filtered.length ? [] : filtered.map((l) => l.id))
+  const toggleAll = () => setSelected((current) => {
+    if (!visibleIds.length) return []
+
+    const visibleIdSet = new Set(visibleIds)
+    const nextShouldSelect = !visibleIds.every((id) => current.includes(id))
+    if (!nextShouldSelect) {
+      return current.filter((id) => !visibleIdSet.has(id))
+    }
+
+    return Array.from(new Set([...current, ...visibleIds]))
+  })
 
   const handleAdd = async (lead) => {
     if (!canCreate) {
@@ -1783,8 +1820,15 @@ export default function LeadsPage() {
             <thead>
               <tr className="border-b border-slate-200/70 dark:border-slate-700/40 bg-white/50 dark:bg-slate-900/20">
                 <th className="py-3 px-4 text-left w-10">
-                  <input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0} onChange={toggleAll}
-                    className="rounded border-slate-300 text-brand-600" />
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    disabled={!visibleIds.length}
+                    onChange={toggleAll}
+                    aria-label="Select all visible leads"
+                    className="rounded border-slate-300 text-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
                 </th>
                 <th className="py-2.5 px-2 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 w-10">Stage</th>
                 {[
@@ -1910,94 +1954,110 @@ export default function LeadsPage() {
       {/* Add Lead Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <AddLeadModal
-            onClose={() => setShowAddModal(false)}
-            onAdd={handleAdd}
-            teamMembers={teamMembers}
-          />
+          <ScreenModalPortal>
+            <AddLeadModal
+              onClose={() => setShowAddModal(false)}
+              onAdd={handleAdd}
+              teamMembers={teamMembers}
+            />
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 
       {/* Edit Lead Modal */}
       <AnimatePresence>
         {editLead && (
-          <EditLeadModal
-            lead={editLead}
-            onClose={() => setEditLead(null)}
-            onSave={handleSave}
-            teamMembers={teamMembers}
-          />
+          <ScreenModalPortal>
+            <EditLeadModal
+              lead={editLead}
+              onClose={() => setEditLead(null)}
+              onSave={handleSave}
+              teamMembers={teamMembers}
+            />
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 
       {/* Lead Detail Card */}
       <AnimatePresence>
         {detailLead && (
-          <LeadDetailModal
-            lead={detailLead}
-            onClose={() => setDetailLead(null)}
-            onEdit={(l) => setEditLead(l)}
-            onDelete={handleDelete}
-            canEdit={canUpdate}
-            canDelete={canDelete}
-            onCall={handleCallLead}
-            onWhatsApp={(l) => { setDetailLead(null); setWaLead(l) }}
-            onHistory={(l) => { setDetailLead(null); openHistoryLead(l) }}
-            onActivities={(l) => { setDetailLead(null); openActivitiesLead(l) }}
-            onAiScore={handleScoreLead}
-            onConvert={handleConvertLead}
-            canCall={canCall}
-            canAiScore={canAiScore}
-            canConvert={canConvert}
-            callingLeadId={callingLeadId}
-            lastCallOutcome={callOutcomeByLeadId[detailLead.id]}
-            aging={getLeadAgingMeta(detailLead, timeTick)}
-            ageMin={getLeadAgeMinutes(detailLead, timeTick)}
-          />
+          <ScreenModalPortal>
+            <LeadDetailModal
+              lead={detailLead}
+              onClose={() => setDetailLead(null)}
+              onEdit={(l) => setEditLead(l)}
+              onDelete={handleDelete}
+              canEdit={canUpdate}
+              canDelete={canDelete}
+              onCall={handleCallLead}
+              onWhatsApp={(l) => { setDetailLead(null); setWaLead(l) }}
+              onHistory={(l) => { setDetailLead(null); openHistoryLead(l) }}
+              onActivities={(l) => { setDetailLead(null); openActivitiesLead(l) }}
+              onAiScore={handleScoreLead}
+              onConvert={handleConvertLead}
+              canCall={canCall}
+              canAiScore={canAiScore}
+              canConvert={canConvert}
+              callingLeadId={callingLeadId}
+              lastCallOutcome={callOutcomeByLeadId[detailLead.id]}
+              aging={getLeadAgingMeta(detailLead, timeTick)}
+              ageMin={getLeadAgeMinutes(detailLead, timeTick)}
+            />
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 
       {/* Lead History Drawer */}
       <AnimatePresence>
         {historyLead && (
-          <LeadHistoryPanel
-            lead={historyLead}
-            onClose={() => setHistoryLead(null)}
-            onLogActivity={openActivitiesLead}
-            historyEvents={leadActivitiesByLeadId[historyLead.id] || []}
-          />
+          <ScreenModalPortal>
+            <LeadHistoryPanel
+              lead={historyLead}
+              onClose={() => setHistoryLead(null)}
+              onLogActivity={openActivitiesLead}
+              historyEvents={leadActivitiesByLeadId[historyLead.id] || []}
+            />
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 
       {/* Lead Activities Modal */}
       <AnimatePresence>
         {activitiesLead && (
-          <LeadActivitiesModal
-            lead={activitiesLead}
-            onClose={() => setActivitiesLead(null)}
-            onPersist={handlePersistActivity}
-            initialData={getActivityModalState(activitiesLead.id).data}
-            initialSaved={getActivityModalState(activitiesLead.id).saved}
-            initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? 0}
-            onActiveTabChange={handleActivityTabChange}
-          />
+          <ScreenModalPortal>
+            <LeadActivitiesModal
+              lead={activitiesLead}
+              onClose={() => setActivitiesLead(null)}
+              onPersist={handlePersistActivity}
+              initialData={getActivityModalState(activitiesLead.id).data}
+              initialSaved={getActivityModalState(activitiesLead.id).saved}
+              initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? 0}
+              onActiveTabChange={handleActivityTabChange}
+            />
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 
       {/* WhatsApp Modal */}
       <AnimatePresence>
-        {waLead && <WhatsAppModal lead={waLead} onClose={() => setWaLead(null)} />}
+        {waLead && (
+          <ScreenModalPortal>
+            <WhatsAppModal lead={waLead} onClose={() => setWaLead(null)} />
+          </ScreenModalPortal>
+        )}
       </AnimatePresence>
 
       {/* Call Outcome Modal */}
       <AnimatePresence>
         {callOutcomeLead && (
-          <CallOutcomeModal
-            lead={callOutcomeLead}
-            user={user}
-            onSave={handleSaveCallOutcome}
-            onClose={() => setCallOutcomeLead(null)}
-          />
+          <ScreenModalPortal>
+            <CallOutcomeModal
+              lead={callOutcomeLead}
+              user={user}
+              onSave={handleSaveCallOutcome}
+              onClose={() => setCallOutcomeLead(null)}
+            />
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
     </div>

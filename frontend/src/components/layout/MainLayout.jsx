@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Activity, Users, Clock, CheckCircle2, Plus, UserPlus, MessageSquare, Sparkles, Receipt, Kanban } from 'lucide-react'
+import { Activity, Users, Clock, CheckCircle2, Plus, UserPlus, MessageSquare, Sparkles, Kanban } from 'lucide-react'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import Breadcrumb from './Breadcrumb'
@@ -63,7 +63,6 @@ export default function MainLayout() {
     { label: 'New Lead', icon: <UserPlus className="w-5 h-5 text-brand-500" />, onClick: () => navigate('/leads'), color: 'bg-brand-50 dark:bg-brand-950/30' },
     { label: 'Send Message', icon: <MessageSquare className="w-5 h-5 text-emerald-500" />, onClick: () => navigate('/communication'), color: 'bg-emerald-50 dark:bg-emerald-950/30' },
     { label: 'AI Assistant', icon: <Sparkles className="w-5 h-5 text-violet-500" />, onClick: () => navigate('/ai-engine'), color: 'bg-violet-50 dark:bg-violet-950/30' },
-    { label: 'New Invoice', icon: <Receipt className="w-5 h-5 text-sky-500" />, onClick: () => navigate('/invoices'), color: 'bg-sky-50 dark:bg-sky-950/30' },
     { label: 'Pipeline', icon: <Kanban className="w-5 h-5 text-amber-500" />, onClick: () => navigate('/pipeline'), color: 'bg-amber-50 dark:bg-amber-950/30' },
   ]
 

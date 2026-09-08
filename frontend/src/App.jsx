@@ -21,7 +21,6 @@ const pageImports = {
   '/communication': () => import('./pages/CommunicationPage'),
   '/ai-engine': () => import('./pages/AIEnginePage'),
   '/automation': () => import('./pages/AutomationPage'),
-  '/invoices': () => import('./pages/InvoicesPage'),
   '/analytics': () => import('./pages/AnalyticsPage'),
   '/team': () => import('./pages/TeamPage'),
   '/settings': () => import('./pages/SettingsPage'),
@@ -48,7 +47,6 @@ const CustomersPage = lazy(pageImports['/customers'])
 const CommunicationPage = lazy(pageImports['/communication'])
 const AIEnginePage = lazy(pageImports['/ai-engine'])
 const AutomationPage = lazy(pageImports['/automation'])
-const InvoicesPage = lazy(pageImports['/invoices'])
 const AnalyticsPage = lazy(pageImports['/analytics'])
 const TeamPage = lazy(pageImports['/team'])
 const SettingsPage = lazy(pageImports['/settings'])
@@ -368,7 +366,6 @@ export default function App() {
             <Route path="/communication" element={<PermissionRoute permission={PERMISSIONS.COMMUNICATIONS_READ}><CommunicationPage /></PermissionRoute>} />
             <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />
             <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.AUTOMATION_READ}><AutomationPage /></PermissionRoute>} />
-            <Route path="/invoices" element={<PermissionRoute permission={PERMISSIONS.INVOICES_READ}><InvoicesPage /></PermissionRoute>} />
             <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><AnalyticsPage /></PermissionRoute>} />
             <Route path="/task-followup" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TaskFollowUpPage /></PermissionRoute>} />
             <Route path="/notifications" element={<Navigate to="/settings?tab=alerts" replace />} />

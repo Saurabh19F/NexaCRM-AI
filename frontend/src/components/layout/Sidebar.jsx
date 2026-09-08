@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, UserCircle, MessageSquare,
-  Sparkles, Zap, Receipt, BarChart3, Shield, Settings,
+  Sparkles, Zap, BarChart3, Shield, Settings,
   X, ListTodo, ShieldCheck, Activity, Building2, BadgeDollarSign,
   Lock, FileText, Menu
 } from 'lucide-react'
@@ -22,7 +22,6 @@ const NAV_ITEMS = [
   { label: 'Messages',       icon: MessageSquare,   path: '/communication', permission: PERMISSIONS.COMMUNICATIONS_READ },
   { label: 'AI Engine',      icon: Sparkles,        path: '/ai-engine', permission: PERMISSIONS.AI_USE },
   { label: 'Automation',     icon: Zap,             path: '/automation', permission: PERMISSIONS.AUTOMATION_READ },
-  { label: 'Invoices',       icon: Receipt,         path: '/invoices', permission: PERMISSIONS.INVOICES_READ },
   { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.REPORTS_READ },
   { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
