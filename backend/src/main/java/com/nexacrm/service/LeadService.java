@@ -130,11 +130,13 @@ public class LeadService {
     @Transactional(readOnly = true)
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
                                          String source, String assignedTo, Pageable pageable) {
+        long started = System.nanoTime();
         Pageable effectivePageable = normalizeLeadListPageable(pageable);
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
         User current = currentUser();
+        long userLoaded = System.nanoTime();
         if (!User.isAdminLike(current.getRole()) && current.getRole() != User.Role.MANAGER) {
             query.addCriteria(Criteria.where("assigned_to.$id").is(current.getId()));
         }
@@ -159,6 +161,7 @@ public class LeadService {
         query.limit(effectivePageable.getPageSize() + 1);
         includeLeadListFields(query);
         List<org.bson.Document> leadDocs = mongoTemplate.find(query, org.bson.Document.class, "leads");
+        long leadsLoaded = System.nanoTime();
         boolean hasMore = leadDocs.size() > effectivePageable.getPageSize();
         if (hasMore) {
             leadDocs = leadDocs.subList(0, effectivePageable.getPageSize());
@@ -178,7 +181,8 @@ public class LeadService {
                     user -> user.getName(),
                     (existing, replacement) -> existing
                 ));
-        return PageResponse.<LeadDTO>builder()
+        long assignedUsersLoaded = System.nanoTime();
+        PageResponse<LeadDTO> response = PageResponse.<LeadDTO>builder()
             .content(leadDocs.stream()
                 .map(doc -> toListDTO(doc, assignedNameById, Map.of()))
                 .collect(Collectors.toList()))
@@ -189,6 +193,23 @@ public class LeadService {
             .first(effectivePageable.getPageNumber() == 0)
             .last(!hasMore)
             .build();
+        long completed = System.nanoTime();
+        long totalMs = Duration.ofNanos(completed - started).toMillis();
+        if (totalMs > 1_000) {
+            log.warn(
+                "Slow lead list load: tenant={}, page={}, size={}, rows={}, userMs={}, queryMs={}, assignedUserMs={}, mapMs={}, totalMs={}",
+                tenantId(),
+                effectivePageable.getPageNumber(),
+                effectivePageable.getPageSize(),
+                leadDocs.size(),
+                Duration.ofNanos(userLoaded - started).toMillis(),
+                Duration.ofNanos(leadsLoaded - userLoaded).toMillis(),
+                Duration.ofNanos(assignedUsersLoaded - leadsLoaded).toMillis(),
+                Duration.ofNanos(completed - assignedUsersLoaded).toMillis(),
+                totalMs
+            );
+        }
+        return response;
     }
 
     private Pageable normalizeLeadListPageable(Pageable pageable) {
