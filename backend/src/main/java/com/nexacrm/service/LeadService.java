@@ -35,7 +35,6 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
@@ -129,10 +128,6 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(
-        value = "leads-list",
-        key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':' + #search + ':' + #status + ':' + #score + ':' + #source + ':' + #assignedTo + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()"
-    )
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
                                          String source, String assignedTo, Pageable pageable) {
         Pageable effectivePageable = normalizeLeadListPageable(pageable);
