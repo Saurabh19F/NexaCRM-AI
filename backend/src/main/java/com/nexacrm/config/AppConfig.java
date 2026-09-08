@@ -33,7 +33,7 @@ public class AppConfig {
     private final UserRepository userRepository;
     private final Map<String, CachedUserDetails> userDetailsCache = new ConcurrentHashMap<>();
 
-    @Value("${nexacrm.auth.user-cache-ttl-ms:60000}")
+    @Value("${nexacrm.auth.user-cache-ttl-ms:600000}")
     private long userCacheTtlMs;
 
     @Bean
