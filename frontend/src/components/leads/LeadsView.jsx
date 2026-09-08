@@ -1164,11 +1164,25 @@ export default function LeadsPage() {
     setSelected([])
   }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
 
-  // Load lightweight activity stages for leads
   useEffect(() => {
-    const ids = leads.map((l) => l.id).filter(Boolean)
-    if (!ids.length) return
-    leadsAPI.getActivityStages(ids).then((data) => {
+    const stagesFromLeadRows = {}
+    const missingIds = []
+
+    leads.forEach((lead) => {
+      if (!lead?.id) return
+      if (lead.activityStageIndex != null) {
+        stagesFromLeadRows[lead.id] = lead.activityStageIndex
+      } else {
+        missingIds.push(lead.id)
+      }
+    })
+
+    if (Object.keys(stagesFromLeadRows).length) {
+      setLeadStages((prev) => ({ ...prev, ...stagesFromLeadRows }))
+    }
+    if (!missingIds.length) return
+
+    leadsAPI.getActivityStages(missingIds).then((data) => {
       if (data && typeof data === 'object') setLeadStages((prev) => ({ ...prev, ...data }))
     }).catch(() => {})
   }, [leads])

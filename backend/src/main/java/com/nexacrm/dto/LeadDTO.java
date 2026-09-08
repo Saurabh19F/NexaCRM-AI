@@ -70,6 +70,7 @@ public class LeadDTO implements Serializable {
     private LocalDateTime escalatedAt;
     private LocalDateTime reassignedAt;
     private BigDecimal revenueValue;
+    private Integer activityStageIndex;
     private List<String> activityLogs;
     private Lead.AutomatedCallingStatus automatedCallingStatus;
     private String automatedCallingStatusLabel;

@@ -93,6 +93,7 @@ const toFrontendLead = (lead, index = 0) => {
     escalatedAt: toIso(lead?.escalatedAt),
     reassignedAt: toIso(lead?.reassignedAt),
     expectedCloseTimeline: lead?.expectedCloseTimeline || '',
+    activityStageIndex: Number.isFinite(Number(lead?.activityStageIndex)) ? Number(lead.activityStageIndex) : null,
     activityLogs: Array.isArray(lead?.activityLogs) ? lead.activityLogs : [],
   }
 }

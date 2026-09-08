@@ -33,6 +33,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
@@ -126,6 +127,10 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(
+        value = "leads-list",
+        key = "T(com.nexacrm.security.TenantContext).currentTenantId() + ':' + T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + ':' + #search + ':' + #status + ':' + #score + ':' + #source + ':' + #assignedTo + ':' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort.toString()"
+    )
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
                                          String source, String assignedTo, Pageable pageable) {
         Query query = new Query();
@@ -171,10 +176,17 @@ public class LeadService {
                     user -> user.getName(),
                     (existing, replacement) -> existing
                 ));
+        Set<String> leadIds = leadDocs.stream()
+            .map(this::objectIdString)
+            .filter(id -> id != null && !id.isBlank())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, Integer> activityStageByLeadId = leadIds.isEmpty()
+            ? Map.of()
+            : leadActivityService.getMaxStageByLeadIds(leadIds);
 
         return PageResponse.<LeadDTO>builder()
             .content(leadDocs.stream()
-                .map(doc -> toListDTO(doc, assignedNameById))
+                .map(doc -> toListDTO(doc, assignedNameById, activityStageByLeadId))
                 .collect(Collectors.toList()))
             .page(pageable.getPageNumber())
             .size(pageable.getPageSize())
@@ -246,6 +258,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO create(LeadDTO dto) {
@@ -353,6 +366,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO update(String id, LeadDTO dto) {
@@ -439,6 +453,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public void delete(String id) {
@@ -457,6 +472,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public int bulkDelete(List<String> ids) {
@@ -572,6 +588,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO merge(String primaryId, String duplicateId) {
@@ -608,6 +625,7 @@ public class LeadService {
         @CacheEvict(value = "dashboard-trend", allEntries = true),
         @CacheEvict(value = "dashboard-widgets", allEntries = true),
         @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
     public LeadDTO reopen(String id, Map<String, Object> options) {
@@ -675,6 +693,7 @@ public class LeadService {
         return lead.getActivityLogs() != null ? lead.getActivityLogs() : List.of();
     }
 
+    @CacheEvict(value = "leads-list", allEntries = true)
     public Map<String, Object> importFromFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalStateException("Import file is empty.");
@@ -765,6 +784,7 @@ public class LeadService {
         return result;
     }
 
+    @CacheEvict(value = "leads-list", allEntries = true)
     public Map<String, Object> syncFromPublicGoogleSheet(Map<String, String> config) {
         String sourceLabel = trim(config.get("sourceLabel"));
         if (sourceLabel == null || sourceLabel.isBlank()) sourceLabel = "Kriscel.com";
@@ -853,6 +873,7 @@ public class LeadService {
     }
 
     @SuppressWarnings("unchecked")
+    @CacheEvict(value = "leads-list", allEntries = true)
     public Map<String, Object> syncFacebookLeadAds(Map<String, String> options) {
         Map<String, String> config = new LinkedHashMap<>(integrationService.getConfig("facebook"));
         if (options != null) {
@@ -1009,6 +1030,7 @@ public class LeadService {
         return exportAsCsv(leads);
     }
 
+    @CacheEvict(value = "leads-list", allEntries = true)
     public Map<String, Object> scoreWithAI(String id) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -1032,6 +1054,7 @@ public class LeadService {
         );
     }
 
+    @CacheEvict(value = "leads-list", allEntries = true)
     public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -1120,6 +1143,7 @@ public class LeadService {
         );
     }
 
+    @CacheEvict(value = "leads-list", allEntries = true)
     public Map<String, Object> callLeadNow(String id, String script) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -2285,10 +2309,15 @@ public class LeadService {
             .include("revenue_value");
     }
 
-    private LeadDTO toListDTO(org.bson.Document d, Map<String, String> assignedNameById) {
+    private LeadDTO toListDTO(
+        org.bson.Document d,
+        Map<String, String> assignedNameById,
+        Map<String, Integer> activityStageByLeadId
+    ) {
         String assignedToId = assignedToIdFromDoc(d);
+        String leadId = objectIdString(d);
         return LeadDTO.builder()
-            .id(objectIdString(d))
+            .id(leadId)
             .name(d.getString("name"))
             .email(d.getString("email"))
             .phone(d.getString("phone"))
@@ -2328,6 +2357,7 @@ public class LeadService {
             .escalatedAt(docDate(d, "escalated_at"))
             .reassignedAt(docDate(d, "reassigned_at"))
             .revenueValue(decimalOrNull(d.get("revenue_value")))
+            .activityStageIndex(activityStageByLeadId.get(leadId))
             .build();
     }
 

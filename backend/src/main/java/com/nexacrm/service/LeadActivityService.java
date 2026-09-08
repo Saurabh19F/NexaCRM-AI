@@ -11,6 +11,7 @@ import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
@@ -205,7 +206,10 @@ public class LeadActivityService {
         return result;
     }
 
-    @CacheEvict(value = "pipeline-board", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "leads-list", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
+    })
     public LeadActivityDTO create(String leadId, LeadActivityDTO dto) {
         Lead lead = ensureLeadExists(leadId);
         ensureLeadVisible(lead);
