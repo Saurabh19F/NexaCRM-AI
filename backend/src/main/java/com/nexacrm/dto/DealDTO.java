@@ -4,12 +4,15 @@ import com.nexacrm.model.Deal;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
-public class DealDTO {
+public class DealDTO implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
 
     @NotBlank
