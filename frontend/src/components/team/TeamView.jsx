@@ -11,6 +11,7 @@ import Chip from '../ui/Chip'
 import { LinearProgress } from '../ui/Progress'
 import AvatarGroup from '../ui/AvatarGroup'
 import Rating from '../ui/Rating'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 // Company-level roles only — PLATFORM_ADMIN is a separate SaaS-level role, not part of any company
 const ROLE_CONFIG = {
@@ -602,7 +603,8 @@ export default function TeamPage() {
 
       <AnimatePresence>
         {memberModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={memberModal.mode === 'add' ? 'Invite team member' : 'Edit team member'}>
+          <ScreenModalPortal>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={memberModal.mode === 'add' ? 'Invite team member' : 'Edit team member'}>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -704,13 +706,15 @@ export default function TeamPage() {
                 </div>
               </form>
             </motion.div>
-          </div>
+            </div>
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Delete team member">
+          <ScreenModalPortal>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Delete team member">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -739,7 +743,8 @@ export default function TeamPage() {
                 </button>
               </div>
             </motion.div>
-          </div>
+            </div>
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
     </div>

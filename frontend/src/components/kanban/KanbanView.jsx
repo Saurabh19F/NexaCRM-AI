@@ -26,6 +26,7 @@ import PageHeading from '../ui/PageHeading'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import LeadActivitiesModal from '../LeadActivitiesModal'
 import PaginatedSelect from '../ui/PaginatedSelect'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 /* ── Pipeline stages — exact activity workflow ──────────────── */
 const STAGES = [
@@ -724,7 +725,8 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
   }
 
   return (
-    <motion.div
+    <ScreenModalPortal>
+      <motion.div
       className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-900/50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -819,7 +821,8 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
           <button type="submit" className="btn-primary text-xs">Create Lead</button>
         </div>
       </motion.form>
-    </motion.div>
+      </motion.div>
+    </ScreenModalPortal>
   )
 }
 

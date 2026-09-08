@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import { useLeadsStore } from '../store/leadsStore'
 import { authAPI } from '../services/api'
+import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // Company-level role permissions — PLATFORM_ADMIN is a SaaS-level role shown separately on their Platform Admin dashboard
@@ -351,7 +352,8 @@ export default function ProfilePage() {
       </div>
 
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <ScreenModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md glass-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Change Password</h3>
@@ -383,7 +385,8 @@ export default function ProfilePage() {
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </ScreenModalPortal>
       )}
     </div>
   )

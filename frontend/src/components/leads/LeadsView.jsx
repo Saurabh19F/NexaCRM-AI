@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Download, Upload, Trash2,
@@ -26,6 +25,7 @@ import { callsAPI, leadsAPI, teamAPI } from '../../services/api'
 import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 const SCORE_BADGE = {
   hot:  { label: 'Hot',  icon: Flame,       cls: 'badge-hot' },
@@ -48,22 +48,6 @@ const STAGE_ICON_DEFS = [
   { icon: Clock,  label: 'Follow-up Meeting', bg: 'bg-blue-500',    ring: 'ring-blue-400/40' },
   { icon: Trophy, label: 'Meeting Outcome',   bg: 'bg-emerald-500', ring: 'ring-emerald-400/40' },
 ]
-
-function ScreenModalPortal({ children }) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [])
-
-  if (!mounted) return null
-  return createPortal(children, document.body)
-}
 
 const LEAD_SOURCES = [
   'Facebook', 'Instagram', 'LinkedIn', 'Website', 'WhatsApp',
@@ -2024,17 +2008,15 @@ export default function LeadsPage() {
       {/* Lead Activities Modal */}
       <AnimatePresence>
         {activitiesLead && (
-          <ScreenModalPortal>
-            <LeadActivitiesModal
-              lead={activitiesLead}
-              onClose={() => setActivitiesLead(null)}
-              onPersist={handlePersistActivity}
-              initialData={getActivityModalState(activitiesLead.id).data}
-              initialSaved={getActivityModalState(activitiesLead.id).saved}
-              initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? 0}
-              onActiveTabChange={handleActivityTabChange}
-            />
-          </ScreenModalPortal>
+          <LeadActivitiesModal
+            lead={activitiesLead}
+            onClose={() => setActivitiesLead(null)}
+            onPersist={handlePersistActivity}
+            initialData={getActivityModalState(activitiesLead.id).data}
+            initialSaved={getActivityModalState(activitiesLead.id).saved}
+            initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? 0}
+            onActiveTabChange={handleActivityTabChange}
+          />
         )}
       </AnimatePresence>
 

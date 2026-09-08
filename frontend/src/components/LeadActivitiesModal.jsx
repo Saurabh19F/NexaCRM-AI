@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle2, Clock, Phone, Trophy, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
+import ScreenModalPortal from './ui/ScreenModalPortal'
 
 /* ── Activity definitions — 3-step workflow ── */
 const ACTIVITIES = [
@@ -444,7 +445,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
       : activityThreePrimaryLabel
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Lead activities">
+    <ScreenModalPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Lead activities">
       <motion.div
         initial={{ opacity:0, scale:0.95, y:20 }}
         animate={{ opacity:1, scale:1, y:0 }}
@@ -975,6 +977,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
           </div>
         </div>
       </motion.div>
-    </div>
+      </div>
+    </ScreenModalPortal>
   )
 }

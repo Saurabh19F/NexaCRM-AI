@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { automationAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
 import LoadingState from '../ui/LoadingState'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 import { KRISCEL_WHATSAPP_WELCOME_MESSAGE } from '../../utils/whatsappTemplates'
 
 const CATEGORY_COLORS = {
@@ -443,7 +444,8 @@ export default function AutomationPage() {
 
       <AnimatePresence>
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create new workflow">
+          <ScreenModalPortal>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create new workflow">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -639,7 +641,8 @@ export default function AutomationPage() {
                 </div>
               </form>
             </motion.div>
-          </div>
+            </div>
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
     </div>

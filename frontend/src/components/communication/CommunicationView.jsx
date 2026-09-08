@@ -7,6 +7,7 @@ import {
 import toast from 'react-hot-toast'
 import { commsAPI } from '../../services/api'
 import { useIntegrationsStore } from '../../store/integrationsStore'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 // ── Channel config ────────────────────────────────────────────
 const CHANNEL_CONFIG = {
@@ -1094,7 +1095,8 @@ export default function CommunicationPage() {
       {/* ── New Contact Modal ── */}
       <AnimatePresence>
         {composeOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create message">
+          <ScreenModalPortal>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Create message">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setComposeOpen(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -1182,10 +1184,12 @@ export default function CommunicationPage() {
                 {composeSending ? 'Sending...' : 'Send Message'}
               </button>
             </motion.div>
-          </div>
+            </div>
+          </ScreenModalPortal>
         )}
         {newContact && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="New WhatsApp chat">
+          <ScreenModalPortal>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="New WhatsApp chat">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setNewContact(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -1213,7 +1217,8 @@ export default function CommunicationPage() {
                 </button>
               </div>
             </motion.div>
-          </div>
+            </div>
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
     </div>

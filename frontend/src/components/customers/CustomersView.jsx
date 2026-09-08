@@ -18,6 +18,7 @@ import Chip from '../ui/Chip'
 import Tooltip from '../ui/Tooltip'
 import { Timeline, TimelineItem } from '../ui/Timeline'
 import { LinearProgress } from '../ui/Progress'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 /* ── Constants ─────────────────────────────────────────────────── */
 const INDUSTRIES = ['Finance', 'IT', 'SaaS', 'Manufacturing', 'Healthcare', 'E-commerce', 'Retail', 'Education', 'Other']
@@ -122,7 +123,8 @@ function AddCustomerModal({ onClose, onSave }) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    <ScreenModalPortal>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       role="dialog" aria-modal="true" aria-label="Add customer"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -189,7 +191,8 @@ function AddCustomerModal({ onClose, onSave }) {
           <button onClick={handleSave} className="btn-primary flex-1 text-sm">Add Customer</button>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </ScreenModalPortal>
   )
 }
 

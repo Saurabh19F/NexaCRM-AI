@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useIntegrationsStore } from '../store/integrationsStore'
+import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 
 const INTEGRATIONS = [
   {
@@ -332,7 +333,8 @@ function SetupModal({ integration, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <ScreenModalPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <motion.div initial={{ opacity:0, scale:0.95, y:20 }} animate={{ opacity:1, scale:1, y:0 }} exit={{ opacity:0, scale:0.95, y:20 }}
         className="w-full max-w-xl max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden">
 
@@ -463,7 +465,8 @@ function SetupModal({ integration, onClose }) {
           </div>
         </div>
       </motion.div>
-    </div>
+      </div>
+    </ScreenModalPortal>
   )
 }
 

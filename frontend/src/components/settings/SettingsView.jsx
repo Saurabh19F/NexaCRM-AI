@@ -6,6 +6,7 @@ import { Settings, Bell, Shield, Palette, Link, CreditCard, Save,
 import { useThemeStore } from '../../store/themeStore'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 const LazyAlerts       = lazy(() => import('../../pages/NotificationCenterPage'))
 const LazyTickets      = lazy(() => import('../../pages/TicketsPage'))
@@ -75,7 +76,8 @@ function mergeIntegrationState(base, saved) {
 /* ── 2FA Setup Modal ─────────────────────────────────────────────── */
 function TwoFactorModal({ onClose, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="Two-factor authentication">
+    <ScreenModalPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-label="Two-factor authentication">
       <motion.div initial={{ opacity:0, scale:0.95 }} animate={{ opacity:1, scale:1 }}
         exit={{ opacity:0, scale:0.95 }} transition={{ duration:0.2 }}
         className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -101,7 +103,8 @@ function TwoFactorModal({ onClose, onConfirm }) {
           </div>
         </div>
       </motion.div>
-    </div>
+      </div>
+    </ScreenModalPortal>
   )
 }
 
@@ -218,7 +221,8 @@ function ManagePlanModal({ onClose, currentPlan = 'Enterprise', onSelectPlan }) 
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    <ScreenModalPortal>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       role="dialog" aria-modal="true" aria-label="Manage plan"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -265,7 +269,8 @@ function ManagePlanModal({ onClose, currentPlan = 'Enterprise', onSelectPlan }) 
           </button>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </ScreenModalPortal>
   )
 }
 

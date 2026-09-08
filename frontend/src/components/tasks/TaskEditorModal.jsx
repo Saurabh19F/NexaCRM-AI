@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import PaginatedSelect from '../ui/PaginatedSelect'
+import ScreenModalPortal from '../ui/ScreenModalPortal'
 
 const DEFAULT_FORM = {
   title: '',
@@ -92,7 +93,8 @@ export default function TaskEditorModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <ScreenModalPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -194,6 +196,7 @@ export default function TaskEditorModal({
           </div>
         </form>
       </motion.div>
-    </div>
+      </div>
+    </ScreenModalPortal>
   )
 }

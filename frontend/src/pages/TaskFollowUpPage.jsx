@@ -22,6 +22,7 @@ import {
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import LeadActivitiesModal from '../components/LeadActivitiesModal'
+import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 import { leadsAPI, tasksAPI } from '../services/api'
 
 const unwrapList = (payload) => {
@@ -1079,18 +1080,22 @@ export default function TaskFollowUpPage() {
       {/* Lead History Drawer */}
       <AnimatePresence>
         {historyLeadData && (
-          <motion.div
-            className="fixed inset-0 z-50 flex justify-end bg-slate-950/40 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <ScreenModalPortal>
             <motion.div
-              initial={{ x: 420 }}
-              animate={{ x: 0 }}
-              exit={{ x: 420 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Lead history"
+            >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
               transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-              className="h-full w-full max-w-xl overflow-y-auto border-l border-white/40 bg-white/90 p-5 shadow-2xl backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/95"
+              className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/40 bg-white/90 p-5 shadow-2xl backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/95"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1189,7 +1194,8 @@ export default function TaskFollowUpPage() {
                 )}
               </div>
             </motion.div>
-          </motion.div>
+            </motion.div>
+          </ScreenModalPortal>
         )}
       </AnimatePresence>
 

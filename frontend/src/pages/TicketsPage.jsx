@@ -26,6 +26,7 @@ import {
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import PaginatedSelect from '../components/ui/PaginatedSelect'
+import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 import { ticketsAPI, teamAPI } from '../services/api'
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -125,7 +126,8 @@ function TicketModal({ open, onClose, form, setForm, onSubmit, saving, teamMembe
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <ScreenModalPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -191,7 +193,8 @@ function TicketModal({ open, onClose, form, setForm, onSubmit, saving, teamMembe
           </div>
         </form>
       </motion.div>
-    </div>
+      </div>
+    </ScreenModalPortal>
   )
 }
 
@@ -219,14 +222,21 @@ function TicketDetailPanel({ ticket, onClose, onStatusChange, onAddComment, team
   const assignedMember = teamMembers.find((m) => m.id === ticket.assignedTo || m.id === ticket.assignedToId)
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none" onClick={onClose} />
+    <ScreenModalPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Ticket details">
       <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -367,7 +377,8 @@ function TicketDetailPanel({ ticket, onClose, onStatusChange, onAddComment, team
           </form>
         </div>
       </motion.div>
-    </>
+      </div>
+    </ScreenModalPortal>
   )
 }
 
