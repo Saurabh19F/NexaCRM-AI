@@ -1153,6 +1153,8 @@ export default function LeadsPage() {
       search: debouncedSearch || undefined,
       score: scoreFilter === 'all' ? undefined : scoreFilter,
       status: statusFilter === 'all' ? undefined : statusFilter,
+      page: 0,
+      size: PAGE_SIZE,
     }).catch((err) => {
       toast.error(err?.message || 'Failed to load leads')
     })
@@ -1176,6 +1178,8 @@ export default function LeadsPage() {
       search: debouncedSearch || undefined,
       score: scoreFilter === 'all' ? undefined : scoreFilter,
       status: statusFilter === 'all' ? undefined : statusFilter,
+      page: 0,
+      size: visibleCount,
     })
   }
 
@@ -1227,7 +1231,23 @@ export default function LeadsPage() {
 
   const totalCount = Number(pagination?.total ?? leads.length)
   const visible = filtered.slice(0, visibleCount)
-  const hasMore = visibleCount < filtered.length
+  const hasMore = visibleCount < filtered.length || leads.length < totalCount
+
+  const loadMoreLeads = async () => {
+    const nextCount = visibleCount + PAGE_SIZE
+    try {
+      await fetchLeads({
+        search: debouncedSearch || undefined,
+        score: scoreFilter === 'all' ? undefined : scoreFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        page: 0,
+        size: nextCount,
+      })
+      setVisibleCount(nextCount)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load more leads')
+    }
+  }
 
   const SortIcon = ({ field }) =>
     sortField === field ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null
@@ -1734,10 +1754,10 @@ export default function LeadsPage() {
       {hasMore && (
         <div className="sm:hidden flex justify-center glass-card px-3 py-2">
           <button
-            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            onClick={loadMoreLeads}
             className="px-4 h-8 rounded-lg text-xs font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/30 transition-colors"
           >
-            Load More ({filtered.length - visibleCount} remaining)
+            Load More
           </button>
         </div>
       )}
@@ -1864,10 +1884,10 @@ export default function LeadsPage() {
           </p>
           {hasMore && (
             <button
-              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              onClick={loadMoreLeads}
               className="px-4 h-8 rounded-lg text-xs font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/30 transition-colors"
             >
-              Load More ({filtered.length - visibleCount} remaining)
+              Load More
             </button>
           )}
         </div>
