@@ -26,7 +26,9 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -133,6 +135,7 @@ public class LeadService {
     )
     public PageResponse<LeadDTO> findAll(String search, String status, String score,
                                          String source, String assignedTo, Pageable pageable) {
+        Pageable effectivePageable = normalizeLeadListPageable(pageable);
         Query query = new Query();
         query.addCriteria(Criteria.where("tenant_id").is(tenantId()));
         query.addCriteria(Criteria.where("deleted").is(false));
@@ -157,11 +160,15 @@ public class LeadService {
             query.addCriteria(Criteria.where("assigned_to.$id").is(assignedTo));
         }
 
-        query.with(pageable);
+        query.with(effectivePageable);
+        query.limit(effectivePageable.getPageSize() + 1);
         includeLeadListFields(query);
         List<org.bson.Document> leadDocs = mongoTemplate.find(query, org.bson.Document.class, "leads");
-        boolean hasMore = leadDocs.size() >= pageable.getPageSize();
-        long loadedThrough = pageable.getOffset() + leadDocs.size();
+        boolean hasMore = leadDocs.size() > effectivePageable.getPageSize();
+        if (hasMore) {
+            leadDocs = leadDocs.subList(0, effectivePageable.getPageSize());
+        }
+        long loadedThrough = effectivePageable.getOffset() + leadDocs.size();
         long total = loadedThrough + (hasMore ? 1 : 0);
         Set<String> assignedIds = leadDocs.stream()
             .map(this::assignedToIdFromDoc)
@@ -176,25 +183,26 @@ public class LeadService {
                     user -> user.getName(),
                     (existing, replacement) -> existing
                 ));
-        Set<String> leadIds = leadDocs.stream()
-            .map(this::objectIdString)
-            .filter(id -> id != null && !id.isBlank())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<String, Integer> activityStageByLeadId = leadIds.isEmpty()
-            ? Map.of()
-            : leadActivityService.getMaxStageByLeadIds(leadIds);
-
         return PageResponse.<LeadDTO>builder()
             .content(leadDocs.stream()
-                .map(doc -> toListDTO(doc, assignedNameById, activityStageByLeadId))
+                .map(doc -> toListDTO(doc, assignedNameById, Map.of()))
                 .collect(Collectors.toList()))
-            .page(pageable.getPageNumber())
-            .size(pageable.getPageSize())
+            .page(effectivePageable.getPageNumber())
+            .size(effectivePageable.getPageSize())
             .total(total)
-            .totalPages(pageable.getPageSize() <= 0 ? 1 : (int) Math.ceil((double) total / pageable.getPageSize()))
-            .first(pageable.getPageNumber() == 0)
+            .totalPages(effectivePageable.getPageSize() <= 0 ? 1 : (int) Math.ceil((double) total / effectivePageable.getPageSize()))
+            .first(effectivePageable.getPageNumber() == 0)
             .last(!hasMore)
             .build();
+    }
+
+    private Pageable normalizeLeadListPageable(Pageable pageable) {
+        int page = pageable != null ? pageable.getPageNumber() : 0;
+        int size = pageable != null ? pageable.getPageSize() : 20;
+        Sort sort = pageable != null && pageable.getSort().isSorted()
+            ? pageable.getSort()
+            : Sort.by(Sort.Direction.DESC, "createdAt");
+        return PageRequest.of(page, size, sort);
     }
 
     @Transactional(readOnly = true)

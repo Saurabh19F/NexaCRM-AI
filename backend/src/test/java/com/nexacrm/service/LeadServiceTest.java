@@ -9,6 +9,7 @@ import com.nexacrm.repository.CustomerRepository;
 import com.nexacrm.repository.DealRepository;
 import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.repository.UserRepository;
+import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -153,6 +155,32 @@ class LeadServiceTest {
         var ordered = inOrder(communicationService, leadRepository);
         ordered.verify(communicationService).cancelPendingLeadVoiceCalls("lead-delete");
         ordered.verify(leadRepository).deleteAll(List.of(lead));
+    }
+
+    @Test
+    void findAll_shouldReturnPageWithoutBlockingOnActivityStages() {
+        List<Document> docs = java.util.stream.IntStream.rangeClosed(1, 11)
+            .mapToObj(i -> new Document("_id", "lead-" + i)
+                .append("name", "Lead " + i)
+                .append("email", "lead" + i + "@example.com")
+                .append("source", "WEBSITE")
+                .append("status", "NEW")
+                .append("score", "COLD"))
+            .toList();
+        when(mongoTemplate.find(any(Query.class), eq(Document.class), eq("leads"))).thenReturn(docs);
+
+        var page = leadService.findAll(null, null, null, null, null, PageRequest.of(0, 10));
+
+        assertEquals(10, page.getContent().size());
+        assertEquals(11, page.getTotal());
+        assertEquals(false, page.isLast());
+        assertEquals(null, page.getContent().get(0).getActivityStageIndex());
+        verify(leadActivityService, never()).getMaxStageByLeadIds(any());
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(Document.class), eq("leads"));
+        assertEquals(11, queryCaptor.getValue().getLimit());
+        assertEquals(-1, queryCaptor.getValue().getSortObject().getInteger("createdAt"));
     }
 
     @Test
