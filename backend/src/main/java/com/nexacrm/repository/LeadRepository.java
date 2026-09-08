@@ -15,6 +15,8 @@ public interface LeadRepository extends MongoRepository<Lead, String> {
 
     Optional<Lead> findByPhoneAndTenantIdAndDeletedFalse(String phone, Long tenantId);
 
+    Optional<Lead> findFirstByPhoneAndTenantIdAndDeletedFalseOrderByUpdatedAtDesc(String phone, Long tenantId);
+
     Optional<Lead> findByFacebookLeadIdAndTenantIdAndDeletedFalse(String facebookLeadId, Long tenantId);
 
     Optional<Lead> findByFacebookLeadIdAndDeletedFalse(String facebookLeadId);

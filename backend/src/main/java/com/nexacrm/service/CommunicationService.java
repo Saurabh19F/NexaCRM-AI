@@ -2461,14 +2461,14 @@ public class CommunicationService {
         }
 
         for (String candidate : phoneLookupCandidates(contact)) {
-            Optional<Lead> lead = leadRepository.findByPhoneAndTenantIdAndDeletedFalse(candidate, tenantId());
+            Optional<Lead> lead = leadRepository.findFirstByPhoneAndTenantIdAndDeletedFalseOrderByUpdatedAtDesc(candidate, tenantId());
             if (lead.isPresent()) {
                 String name = trim(lead.get().getName());
                 if (!name.isBlank()) {
                     return name;
                 }
             }
-            Optional<Customer> customer = customerRepository.findByPhoneAndTenantIdAndDeletedFalse(candidate, tenantId());
+            Optional<Customer> customer = customerRepository.findFirstByPhoneAndTenantIdAndDeletedFalseOrderByUpdatedAtDesc(candidate, tenantId());
             if (customer.isPresent()) {
                 String name = trim(customer.get().getName());
                 if (!name.isBlank()) {

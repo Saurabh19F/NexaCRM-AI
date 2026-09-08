@@ -84,14 +84,14 @@ const INTEGRATIONS = [
     defaultValues: {
       provider: 'aknexus',
       apiUrl: 'https://app.aknexus.in/api/v2',
-      instanceId: '6A7F06B9EAE8E',
+      instanceId: '6A9FAD7115E71',
       senderNumber: '919971364324',
     },
     fields: [
       { key: 'provider',     label: 'Provider',                          placeholder: 'aknexus', hint: 'Use aknexus for app.aknexus.in; legacy values kriscelwa and aiadrika still work.' },
       { key: 'apiUrl',       label: 'API Base URL',                      placeholder: 'https://app.aknexus.in/api/v2', hint: 'AKNexus API base URL from API & Automation docs.' },
       { key: 'apiToken',     label: 'AKNexus API Token',                 placeholder: 'wz_...', secret: true, hint: 'Create in AKNexus → API & Automation → Tokens.' },
-      { key: 'instanceId',   label: 'AKNexus Instance ID',               placeholder: '6A7F06B9EAE8E', hint: 'From AKNexus /api/v2/whatsapp/instances.' },
+      { key: 'instanceId',   label: 'AKNexus Instance ID',               placeholder: '6A9FAD7115E71', hint: 'From AKNexus /api/v2/whatsapp/instances.' },
       { key: 'senderNumber', label: 'Default Sender Number (optional)',  placeholder: '919971364324' },
       { key: 'apiKey',       label: 'Legacy Kriscel WA API Key',         placeholder: 'owa_k1_...', secret: true, hint: 'Only for provider=kriscelwa.' },
       { key: 'sessionId',    label: 'Legacy Kriscel WA Session ID',      placeholder: 'my-crm-session', hint: 'Only for provider=kriscelwa.' },

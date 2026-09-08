@@ -16,6 +16,8 @@ public interface CustomerRepository extends MongoRepository<Customer, String> {
 
     Optional<Customer> findByPhoneAndTenantIdAndDeletedFalse(String phone, Long tenantId);
 
+    Optional<Customer> findFirstByPhoneAndTenantIdAndDeletedFalseOrderByUpdatedAtDesc(String phone, Long tenantId);
+
     boolean existsByEmailAndTenantIdAndDeletedFalse(String email, Long tenantId);
 
     boolean existsByPhoneAndTenantIdAndDeletedFalse(String phone, Long tenantId);
