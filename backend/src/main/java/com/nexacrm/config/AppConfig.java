@@ -3,6 +3,7 @@ package com.nexacrm.config;
 import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.AuditorAware;
@@ -12,6 +13,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -19,7 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
 @EnableMongoAuditing(auditorAwareRef = "auditorAware")
@@ -27,18 +31,34 @@ import java.util.Optional;
 public class AppConfig {
 
     private final UserRepository userRepository;
+    private final Map<String, CachedUserDetails> userDetailsCache = new ConcurrentHashMap<>();
+
+    @Value("${nexacrm.auth.user-cache-ttl-ms:60000}")
+    private long userCacheTtlMs;
 
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> {
             try {
                 Long tenantId = TenantContext.currentTenantId();
-                return userRepository.findByEmailAndTenantIdAndDeletedFalse(username, tenantId)
+                String cacheKey = tenantId + ":" + username;
+                long now = System.currentTimeMillis();
+                CachedUserDetails cached = userDetailsCache.get(cacheKey);
+                if (cached != null && cached.expiresAt() > now) {
+                    return cached.userDetails();
+                }
+
+                UserDetails userDetails = userRepository.findByEmailAndTenantIdAndDeletedFalse(username, tenantId)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+                userDetailsCache.put(cacheKey, new CachedUserDetails(userDetails, now + Math.max(1_000, userCacheTtlMs)));
+                return userDetails;
             } catch (IllegalStateException ex) {
                 throw new UsernameNotFoundException("Tenant context is required for authentication", ex);
             }
         };
+    }
+
+    private record CachedUserDetails(UserDetails userDetails, long expiresAt) {
     }
 
     @Bean
