@@ -1078,7 +1078,18 @@ public class LeadService {
         );
     }
 
-    @CacheEvict(value = "leads-list", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "dashboard-summary", allEntries = true),
+        @CacheEvict(value = "dashboard-funnel", allEntries = true),
+        @CacheEvict(value = "dashboard-employees", allEntries = true),
+        @CacheEvict(value = "dashboard-sources", allEntries = true),
+        @CacheEvict(value = "dashboard-activities", allEntries = true),
+        @CacheEvict(value = "dashboard-trend", allEntries = true),
+        @CacheEvict(value = "dashboard-widgets", allEntries = true),
+        @CacheEvict(value = "dashboard-overview", allEntries = true),
+        @CacheEvict(value = "leads-list", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
+    })
     public Map<String, Object> convertToCustomer(String id, Map<String, Object> options) {
         Lead lead = leadRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId())
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
@@ -1163,7 +1174,8 @@ public class LeadService {
             "leadId", lead.getId(),
             "customerId", customer.getId(),
             "dealId", deal.getId(),
-            "convertedAt", convertedAt
+            "convertedAt", convertedAt,
+            "lead", toDTO(lead)
         );
     }
 

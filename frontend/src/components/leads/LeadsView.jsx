@@ -531,6 +531,30 @@ const getCallOutcomeBadgeClass = (outcome) => {
 
 const normalizeCallOutcome = (value) => String(value || '').trim().toLowerCase()
 
+const buildLeadActivityPatch = (lead, savedRow) => {
+  const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
+  const idx = Number(savedRow?.activityIndex)
+  const values = savedRow?.values || {}
+  const statusText = normalizeCallOutcome(
+    values.status || values.connectionStatus || values.callOutcome || values.outcome || values.remarkStatus
+  )
+  const interestText = normalizeCallOutcome(values.interestStatus || values.interest)
+  const isConnected = statusText === 'connected'
+  let status = lead?.status === 'new' ? 'contacted' : lead?.status
+
+  if (idx === 0 && isConnected && interestText.includes('not interested')) status = 'lost'
+  else if (idx === 1 && (statusText.includes('meeting') || statusText.includes('allowed person'))) status = 'qualified'
+  else if (idx === 2 && (statusText.includes('won') || statusText.includes('win'))) status = 'won'
+  else if (idx === 2 && statusText.includes('lost')) status = 'lost'
+  else if (idx === 2 && statusText.includes('negoti')) status = 'negotiation'
+
+  return {
+    status,
+    lastActivityAtTs: touchedAt,
+    lastContactedAtTs: touchedAt,
+  }
+}
+
 function LeadHistoryPanel({ lead, onClose, onLogActivity, historyEvents = [] }) {
   const [callIntel, setCallIntel] = useState(null)
   const [intelLoading, setIntelLoading] = useState(false)
@@ -1438,7 +1462,15 @@ export default function LeadsPage() {
     }
     try {
       const res = await leadsAPI.convert(lead.id, {})
-      await reloadCurrentPage()
+      const convertedAt = res?.convertedAt || res?.lead?.convertedAt || new Date().toISOString()
+      if (res?.lead) {
+        patchLeadLocal(lead.id, res.lead)
+        setDetailLead((prev) => (prev?.id === lead.id
+          ? { ...prev, status: 'won', convertedAt, lastContactedAtTs: convertedAt, lastActivityAtTs: convertedAt }
+          : prev))
+      } else {
+        await reloadCurrentPage()
+      }
       toast.success(res?.message || 'Lead converted successfully')
     } catch (err) {
       toast.error(err?.message || 'Failed to convert lead')
@@ -1506,17 +1538,7 @@ export default function LeadsPage() {
       return { ...prev, [lead.id]: [event, ...existing] }
     })
 
-    const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
-    try {
-      const refreshedLead = await leadsAPI.getById(lead.id)
-      patchLeadLocal(lead.id, refreshedLead)
-    } catch {
-      patchLeadLocal(lead.id, {
-        lastActivityAtTs: touchedAt,
-        lastContactedAtTs: touchedAt,
-        status: lead?.status === 'new' ? 'contacted' : lead?.status,
-      })
-    }
+    patchLeadLocal(lead.id, buildLeadActivityPatch(lead, savedRow))
   }
 
   const formatActivityTime = (value) => {
@@ -1647,16 +1669,11 @@ export default function LeadsPage() {
     }
 
     const touchedAt = savedRow?.savedAt || savedRow?.createdAt || new Date().toISOString()
-    try {
-      const refreshedLead = await leadsAPI.getById(lead.id)
-      patchLeadLocal(lead.id, refreshedLead)
-    } catch {
-      patchLeadLocal(lead.id, {
-        lastActivityAtTs: touchedAt,
-        lastContactedAtTs: touchedAt,
-        status: lead?.status === 'new' ? 'contacted' : lead?.status,
-      })
-    }
+    patchLeadLocal(lead.id, {
+      ...buildLeadActivityPatch(lead, savedRow),
+      lastActivityAtTs: touchedAt,
+      lastContactedAtTs: touchedAt,
+    })
   }
 
   return (

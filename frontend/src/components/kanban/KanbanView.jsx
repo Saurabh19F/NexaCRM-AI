@@ -308,6 +308,57 @@ const getWorkflowStageForLead = (lead, activityState) => {
   return 'new'
 }
 
+const STATUS_BY_WORKFLOW_STAGE = {
+  new: 'new',
+  welcome_not_connected: 'contacted',
+  welcome_connected: 'contacted',
+  welcome_connected_not_interested: 'lost',
+  welcome_connected_interested: 'contacted',
+  followup_follow_up: 'contacted',
+  followup_meeting: 'qualified',
+  outcome_won: 'won',
+  outcome_negotiation: 'negotiation',
+  outcome_lost: 'lost',
+}
+
+const mergeActivityIntoState = (previousState, row) => {
+  const base = previousState || emptyActivityState()
+  const data = [...(base.data || [{}, {}, {}])]
+  const saved = [...(base.saved || [false, false, false])]
+  const idx = Number(row?.activityIndex)
+
+  if (idx >= 0 && idx < 3) {
+    data[idx] = {
+      ...(row?.values || {}),
+      assignedTo: row?.assignedTo || row?.values?.assignedTo || '',
+    }
+    saved[idx] = true
+  }
+
+  return {
+    data,
+    saved,
+    latestStage: getWorkflowStageFromActivityRow(row) || base.latestStage || null,
+  }
+}
+
+const buildLocalLeadPatchForActivity = (lead, activityRow) => {
+  const touchedAt = activityRow?.savedAt || activityRow?.createdAt || new Date().toISOString()
+  const stageKey = getWorkflowStageFromActivityRow(activityRow)
+  const values = activityRow?.values || {}
+  const logEntry = `${touchedAt} | ${activityRow?.activityTitle || activityRow?.activityLabel || 'Activity'} | ${activityRow?.summary || 'Activity recorded'}`
+
+  return {
+    status: STATUS_BY_WORKFLOW_STAGE[stageKey] || lead?.status || 'contacted',
+    lastActivityAtTs: touchedAt,
+    lastContactedAtTs: touchedAt,
+    activityLogs: [logEntry, ...(lead?.activityLogs || [])].slice(0, 25),
+    ...(values.nextFollowUpDate || values.followUpDate || values.callbackAt
+      ? { followUpDate: values.nextFollowUpDate || values.followUpDate || values.callbackAt }
+      : {}),
+  }
+}
+
 const buildStageActivityPayload = (stageKey, lead) => {
   const meta = ACTIVITY_BY_WORKFLOW_STAGE[stageKey]
   if (!meta) return null
@@ -986,6 +1037,8 @@ export default function KanbanPage() {
     if (!source || source.stage === targetStage) return
 
     const stageLabel = STAGES.find((s) => s.key === targetStage)?.label || targetStage
+    const previousActivityState = activityStateByLeadId[source.lead.id]
+    const previousLead = source.lead
 
     try {
       if (targetStage === 'new') {
@@ -994,6 +1047,7 @@ export default function KanbanPage() {
           toast.error('New is only for leads before activity starts.')
           return
         }
+        patchLeadLocal(source.lead.id, { status: 'new' })
         const updated = await leadsAPI.update(source.lead.id, buildBackendLeadPayload(source.lead, 'NEW'))
         patchLeadLocal(source.lead.id, updated)
       } else {
@@ -1002,15 +1056,33 @@ export default function KanbanPage() {
           toast.error('This pipeline stage is not linked to an activity.')
           return
         }
-        await leadsAPI.addActivity(source.lead.id, activityPayload)
-        const rows = await leadsAPI.getActivities(source.lead.id)
-        setActivityStateByLeadId((prev) => ({ ...prev, [source.lead.id]: buildActivityModalState(rows || []) }))
+        const touchedAt = new Date().toISOString()
+        const optimisticActivity = {
+          ...activityPayload,
+          id: `pending-${source.lead.id}-${Date.now()}`,
+          leadId: source.lead.id,
+          savedAt: touchedAt,
+          createdAt: touchedAt,
+        }
 
-        const refreshedLead = await leadsAPI.getById(source.lead.id)
-        patchLeadLocal(source.lead.id, refreshedLead)
+        setActivityStateByLeadId((prev) => ({
+          ...prev,
+          [source.lead.id]: mergeActivityIntoState(prev[source.lead.id], optimisticActivity),
+        }))
+        patchLeadLocal(source.lead.id, buildLocalLeadPatchForActivity(source.lead, optimisticActivity))
+
+        const savedActivity = await leadsAPI.addActivity(source.lead.id, activityPayload)
+        const activityRow = savedActivity || optimisticActivity
+        setActivityStateByLeadId((prev) => ({
+          ...prev,
+          [source.lead.id]: mergeActivityIntoState(prev[source.lead.id], activityRow),
+        }))
+        patchLeadLocal(source.lead.id, buildLocalLeadPatchForActivity(source.lead, activityRow))
       }
       toast.success(`${source.lead.name} → ${stageLabel}`)
     } catch (err) {
+      setActivityStateByLeadId((prev) => ({ ...prev, [source.lead.id]: previousActivityState || emptyActivityState() }))
+      patchLeadLocal(source.lead.id, previousLead)
       toast.error(err?.message || 'Failed to move lead')
     }
   }, [activityStateByLeadId, canUpdateLead, findLeadAndStage, patchLeadLocal])
@@ -1080,11 +1152,12 @@ export default function KanbanPage() {
       if (workflowStage !== 'new' && canUpdateLead) {
         const activityPayload = buildStageActivityPayload(workflowStage, created)
         if (activityPayload) {
-          await leadsAPI.addActivity(created.id, activityPayload)
-          const rows = await leadsAPI.getActivities(created.id)
-          setActivityStateByLeadId((prev) => ({ ...prev, [created.id]: buildActivityModalState(rows || []) }))
-          const refreshedLead = await leadsAPI.getById(created.id)
-          patchLeadLocal(created.id, refreshedLead)
+          const savedActivity = await leadsAPI.addActivity(created.id, activityPayload)
+          setActivityStateByLeadId((prev) => ({
+            ...prev,
+            [created.id]: mergeActivityIntoState(prev[created.id], savedActivity || { ...activityPayload, leadId: created.id }),
+          }))
+          patchLeadLocal(created.id, buildLocalLeadPatchForActivity(created, savedActivity || { ...activityPayload, leadId: created.id }))
         }
       }
       toast.success('Lead added to pipeline!')
@@ -1155,19 +1228,39 @@ export default function KanbanPage() {
       summary: buildActivitySummary({ activityIndex, lead, values }),
     }
 
-    await leadsAPI.addActivity(lead.id, payload)
-    await loadLeadActivityState(lead.id)
+    const previousActivityState = activityStateByLeadId[lead.id]
+    const previousLead = lead
+    const touchedAt = new Date().toISOString()
+    const optimisticActivity = {
+      ...payload,
+      id: `pending-${lead.id}-${Date.now()}`,
+      leadId: lead.id,
+      savedAt: touchedAt,
+      createdAt: touchedAt,
+    }
+
+    setActivityStateByLeadId((prev) => ({
+      ...prev,
+      [lead.id]: mergeActivityIntoState(prev[lead.id], optimisticActivity),
+    }))
+    patchLeadLocal(lead.id, buildLocalLeadPatchForActivity(lead, optimisticActivity))
+    setActivitiesLead((prev) => (prev?.id === lead.id ? { ...prev, ...buildLocalLeadPatchForActivity(lead, optimisticActivity) } : prev))
 
     try {
-      const refreshedLead = await leadsAPI.getById(lead.id)
-      patchLeadLocal(lead.id, refreshedLead)
-      setActivitiesLead((prev) => (prev?.id === lead.id ? { ...prev, ...refreshedLead } : prev))
-    } catch {
-      const touchedAt = new Date().toISOString()
-      patchLeadLocal(lead.id, {
-        lastActivityAtTs: touchedAt,
-        lastContactedAtTs: touchedAt,
-      })
+      const savedActivity = await leadsAPI.addActivity(lead.id, payload)
+      const activityRow = savedActivity || optimisticActivity
+      const leadPatch = buildLocalLeadPatchForActivity(lead, activityRow)
+      setActivityStateByLeadId((prev) => ({
+        ...prev,
+        [lead.id]: mergeActivityIntoState(prev[lead.id], activityRow),
+      }))
+      patchLeadLocal(lead.id, leadPatch)
+      setActivitiesLead((prev) => (prev?.id === lead.id ? { ...prev, ...leadPatch } : prev))
+    } catch (err) {
+      setActivityStateByLeadId((prev) => ({ ...prev, [lead.id]: previousActivityState || emptyActivityState() }))
+      patchLeadLocal(lead.id, previousLead)
+      setActivitiesLead((prev) => (prev?.id === lead.id ? previousLead : prev))
+      throw err
     }
   }
 
