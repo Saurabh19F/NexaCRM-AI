@@ -8,16 +8,11 @@ import {
   Phone,
   Trophy,
   Clock,
-  CheckCircle2,
-  XCircle,
   X,
-  Trash2,
   Building2,
   CalendarDays,
   Eye,
   History,
-  IndianRupee,
-  Tag,
   FileText,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -25,8 +20,6 @@ import PageHeading from '../components/ui/PageHeading'
 import LeadActivitiesModal from '../components/LeadActivitiesModal'
 import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 import { leadsAPI, tasksAPI } from '../services/api'
-import { useAuthStore } from '../store/authStore'
-import { PERMISSIONS, hasPermission } from '../utils/permissions'
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -38,7 +31,6 @@ const TABS = [
   { key: 'welcome_call', label: 'Welcome Call', stageIdx: 0 },
   { key: 'followup_meeting', label: 'Follow-up Meeting', stageIdx: 1 },
   { key: 'meeting_outcome', label: 'Meeting Outcome', stageIdx: 2 },
-  { key: 'completed', label: 'Completed Leads', stageIdx: null },
 ]
 
 const LEADS_PER_PAGE = 8
@@ -284,23 +276,18 @@ function StageIcon({ currentStage }) {
 }
 
 export default function TaskFollowUpPage() {
-  const { user } = useAuthStore()
   const [leads, setLeads] = useState([])
   const [tasks, setTasks] = useState([])
   const [leadActivities, setLeadActivities] = useState({})
   const [leadStages, setLeadStages] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadingActivities, setLoadingActivities] = useState(false)
-  const [loadingCompletedTasks, setLoadingCompletedTasks] = useState(false)
-  const [completedTasksLoaded, setCompletedTasksLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('welcome_call')
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [historyLead, setHistoryLead] = useState(null)
   const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
-  const [deletingLeadId, setDeletingLeadId] = useState(null)
-  const canDeleteLeads = hasPermission(user, PERMISSIONS.LEADS_DELETE)
 
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
@@ -379,8 +366,6 @@ export default function TaskFollowUpPage() {
 
   const refresh = useCallback(async () => {
     setLoading(true)
-    setCompletedTasksLoaded(false)
-    setLoadingCompletedTasks(false)
     setLeadActivities({})
     setLeadStages({})
     try {
@@ -414,34 +399,6 @@ export default function TaskFollowUpPage() {
       setTasks(visiblePendingTaskRows)
       setLoading(false)
       loadAllActivities(taskLeadRows)
-
-      setLoadingCompletedTasks(true)
-      tasksAPI.getAll({ status: 'COMPLETED' })
-        .then((completedTaskResponse) => {
-          const completedTaskRows = unwrapList(completedTaskResponse)
-            .filter((task) => task.leadId && leadById.has(task.leadId))
-          setTasks((prev) => {
-            const merged = new Map(prev.map((task) => [task.id, task]))
-            completedTaskRows.forEach((task) => merged.set(task.id, task))
-            return Array.from(merged.values())
-          })
-          const completedLeadRows = Array.from(
-            new Map(
-              completedTaskRows
-                .map((task) => leadById.get(task.leadId))
-                .filter(Boolean)
-                .map((lead) => [lead.id, lead])
-            ).values()
-          )
-          setCompletedTasksLoaded(true)
-          loadAllActivities(completedLeadRows)
-        })
-        .catch(() => {
-          setCompletedTasksLoaded(true)
-        })
-        .finally(() => {
-          setLoadingCompletedTasks(false)
-        })
     } catch (err) {
       toast.error(err?.message || 'Unable to load task follow-up data')
       setLoading(false)
@@ -468,41 +425,6 @@ export default function TaskFollowUpPage() {
       setHistoryLoadingLeadId(null)
     }
   }, [leadActivities])
-
-  const handleDeleteCompletedLead = async (lead) => {
-    if (!lead?.id) return
-    if (!canDeleteLeads) {
-      toast.error('You do not have permission to delete leads.')
-      return
-    }
-    if (!window.confirm(`Delete completed lead "${lead.name || 'Unnamed Lead'}"? This will remove its tasks and KPI count.`)) {
-      return
-    }
-
-    setDeletingLeadId(lead.id)
-    try {
-      await leadsAPI.delete(lead.id)
-      setLeads((prev) => prev.filter((item) => item.id !== lead.id))
-      setTasks((prev) => prev.filter((task) => task.leadId !== lead.id))
-      setLeadActivities((prev) => {
-        const next = { ...prev }
-        delete next[lead.id]
-        return next
-      })
-      setLeadStages((prev) => {
-        const next = { ...prev }
-        delete next[lead.id]
-        return next
-      })
-      setActivitiesLead((current) => (current?.id === lead.id ? null : current))
-      setHistoryLead((current) => (current?.id === lead.id ? null : current))
-      toast.success('Completed lead deleted')
-    } catch (err) {
-      toast.error(err?.message || 'Unable to delete completed lead')
-    } finally {
-      setDeletingLeadId(null)
-    }
-  }
 
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
@@ -568,42 +490,13 @@ export default function TaskFollowUpPage() {
     }
   }, [enrichedLeads, searchQuery, tasks.length])
 
-  const completedLeads = useMemo(() => {
-    let filtered = enrichedLeads.filter((l) => (
-      tasks.length
-        ? l.pendingTaskCount === 0 && (l.completedTaskCount > 0 || l.isCompleted)
-        : l.isCompleted
-    ))
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (l) =>
-          (l.name || '').toLowerCase().includes(q) ||
-          (l.company || '').toLowerCase().includes(q) ||
-          (l.email || '').toLowerCase().includes(q) ||
-          (l.latestTask?.title || '').toLowerCase().includes(q)
-      )
-    }
-    return filtered.sort((a, b) => timestampMs(b.latestTask?.completedAt || b.completedAt || b.updatedAt, 0) - timestampMs(a.latestTask?.completedAt || a.completedAt || a.updatedAt, 0))
-  }, [enrichedLeads, searchQuery, tasks.length])
-
   const stats = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
     const pending = enrichedLeads.filter(isPending)
-    const completed = tasks.length
-      ? enrichedLeads.filter((l) => l.pendingTaskCount === 0 && (l.completedTaskCount > 0 || l.isCompleted))
-      : enrichedLeads.filter((l) => l.isCompleted)
-    const won = completed.filter((l) => l.outcome === 'Won')
-    const lost = completed.filter((l) => l.outcome === 'Lost')
-    const totalRevenue = won.reduce((sum, l) => sum + Number(l.finalPrice || 0), 0)
     return {
       welcomeCall: pending.filter((l) => l.currentStage <= 0).length,
       followupMeeting: pending.filter((l) => l.currentStage === 1).length,
       meetingOutcome: pending.filter((l) => l.currentStage === 2 || l.currentStage === 3).length,
-      completed: completed.length,
-      won: won.length,
-      lost: lost.length,
-      totalRevenue,
     }
   }, [enrichedLeads, tasks.length])
 
@@ -647,7 +540,7 @@ export default function TaskFollowUpPage() {
     }
   }
 
-  const displayLeads = activeTab === 'completed' ? completedLeads : (stageLeads[activeTab] || [])
+  const displayLeads = stageLeads[activeTab] || []
   const totalPages = Math.max(1, Math.ceil(displayLeads.length / LEADS_PER_PAGE))
   const safeCurrentPage = Math.min(currentPage, totalPages)
   const pageStart = displayLeads.length ? (safeCurrentPage - 1) * LEADS_PER_PAGE + 1 : 0
@@ -727,7 +620,7 @@ export default function TaskFollowUpPage() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-red-300 dark:hover:ring-red-700" onClick={() => setActiveTab('welcome_call')}>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
@@ -758,22 +651,13 @@ export default function TaskFollowUpPage() {
           <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.meetingOutcome}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads pending outcome</p>
         </div>
-        <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-brand-300 dark:hover:ring-brand-700" onClick={() => setActiveTab('completed')}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Completed</p>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.completed}</h3>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-            {loading ? <span className="inline-block h-4 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : <>Won: {stats.won} · Lost: {stats.lost}{stats.totalRevenue > 0 ? ` · ₹${stats.totalRevenue.toLocaleString('en-IN')}` : ''}</>}
-          </p>
-        </div>
       </div>
 
       {/* Tabs */}
       <div className="glass-card overflow-hidden">
         <div className="flex border-b border-slate-200/70 dark:border-slate-800/70">
           {TABS.map((tab) => {
-            const tabCount = tab.key === 'completed'
-              ? completedLeads.length
-              : (stageLeads[tab.key] || []).length
+            const tabCount = (stageLeads[tab.key] || []).length
             return (
               <button
                 key={tab.key}
@@ -819,7 +703,7 @@ export default function TaskFollowUpPage() {
         </div>
 
         {/* Content */}
-        {loading || (activeTab === 'completed' && loadingCompletedTasks && !completedTasksLoaded) ? (
+        {loading ? (
           <div className="grid gap-3 p-4">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60" />
@@ -830,7 +714,6 @@ export default function TaskFollowUpPage() {
             {activeTab === 'welcome_call' && 'No leads at the welcome call stage.'}
             {activeTab === 'followup_meeting' && 'No leads awaiting follow-up meeting.'}
             {activeTab === 'meeting_outcome' && 'No leads pending meeting outcome.'}
-            {activeTab === 'completed' && 'No completed leads found.'}
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -841,7 +724,7 @@ export default function TaskFollowUpPage() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
             >
-              {activeTab !== 'completed' ? (() => {
+              {(() => {
                 const tabDef = TABS.find((t) => t.key === activeTab)
                 const tabStageIdx = tabDef?.stageIdx ?? 0
                 const tabActivityDef = ACTIVITY_DEFS[tabStageIdx]
@@ -964,137 +847,7 @@ export default function TaskFollowUpPage() {
                     })}
                   </div>
                 )
-              })() : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {paginatedLeads.map((lead) => {
-                    const isWon = lead.outcome === 'Won'
-                    return (
-                      <div
-                        key={lead.id}
-                        onClick={() => openHistoryLead(lead)}
-                        className="flex cursor-pointer flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
-                      >
-                        {/* Stage Icon */}
-                        <div className="flex-shrink-0">
-                          <StageIcon currentStage={lead.currentStage} />
-                        </div>
-
-                        {/* Lead Info */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                              {lead.name || 'Unnamed Lead'}
-                            </h3>
-                            {lead.company && (
-                              <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                                <Building2 className="h-3 w-3" />
-                                {lead.company}
-                              </span>
-                            )}
-                            {lead.missingLead && (
-                              <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
-                                Lead missing
-                              </span>
-                            )}
-                            <span
-                              className={`badge text-[10px] font-bold ${
-                                isWon
-                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                  : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                              }`}
-                            >
-                              {isWon ? <CheckCircle2 className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
-                              {lead.outcome || 'Completed'}
-                            </span>
-                            {lead.completedTaskCount > 0 && (
-                              <span className="badge bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
-                                {lead.completedTaskCount} task{lead.completedTaskCount === 1 ? '' : 's'} done
-                              </span>
-                            )}
-                          </div>
-                          {lead.latestTask?.title && (
-                            <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
-                              {lead.latestTask.title}
-                            </p>
-                          )}
-                          {lead.missingLead && (
-                            <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
-                              This is a real completed task, but its linked lead record is deleted or not accessible.
-                            </p>
-                          )}
-                          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                            {lead.assignedToName && (
-                              <span className="inline-flex items-center gap-1">
-                                <User className="h-3 w-3" /> {lead.assignedToName}
-                              </span>
-                            )}
-                            {(lead.latestTask?.completedAt || lead.completedAt) && (
-                              <span className="inline-flex items-center gap-1">
-                                <CalendarDays className="h-3 w-3" /> {formatDate(lead.latestTask?.completedAt || lead.completedAt)}
-                              </span>
-                            )}
-                            {lead.email && (
-                              <span className="truncate max-w-[180px]">{lead.email}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Outcome Details */}
-                        <div className="flex items-center gap-3">
-                          {isWon && lead.finalPrice && (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 dark:border-emerald-800/50 dark:bg-emerald-900/20">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Revenue</p>
-                              <p className="flex items-center gap-0.5 text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                                <IndianRupee className="h-3.5 w-3.5" />
-                                {Number(lead.finalPrice).toLocaleString('en-IN')}
-                              </p>
-                            </div>
-                          )}
-                          {!isWon && lead.lostCategory && (
-                            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 dark:border-rose-800/50 dark:bg-rose-900/20">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">Reason</p>
-                              <p className="flex items-center gap-1 text-sm font-bold text-rose-700 dark:text-rose-300">
-                                <Tag className="h-3 w-3" />
-                                {lead.lostCategory}
-                              </p>
-                            </div>
-                          )}
-
-                        </div>
-
-                        {/* Actions */}
-                        {lead.leadExists !== false && (
-                          <div className="flex flex-shrink-0 flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => setActivitiesLead(lead)}
-                              className="btn-secondary h-9 px-3 text-xs"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              View Details
-                            </button>
-                            {canDeleteLeads && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteCompletedLead(lead)}
-                                disabled={deletingLeadId === lead.id}
-                                className="btn-danger h-9 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {deletingLeadId === lead.id ? (
-                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                )}
-                                Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              })()}
             </motion.div>
           </AnimatePresence>
         )}
