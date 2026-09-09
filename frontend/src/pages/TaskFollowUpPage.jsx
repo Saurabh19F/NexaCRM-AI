@@ -284,6 +284,7 @@ export default function TaskFollowUpPage() {
   const [loadingActivities, setLoadingActivities] = useState(false)
   const [activeTab, setActiveTab] = useState('welcome_call')
   const [searchQuery, setSearchQuery] = useState('')
+  const [dateSortDirection, setDateSortDirection] = useState('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [historyLead, setHistoryLead] = useState(null)
@@ -411,7 +412,7 @@ export default function TaskFollowUpPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, searchQuery])
+  }, [activeTab, searchQuery, dateSortDirection])
 
   const ensureLeadActivities = useCallback(async (leadId) => {
     if (!leadId || leadActivities[leadId]) return
@@ -482,13 +483,19 @@ export default function TaskFollowUpPage() {
           (l.nextTask?.title || '').toLowerCase().includes(q)
       )
     }
-    const sorter = (a, b) => timestampMs(a.nextTask?.dueDate || a.followUpDate || a.createdAt) - timestampMs(b.nextTask?.dueDate || b.followUpDate || b.createdAt)
+    const sorter = (a, b) => {
+      const direction = dateSortDirection === 'desc' ? -1 : 1
+      return direction * (
+        timestampMs(a.nextTask?.dueDate || a.followUpDate || a.createdAt)
+        - timestampMs(b.nextTask?.dueDate || b.followUpDate || b.createdAt)
+      )
+    }
     return {
       welcome_call: pendingAll.filter((l) => l.currentStage <= 0).sort(sorter),
       followup_meeting: pendingAll.filter((l) => l.currentStage === 1).sort(sorter),
       meeting_outcome: pendingAll.filter((l) => l.currentStage === 2 || l.currentStage === 3).sort(sorter),
     }
-  }, [enrichedLeads, searchQuery, tasks.length])
+  }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length])
 
   const stats = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
@@ -699,6 +706,32 @@ export default function TaskFollowUpPage() {
               className="input pl-9"
               placeholder="Search by name, company, or email..."
             />
+          </div>
+          <div className="inline-flex h-10 shrink-0 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <button
+              type="button"
+              onClick={() => setDateSortDirection('asc')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                dateSortDirection === 'asc'
+                  ? 'bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-950/40 dark:text-brand-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Asc
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateSortDirection('desc')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                dateSortDirection === 'desc'
+                  ? 'bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-950/40 dark:text-brand-300'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Desc
+            </button>
           </div>
         </div>
 

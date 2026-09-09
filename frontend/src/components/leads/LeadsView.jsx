@@ -7,7 +7,7 @@ import {
   Snowflake, ExternalLink, X, History,
   PhoneCall, Mail, MessageSquare, UserCheck,
   FileText, DollarSign, AlertCircle, Building2,
-  Tag, Calendar, User, Phone, AtSign, TrendingUp, ClipboardList, MessageCircle, Sparkles, BadgeCheck, Brain, Clock, Trophy
+  Tag, Calendar, User, Phone, AtSign, TrendingUp, ClipboardList, MessageCircle, BadgeCheck, Brain, Clock, Trophy
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LeadActivitiesModal from '../../components/LeadActivitiesModal'
@@ -456,7 +456,7 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
             </button>
             <button onClick={() => onHistory?.(lead)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors">
-              <Sparkles className="w-3.5 h-3.5" /> Intelligence
+              <History className="w-3.5 h-3.5" /> History
             </button>
             <button onClick={() => onActivities?.(lead)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
