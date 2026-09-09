@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   XCircle,
   X,
+  Trash2,
   Building2,
   CalendarDays,
   Eye,
@@ -24,6 +25,8 @@ import PageHeading from '../components/ui/PageHeading'
 import LeadActivitiesModal from '../components/LeadActivitiesModal'
 import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 import { leadsAPI, tasksAPI } from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import { PERMISSIONS, hasPermission } from '../utils/permissions'
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -281,6 +284,7 @@ function StageIcon({ currentStage }) {
 }
 
 export default function TaskFollowUpPage() {
+  const { user } = useAuthStore()
   const [leads, setLeads] = useState([])
   const [tasks, setTasks] = useState([])
   const [leadActivities, setLeadActivities] = useState({})
@@ -295,6 +299,8 @@ export default function TaskFollowUpPage() {
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [historyLead, setHistoryLead] = useState(null)
   const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
+  const [deletingLeadId, setDeletingLeadId] = useState(null)
+  const canDeleteLeads = hasPermission(user, PERMISSIONS.LEADS_DELETE)
 
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
@@ -462,6 +468,41 @@ export default function TaskFollowUpPage() {
       setHistoryLoadingLeadId(null)
     }
   }, [leadActivities])
+
+  const handleDeleteCompletedLead = async (lead) => {
+    if (!lead?.id) return
+    if (!canDeleteLeads) {
+      toast.error('You do not have permission to delete leads.')
+      return
+    }
+    if (!window.confirm(`Delete completed lead "${lead.name || 'Unnamed Lead'}"? This will remove its tasks and KPI count.`)) {
+      return
+    }
+
+    setDeletingLeadId(lead.id)
+    try {
+      await leadsAPI.delete(lead.id)
+      setLeads((prev) => prev.filter((item) => item.id !== lead.id))
+      setTasks((prev) => prev.filter((task) => task.leadId !== lead.id))
+      setLeadActivities((prev) => {
+        const next = { ...prev }
+        delete next[lead.id]
+        return next
+      })
+      setLeadStages((prev) => {
+        const next = { ...prev }
+        delete next[lead.id]
+        return next
+      })
+      setActivitiesLead((current) => (current?.id === lead.id ? null : current))
+      setHistoryLead((current) => (current?.id === lead.id ? null : current))
+      toast.success('Completed lead deleted')
+    } catch (err) {
+      toast.error(err?.message || 'Unable to delete completed lead')
+    } finally {
+      setDeletingLeadId(null)
+    }
+  }
 
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
@@ -1023,7 +1064,7 @@ export default function TaskFollowUpPage() {
 
                         {/* Actions */}
                         {lead.leadExists !== false && (
-                          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-shrink-0 flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => setActivitiesLead(lead)}
@@ -1032,6 +1073,21 @@ export default function TaskFollowUpPage() {
                               <Eye className="h-3.5 w-3.5" />
                               View Details
                             </button>
+                            {canDeleteLeads && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCompletedLead(lead)}
+                                disabled={deletingLeadId === lead.id}
+                                className="btn-danger h-9 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deletingLeadId === lead.id ? (
+                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                                Delete
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
