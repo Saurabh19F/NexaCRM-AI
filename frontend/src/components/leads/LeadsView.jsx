@@ -1143,6 +1143,7 @@ export default function LeadsPage() {
   const [timeTick, setTimeTick]             = useState(Date.now())
   const importRef                           = useRef(null)
   const selectAllRef                        = useRef(null)
+  const activityRequestsRef                 = useRef(new Map())
   const canCreate = hasPermission(user, PERMISSIONS.LEADS_CREATE)
   const canUpdate = hasPermission(user, PERMISSIONS.LEADS_UPDATE)
   const canDelete = hasPermission(user, PERMISSIONS.LEADS_DELETE)
@@ -1573,10 +1574,15 @@ export default function LeadsPage() {
     return outcome
   }
 
-  const loadLeadActivities = async (leadId) => {
+  const loadLeadActivities = async (leadId, { force = false } = {}) => {
     if (!leadId) return []
-    try {
-      const rows = await leadsAPI.getActivities(leadId)
+    if (!force && leadActivitiesByLeadId[leadId]) return leadActivitiesByLeadId[leadId]
+
+    const existingRequest = activityRequestsRef.current.get(leadId)
+    if (existingRequest) return existingRequest
+
+    const request = leadsAPI.getActivities(leadId)
+      .then((rows) => {
       const events = (rows || []).map(mapLeadActivityToHistoryEvent)
       setLeadActivitiesByLeadId((prev) => ({ ...prev, [leadId]: events }))
       const latestCallRow = (rows || []).find((row) => extractCallOutcome(row))
@@ -1584,10 +1590,17 @@ export default function LeadsPage() {
         setCallOutcomeByLeadId((prev) => ({ ...prev, [leadId]: extractCallOutcome(latestCallRow) }))
       }
       return events
-    } catch (err) {
-      toast.error(err?.message || 'Failed to load lead activities')
-      return []
-    }
+      })
+      .catch((err) => {
+        toast.error(err?.message || 'Failed to load lead activities')
+        return []
+      })
+      .finally(() => {
+        activityRequestsRef.current.delete(leadId)
+      })
+
+    activityRequestsRef.current.set(leadId, request)
+    return request
   }
 
   const openHistoryLead = (lead) => {

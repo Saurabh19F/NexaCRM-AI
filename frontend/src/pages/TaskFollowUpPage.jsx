@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ClipboardList,
@@ -289,6 +289,8 @@ export default function TaskFollowUpPage() {
   const [activitiesLead, setActivitiesLead] = useState(null)
   const [historyLead, setHistoryLead] = useState(null)
   const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
+  const [fullHistoryLeadIds, setFullHistoryLeadIds] = useState(() => new Set())
+  const historyRequestsRef = useRef(new Map())
 
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
@@ -336,7 +338,14 @@ export default function TaskFollowUpPage() {
         }
       }
 
-      setLeadActivities((prev) => ({ ...prev, ...results }))
+      setLeadActivities((prev) => {
+        const next = { ...prev }
+        Object.entries(results).forEach(([leadId, rows]) => {
+          if (Array.isArray(prev[leadId]) && prev[leadId].length > rows.length) return
+          next[leadId] = rows
+        })
+        return next
+      })
     } catch (err) {
       const results = {}
       let failedCount = 0
@@ -356,7 +365,14 @@ export default function TaskFollowUpPage() {
           }
         })
       }
-      setLeadActivities((prev) => ({ ...prev, ...results }))
+      setLeadActivities((prev) => {
+        const next = { ...prev }
+        Object.entries(results).forEach(([leadId, rows]) => {
+          if (Array.isArray(prev[leadId]) && prev[leadId].length > rows.length) return
+          next[leadId] = rows
+        })
+        return next
+      })
       if (failedCount >= leadIds.length) {
         toast.error('Unable to load activity data')
       }
@@ -369,6 +385,8 @@ export default function TaskFollowUpPage() {
     setLoading(true)
     setLeadActivities({})
     setLeadStages({})
+    setFullHistoryLeadIds(new Set())
+    historyRequestsRef.current.clear()
     try {
       const [leadResponse, pendingTaskResponse] = await Promise.all([
         leadsAPI.getAll({ page: 0, size: 500, sort: 'createdAt,desc' }),
@@ -415,17 +433,31 @@ export default function TaskFollowUpPage() {
   }, [activeTab, searchQuery, dateSortDirection])
 
   const ensureLeadActivities = useCallback(async (leadId) => {
-    if (!leadId || leadActivities[leadId]) return
+    if (!leadId || fullHistoryLeadIds.has(leadId)) return
+    const existingRequest = historyRequestsRef.current.get(leadId)
+    if (existingRequest) return existingRequest
+
     setHistoryLoadingLeadId(leadId)
-    try {
-      const acts = await leadsAPI.getActivities(leadId)
-      setLeadActivities((prev) => ({ ...prev, [leadId]: unwrapList(acts) }))
-    } catch (err) {
-      toast.error(err?.message || 'Unable to load lead history')
-    } finally {
-      setHistoryLoadingLeadId(null)
-    }
-  }, [leadActivities])
+    const request = leadsAPI.getActivities(leadId)
+      .then((acts) => {
+        setLeadActivities((prev) => ({ ...prev, [leadId]: unwrapList(acts) }))
+        setFullHistoryLeadIds((prev) => {
+          const next = new Set(prev)
+          next.add(leadId)
+          return next
+        })
+      })
+      .catch((err) => {
+        toast.error(err?.message || 'Unable to load lead history')
+      })
+      .finally(() => {
+        historyRequestsRef.current.delete(leadId)
+        setHistoryLoadingLeadId((current) => (current === leadId ? null : current))
+      })
+
+    historyRequestsRef.current.set(leadId, request)
+    return request
+  }, [fullHistoryLeadIds])
 
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
@@ -533,16 +565,28 @@ export default function TaskFollowUpPage() {
       values: values || {},
       summary,
     }
-    await leadsAPI.addActivity(lead.id, payload)
+    const savedActivity = await leadsAPI.addActivity(lead.id, payload)
+    if (savedActivity?.id) {
+      setLeadActivities((prev) => {
+        const existing = prev[lead.id] || []
+        const filtered = existing.filter((activity) => activity.id !== savedActivity.id)
+        return { ...prev, [lead.id]: [savedActivity, ...filtered] }
+      })
+    }
   }
 
   const closeActivitiesModal = async () => {
     const leadId = activitiesLead?.id
     setActivitiesLead(null)
-    if (leadId) {
+    if (leadId && !fullHistoryLeadIds.has(leadId)) {
       try {
         const acts = await leadsAPI.getActivities(leadId)
         setLeadActivities((prev) => ({ ...prev, [leadId]: unwrapList(acts) }))
+        setFullHistoryLeadIds((prev) => {
+          const next = new Set(prev)
+          next.add(leadId)
+          return next
+        })
       } catch {}
     }
   }
