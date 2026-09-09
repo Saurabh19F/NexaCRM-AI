@@ -357,7 +357,7 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
 }
 
 /* ── Lead Detail Card — flat, no-scroll, bg-matched ────────────── */
-function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, onCall, onWhatsApp, onHistory, onActivities, onAiScore, onConvert, canCall, canAiScore, canConvert, callingLeadId, lastCallOutcome, aging, ageMin }) {
+function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, onCall, onWhatsApp, onHistory, canCall, callingLeadId, lastCallOutcome, aging, ageMin }) {
   const scoreCfg  = SCORE_BADGE[lead.score]
   const statusCfg = STATUS_BADGE[lead.status] ?? { label: lead.status, cls: 'badge' }
   const ScoreIcon = scoreCfg?.icon
@@ -458,22 +458,6 @@ function LeadDetailModal({ lead, onClose, onEdit, onDelete, canEdit, canDelete, 
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors">
               <History className="w-3.5 h-3.5" /> History
             </button>
-            <button onClick={() => onActivities?.(lead)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors">
-              <ClipboardList className="w-3.5 h-3.5" /> Activities
-            </button>
-            {canAiScore && (
-              <button onClick={() => onAiScore?.(lead)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-colors">
-                <TrendingUp className="w-3.5 h-3.5" /> AI Score
-              </button>
-            )}
-            {canConvert && (
-              <button onClick={() => onConvert?.(lead)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors">
-                <UserCheck className="w-3.5 h-3.5" /> Convert
-              </button>
-            )}
 
             {/* Edit / Delete pushed to the right */}
             <div className="flex-1" />
@@ -1149,8 +1133,6 @@ export default function LeadsPage() {
   const canDelete = hasPermission(user, PERMISSIONS.LEADS_DELETE)
   const canImport = hasPermission(user, PERMISSIONS.LEADS_IMPORT)
   const canExport = hasPermission(user, PERMISSIONS.LEADS_EXPORT)
-  const canAiScore = hasPermission(user, PERMISSIONS.AI_USE)
-  const canConvert = hasPermission(user, PERMISSIONS.CUSTOMERS_CREATE) && hasPermission(user, PERMISSIONS.DEALS_CREATE)
   const canViewTeam = hasPermission(user, PERMISSIONS.TEAM_VIEW)
   const canCall = hasPermission(user, PERMISSIONS.COMMUNICATIONS_SEND)
   const routeSearch = searchParams.get('search') ?? ''
@@ -1437,45 +1419,6 @@ export default function LeadsPage() {
       toast.error(err?.message || 'Failed to import leads')
     }
     e.target.value = ''
-  }
-
-  const handleScoreLead = async (lead) => {
-    if (!canAiScore) {
-      toast.error('You do not have permission to use AI scoring.')
-      return
-    }
-    try {
-      const res = await leadsAPI.score(lead.id)
-      const nextScore = String(res?.score || '').toLowerCase()
-      if (nextScore === 'hot' || nextScore === 'warm' || nextScore === 'cold') {
-        patchLeadLocal(lead.id, { score: nextScore })
-      }
-      toast.success(res?.message || 'Lead scored by AI')
-    } catch (err) {
-      toast.error(err?.message || 'Failed to score lead')
-    }
-  }
-
-  const handleConvertLead = async (lead) => {
-    if (!canConvert) {
-      toast.error('You do not have permission to convert leads.')
-      return
-    }
-    try {
-      const res = await leadsAPI.convert(lead.id, {})
-      const convertedAt = res?.convertedAt || res?.lead?.convertedAt || new Date().toISOString()
-      if (res?.lead) {
-        patchLeadLocal(lead.id, res.lead)
-        setDetailLead((prev) => (prev?.id === lead.id
-          ? { ...prev, status: 'won', convertedAt, lastContactedAtTs: convertedAt, lastActivityAtTs: convertedAt }
-          : prev))
-      } else {
-        await reloadCurrentPage()
-      }
-      toast.success(res?.message || 'Lead converted successfully')
-    } catch (err) {
-      toast.error(err?.message || 'Failed to convert lead')
-    }
   }
 
   const handleCallLead = async (lead) => {
@@ -2006,12 +1949,7 @@ export default function LeadsPage() {
               onCall={handleCallLead}
               onWhatsApp={(l) => { setDetailLead(null); setWaLead(l) }}
               onHistory={(l) => { setDetailLead(null); openHistoryLead(l) }}
-              onActivities={(l) => { setDetailLead(null); openActivitiesLead(l) }}
-              onAiScore={handleScoreLead}
-              onConvert={handleConvertLead}
               canCall={canCall}
-              canAiScore={canAiScore}
-              canConvert={canConvert}
               callingLeadId={callingLeadId}
               lastCallOutcome={callOutcomeByLeadId[detailLead.id]}
               aging={getLeadAgingMeta(detailLead, timeTick)}
