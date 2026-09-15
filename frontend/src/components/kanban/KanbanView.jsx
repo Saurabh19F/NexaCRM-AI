@@ -167,7 +167,7 @@ const formatLeadCreatedDateTime = (lead) => {
 }
 
 const formatExportDateTime = (value) => {
-  if (!value) return '—'
+  if (!value) return '-'
   const normalized = typeof value === 'string' && value.includes('T') && !value.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(value)
     ? `${value}Z`
     : value
@@ -184,12 +184,6 @@ const formatExportDateTime = (value) => {
     hour12: true,
   })
 }
-
-const formatExportCurrency = (value) => Number(value || 0).toLocaleString('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-})
 
 const sourceEnumToLabel = (source) => {
   const s = String(source || '').toUpperCase()
@@ -209,7 +203,6 @@ const toPipelineExportLead = (lead, index = 0) => ({
   source: sourceEnumToLabel(lead?.source),
   score: String(lead?.score || 'COLD').toLowerCase(),
   status: String(lead?.status || 'NEW').toLowerCase(),
-  value: Number(lead?.dealValue ?? lead?.value ?? 0),
   assignedTo: lead?.assignedToName || lead?.assignedTo || '',
   tags: Array.isArray(lead?.tags) ? lead.tags.join(', ') : (lead?.tags || ''),
   notes: lead?.notes || '',
@@ -1057,88 +1050,143 @@ export default function KanbanPage() {
         return
       }
 
-      const stageTotals = Object.fromEntries(STAGES.map((stage) => [stage.key, { count: 0, value: 0 }]))
-      const detailRows = exportLeads.map((lead) => {
+      const stageBuckets = Object.fromEntries(STAGES.map((stage) => [stage.key, []]))
+      exportLeads.forEach((lead) => {
         const activityState = buildActivityModalState(unwrapActivityRows(activities[lead.id]))
         const stageKey = getWorkflowStageForLead(lead, activityState)
         const stage = STAGES.find((item) => item.key === stageKey) || STAGES[0]
-        stageTotals[stage.key].count += 1
-        stageTotals[stage.key].value += Number(lead.value || 0)
-
-        return [
-          `${stage.group} - ${stage.label}`,
-          lead.name || '—',
-          lead.company || '—',
-          lead.phone || '—',
-          lead.email || '—',
-          lead.source || '—',
-          lead.score ? lead.score.toUpperCase() : '—',
-          formatExportCurrency(lead.value),
+        stageBuckets[stage.key].push([
+          lead.name || '-',
+          lead.company || '-',
+          lead.phone || '-',
+          lead.email || '-',
+          lead.source || '-',
+          lead.score ? lead.score.toUpperCase() : '-',
           lead.assignedTo || 'Unassigned',
           formatExportDateTime(lead.createdAtTs || lead.createdAt),
-        ]
+        ])
       })
 
       const doc = new jsPDF({ orientation: 'landscape' })
       const today = new Date()
       const generatedAt = today.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const activeStages = STAGES.filter((stage) => stageBuckets[stage.key].length > 0)
+      const busiestStage = STAGES.reduce((best, stage) => (
+        stageBuckets[stage.key].length > stageBuckets[best.key].length ? stage : best
+      ), STAGES[0])
+      const untouchedLeads = stageBuckets.new?.length || 0
+      const stageNote = (stage, count) => {
+        if (!count) return 'No leads parked here right now.'
+        if (stage.key === 'new') return 'Fresh intake - assign, call, and qualify quickly.'
+        if (stage.key.includes('lost')) return 'Review reasons and recycle useful learnings.'
+        if (stage.key.includes('won')) return 'Won pipeline - close handoff and customer onboarding.'
+        if (stage.key.includes('meeting')) return 'Meeting-ready leads - protect next actions and dates.'
+        if (stage.key.includes('interested')) return 'Interested leads - push to follow-up before interest cools.'
+        return 'Active working queue - keep ownership and next step clear.'
+      }
+      const drawFooter = (data) => {
+        doc.setFontSize(7)
+        doc.setTextColor(100, 116, 139)
+        doc.text('NexaCRM pipeline export', data.settings.margin.left, pageHeight - 8)
+        doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - 28, pageHeight - 8)
+      }
+      const ensureRoom = (minHeight = 42) => {
+        const nextY = (doc.lastAutoTable?.finalY || 0) + 10
+        if (nextY + minHeight > pageHeight - 18) {
+          doc.addPage()
+          return 18
+        }
+        return nextY
+      }
+
       doc.setProperties({ title: 'NexaCRM Pipeline Report' })
-      doc.setFontSize(16)
-      doc.text(`NexaCRM Pipeline Report - ${today.toLocaleDateString('en-IN')}`, 14, 16)
+      doc.setFillColor(15, 23, 42)
+      doc.rect(0, 0, pageWidth, 38, 'F')
+      doc.setFillColor(14, 165, 233)
+      doc.roundedRect(14, 10, 42, 8, 2, 2, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(7)
+      doc.text('LIVE PIPELINE', 19, 15.5)
+      doc.setFontSize(19)
+      doc.text('NexaCRM Pipeline Playbook', 14, 27)
       doc.setFontSize(9)
-      doc.text(`All pipeline leads exported from the live board on ${generatedAt}`, 14, 23)
+      doc.text(`Every lead, organized stage by stage - generated ${generatedAt}`, 14, 34)
+      doc.setFillColor(34, 197, 94)
+      doc.circle(pageWidth - 25, 18, 9, 'F')
+      doc.setFontSize(14)
+      doc.text(String(exportLeads.length), pageWidth - 30, 20)
+      doc.setFontSize(7)
+      doc.text('LEADS', pageWidth - 34, 28)
+      doc.setTextColor(15, 23, 42)
 
       autoTable(doc, {
-        startY: 30,
-        head: [['Metric', 'Value']],
+        startY: 48,
+        head: [['Highlight', 'What it means']],
         body: [
-          ['Total pipeline leads', exportLeads.length.toLocaleString('en-IN')],
-          ['Total pipeline value', formatExportCurrency(exportLeads.reduce((sum, lead) => sum + Number(lead.value || 0), 0))],
-          ['Stages included', STAGES.length.toLocaleString('en-IN')],
+          ['Total leads', `${exportLeads.length.toLocaleString('en-IN')} leads across the full pipeline.`],
+          ['Active stages', `${activeStages.length.toLocaleString('en-IN')} of ${STAGES.length.toLocaleString('en-IN')} stages currently have leads.`],
+          ['Busiest stage', `${busiestStage.group} - ${busiestStage.label} has ${stageBuckets[busiestStage.key].length.toLocaleString('en-IN')} lead(s).`],
+          ['Fresh intake', `${untouchedLeads.toLocaleString('en-IN')} lead(s) are still in New and need first action.`],
         ],
-        styles: { fontSize: 8 },
+        styles: { fontSize: 8.5, cellPadding: 3 },
         headStyles: { fillColor: [14, 165, 233] },
-        theme: 'grid',
+        columnStyles: { 0: { cellWidth: 42, fontStyle: 'bold' }, 1: { cellWidth: 220 } },
+        theme: 'striped',
+        didDrawPage: drawFooter,
       })
 
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 8,
-        head: [['Stage', 'Leads', 'Pipeline Value']],
+        head: [['Pipeline Stage', 'Leads', 'Focus Note']],
         body: STAGES.map((stage) => [
           `${stage.group} - ${stage.label}`,
-          stageTotals[stage.key].count.toLocaleString('en-IN'),
-          formatExportCurrency(stageTotals[stage.key].value),
+          stageBuckets[stage.key].length.toLocaleString('en-IN'),
+          stageNote(stage, stageBuckets[stage.key].length),
         ]),
-        styles: { fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 2.4 },
         headStyles: { fillColor: [15, 23, 42] },
+        columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 22, halign: 'center' }, 2: { cellWidth: 165 } },
         theme: 'striped',
+        didDrawPage: drawFooter,
       })
 
-      autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 8,
-        head: [['Stage', 'Lead', 'Company', 'Phone', 'Email', 'Source', 'Score', 'Value', 'Owner', 'Created']],
-        body: detailRows,
-        styles: { fontSize: 6.4, cellPadding: 1.7, overflow: 'linebreak' },
-        headStyles: { fillColor: [34, 197, 94] },
-        columnStyles: {
-          0: { cellWidth: 32 },
-          1: { cellWidth: 28 },
-          2: { cellWidth: 26 },
-          3: { cellWidth: 24 },
-          4: { cellWidth: 36 },
-          5: { cellWidth: 20 },
-          6: { cellWidth: 15 },
-          7: { cellWidth: 22 },
-          8: { cellWidth: 24 },
-          9: { cellWidth: 28 },
-        },
-        theme: 'grid',
-        didDrawPage: (data) => {
-          const pageSize = doc.internal.pageSize
-          doc.setFontSize(7)
-          doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageSize.getWidth() - 28, pageSize.getHeight() - 8)
-          doc.text('NexaCRM pipeline export', data.settings.margin.left, pageSize.getHeight() - 8)
-        },
+      STAGES.forEach((stage, index) => {
+        const rows = stageBuckets[stage.key]
+        const startY = ensureRoom(rows.length ? 48 : 34)
+        if (index > 0 && startY === 18) {
+          doc.setFillColor(241, 245, 249)
+          doc.rect(0, 0, pageWidth, 9, 'F')
+        }
+
+        doc.setFontSize(12)
+        doc.setTextColor(15, 23, 42)
+        doc.text(`${stage.group} - ${stage.label}`, 14, startY)
+        doc.setFontSize(8)
+        doc.setTextColor(71, 85, 105)
+        doc.text(`${rows.length.toLocaleString('en-IN')} lead(s). ${stageNote(stage, rows.length)}`, 14, startY + 6)
+
+        autoTable(doc, {
+          startY: startY + 10,
+          head: [['Lead', 'Company', 'Phone', 'Email', 'Source', 'Score', 'Owner', 'Created']],
+          body: rows.length ? rows : [['No leads in this pipeline stage', '-', '-', '-', '-', '-', '-', '-']],
+          styles: { fontSize: 6.8, cellPadding: 1.8, overflow: 'linebreak' },
+          headStyles: { fillColor: rows.length ? [34, 197, 94] : [148, 163, 184] },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          columnStyles: {
+            0: { cellWidth: 34, fontStyle: 'bold' },
+            1: { cellWidth: 32 },
+            2: { cellWidth: 25 },
+            3: { cellWidth: 44 },
+            4: { cellWidth: 22 },
+            5: { cellWidth: 16, halign: 'center' },
+            6: { cellWidth: 28 },
+            7: { cellWidth: 30 },
+          },
+          theme: 'grid',
+          didDrawPage: drawFooter,
+        })
       })
 
       doc.save(`nexacrm-pipeline-${today.toISOString().slice(0, 10)}.pdf`)
