@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -17,7 +18,10 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class AIServiceTest {
@@ -25,11 +29,39 @@ class AIServiceTest {
     @Mock
     private LeadRepository leadRepository;
 
+    @Mock
+    private IntegrationService integrationService;
+
+    @Mock
+    private RestTemplate restTemplate;
+
     private AIService aiService;
 
     @BeforeEach
     void setUp() {
-        aiService = new AIService(leadRepository, new RestTemplate(), new ObjectMapper());
+        aiService = new AIService(leadRepository, integrationService, restTemplate, new ObjectMapper());
+    }
+
+    @Test
+    void chat_shouldUseTenantMistralKeyAndModel() {
+        when(integrationService.getConfig("mistral_ai"))
+            .thenReturn(Map.of("apiKey", "tenant-key", "model", "tenant-model"));
+        when(restTemplate.postForObject(
+            eq("https://api.mistral.ai/v1/chat/completions"),
+            any(HttpEntity.class),
+            eq(Map.class)
+        )).thenReturn(Map.of(
+            "choices", List.of(Map.of("message", Map.of("content", "Tenant model response")))
+        ));
+
+        assertEquals("Tenant model response", aiService.chat(List.of(
+            Map.of("role", "user", "content", "Hello")
+        )));
+        verify(restTemplate).postForObject(
+            eq("https://api.mistral.ai/v1/chat/completions"),
+            any(HttpEntity.class),
+            eq(Map.class)
+        );
     }
 
     @Test

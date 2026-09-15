@@ -3,6 +3,11 @@ package com.nexacrm.controller;
 import com.nexacrm.dto.dashboard.DashboardOverviewDTO;
 import com.nexacrm.dto.dashboard.DashboardWidgetSnapshotDTO;
 import com.nexacrm.service.dashboard.DashboardAnalyticsService;
+import com.nexacrm.service.dashboard.LeadConversionDashboardService;
+import com.nexacrm.dto.dashboard.LeadConversionEmployeeDTO;
+import com.nexacrm.dto.dashboard.LeadConversionFunnelDTO;
+import com.nexacrm.dto.dashboard.LeadConversionSourceDTO;
+import com.nexacrm.dto.dashboard.LeadConversionSummaryDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +40,7 @@ import java.util.Map;
 public class AnalyticsController {
 
     private final DashboardAnalyticsService dashboardAnalyticsService;
+    private final LeadConversionDashboardService leadConversionDashboardService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('reports.read')")
@@ -100,19 +106,28 @@ public class AnalyticsController {
     @PreAuthorize("hasAuthority('reports.export')")
     @Operation(summary = "Export live analytics data")
     public ResponseEntity<byte[]> exportReport(
-        @RequestParam(required = false, defaultValue = "csv") String format
+        @RequestParam(required = false, defaultValue = "csv") String format,
+        @RequestParam(required = false, defaultValue = "thisMonth") String filter,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate,
+        @RequestParam(required = false) String employeeId,
+        @RequestParam(required = false) String status
     ) {
-        DashboardOverviewDTO overview = dashboardAnalyticsService.overview();
-        DashboardWidgetSnapshotDTO widgets = dashboardAnalyticsService.widgets();
-
         String normalized = format == null ? "csv" : format.trim().toLowerCase(Locale.ROOT);
         if ("xlsx".equals(normalized)) {
-            byte[] body = exportLeadFunnelWorkbook(widgets);
+            LeadConversionSummaryDTO summary = leadConversionDashboardService.summary(filter, startDate, endDate, employeeId, status);
+            List<LeadConversionFunnelDTO> funnel = leadConversionDashboardService.funnel(filter, startDate, endDate, employeeId, status);
+            List<LeadConversionSourceDTO> sources = leadConversionDashboardService.sources(filter, startDate, endDate, employeeId, status);
+            List<LeadConversionEmployeeDTO> employees = leadConversionDashboardService.employees(filter, startDate, endDate, employeeId, status, "pending", "desc");
+            byte[] body = exportLeadPerformanceWorkbook(summary, funnel, sources, employees);
             return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=nexacrm-lead-funnel-report.xlsx")
                 .body(body);
         }
+
+        DashboardOverviewDTO overview = dashboardAnalyticsService.overview();
+        DashboardWidgetSnapshotDTO widgets = dashboardAnalyticsService.widgets();
 
         StringBuilder csv = new StringBuilder();
         csv.append("section,metric,value\n");
@@ -155,6 +170,72 @@ public class AnalyticsController {
             .contentType(MediaType.parseMediaType("text/csv"))
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=nexacrm-analytics.csv")
             .body(body);
+    }
+
+    private byte[] exportLeadPerformanceWorkbook(
+        LeadConversionSummaryDTO summary,
+        List<LeadConversionFunnelDTO> funnel,
+        List<LeadConversionSourceDTO> sources,
+        List<LeadConversionEmployeeDTO> employees
+    ) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            Sheet overview = workbook.createSheet("Summary");
+            writeHeader(overview, headerStyle, "Metric", "Value", "Definition");
+            writeRow(overview, 1, "Leads Created", metricValue(summary.totalLeads()), "Leads created in the selected period");
+            writeRow(overview, 2, "Active Pipeline", metricValue(summary.totalLeads()) - metricValue(summary.convertedLeads()) - metricValue(summary.lostLeads()), "Current status is neither converted nor lost");
+            writeRow(overview, 3, "Converted", metricValue(summary.convertedLeads()), "Currently marked converted/won");
+            writeRow(overview, 4, "Lost", metricValue(summary.lostLeads()), "Currently marked lost");
+            writeRow(overview, 5, "Current Win Rate", formatPercent(summary.conversionRate() == null ? 0.0 : summary.conversionRate().value()), "Converted divided by selected-period leads");
+            writeRow(overview, 6, "Pending Follow-ups", metricValue(summary.pendingFollowUps()), "Open follow-up dates");
+            writeRow(overview, 7, "Period", summary.periodLabel(), "Analytics scope");
+            setWidths(overview, 28, 20, 76);
+
+            Sheet funnelSheet = workbook.createSheet("Pipeline Detail");
+            writeHeader(funnelSheet, headerStyle, "Stage", "Leads", "Share", "Drop-off Signal");
+            long total = metricValue(summary.totalLeads());
+            for (int i = 0; i < funnel.size(); i++) {
+                LeadConversionFunnelDTO row = funnel.get(i);
+                writeRow(funnelSheet, i + 1, row.label(), row.count(), percent(row.count(), total), formatPercent(row.dropOffPercent()));
+            }
+            setWidths(funnelSheet, 24, 14, 16, 22);
+
+            Sheet sourceSheet = workbook.createSheet("Source Performance");
+            writeHeader(sourceSheet, headerStyle, "Source", "Leads", "Converted", "Lost", "Current Win Rate", "Revenue");
+            for (int i = 0; i < sources.size(); i++) {
+                LeadConversionSourceDTO row = sources.get(i);
+                writeRow(sourceSheet, i + 1, row.sourceLabel(), row.totalLeads(), row.convertedLeads(), row.lostLeads(), formatPercent(row.conversionRate()), row.revenueGenerated());
+            }
+            setWidths(sourceSheet, 24, 14, 14, 14, 20, 18);
+
+            Sheet employeeSheet = workbook.createSheet("Owner Performance");
+            writeHeader(employeeSheet, headerStyle, "Owner", "Assigned", "Contacted", "Converted", "Lost", "Pending", "Win Rate", "Revenue");
+            for (int i = 0; i < employees.size(); i++) {
+                LeadConversionEmployeeDTO row = employees.get(i);
+                writeRow(employeeSheet, i + 1, row.employeeName(), row.assignedLeads(), row.contactedLeads(), row.convertedLeads(), row.lostLeads(), row.pendingLeads(), formatPercent(row.conversionRate()), row.revenueGenerated());
+            }
+            setWidths(employeeSheet, 24, 14, 14, 14, 14, 14, 16, 18);
+
+            Sheet notes = workbook.createSheet("Data Notes");
+            writeHeader(notes, headerStyle, "Note");
+            writeRow(notes, 1, "Counts are based on leads created in the selected period and their current status.");
+            writeRow(notes, 2, "Current win rate is an operational ratio, not a historical cohort conversion rate.");
+            writeRow(notes, 3, "Complete stage-change and first-response event tracking is required for precise time-to-convert analysis.");
+            setWidths(notes, 120);
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to export lead performance workbook", e);
+        }
+    }
+
+    private long metricValue(com.nexacrm.dto.dashboard.LeadConversionMetricDTO metric) {
+        return metric == null ? 0L : Math.round(metric.value());
     }
 
     private byte[] exportLeadFunnelWorkbook(DashboardWidgetSnapshotDTO widgets) {

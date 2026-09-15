@@ -53,7 +53,8 @@ public class DashboardAnalyticsService {
         new DashboardStage("QUALIFIED", "Qualified", "#c026d3"),
         new DashboardStage("PROPOSAL", "Proposal", "#db2777"),
         new DashboardStage("NEGOTIATION", "Negotiation", "#f59e0b"),
-        new DashboardStage("WON", "Won", "#10b981")
+        new DashboardStage("WON", "Won", "#10b981"),
+        new DashboardStage("LOST", "Lost", "#f43f5e")
     );
     private static final Map<String, String> LEAD_SOURCE_COLORS = Map.ofEntries(
         Map.entry("facebook", "#1877f2"),

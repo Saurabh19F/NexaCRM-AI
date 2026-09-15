@@ -56,6 +56,7 @@ public class AIService {
     private int defaultMaxTokens;
 
     private final LeadRepository leadRepository;
+    private final IntegrationService integrationService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -812,16 +813,19 @@ public class AIService {
     // ── Private helpers ───────────────────────────────────────────
 
     private String callMistralText(List<Map<String, String>> messages, int maxTokens, double temperature) {
-        if (!hasRealApiKey()) {
+        Map<String, String> tenantConfig = resolveTenantMistralConfig();
+        String apiKey = resolveApiKey(tenantConfig);
+        String configuredModel = resolveModel(tenantConfig);
+        if (!hasRealApiKey(apiKey)) {
             throw new IllegalStateException("MISTRAL_API_KEY is not configured");
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(mistralApiKey);
+        headers.setBearerAuth(apiKey);
 
         Map<String, Object> payload = Map.of(
-            "model", model,
+            "model", configuredModel,
             "messages", messages,
             "max_tokens", maxTokens,
             "temperature", temperature
@@ -1021,9 +1025,26 @@ public class AIService {
         throw new IllegalStateException("No JSON array found in model output");
     }
 
-    private boolean hasRealApiKey() {
-        if (mistralApiKey == null) return false;
-        String key = mistralApiKey.trim();
+    private Map<String, String> resolveTenantMistralConfig() {
+        if (integrationService == null) {
+            return Map.of();
+        }
+        Map<String, String> config = integrationService.getConfig("mistral_ai");
+        return config == null ? Map.of() : config;
+    }
+
+    private String resolveApiKey(Map<String, String> tenantConfig) {
+        String tenantKey = tenantConfig == null ? "" : tenantConfig.get("apiKey");
+        return tenantKey != null && !tenantKey.isBlank() ? tenantKey.trim() : trim(mistralApiKey);
+    }
+
+    private String resolveModel(Map<String, String> tenantConfig) {
+        String tenantModel = tenantConfig == null ? "" : tenantConfig.get("model");
+        return tenantModel != null && !tenantModel.isBlank() ? tenantModel.trim() : trim(model);
+    }
+
+    private boolean hasRealApiKey(String apiKey) {
+        String key = apiKey == null ? "" : apiKey.trim();
         return !key.isEmpty();
     }
 

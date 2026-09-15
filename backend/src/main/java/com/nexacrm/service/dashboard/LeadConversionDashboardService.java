@@ -445,7 +445,39 @@ public class LeadConversionDashboardService {
     }
 
     private List<LeadActivity> fetchActivities(TimeRange range, List<Lead> leads) {
-        return List.of();
+        if (leads == null || leads.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> leadIds = leads.stream()
+            .map(Lead::getId)
+            .filter(StringUtils::hasText)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (leadIds.isEmpty()) {
+            return List.of();
+        }
+
+        Criteria savedAtInRange = Criteria.where("saved_at").gte(range.start()).lt(range.end());
+        Criteria createdAtInRange = Criteria.where("saved_at").exists(false)
+            .and("createdAt").gte(range.start()).lt(range.end());
+        Query query = new Query();
+        query.addCriteria(Criteria.where("tenant_id").is(tenantId()).and("deleted").is(false));
+        query.addCriteria(Criteria.where("lead_id").in(leadIds));
+        query.addCriteria(new Criteria().orOperator(savedAtInRange, createdAtInRange));
+        query.with(Sort.by(Sort.Direction.DESC, "saved_at"));
+        query.limit(1000);
+        query.fields()
+            .include("lead_id")
+            .include("activity_index")
+            .include("activity_id")
+            .include("activity_label")
+            .include("activity_title")
+            .include("assigned_to")
+            .include("summary")
+            .include("values")
+            .include("saved_at")
+            .include("createdAt");
+        return mongoTemplate.find(query, LeadActivity.class, "lead_activities");
     }
 
     private List<User> visibleUsers(ResolvedScope scope) {

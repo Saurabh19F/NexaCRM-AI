@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -110,6 +111,9 @@ public class IntegrationService {
         }
         if ("whatsapp".equals(normalizedId)) {
             return testWhatsAppConnection(testValues);
+        }
+        if ("mistral_ai".equals(normalizedId)) {
+            return testMistralConnection(testValues);
         }
 
         return Map.of(
@@ -254,6 +258,47 @@ public class IntegrationService {
             "message", "Connection test passed for whatsapp",
             "integration", "whatsapp"
         );
+    }
+
+    private Map<String, Object> testMistralConnection(Map<String, String> values) {
+        String apiKey = trim(values.get("apiKey"));
+        String model = firstNonBlank(values.get("model"), "mistral-small-latest");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(apiKey);
+
+        Map<String, Object> payload = Map.of(
+            "model", model,
+            "messages", List.of(Map.of("role", "user", "content", "Reply with exactly OK.")),
+            "max_tokens", 8,
+            "temperature", 0
+        );
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                "https://api.mistral.ai/v1/chat/completions",
+                HttpMethod.POST,
+                new HttpEntity<>(payload, headers),
+                Map.class
+            );
+            Map<?, ?> body = response.getBody() == null ? Map.of() : response.getBody();
+            if (!(body.get("choices") instanceof List<?> choices) || choices.isEmpty()) {
+                throw new IllegalStateException("Mistral returned no completion choices.");
+            }
+            return Map.of(
+                "ok", true,
+                "message", "Mistral AI connection test passed.",
+                "integration", "mistral_ai",
+                "model", model
+            );
+        } catch (HttpStatusCodeException ex) {
+            String providerMessage = ex.getResponseBodyAsString();
+            if (ex.getStatusCode().value() == 429) {
+                throw new IllegalStateException("Mistral rejected the test because the key is rate limited or has no available quota. Try again later or check the Mistral console.");
+            }
+            throw new IllegalStateException("Mistral connection test failed (HTTP " + ex.getStatusCode().value() + "): " + providerMessage);
+        }
     }
 
     private String normalizeAknexusBaseUrl(String raw) {
