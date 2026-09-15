@@ -154,7 +154,7 @@ const WORKFLOW_FORM_INITIAL = {
 const DEFAULT_PIPELINE_DIGEST = {
   enabled: false,
   time: '18:00',
-  recipient: '',
+  recipients: [],
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
   lastSentAt: '',
 }
@@ -183,6 +183,7 @@ export default function AutomationPage() {
   const [loadingDigest, setLoadingDigest] = useState(true)
   const [savingDigest, setSavingDigest] = useState(false)
   const [sendingDigest, setSendingDigest] = useState(false)
+  const [newRecipient, setNewRecipient] = useState('')
   const stepsScrollRef = useRef(null)
 
   const mapWorkflowFromApi = (workflow) => ({
@@ -226,7 +227,14 @@ export default function AutomationPage() {
     let cancelled = false
     automationAPI.getPipelineDigest()
       .then((config) => {
-        if (!cancelled) setPipelineDigest((prev) => ({ ...prev, ...(config || {}) }))
+        if (!cancelled) {
+          const recipients = Array.isArray(config?.recipients)
+            ? config.recipients
+            : config?.recipient
+              ? [config.recipient]
+              : []
+          setPipelineDigest((prev) => ({ ...prev, ...(config || {}), recipients }))
+        }
       })
       .catch((err) => {
         if (!cancelled) toast.error(err?.message || 'Failed to load pipeline digest settings')
@@ -239,8 +247,8 @@ export default function AutomationPage() {
 
   const savePipelineDigest = async (event) => {
     event.preventDefault()
-    if (pipelineDigest.enabled && !pipelineDigest.recipient.trim()) {
-      toast.error('Enter a WhatsApp number first.')
+    if (pipelineDigest.enabled && pipelineDigest.recipients.length === 0) {
+      toast.error('Add at least one WhatsApp number first.')
       return
     }
     setSavingDigest(true)
@@ -248,7 +256,7 @@ export default function AutomationPage() {
       const saved = await automationAPI.savePipelineDigest({
         enabled: Boolean(pipelineDigest.enabled),
         time: pipelineDigest.time,
-        recipient: pipelineDigest.recipient,
+        recipients: pipelineDigest.recipients,
         timezone: pipelineDigest.timezone,
       })
       setPipelineDigest((prev) => ({ ...prev, ...(saved || {}) }))
@@ -261,8 +269,8 @@ export default function AutomationPage() {
   }
 
   const sendPipelineDigestNow = async () => {
-    if (!pipelineDigest.recipient.trim()) {
-      toast.error('Enter a WhatsApp number first.')
+    if (pipelineDigest.recipients.length === 0) {
+      toast.error('Add at least one WhatsApp number first.')
       return
     }
     setSendingDigest(true)
@@ -275,6 +283,51 @@ export default function AutomationPage() {
     } finally {
       setSendingDigest(false)
     }
+  }
+
+  const normalizeRecipient = (raw) => {
+    const digits = String(raw || '').replace(/\D/g, '')
+    if (digits.length < 7 || digits.length > 15) return ''
+    return digits.length === 10 ? `+91${digits}` : `+${digits}`
+  }
+
+  const saveRecipientList = async (recipients, successMessage) => {
+    setSavingDigest(true)
+    try {
+      const saved = await automationAPI.savePipelineDigest({
+        enabled: Boolean(pipelineDigest.enabled),
+        time: pipelineDigest.time,
+        recipients,
+        timezone: pipelineDigest.timezone,
+      })
+      setPipelineDigest((prev) => ({ ...prev, ...(saved || {}), recipients: saved?.recipients || recipients }))
+      toast.success(successMessage)
+      return true
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update WhatsApp recipients')
+      return false
+    } finally {
+      setSavingDigest(false)
+    }
+  }
+
+  const addPipelineRecipient = async () => {
+    const recipient = normalizeRecipient(newRecipient)
+    if (!recipient) {
+      toast.error('Enter a valid WhatsApp number with 7 to 15 digits.')
+      return
+    }
+    if (pipelineDigest.recipients.includes(recipient)) {
+      toast.error('This WhatsApp number is already added.')
+      return
+    }
+    const saved = await saveRecipientList([...pipelineDigest.recipients, recipient], 'WhatsApp recipient added')
+    if (saved) setNewRecipient('')
+  }
+
+  const removePipelineRecipient = async (recipient) => {
+    const nextRecipients = pipelineDigest.recipients.filter((item) => item !== recipient)
+    await saveRecipientList(nextRecipients, 'WhatsApp recipient removed')
   }
 
   const toggleStatus = async (id) => {
@@ -470,18 +523,28 @@ export default function AutomationPage() {
             {pipelineDigest.enabled ? 'Active' : 'Paused'}
           </label>
         </div>
-        <div className="grid grid-cols-1 gap-3 border-t border-slate-200/80 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-900/30 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-            WhatsApp number
+        <div className="grid grid-cols-1 gap-3 border-t border-slate-200/80 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-900/30 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+              Add WhatsApp recipient
+            </label>
             <input
               type="tel"
-              value={pipelineDigest.recipient}
-              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, recipient: e.target.value }))}
+              value={newRecipient}
+              onChange={(e) => setNewRecipient(e.target.value)}
               placeholder="+91 98765 43210"
               className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
               disabled={loadingDigest || savingDigest}
             />
-          </label>
+            <button
+              type="button"
+              onClick={addPipelineRecipient}
+              disabled={loadingDigest || savingDigest || !newRecipient.trim()}
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add number
+            </button>
+          </div>
           <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
             Send every day at
             <input
@@ -519,6 +582,33 @@ export default function AutomationPage() {
               <Send className="h-3.5 w-3.5" /> {sendingDigest ? 'Sending…' : 'Send now'}
             </button>
           </div>
+        </div>
+        <div className="border-t border-slate-200/80 px-5 py-4 dark:border-slate-800">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Recipients ({pipelineDigest.recipients.length})</p>
+            <p className="text-[11px] text-slate-400">Remove a number to stop future daily messages to it.</p>
+          </div>
+          {pipelineDigest.recipients.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-xs text-slate-400 dark:border-slate-700">No recipients added yet.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {pipelineDigest.recipients.map((recipient) => (
+                <div key={recipient} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{recipient}</span>
+                  <button
+                    type="button"
+                    onClick={() => removePipelineRecipient(recipient)}
+                    disabled={loadingDigest || savingDigest}
+                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950/30"
+                    title={`Remove ${recipient}`}
+                    aria-label={`Remove ${recipient}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="px-5 pb-4 text-[11px] text-slate-400 dark:text-slate-500">
           {pipelineDigest.lastSentAt ? `Last sent: ${new Date(pipelineDigest.lastSentAt).toLocaleString()}` : 'Not sent yet'}

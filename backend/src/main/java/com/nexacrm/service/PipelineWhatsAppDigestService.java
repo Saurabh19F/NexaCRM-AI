@@ -21,6 +21,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -59,13 +61,19 @@ public class PipelineWhatsAppDigestService {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("enabled", booleanValue(request != null && request.containsKey("enabled") ? request.get("enabled") : current.get("enabled"), false));
         config.put("time", normalizeTime(textValue(request, "time", textValue(current, "time", DEFAULT_TIME))));
-        config.put("recipient", normalizePhone(textValue(request, "recipient", textValue(current, "recipient", ""))));
+        Object requestedRecipients = request != null && request.containsKey("recipients")
+            ? request.get("recipients")
+            : request != null && request.containsKey("recipient")
+                ? request.get("recipient")
+                : currentRecipients(current);
+        List<String> recipients = normalizeRecipients(requestedRecipients);
+        config.put("recipients", recipients);
         config.put("timezone", normalizeTimezone(textValue(request, "timezone", textValue(current, "timezone", DEFAULT_TIMEZONE))));
-        config.put("lastSentDate", "");
-        config.put("lastSentAt", "");
+        config.put("lastSentDate", textValue(current, "lastSentDate", ""));
+        config.put("lastSentAt", textValue(current, "lastSentAt", ""));
 
-        if (Boolean.TRUE.equals(config.get("enabled")) && String.valueOf(config.get("recipient")).isBlank()) {
-            throw new IllegalArgumentException("A WhatsApp recipient number is required when the daily digest is enabled.");
+        if (Boolean.TRUE.equals(config.get("enabled")) && recipients.isEmpty()) {
+            throw new IllegalArgumentException("Add at least one WhatsApp recipient when the daily digest is enabled.");
         }
         persistConfiguration(tenantId, config);
         return publicConfiguration(config);
@@ -74,8 +82,8 @@ public class PipelineWhatsAppDigestService {
     public Map<String, Object> sendCurrentDigestNow() {
         Long tenantId = TenantContext.currentTenantId();
         Map<String, Object> config = readConfiguration(tenantId);
-        if (String.valueOf(config.getOrDefault("recipient", "")).isBlank()) {
-            throw new IllegalArgumentException("Set a WhatsApp recipient number before sending the digest.");
+        if (currentRecipients(config).isEmpty()) {
+            throw new IllegalArgumentException("Add at least one WhatsApp recipient before sending the digest.");
         }
         sendDigest(tenantId, config);
         return publicConfiguration(readConfiguration(tenantId));
@@ -94,7 +102,7 @@ public class PipelineWhatsAppDigestService {
                 LocalDateTime now = LocalDateTime.now(zone);
                 LocalTime scheduledTime = LocalTime.parse(String.valueOf(config.get("time")), TIME_FORMAT);
                 String lastSentDate = textValue(config, "lastSentDate", "");
-                if (now.getHour() == scheduledTime.getHour()
+            if (now.getHour() == scheduledTime.getHour()
                     && now.getMinute() == scheduledTime.getMinute()
                     && !lastSentDate.equals(now.toLocalDate().toString())) {
                     sendDigest(tenantId, config);
@@ -112,12 +120,28 @@ public class PipelineWhatsAppDigestService {
             LocalDateTime now = LocalDateTime.now(zone);
             List<Lead> leads = leadRepository.findByTenantIdAndDeletedFalse(tenantId);
             String message = buildMessage(leads, now);
-            communicationService.sendChannelMessage("whatsapp", String.valueOf(config.get("recipient")), "", message);
+            List<String> recipients = currentRecipients(config);
+            if (recipients.isEmpty()) {
+                throw new IllegalStateException("No WhatsApp recipients are configured.");
+            }
+
+            int sent = 0;
+            for (String recipient : recipients) {
+                try {
+                    communicationService.sendChannelMessage("whatsapp", recipient, "", message);
+                    sent++;
+                } catch (Exception ex) {
+                    log.warn("Pipeline WhatsApp digest failed for tenant {} recipient {}: {}", tenantId, maskPhone(recipient), ex.getMessage());
+                }
+            }
+            if (sent == 0) {
+                throw new IllegalStateException("No WhatsApp messages were sent successfully.");
+            }
 
             config.put("lastSentDate", now.toLocalDate().toString());
             config.put("lastSentAt", Instant.now().toString());
             persistConfiguration(tenantId, config);
-            log.info("Pipeline WhatsApp digest sent for tenant {} to {}", tenantId, maskPhone(String.valueOf(config.get("recipient"))));
+            log.info("Pipeline WhatsApp digest sent for tenant {} to {} recipient(s)", tenantId, sent);
         } finally {
             TenantContext.clear();
         }
@@ -167,7 +191,7 @@ public class PipelineWhatsAppDigestService {
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("enabled", false);
         defaults.put("time", DEFAULT_TIME);
-        defaults.put("recipient", "");
+        defaults.put("recipients", List.of());
         defaults.put("timezone", DEFAULT_TIMEZONE);
         defaults.put("lastSentDate", "");
         defaults.put("lastSentAt", "");
@@ -194,8 +218,38 @@ public class PipelineWhatsAppDigestService {
 
     private Map<String, Object> publicConfiguration(Map<String, Object> config) {
         Map<String, Object> response = new LinkedHashMap<>(config);
+        response.put("recipients", currentRecipients(config));
+        response.remove("recipient");
         response.remove("lastSentDate");
         return response;
+    }
+
+    private List<String> currentRecipients(Map<String, Object> config) {
+        List<String> recipients = normalizeRecipients(config == null ? null : config.get("recipients"));
+        if (!recipients.isEmpty()) {
+            return recipients;
+        }
+        String legacyRecipient = textValue(config, "recipient", "");
+        return legacyRecipient.isBlank() ? List.of() : List.of(normalizePhone(legacyRecipient));
+    }
+
+    private List<String> normalizeRecipients(Object raw) {
+        List<String> values = new ArrayList<>();
+        if (raw instanceof Collection<?> collection) {
+            for (Object value : collection) {
+                addNormalizedRecipient(values, value == null ? "" : String.valueOf(value));
+            }
+        } else if (raw != null) {
+            addNormalizedRecipient(values, String.valueOf(raw));
+        }
+        return values.stream().distinct().toList();
+    }
+
+    private void addNormalizedRecipient(List<String> values, String raw) {
+        String normalized = normalizePhone(raw);
+        if (!normalized.isBlank()) {
+            values.add(normalized);
+        }
     }
 
     private void persistConfiguration(Long tenantId, Map<String, Object> config) {

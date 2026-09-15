@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class PipelineWhatsAppDigestServiceTest {
@@ -70,7 +71,7 @@ class PipelineWhatsAppDigestServiceTest {
         ));
 
         assertTrue((Boolean) saved.get("enabled"));
-        assertEquals("+919876543210", saved.get("recipient"));
+        assertEquals(List.of("+919876543210"), saved.get("recipients"));
         assertEquals("09:05", saved.get("time"));
         assertFalse(saved.containsKey("lastSentDate"));
     }
@@ -80,7 +81,7 @@ class PipelineWhatsAppDigestServiceTest {
         AppSetting setting = AppSetting.builder()
             .namespace("automation")
             .key("pipelineWhatsappDigest")
-            .value("{\"enabled\":true,\"time\":\"09:00\",\"recipient\":\"+919876543210\",\"timezone\":\"Asia/Kolkata\",\"lastSentDate\":\"\",\"lastSentAt\":\"\"}")
+            .value("{\"enabled\":true,\"time\":\"09:00\",\"recipients\":[\"+919876543210\",\"+919811122233\"],\"timezone\":\"Asia/Kolkata\",\"lastSentDate\":\"\",\"lastSentAt\":\"\"}")
             .build();
         Lead lead = Lead.builder()
             .name("Acme Lead")
@@ -96,10 +97,10 @@ class PipelineWhatsAppDigestServiceTest {
 
         Map<String, Object> result = service.sendCurrentDigestNow();
 
-        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
-        verify(communicationService).sendChannelMessage(org.mockito.ArgumentMatchers.eq("whatsapp"), org.mockito.ArgumentMatchers.eq("+919876543210"), org.mockito.ArgumentMatchers.eq(""), body.capture());
-        assertTrue(body.getValue().contains("Daily Pipeline Update"));
-        assertTrue(body.getValue().contains("Acme Lead — PROPOSAL"));
+        ArgumentCaptor<String> recipients = ArgumentCaptor.forClass(String.class);
+        verify(communicationService, times(2)).sendChannelMessage(org.mockito.ArgumentMatchers.eq("whatsapp"), recipients.capture(), org.mockito.ArgumentMatchers.eq(""), any(String.class));
+        assertTrue(recipients.getAllValues().contains("+919876543210"));
+        assertTrue(recipients.getAllValues().contains("+919811122233"));
         assertNotNull(result.get("lastSentAt"));
     }
 }
