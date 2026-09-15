@@ -520,141 +520,184 @@ export default function AutomationPage() {
         ))}
       </div>
 
-      <form onSubmit={savePipelineDigest} className="glass-card overflow-hidden border border-emerald-200/70 dark:border-emerald-500/20">
-        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-              <MessageCircle className="h-5 w-5" />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="glass-card overflow-hidden border border-emerald-200/70 dark:border-emerald-500/20">
+          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-slate-800 dark:text-slate-100">Daily Pipeline WhatsApp Text</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  Send pipeline totals and recent lead updates to the saved recipients.
+                </p>
+              </div>
             </div>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={Boolean(pipelineDigest.enabled)}
+                disabled={loadingDigest || savingDigest}
+                onChange={(e) => setPipelineDigest((prev) => ({ ...prev, enabled: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              {pipelineDigest.enabled ? 'Text active' : 'Text paused'}
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-emerald-100/80 bg-emerald-50/40 px-5 py-4 dark:border-emerald-500/10 dark:bg-emerald-950/10">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {pipelineDigest.lastSentAt ? `Last text sent: ${new Date(pipelineDigest.lastSentAt).toLocaleString()}` : 'Text update not sent yet'}
+            </p>
+            <button
+              type="button"
+              onClick={sendPipelineDigestNow}
+              disabled={loadingDigest || savingDigest || sendingDigest}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              title="Send the pipeline text update now"
+            >
+              <Send className="h-3.5 w-3.5" /> {sendingDigest ? 'Sending…' : 'Send text now'}
+            </button>
+          </div>
+        </div>
+
+        <div className="glass-card overflow-hidden border border-sky-200/70 dark:border-sky-500/20">
+          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400">
+                <Send className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-slate-800 dark:text-slate-100">Daily Pipeline PDF</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                  Send the current pipeline PDF to the same saved recipients.
+                </p>
+              </div>
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={Boolean(pipelineDigest.pdfEnabled)}
+                disabled={loadingDigest || savingDigest}
+                onChange={(e) => setPipelineDigest((prev) => ({ ...prev, pdfEnabled: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+              {pipelineDigest.pdfEnabled ? 'PDF active' : 'PDF paused'}
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-100/80 bg-sky-50/40 px-5 py-4 dark:border-sky-500/10 dark:bg-sky-950/10">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {pipelineDigest.lastPdfSentAt ? `Last PDF sent: ${new Date(pipelineDigest.lastPdfSentAt).toLocaleString()}` : 'Pipeline PDF not sent yet'}
+            </p>
+            <button
+              type="button"
+              onClick={sendPipelinePdfNow}
+              disabled={loadingDigest || savingDigest || sendingDigest}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-300 px-3 py-2 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/40 dark:text-sky-300 dark:hover:bg-sky-950/40"
+              title="Send the pipeline PDF now"
+            >
+              <Send className="h-3.5 w-3.5" /> {sendingDigest ? 'Sending…' : 'Send PDF now'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={savePipelineDigest} className="glass-card overflow-hidden border border-slate-200/80 dark:border-slate-700/70">
+        <div className="p-5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-semibold text-slate-800 dark:text-slate-100">Daily Pipeline WhatsApp Update</h2>
-              <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500 dark:text-slate-400">
-                Send the current lead pipeline totals and the leads updated in the last 24 hours every day. This runs from the server, even when you are not logged in.
+              <h2 className="font-semibold text-slate-800 dark:text-slate-100">Shared schedule</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Both panels use this daily time and timezone. Save after changing either active/paused setting.
               </p>
             </div>
+            <Clock className="hidden h-5 w-5 text-slate-400 sm:block" />
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={Boolean(pipelineDigest.enabled)}
-              disabled={loadingDigest || savingDigest}
-              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, enabled: e.target.checked }))}
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-            />
-            {pipelineDigest.enabled ? 'Active' : 'Paused'}
-          </label>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={Boolean(pipelineDigest.pdfEnabled)}
-              disabled={loadingDigest || savingDigest}
-              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, pdfEnabled: e.target.checked }))}
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-            />
-            {pipelineDigest.pdfEnabled ? 'PDF active' : 'PDF paused'}
-          </label>
-        </div>
-        <div className="grid grid-cols-1 gap-3 border-t border-slate-200/80 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-900/30 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-              Add WhatsApp recipient
+              Send every day at
+              <input
+                type="time"
+                value={pipelineDigest.time}
+                onChange={(e) => setPipelineDigest((prev) => ({ ...prev, time: e.target.value }))}
+                className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+                disabled={loadingDigest || savingDigest}
+              />
             </label>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+              Timezone
+              <select
+                value={pipelineDigest.timezone}
+                onChange={(e) => setPipelineDigest((prev) => ({ ...prev, timezone: e.target.value }))}
+                className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+                disabled={loadingDigest || savingDigest}
+              >
+                {[pipelineDigest.timezone, 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles']
+                  .filter((zone, index, zones) => zone && zones.indexOf(zone) === index)
+                  .map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+              </select>
+            </label>
+            <div className="flex items-end">
+              <button type="submit" disabled={loadingDigest || savingDigest} className="btn-primary w-full gap-1.5 py-2.5 text-sm">
+                {savingDigest ? 'Saving…' : 'Save schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div className="glass-card overflow-hidden border border-slate-200/80 dark:border-slate-700/70">
+        <div className="p-5">
+          <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-800 dark:text-slate-100">WhatsApp recipients</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">The same recipients receive the text update and PDF. Remove a number to stop future daily messages to it.</p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{pipelineDigest.recipients.length} saved</span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="tel"
               value={newRecipient}
               onChange={(e) => setNewRecipient(e.target.value)}
               placeholder="+91 98765 43210"
-              className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+              className="input py-2.5 text-sm bg-white dark:bg-slate-950"
               disabled={loadingDigest || savingDigest}
             />
             <button
               type="button"
               onClick={addPipelineRecipient}
               disabled={loadingDigest || savingDigest || !newRecipient.trim()}
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-4 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
             >
               <Plus className="h-3.5 w-3.5" /> Add number
             </button>
           </div>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-            Send every day at
-            <input
-              type="time"
-              value={pipelineDigest.time}
-              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, time: e.target.value }))}
-              className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
-              disabled={loadingDigest || savingDigest}
-            />
-          </label>
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-            Timezone
-            <select
-              value={pipelineDigest.timezone}
-              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, timezone: e.target.value }))}
-              className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
-              disabled={loadingDigest || savingDigest}
-            >
-              {[pipelineDigest.timezone, 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles']
-                .filter((zone, index, zones) => zone && zones.indexOf(zone) === index)
-                .map((zone) => <option key={zone} value={zone}>{zone}</option>)}
-            </select>
-          </label>
-          <div className="flex items-end gap-2">
-            <button type="submit" disabled={loadingDigest || savingDigest} className="btn-primary flex-1 gap-1.5 py-2.5 text-sm">
-              {savingDigest ? 'Saving…' : 'Save schedule'}
-            </button>
-            <button
-              type="button"
-              onClick={sendPipelineDigestNow}
-              disabled={loadingDigest || savingDigest || sendingDigest}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-3 py-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
-              title="Send a pipeline update now"
-            >
-              <Send className="h-3.5 w-3.5" /> {sendingDigest ? 'Sending…' : 'Send now'}
-            </button>
-            <button
-              type="button"
-              onClick={sendPipelinePdfNow}
-              disabled={loadingDigest || savingDigest || sendingDigest}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-300 px-3 py-2.5 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/40 dark:text-sky-300 dark:hover:bg-sky-950/40"
-              title="Send the pipeline PDF now"
-            >
-              <Send className="h-3.5 w-3.5" /> PDF now
-            </button>
+          <div className="mt-4">
+            {pipelineDigest.recipients.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-xs text-slate-400 dark:border-slate-700">No recipients added yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {pipelineDigest.recipients.map((recipient) => (
+                  <div key={recipient} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{recipient}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePipelineRecipient(recipient)}
+                      disabled={loadingDigest || savingDigest}
+                      className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950/30"
+                      title={`Remove ${recipient}`}
+                      aria-label={`Remove ${recipient}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-        <div className="border-t border-slate-200/80 px-5 py-4 dark:border-slate-800">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Recipients ({pipelineDigest.recipients.length})</p>
-            <p className="text-[11px] text-slate-400">Remove a number to stop future daily messages to it.</p>
-          </div>
-          {pipelineDigest.recipients.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-xs text-slate-400 dark:border-slate-700">No recipients added yet.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {pipelineDigest.recipients.map((recipient) => (
-                <div key={recipient} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{recipient}</span>
-                  <button
-                    type="button"
-                    onClick={() => removePipelineRecipient(recipient)}
-                    disabled={loadingDigest || savingDigest}
-                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950/30"
-                    title={`Remove ${recipient}`}
-                    aria-label={`Remove ${recipient}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="px-5 pb-4 text-[11px] text-slate-400 dark:text-slate-500">
-          <div>{pipelineDigest.lastSentAt ? `Last text sent: ${new Date(pipelineDigest.lastSentAt).toLocaleString()}` : 'Text update not sent yet'}</div>
-          <div>{pipelineDigest.lastPdfSentAt ? `Last PDF sent: ${new Date(pipelineDigest.lastPdfSentAt).toLocaleString()}` : 'Pipeline PDF not sent yet'}</div>
-        </div>
-      </form>
+      </div>
 
       <div className="space-y-3">
         {loadingWorkflows && (
