@@ -14,9 +14,11 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Filter, Search, IndianRupee, Calendar,
   User, Flame, Thermometer, Snowflake, MoreHorizontal, Trash2, X,
-  ChevronLeft, ChevronRight, RefreshCw,
+  ChevronLeft, ChevronRight, RefreshCw, Download,
   Phone, AtSign, Tag, PhoneCall, MessageCircle, ClipboardList, Clock, Trophy
 } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import toast from 'react-hot-toast'
 import { useLeadsStore } from '../../store/leadsStore'
 import { useAuthStore } from '../../store/authStore'
@@ -43,6 +45,7 @@ const STAGES = [
 ]
 
 const PIPELINE_PAGE_SIZE = 50
+const PIPELINE_EXPORT_PAGE_SIZE = 200
 
 const ACTIVITY_BY_WORKFLOW_STAGE = {
   welcome_not_connected: {
@@ -162,6 +165,60 @@ const formatLeadCreatedDateTime = (lead) => {
     }),
   }
 }
+
+const formatExportDateTime = (value) => {
+  if (!value) return '—'
+  const normalized = typeof value === 'string' && value.includes('T') && !value.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(value)
+    ? `${value}Z`
+    : value
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return String(value)
+
+  return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+const formatExportCurrency = (value) => Number(value || 0).toLocaleString('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+})
+
+const sourceEnumToLabel = (source) => {
+  const s = String(source || '').toUpperCase()
+  if (s === 'GOOGLE_ADS') return 'Google Ads'
+  if (s === 'META_ADS') return 'Meta Ads'
+  return s ? `${s.charAt(0)}${s.slice(1).toLowerCase().replace('_', ' ')}` : 'Other'
+}
+
+const toPipelineExportLead = (lead, index = 0) => ({
+  id: lead?.id,
+  name: lead?.name || '',
+  email: lead?.email || '',
+  phone: lead?.phone || '',
+  company: lead?.company || '',
+  service: lead?.service || '',
+  specialization: lead?.specialization || lead?.subService || '',
+  source: sourceEnumToLabel(lead?.source),
+  score: String(lead?.score || 'COLD').toLowerCase(),
+  status: String(lead?.status || 'NEW').toLowerCase(),
+  value: Number(lead?.dealValue ?? lead?.value ?? 0),
+  assignedTo: lead?.assignedToName || lead?.assignedTo || '',
+  tags: Array.isArray(lead?.tags) ? lead.tags.join(', ') : (lead?.tags || ''),
+  notes: lead?.notes || '',
+  createdAt: lead?.createdAt,
+  createdAtTs: lead?.createdAtTs || lead?.createdAt || new Date(Date.now() - index * 1000).toISOString(),
+  updatedAt: lead?.updatedAt,
+  followUpDate: lead?.followUpDate,
+  activityLogs: Array.isArray(lead?.activityLogs) ? lead.activityLogs : [],
+})
 
 const emptyActivityState = () => ({ data: [{}, {}, {}], saved: [false, false, false], latestStage: null })
 
@@ -907,10 +964,12 @@ export default function KanbanPage() {
   const [boardTotal, setBoardTotal] = useState(0)
   const [boardHasMore, setBoardHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const canCreateLead = hasPermission(user, PERMISSIONS.LEADS_CREATE)
   const canUpdateLead = hasPermission(user, PERMISSIONS.LEADS_UPDATE)
   const canDeleteLead = hasPermission(user, PERMISSIONS.LEADS_DELETE)
+  const canExportLeads = hasPermission(user, PERMISSIONS.LEADS_EXPORT)
   const canCall = hasPermission(user, PERMISSIONS.COMMUNICATIONS_SEND)
   const canViewTeam = hasPermission(user, PERMISSIONS.TEAM_VIEW)
 
@@ -957,6 +1016,139 @@ export default function KanbanPage() {
       setLoadingMore(false)
     }
   }, [boardHasMore, boardPage, loadLeads, loadingMore])
+
+  const loadAllPipelineForExport = useCallback(async () => {
+    const rawLeads = []
+    const activities = {}
+    let page = 0
+    let pagesFetched = 0
+
+    while (pagesFetched < 100) {
+      const board = await leadsAPI.getPipelineBoard({ page, size: PIPELINE_EXPORT_PAGE_SIZE })
+      const pageRows = Array.isArray(board?.content) ? board.content : []
+      rawLeads.push(...pageRows)
+      Object.assign(activities, board?.activities || {})
+
+      pagesFetched += 1
+      const totalPages = Number(board?.totalPages || 0)
+      const isLastPage = board?.last === true || pageRows.length === 0 || (totalPages > 0 && page + 1 >= totalPages)
+      if (isLastPage) break
+      page += 1
+    }
+
+    return {
+      leads: rawLeads.map((lead, index) => toPipelineExportLead(lead, index)),
+      activities,
+    }
+  }, [])
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!canExportLeads) {
+      toast.error('You do not have permission to export leads.')
+      return
+    }
+    if (exportingPdf) return
+
+    setExportingPdf(true)
+    try {
+      const { leads: exportLeads, activities } = await loadAllPipelineForExport()
+      if (!exportLeads.length) {
+        toast.error('No pipeline leads available to download.')
+        return
+      }
+
+      const stageTotals = Object.fromEntries(STAGES.map((stage) => [stage.key, { count: 0, value: 0 }]))
+      const detailRows = exportLeads.map((lead) => {
+        const activityState = buildActivityModalState(unwrapActivityRows(activities[lead.id]))
+        const stageKey = getWorkflowStageForLead(lead, activityState)
+        const stage = STAGES.find((item) => item.key === stageKey) || STAGES[0]
+        stageTotals[stage.key].count += 1
+        stageTotals[stage.key].value += Number(lead.value || 0)
+
+        return [
+          `${stage.group} - ${stage.label}`,
+          lead.name || '—',
+          lead.company || '—',
+          lead.phone || '—',
+          lead.email || '—',
+          lead.source || '—',
+          lead.score ? lead.score.toUpperCase() : '—',
+          formatExportCurrency(lead.value),
+          lead.assignedTo || 'Unassigned',
+          formatExportDateTime(lead.createdAtTs || lead.createdAt),
+        ]
+      })
+
+      const doc = new jsPDF({ orientation: 'landscape' })
+      const today = new Date()
+      const generatedAt = today.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+      doc.setProperties({ title: 'NexaCRM Pipeline Report' })
+      doc.setFontSize(16)
+      doc.text(`NexaCRM Pipeline Report - ${today.toLocaleDateString('en-IN')}`, 14, 16)
+      doc.setFontSize(9)
+      doc.text(`All pipeline leads exported from the live board on ${generatedAt}`, 14, 23)
+
+      autoTable(doc, {
+        startY: 30,
+        head: [['Metric', 'Value']],
+        body: [
+          ['Total pipeline leads', exportLeads.length.toLocaleString('en-IN')],
+          ['Total pipeline value', formatExportCurrency(exportLeads.reduce((sum, lead) => sum + Number(lead.value || 0), 0))],
+          ['Stages included', STAGES.length.toLocaleString('en-IN')],
+        ],
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [14, 165, 233] },
+        theme: 'grid',
+      })
+
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Stage', 'Leads', 'Pipeline Value']],
+        body: STAGES.map((stage) => [
+          `${stage.group} - ${stage.label}`,
+          stageTotals[stage.key].count.toLocaleString('en-IN'),
+          formatExportCurrency(stageTotals[stage.key].value),
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [15, 23, 42] },
+        theme: 'striped',
+      })
+
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Stage', 'Lead', 'Company', 'Phone', 'Email', 'Source', 'Score', 'Value', 'Owner', 'Created']],
+        body: detailRows,
+        styles: { fontSize: 6.4, cellPadding: 1.7, overflow: 'linebreak' },
+        headStyles: { fillColor: [34, 197, 94] },
+        columnStyles: {
+          0: { cellWidth: 32 },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 26 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: 36 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 15 },
+          7: { cellWidth: 22 },
+          8: { cellWidth: 24 },
+          9: { cellWidth: 28 },
+        },
+        theme: 'grid',
+        didDrawPage: (data) => {
+          const pageSize = doc.internal.pageSize
+          doc.setFontSize(7)
+          doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageSize.getWidth() - 28, pageSize.getHeight() - 8)
+          doc.text('NexaCRM pipeline export', data.settings.margin.left, pageSize.getHeight() - 8)
+        },
+      })
+
+      doc.save(`nexacrm-pipeline-${today.toISOString().slice(0, 10)}.pdf`)
+      toast.success('Pipeline PDF downloaded.')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to download pipeline PDF')
+    } finally {
+      setExportingPdf(false)
+    }
+  }, [canExportLeads, exportingPdf, loadAllPipelineForExport])
 
   useEffect(() => {
     setLoading(true)
@@ -1280,6 +1472,16 @@ export default function KanbanPage() {
             : `${totalLeads} leads · ₹${(totalValue / 100000).toFixed(1)}L pipeline value`}
         />
         <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={exportingPdf}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
+            title="Download pipeline PDF"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exportingPdf ? 'Preparing...' : 'PDF'}
+          </button>
           <button
             type="button"
             onClick={() => { setLoading(true); loadLeads({ page: 0, append: false }).finally(() => setLoading(false)) }}
