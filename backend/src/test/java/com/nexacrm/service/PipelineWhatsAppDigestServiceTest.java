@@ -36,6 +36,7 @@ class PipelineWhatsAppDigestServiceTest {
     @Mock private AppSettingRepository appSettingRepository;
     @Mock private LeadRepository leadRepository;
     @Mock private CommunicationService communicationService;
+    @Mock private LeadService leadService;
     @Mock private MongoTemplate mongoTemplate;
 
     private PipelineWhatsAppDigestService service;
@@ -46,6 +47,7 @@ class PipelineWhatsAppDigestServiceTest {
             appSettingRepository,
             leadRepository,
             communicationService,
+            leadService,
             mongoTemplate,
             new ObjectMapper()
         );
@@ -102,5 +104,32 @@ class PipelineWhatsAppDigestServiceTest {
         assertTrue(recipients.getAllValues().contains("+919876543210"));
         assertTrue(recipients.getAllValues().contains("+919811122233"));
         assertNotNull(result.get("lastSentAt"));
+    }
+
+    @Test
+    void sendNowSendsPipelinePdfToAllRecipients() {
+        AppSetting setting = AppSetting.builder()
+            .namespace("automation")
+            .key("pipelineWhatsappDigest")
+            .value("{\"enabled\":false,\"pdfEnabled\":true,\"time\":\"09:00\",\"recipients\":[\"+919876543210\",\"+919811122233\"],\"timezone\":\"Asia/Kolkata\",\"lastPdfSentDate\":\"\",\"lastPdfSentAt\":\"\"}")
+            .build();
+
+        when(appSettingRepository.findByTenantIdAndNamespaceAndKeyAndDeletedFalse(1L, "automation", "pipelineWhatsappDigest"))
+            .thenReturn(Optional.of(setting));
+        when(leadService.export("pdf", null)).thenReturn(new byte[] { 37, 80, 68, 70 });
+        when(appSettingRepository.save(any(AppSetting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Map<String, Object> result = service.sendCurrentPipelinePdfNow();
+
+        ArgumentCaptor<String> recipients = ArgumentCaptor.forClass(String.class);
+        verify(communicationService, times(2)).sendWhatsAppDocument(
+            recipients.capture(),
+            org.mockito.ArgumentMatchers.any(byte[].class),
+            org.mockito.ArgumentMatchers.eq("nexacrm-pipeline-" + java.time.LocalDate.now() + ".pdf"),
+            org.mockito.ArgumentMatchers.any(String.class)
+        );
+        assertTrue(recipients.getAllValues().contains("+919876543210"));
+        assertTrue(recipients.getAllValues().contains("+919811122233"));
+        assertNotNull(result.get("lastPdfSentAt"));
     }
 }

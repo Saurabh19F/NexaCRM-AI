@@ -48,6 +48,7 @@ public class PipelineWhatsAppDigestService {
     private final AppSettingRepository appSettingRepository;
     private final LeadRepository leadRepository;
     private final CommunicationService communicationService;
+    private final LeadService leadService;
     private final MongoTemplate mongoTemplate;
     private final ObjectMapper objectMapper;
 
@@ -69,11 +70,14 @@ public class PipelineWhatsAppDigestService {
         List<String> recipients = normalizeRecipients(requestedRecipients);
         config.put("recipients", recipients);
         config.put("timezone", normalizeTimezone(textValue(request, "timezone", textValue(current, "timezone", DEFAULT_TIMEZONE))));
+        config.put("pdfEnabled", booleanValue(request != null && request.containsKey("pdfEnabled") ? request.get("pdfEnabled") : current.get("pdfEnabled"), false));
         config.put("lastSentDate", textValue(current, "lastSentDate", ""));
         config.put("lastSentAt", textValue(current, "lastSentAt", ""));
+        config.put("lastPdfSentDate", textValue(current, "lastPdfSentDate", ""));
+        config.put("lastPdfSentAt", textValue(current, "lastPdfSentAt", ""));
 
-        if (Boolean.TRUE.equals(config.get("enabled")) && recipients.isEmpty()) {
-            throw new IllegalArgumentException("Add at least one WhatsApp recipient when the daily digest is enabled.");
+        if ((Boolean.TRUE.equals(config.get("enabled")) || Boolean.TRUE.equals(config.get("pdfEnabled"))) && recipients.isEmpty()) {
+            throw new IllegalArgumentException("Add at least one WhatsApp recipient when a daily pipeline automation is enabled.");
         }
         persistConfiguration(tenantId, config);
         return publicConfiguration(config);
@@ -89,23 +93,44 @@ public class PipelineWhatsAppDigestService {
         return publicConfiguration(readConfiguration(tenantId));
     }
 
+    public Map<String, Object> sendCurrentPipelinePdfNow() {
+        Long tenantId = TenantContext.currentTenantId();
+        Map<String, Object> config = readConfiguration(tenantId);
+        if (currentRecipients(config).isEmpty()) {
+            throw new IllegalArgumentException("Add at least one WhatsApp recipient before sending the pipeline PDF.");
+        }
+        sendPipelinePdf(tenantId, config);
+        return publicConfiguration(readConfiguration(tenantId));
+    }
+
     @Scheduled(cron = "0 * * * * *")
     public void sendScheduledDigests() {
         for (Long tenantId : resolveTenantIds()) {
             try {
                 Map<String, Object> config = readConfiguration(tenantId);
-                if (!booleanValue(config.get("enabled"), false)) {
+                boolean digestEnabled = booleanValue(config.get("enabled"), false);
+                boolean pdfEnabled = booleanValue(config.get("pdfEnabled"), false);
+                if (!digestEnabled && !pdfEnabled) {
                     continue;
                 }
 
                 ZoneId zone = ZoneId.of(String.valueOf(config.get("timezone")));
                 LocalDateTime now = LocalDateTime.now(zone);
                 LocalTime scheduledTime = LocalTime.parse(String.valueOf(config.get("time")), TIME_FORMAT);
-                String lastSentDate = textValue(config, "lastSentDate", "");
-            if (now.getHour() == scheduledTime.getHour()
-                    && now.getMinute() == scheduledTime.getMinute()
-                    && !lastSentDate.equals(now.toLocalDate().toString())) {
-                    sendDigest(tenantId, config);
+                boolean due = now.getHour() == scheduledTime.getHour() && now.getMinute() == scheduledTime.getMinute();
+                if (digestEnabled && due && !textValue(config, "lastSentDate", "").equals(now.toLocalDate().toString())) {
+                    try {
+                        sendDigest(tenantId, config);
+                    } catch (Exception ex) {
+                        log.warn("Pipeline WhatsApp digest failed for tenant {}: {}", tenantId, ex.getMessage());
+                    }
+                }
+                if (pdfEnabled && due && !textValue(config, "lastPdfSentDate", "").equals(now.toLocalDate().toString())) {
+                    try {
+                        sendPipelinePdf(tenantId, config);
+                    } catch (Exception ex) {
+                        log.warn("Pipeline WhatsApp PDF failed for tenant {}: {}", tenantId, ex.getMessage());
+                    }
                 }
             } catch (Exception ex) {
                 log.warn("Pipeline WhatsApp digest failed for tenant {}: {}", tenantId, ex.getMessage());
@@ -142,6 +167,42 @@ public class PipelineWhatsAppDigestService {
             config.put("lastSentAt", Instant.now().toString());
             persistConfiguration(tenantId, config);
             log.info("Pipeline WhatsApp digest sent for tenant {} to {} recipient(s)", tenantId, sent);
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private void sendPipelinePdf(Long tenantId, Map<String, Object> config) {
+        TenantContext.setCurrentTenantId(tenantId);
+        try {
+            ZoneId zone = ZoneId.of(String.valueOf(config.get("timezone")));
+            LocalDateTime now = LocalDateTime.now(zone);
+            byte[] pdf = leadService.export("pdf", null);
+            List<String> recipients = currentRecipients(config);
+            if (recipients.isEmpty()) {
+                throw new IllegalStateException("No WhatsApp recipients are configured.");
+            }
+
+            String date = now.toLocalDate().toString();
+            String fileName = "nexacrm-pipeline-" + date + ".pdf";
+            String caption = "📎 Daily Pipeline PDF\n📅 " + now.toLocalDate().format(DATE_FORMAT);
+            int sent = 0;
+            for (String recipient : recipients) {
+                try {
+                    communicationService.sendWhatsAppDocument(recipient, pdf, fileName, caption);
+                    sent++;
+                } catch (Exception ex) {
+                    log.warn("Pipeline WhatsApp PDF failed for tenant {} recipient {}: {}", tenantId, maskPhone(recipient), ex.getMessage());
+                }
+            }
+            if (sent == 0) {
+                throw new IllegalStateException("No pipeline PDFs were sent successfully.");
+            }
+
+            config.put("lastPdfSentDate", now.toLocalDate().toString());
+            config.put("lastPdfSentAt", Instant.now().toString());
+            persistConfiguration(tenantId, config);
+            log.info("Pipeline WhatsApp PDF sent for tenant {} to {} recipient(s)", tenantId, sent);
         } finally {
             TenantContext.clear();
         }
@@ -193,8 +254,11 @@ public class PipelineWhatsAppDigestService {
         defaults.put("time", DEFAULT_TIME);
         defaults.put("recipients", List.of());
         defaults.put("timezone", DEFAULT_TIMEZONE);
+        defaults.put("pdfEnabled", false);
         defaults.put("lastSentDate", "");
         defaults.put("lastSentAt", "");
+        defaults.put("lastPdfSentDate", "");
+        defaults.put("lastPdfSentAt", "");
         return appSettingRepository.findByTenantIdAndNamespaceAndKeyAndDeletedFalse(tenantId, NAMESPACE, KEY)
             .map(AppSetting::getValue)
             .map(this::parseConfiguration)
@@ -221,6 +285,7 @@ public class PipelineWhatsAppDigestService {
         response.put("recipients", currentRecipients(config));
         response.remove("recipient");
         response.remove("lastSentDate");
+        response.remove("lastPdfSentDate");
         return response;
     }
 

@@ -41,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -255,6 +256,24 @@ public class CommunicationService {
             case "whatsapp", "instagram", "facebook", "linkedin", "reddit" -> sendSocialMessage(normalizedChannel, recipient, body);
             default -> throw new IllegalStateException("Unsupported channel: " + normalizedChannel);
         }
+    }
+
+    public void sendWhatsAppDocument(@NonNull String recipient, @NonNull byte[] document, @NonNull String fileName, String caption) {
+        String number = recipient.replaceAll("\\D", "");
+        if (number.isBlank()) {
+            throw new IllegalStateException("Invalid WhatsApp number.");
+        }
+
+        Map<String, String> config = integrationService.getConfig("whatsapp");
+        String provider = trim(config.get("provider")).toLowerCase(Locale.ROOT);
+        String aknexusToken = firstNonBlank(config.get("apiToken"), config.get("bearerToken"), defaultAknexusApiToken);
+        if ("aknexus".equals(provider)
+            || (!aknexusToken.isBlank() && !"aiadrika".equals(provider) && !"kriscelwa".equals(provider))) {
+            sendViaAknexusWhatsAppDocument(number, document, fileName, caption, config, aknexusToken);
+            return;
+        }
+
+        throw new IllegalStateException("WhatsApp PDF sending requires the AKNexus provider to be connected.");
     }
 
     public void sendLeadVoiceCall(
@@ -1089,6 +1108,80 @@ public class CommunicationService {
         } catch (Exception ex) {
             log.error("AKNexus WhatsApp send failed: {}", ex.getMessage());
             throw new IllegalStateException("Failed to send WhatsApp message via AKNexus.");
+        }
+    }
+
+    private void sendViaAknexusWhatsAppDocument(
+        String number,
+        byte[] document,
+        String fileName,
+        String caption,
+        Map<String, String> config,
+        String apiToken
+    ) {
+        if (trim(apiToken).isBlank()) {
+            throw new IllegalStateException("AKNexus API token is missing.");
+        }
+        if (document.length == 0) {
+            throw new IllegalStateException("Pipeline PDF is empty.");
+        }
+
+        String baseUrl = firstNonBlank(config.get("apiUrl"), defaultAknexusApiUrl);
+        if (baseUrl.isBlank()) baseUrl = "https://app.aknexus.in/api/v2";
+        if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        if (!baseUrl.endsWith("/api/v2")) baseUrl = baseUrl + "/api/v2";
+
+        String instanceId = resolveAknexusInstanceId(
+            baseUrl,
+            apiToken,
+            firstNonBlank(config.get("instanceId"), defaultAknexusInstanceId),
+            config.get("senderNumber")
+        );
+        if (instanceId.isBlank()) {
+            throw new IllegalStateException("AKNexus WhatsApp instance ID is missing.");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(trim(apiToken));
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("instance_id", instanceId);
+        payload.put("to", number);
+        payload.put("filename", fileName);
+        payload.put("caption", caption == null ? "" : caption);
+        payload.put("document", Base64.getEncoder().encodeToString(document));
+
+        try {
+            HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(payload), headers);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(
+                baseUrl + "/whatsapp/send/document",
+                HttpMethod.POST,
+                entity,
+                String.class
+            );
+            String response = responseEntity.getBody();
+            String externalId = null;
+            if (response != null && !response.isBlank()) {
+                Map<String, Object> data = objectMapper.readValue(response, MAP_TYPE);
+                Object status = data.get("status");
+                if (status != null && "error".equalsIgnoreCase(String.valueOf(status))) {
+                    String apiMessage = String.valueOf(data.getOrDefault("message", "Unknown error"));
+                    throw new IllegalStateException("AKNexus error: " + apiMessage);
+                }
+                externalId = extractExternalId(objectMapper.valueToTree(data));
+            }
+            String activity = (caption == null || caption.isBlank()) ? fileName : caption;
+            tryPersistCommunication("WHATSAPP", "OUT", number, activity, "SENT", externalId, response, "aknexus");
+            notifyOutboundCommunication("whatsapp", number, activity);
+            log.info("WhatsApp PDF sent via AKNexus to {}", number);
+        } catch (HttpStatusCodeException ex) {
+            log.error("AKNexus WhatsApp document API error {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw new IllegalStateException("AKNexus WhatsApp PDF API error: " + ex.getResponseBodyAsString());
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("AKNexus WhatsApp document send failed: {}", ex.getMessage());
+            throw new IllegalStateException("Failed to send WhatsApp PDF via AKNexus.");
         }
     }
 

@@ -43,4 +43,11 @@ public class PipelineWhatsAppDigestController {
     public ResponseEntity<Map<String, Object>> sendNow() {
         return ResponseEntity.ok(digestService.sendCurrentDigestNow());
     }
+
+    @PostMapping("/send-pdf-now")
+    @PreAuthorize("hasAuthority('automation.manage')")
+    @Operation(summary = "Send the pipeline PDF immediately")
+    public ResponseEntity<Map<String, Object>> sendPdfNow() {
+        return ResponseEntity.ok(digestService.sendCurrentPipelinePdfNow());
+    }
 }
