@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 
 @ExtendWith(MockitoExtension.class)
 class PipelineWhatsAppDigestServiceTest {
@@ -122,7 +123,7 @@ class PipelineWhatsAppDigestServiceTest {
         Map<String, Object> result = service.sendCurrentPipelinePdfNow();
 
         ArgumentCaptor<String> recipients = ArgumentCaptor.forClass(String.class);
-        verify(communicationService, times(2)).sendWhatsAppDocument(
+        verify(communicationService, timeout(5000).times(2)).sendWhatsAppDocument(
             recipients.capture(),
             org.mockito.ArgumentMatchers.any(byte[].class),
             org.mockito.ArgumentMatchers.eq("nexacrm-pipeline-" + java.time.LocalDate.now() + ".pdf"),
@@ -130,6 +131,6 @@ class PipelineWhatsAppDigestServiceTest {
         );
         assertTrue(recipients.getAllValues().contains("+919876543210"));
         assertTrue(recipients.getAllValues().contains("+919811122233"));
-        assertNotNull(result.get("lastPdfSentAt"));
+        assertEquals("SENDING", result.get("pdfSendStatus"));
     }
 }

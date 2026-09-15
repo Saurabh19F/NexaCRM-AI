@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -75,6 +76,8 @@ public class PipelineWhatsAppDigestService {
         config.put("lastSentAt", textValue(current, "lastSentAt", ""));
         config.put("lastPdfSentDate", textValue(current, "lastPdfSentDate", ""));
         config.put("lastPdfSentAt", textValue(current, "lastPdfSentAt", ""));
+        config.put("pdfSendStatus", textValue(current, "pdfSendStatus", "IDLE"));
+        config.put("pdfSendError", textValue(current, "pdfSendError", ""));
 
         if ((Boolean.TRUE.equals(config.get("enabled")) || Boolean.TRUE.equals(config.get("pdfEnabled"))) && recipients.isEmpty()) {
             throw new IllegalArgumentException("Add at least one WhatsApp recipient when a daily pipeline automation is enabled.");
@@ -99,8 +102,27 @@ public class PipelineWhatsAppDigestService {
         if (currentRecipients(config).isEmpty()) {
             throw new IllegalArgumentException("Add at least one WhatsApp recipient before sending the pipeline PDF.");
         }
-        sendPipelinePdf(tenantId, config);
-        return publicConfiguration(readConfiguration(tenantId));
+        if ("SENDING".equalsIgnoreCase(textValue(config, "pdfSendStatus", "IDLE"))) {
+            throw new IllegalStateException("Pipeline PDF sending is already in progress. Please wait for it to finish.");
+        }
+
+        config.put("pdfSendStatus", "SENDING");
+        config.put("pdfSendError", "");
+        persistConfiguration(tenantId, config);
+        Map<String, Object> backgroundConfig = new LinkedHashMap<>(config);
+        CompletableFuture.runAsync(() -> {
+            try {
+                sendPipelinePdf(tenantId, backgroundConfig);
+            } catch (Exception ex) {
+                markPdfSendFailed(tenantId, ex);
+                log.warn("Pipeline WhatsApp PDF background send failed for tenant {}: {}", tenantId, ex.getMessage());
+            }
+        });
+
+        Map<String, Object> response = publicConfiguration(config);
+        response.put("pdfSendStatus", "SENDING");
+        response.put("pdfSendError", "");
+        return response;
     }
 
     @Scheduled(cron = "0 * * * * *")
@@ -201,10 +223,24 @@ public class PipelineWhatsAppDigestService {
 
             config.put("lastPdfSentDate", now.toLocalDate().toString());
             config.put("lastPdfSentAt", Instant.now().toString());
+            config.put("pdfSendStatus", "SENT");
+            config.put("pdfSendError", "");
             persistConfiguration(tenantId, config);
             log.info("Pipeline WhatsApp PDF sent for tenant {} to {} recipient(s)", tenantId, sent);
         } finally {
             TenantContext.clear();
+        }
+    }
+
+    private void markPdfSendFailed(Long tenantId, Exception failure) {
+        try {
+            Map<String, Object> config = readConfiguration(tenantId);
+            config.put("pdfSendStatus", "FAILED");
+            String message = failure == null ? "Unable to send pipeline PDF." : failure.getMessage();
+            config.put("pdfSendError", message == null || message.isBlank() ? "Unable to send pipeline PDF." : message.substring(0, Math.min(message.length(), 240)));
+            persistConfiguration(tenantId, config);
+        } catch (Exception persistFailure) {
+            log.warn("Unable to record pipeline PDF failure for tenant {}: {}", tenantId, persistFailure.getMessage());
         }
     }
 
@@ -259,6 +295,8 @@ public class PipelineWhatsAppDigestService {
         defaults.put("lastSentAt", "");
         defaults.put("lastPdfSentDate", "");
         defaults.put("lastPdfSentAt", "");
+        defaults.put("pdfSendStatus", "IDLE");
+        defaults.put("pdfSendError", "");
         return appSettingRepository.findByTenantIdAndNamespaceAndKeyAndDeletedFalse(tenantId, NAMESPACE, KEY)
             .map(AppSetting::getValue)
             .map(this::parseConfiguration)

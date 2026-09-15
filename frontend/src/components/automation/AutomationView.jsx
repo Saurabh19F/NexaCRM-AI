@@ -159,6 +159,8 @@ const DEFAULT_PIPELINE_DIGEST = {
   pdfEnabled: false,
   lastSentAt: '',
   lastPdfSentAt: '',
+  pdfSendStatus: 'IDLE',
+  pdfSendError: '',
 }
 
 const RULE_EXAMPLES = [
@@ -247,6 +249,30 @@ export default function AutomationPage() {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    if (String(pipelineDigest.pdfSendStatus || '').toUpperCase() !== 'SENDING') return undefined
+    let cancelled = false
+    const refreshPdfStatus = async () => {
+      try {
+        const config = await automationAPI.getPipelineDigest()
+        if (cancelled) return
+        const recipients = Array.isArray(config?.recipients)
+          ? config.recipients
+          : config?.recipient
+            ? [config.recipient]
+            : []
+        setPipelineDigest((prev) => ({ ...prev, ...(config || {}), recipients }))
+      } catch {
+        // The background send continues even if a status refresh fails.
+      }
+    }
+    const timer = window.setInterval(refreshPdfStatus, 3000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [pipelineDigest.pdfSendStatus])
+
   const savePipelineDigest = async (event) => {
     event.preventDefault()
     if ((pipelineDigest.enabled || pipelineDigest.pdfEnabled) && pipelineDigest.recipients.length === 0) {
@@ -297,7 +323,7 @@ export default function AutomationPage() {
     try {
       const saved = await automationAPI.sendPipelinePdfNow()
       setPipelineDigest((prev) => ({ ...prev, ...(saved || {}) }))
-      toast.success('Pipeline PDF sent on WhatsApp')
+      toast.success('Pipeline PDF sending started. Check the PDF panel for its status.')
     } catch (err) {
       toast.error(err?.message || 'Failed to send pipeline PDF')
     } finally {
@@ -587,12 +613,18 @@ export default function AutomationPage() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sky-100/80 bg-sky-50/40 px-5 py-4 dark:border-sky-500/10 dark:bg-sky-950/10">
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {pipelineDigest.lastPdfSentAt ? `Last PDF sent: ${new Date(pipelineDigest.lastPdfSentAt).toLocaleString()}` : 'Pipeline PDF not sent yet'}
+              {String(pipelineDigest.pdfSendStatus || '').toUpperCase() === 'SENDING'
+                ? 'PDF sending in background…'
+                : String(pipelineDigest.pdfSendStatus || '').toUpperCase() === 'FAILED'
+                  ? `PDF send failed: ${pipelineDigest.pdfSendError || 'Please try again.'}`
+                  : pipelineDigest.lastPdfSentAt
+                    ? `Last PDF sent: ${new Date(pipelineDigest.lastPdfSentAt).toLocaleString()}`
+                    : 'Pipeline PDF not sent yet'}
             </p>
             <button
               type="button"
               onClick={sendPipelinePdfNow}
-              disabled={loadingDigest || savingDigest || sendingDigest}
+              disabled={loadingDigest || savingDigest || sendingDigest || String(pipelineDigest.pdfSendStatus || '').toUpperCase() === 'SENDING'}
               className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-300 px-3 py-2 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500/40 dark:text-sky-300 dark:hover:bg-sky-950/40"
               title="Send the pipeline PDF now"
             >
