@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Plus, Play, Pause, Trash2, ChevronRight, CheckCircle2, Clock, AlertTriangle, X, Sparkles } from 'lucide-react'
+import { Zap, Plus, Play, Pause, Trash2, ChevronRight, CheckCircle2, Clock, AlertTriangle, X, Sparkles, MessageCircle, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { automationAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
@@ -151,6 +151,14 @@ const WORKFLOW_FORM_INITIAL = {
   ],
 }
 
+const DEFAULT_PIPELINE_DIGEST = {
+  enabled: false,
+  time: '18:00',
+  recipient: '',
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+  lastSentAt: '',
+}
+
 const RULE_EXAMPLES = [
   { label: 'Trigger: Lead Created', type: 'IF', text: 'trigger: LEAD_CREATED' },
   { label: 'Trigger: Deal Stage Changed', type: 'IF', text: 'trigger: DEAL_STAGE_CHANGED' },
@@ -171,6 +179,10 @@ export default function AutomationPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newWorkflow, setNewWorkflow] = useState(WORKFLOW_FORM_INITIAL)
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [pipelineDigest, setPipelineDigest] = useState(DEFAULT_PIPELINE_DIGEST)
+  const [loadingDigest, setLoadingDigest] = useState(true)
+  const [savingDigest, setSavingDigest] = useState(false)
+  const [sendingDigest, setSendingDigest] = useState(false)
   const stepsScrollRef = useRef(null)
 
   const mapWorkflowFromApi = (workflow) => ({
@@ -209,6 +221,61 @@ export default function AutomationPage() {
     loadWorkflows()
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    automationAPI.getPipelineDigest()
+      .then((config) => {
+        if (!cancelled) setPipelineDigest((prev) => ({ ...prev, ...(config || {}) }))
+      })
+      .catch((err) => {
+        if (!cancelled) toast.error(err?.message || 'Failed to load pipeline digest settings')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDigest(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const savePipelineDigest = async (event) => {
+    event.preventDefault()
+    if (pipelineDigest.enabled && !pipelineDigest.recipient.trim()) {
+      toast.error('Enter a WhatsApp number first.')
+      return
+    }
+    setSavingDigest(true)
+    try {
+      const saved = await automationAPI.savePipelineDigest({
+        enabled: Boolean(pipelineDigest.enabled),
+        time: pipelineDigest.time,
+        recipient: pipelineDigest.recipient,
+        timezone: pipelineDigest.timezone,
+      })
+      setPipelineDigest((prev) => ({ ...prev, ...(saved || {}) }))
+      toast.success(pipelineDigest.enabled ? 'Daily pipeline WhatsApp update scheduled' : 'Daily pipeline update paused')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to save pipeline digest')
+    } finally {
+      setSavingDigest(false)
+    }
+  }
+
+  const sendPipelineDigestNow = async () => {
+    if (!pipelineDigest.recipient.trim()) {
+      toast.error('Enter a WhatsApp number first.')
+      return
+    }
+    setSendingDigest(true)
+    try {
+      const saved = await automationAPI.sendPipelineDigestNow()
+      setPipelineDigest((prev) => ({ ...prev, ...(saved || {}) }))
+      toast.success('Pipeline update sent on WhatsApp')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to send pipeline update')
+    } finally {
+      setSendingDigest(false)
+    }
+  }
 
   const toggleStatus = async (id) => {
     try {
@@ -378,6 +445,85 @@ export default function AutomationPage() {
           </div>
         ))}
       </div>
+
+      <form onSubmit={savePipelineDigest} className="glass-card overflow-hidden border border-emerald-200/70 dark:border-emerald-500/20">
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-800 dark:text-slate-100">Daily Pipeline WhatsApp Update</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Send the current lead pipeline totals and the leads updated in the last 24 hours every day. This runs from the server, even when you are not logged in.
+              </p>
+            </div>
+          </div>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              checked={Boolean(pipelineDigest.enabled)}
+              disabled={loadingDigest || savingDigest}
+              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, enabled: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            {pipelineDigest.enabled ? 'Active' : 'Paused'}
+          </label>
+        </div>
+        <div className="grid grid-cols-1 gap-3 border-t border-slate-200/80 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-900/30 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+            WhatsApp number
+            <input
+              type="tel"
+              value={pipelineDigest.recipient}
+              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, recipient: e.target.value }))}
+              placeholder="+91 98765 43210"
+              className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+              disabled={loadingDigest || savingDigest}
+            />
+          </label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+            Send every day at
+            <input
+              type="time"
+              value={pipelineDigest.time}
+              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, time: e.target.value }))}
+              className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+              disabled={loadingDigest || savingDigest}
+            />
+          </label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+            Timezone
+            <select
+              value={pipelineDigest.timezone}
+              onChange={(e) => setPipelineDigest((prev) => ({ ...prev, timezone: e.target.value }))}
+              className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+              disabled={loadingDigest || savingDigest}
+            >
+              {[pipelineDigest.timezone, 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles']
+                .filter((zone, index, zones) => zone && zones.indexOf(zone) === index)
+                .map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+            </select>
+          </label>
+          <div className="flex items-end gap-2">
+            <button type="submit" disabled={loadingDigest || savingDigest} className="btn-primary flex-1 gap-1.5 py-2.5 text-sm">
+              {savingDigest ? 'Saving…' : 'Save schedule'}
+            </button>
+            <button
+              type="button"
+              onClick={sendPipelineDigestNow}
+              disabled={loadingDigest || savingDigest || sendingDigest}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-3 py-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/40 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              title="Send a pipeline update now"
+            >
+              <Send className="h-3.5 w-3.5" /> {sendingDigest ? 'Sending…' : 'Send now'}
+            </button>
+          </div>
+        </div>
+        <div className="px-5 pb-4 text-[11px] text-slate-400 dark:text-slate-500">
+          {pipelineDigest.lastSentAt ? `Last sent: ${new Date(pipelineDigest.lastSentAt).toLocaleString()}` : 'Not sent yet'}
+        </div>
+      </form>
 
       <div className="space-y-3">
         {loadingWorkflows && (

@@ -310,6 +310,9 @@ export const automationAPI = {
   delete:   (id)   => api.delete(`/workflows/${id}`),
   toggle:   (id)   => api.patch(`/workflows/${id}/toggle`),
   getLogs:  (id)   => api.get(`/workflows/${id}/logs`),
+  getPipelineDigest: () => api.get('/automation/pipeline-whatsapp-digest'),
+  savePipelineDigest: (data) => api.put('/automation/pipeline-whatsapp-digest', data),
+  sendPipelineDigestNow: () => api.post('/automation/pipeline-whatsapp-digest/send-now'),
 }
 
 // ──────────────────────────────────────────
