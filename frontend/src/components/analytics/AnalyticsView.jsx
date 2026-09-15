@@ -81,6 +81,108 @@ const saveBlob = (blob, filename) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 500)
 }
 
+const PDF_COLORS = {
+  navy: [15, 23, 42],
+  slate: [71, 85, 105],
+  muted: [100, 116, 139],
+  line: [226, 232, 240],
+  soft: [248, 250, 252],
+  blue: [14, 165, 233],
+  cyan: [6, 182, 212],
+  emerald: [16, 185, 129],
+  amber: [245, 158, 11],
+  rose: [244, 63, 94],
+  violet: [124, 58, 237],
+  white: [255, 255, 255],
+}
+
+const pdfHexToRgb = (hex, fallback = PDF_COLORS.blue) => {
+  const value = String(hex || '').replace('#', '')
+  if (!/^[0-9a-f]{6}$/i.test(value)) return fallback
+  return [parseInt(value.slice(0, 2), 16), parseInt(value.slice(2, 4), 16), parseInt(value.slice(4, 6), 16)]
+}
+
+const pdfText = (doc, text, x, y, { size = 9, color = PDF_COLORS.slate, style = 'normal', maxWidth } = {}) => {
+  doc.setFont('helvetica', style)
+  doc.setFontSize(size)
+  doc.setTextColor(...color)
+  const lines = maxWidth ? doc.splitTextToSize(String(text ?? ''), maxWidth) : String(text ?? '')
+  doc.text(lines, x, y)
+  return Array.isArray(lines) ? lines.length : 1
+}
+
+const pdfCard = (doc, x, y, width, height, fill = PDF_COLORS.white, border = PDF_COLORS.line) => {
+  doc.setFillColor(...fill)
+  doc.setDrawColor(...border)
+  doc.setLineWidth(0.25)
+  doc.roundedRect(x, y, width, height, 3, 3, 'FD')
+}
+
+const pdfSectionTitle = (doc, title, subtitle, y) => {
+  pdfText(doc, title, 14, y, { size: 14, color: PDF_COLORS.navy, style: 'bold' })
+  if (subtitle) pdfText(doc, subtitle, 14, y + 6, { size: 8, color: PDF_COLORS.muted })
+  return y + 14
+}
+
+const pdfTable = (doc, startY, head, body, options = {}) => {
+  autoTable(doc, {
+    startY,
+    head,
+    body,
+    theme: 'grid',
+    margin: { left: 14, right: 14, bottom: 18 },
+    styles: {
+      font: 'helvetica',
+      fontSize: options.fontSize || 7.4,
+      cellPadding: options.cellPadding || 2.4,
+      textColor: PDF_COLORS.slate,
+      lineColor: PDF_COLORS.line,
+      lineWidth: 0.18,
+      overflow: 'linebreak',
+      valign: 'middle',
+    },
+    headStyles: {
+      fillColor: options.headColor || PDF_COLORS.navy,
+      textColor: PDF_COLORS.white,
+      fontStyle: 'bold',
+      fontSize: options.headFontSize || 7.5,
+      cellPadding: 2.8,
+    },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: options.columnStyles || {},
+    didParseCell: (hookData) => {
+      if (hookData.section === 'body' && hookData.row.index % 2 === 1) {
+        hookData.cell.styles.fillColor = [251, 253, 255]
+      }
+      if (options.didParseCell) options.didParseCell(hookData)
+    },
+    didDrawCell: options.didDrawCell,
+    showHead: 'everyPage',
+  })
+  return doc.lastAutoTable?.finalY || startY
+}
+
+const pdfFooter = (doc, report, page, totalPages) => {
+  const width = doc.internal.pageSize.getWidth()
+  const height = doc.internal.pageSize.getHeight()
+  doc.setDrawColor(...PDF_COLORS.line)
+  doc.setLineWidth(0.3)
+  doc.line(14, height - 13, width - 14, height - 13)
+  pdfText(doc, 'NexaCRM  |  Lead Performance Intelligence', 14, height - 7, { size: 7, color: PDF_COLORS.muted, style: 'bold' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(...PDF_COLORS.muted)
+  doc.text(`${report.summary.periodLabel || 'Selected period'}  |  Page ${page} of ${totalPages}`, width - 14, height - 7, { align: 'right' })
+}
+
+const pdfPageHeader = (doc, title, subtitle) => {
+  const width = doc.internal.pageSize.getWidth()
+  doc.setFillColor(...PDF_COLORS.navy)
+  doc.rect(0, 0, width, 22, 'F')
+  pdfText(doc, title, 14, 10, { size: 12, color: PDF_COLORS.white, style: 'bold' })
+  pdfText(doc, subtitle, 14, 16, { size: 7.5, color: [203, 213, 225] })
+}
+
 function ChangePill({ value }) {
   const change = Number(value || 0)
   const positive = change >= 0
@@ -210,7 +312,7 @@ export default function AnalyticsPage() {
         : { tone: 'brand', icon: Database, title: 'Capture source and campaign consistently', body: 'Reliable source attribution is needed before deciding where to increase or reduce spend.' },
       { tone: 'sky', icon: ShieldCheck, title: 'Add historical transition tracking', body: 'This report shows current status, not a proven cohort conversion rate. Record every stage change and first response timestamp for stronger decisions.' },
     ]
-    return { summary, total, converted, lost, active, assigned, pending, funnel, largestQueue, sourceRows, weakestSource, bestSource, actions }
+    return { summary, total, converted, lost, active, assigned, pending, funnel, largestQueue, sourceRows, weakestSource, bestSource, actions, activities: data.activities }
   }, [data])
 
   const employeeOptions = useMemo(() => data.employees
@@ -225,40 +327,165 @@ export default function AnalyticsPage() {
 
   const exportPdf = () => {
     if (!canExport) return toast.error('You do not have permission to export reports.')
-    const doc = new jsPDF({ orientation: 'landscape' })
-    doc.setFontSize(17)
-    doc.text('NexaCRM Lead Performance Report', 14, 16)
-    doc.setFontSize(9)
-    doc.text(`${report.summary.periodLabel || 'Selected period'} · Current status snapshot · Generated ${new Date().toLocaleString()}`, 14, 23)
-    autoTable(doc, {
-      startY: 30,
-      head: [['Metric', 'Value', 'Definition']],
-      body: [
-        ['Total leads', formatNumber(report.total), 'Leads created in the selected period'],
-        ['Active pipeline', formatNumber(report.active), 'Current status is neither converted nor lost'],
-        ['Converted', formatNumber(report.converted), 'Currently marked converted/won'],
-        ['Lost', formatNumber(report.lost), 'Currently marked lost'],
-        ['Current win rate', formatPercent(report.total ? (report.converted * 100) / report.total : 0), 'Converted divided by selected-period leads'],
-      ],
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [14, 165, 233] },
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const period = report.summary.periodLabel || 'Selected period'
+    const revenue = valueOf(report.summary, 'revenueFromConvertedLeads')
+    const totalLeads = report.total || 0
+    const addPage = (title, subtitle) => {
+      doc.addPage()
+      pdfPageHeader(doc, title, subtitle)
+      return 32
+    }
+
+    // Cover page: high-contrast executive summary with visual KPI cards.
+    doc.setFillColor(...PDF_COLORS.navy)
+    doc.rect(0, 0, pageWidth, 61, 'F')
+    doc.setFillColor(...PDF_COLORS.blue)
+    doc.circle(pageWidth - 24, 18, 36, 'F')
+    doc.setFillColor(...PDF_COLORS.cyan)
+    doc.circle(pageWidth - 4, 52, 23, 'F')
+    pdfText(doc, 'NexaCRM', 16, 15, { size: 10, color: [125, 211, 252], style: 'bold' })
+    pdfText(doc, 'Lead Performance', 16, 31, { size: 25, color: PDF_COLORS.white, style: 'bold' })
+    pdfText(doc, 'Intelligence report', 16, 43, { size: 16, color: [186, 230, 253], style: 'normal' })
+    pdfText(doc, `${period}  |  Current status snapshot`, 16, 53, { size: 8.5, color: [226, 232, 240] })
+    doc.setFillColor(...PDF_COLORS.white)
+    doc.roundedRect(pageWidth - 69, 12, 52, 13, 6, 6, 'F')
+    pdfText(doc, new Date().toLocaleDateString('en-IN'), pageWidth - 43, 20.5, { size: 8, color: PDF_COLORS.navy, style: 'bold' })
+
+    const cardY = 73
+    const cardGap = 5
+    const cardWidth = (pageWidth - 28 - cardGap * 3) / 4
+    const cards = [
+      ['LEADS CREATED', formatNumber(totalLeads), 'Selected-period volume', PDF_COLORS.blue],
+      ['ACTIVE PIPELINE', formatNumber(report.active), 'Not won or lost', PDF_COLORS.violet],
+      ['CURRENT WIN RATE', formatPercent(totalLeads ? report.converted * 100 / totalLeads : 0), `${formatNumber(report.converted)} currently converted`, PDF_COLORS.emerald],
+      ['REVENUE', formatCurrency(revenue), 'From converted leads', PDF_COLORS.amber],
+    ]
+    cards.forEach(([label, value, detail, color], index) => {
+      const x = 14 + index * (cardWidth + cardGap)
+      pdfCard(doc, x, cardY, cardWidth, 31, PDF_COLORS.white)
+      doc.setFillColor(...color)
+      doc.roundedRect(x, cardY, 2.2, 31, 1.1, 1.1, 'F')
+      pdfText(doc, label, x + 7, cardY + 8, { size: 7, color: PDF_COLORS.muted, style: 'bold' })
+      pdfText(doc, value, x + 7, cardY + 19, { size: 17, color: PDF_COLORS.navy, style: 'bold', maxWidth: cardWidth - 12 })
+      pdfText(doc, detail, x + 7, cardY + 26, { size: 7.2, color: PDF_COLORS.muted, maxWidth: cardWidth - 12 })
     })
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 8,
-      head: [['Stage', 'Leads', 'Share of selected leads']],
-      body: report.funnel.map((row) => [row.label, formatNumber(row.count), formatPercent(report.total ? (row.count * 100) / report.total : 0)]),
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [15, 23, 42] },
+
+    let y = 108
+    pdfText(doc, 'Executive reading', 14, y, { size: 13, color: PDF_COLORS.navy, style: 'bold' })
+    pdfText(doc, 'The fastest way to improve is to focus the team on the largest live queue and the highest-value follow-ups.', 14, y + 6, { size: 8, color: PDF_COLORS.muted, maxWidth: 170 })
+    y += 13
+    const actionWidth = (pageWidth - 33) / 2
+    report.actions.forEach((action, index) => {
+      const column = index % 2
+      const row = Math.floor(index / 2)
+      const x = 14 + column * (actionWidth + 5)
+      const boxY = y + row * 25
+      const color = action.tone === 'rose' ? PDF_COLORS.rose : action.tone === 'amber' ? PDF_COLORS.amber : action.tone === 'violet' ? PDF_COLORS.violet : action.tone === 'sky' ? PDF_COLORS.blue : PDF_COLORS.emerald
+      pdfCard(doc, x, boxY, actionWidth, 20, [250, 252, 255], [226, 232, 240])
+      doc.setFillColor(...color)
+      doc.circle(x + 8, boxY + 8, 3, 'F')
+      pdfText(doc, `${index + 1}. ${action.title}`, x + 15, boxY + 7, { size: 8, color: PDF_COLORS.navy, style: 'bold', maxWidth: actionWidth - 20 })
+      pdfText(doc, action.body, x + 15, boxY + 13, { size: 6.8, color: PDF_COLORS.muted, maxWidth: actionWidth - 20 })
     })
-    autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 8,
-      head: [['Source', 'Leads', 'Won', 'Lost', 'Current win rate', 'Revenue']],
-      body: report.sourceRows.map((row) => [row.sourceLabel, formatNumber(row.totalLeads), formatNumber(row.convertedLeads), formatNumber(row.lostLeads), formatPercent(row.conversionRate), formatCurrency(row.revenueGenerated)]),
-      styles: { fontSize: 7.5 },
-      headStyles: { fillColor: [16, 185, 129] },
+
+    y += 52
+    pdfCard(doc, 14, y, pageWidth - 28, 19, [239, 246, 255], [186, 230, 253])
+    pdfText(doc, 'Data definition', 21, y + 8, { size: 8, color: PDF_COLORS.blue, style: 'bold' })
+    pdfText(doc, 'Each lead is counted once by its current status. Current win rate is an operational ratio, not a historical cohort conversion rate.', 21, y + 14, { size: 7.5, color: PDF_COLORS.slate, maxWidth: pageWidth - 48 })
+
+    // Pipeline and trend detail.
+    y = addPage('Pipeline and trend', 'Current portfolio distribution and period movement')
+    y = pdfSectionTitle(doc, 'Pipeline distribution', 'Each lead appears once in its current stage. Percentages are portfolio share.', y)
+    y = pdfTable(doc, y, [['Stage', 'Leads', 'Share', 'Interpretation']], report.funnel.map((row) => [
+      row.label,
+      formatNumber(row.count),
+      formatPercent(totalLeads ? row.count * 100 / totalLeads : 0),
+      ['CONVERTED', 'LOST'].includes(row.key) ? 'Final current outcome' : row.count === report.largestQueue?.count ? 'Largest active queue - review next action' : 'Active working stage',
+    ]), {
+      headColor: PDF_COLORS.violet,
+      columnStyles: { 0: { cellWidth: 47 }, 1: { cellWidth: 24, halign: 'right' }, 2: { cellWidth: 24, halign: 'right' }, 3: { cellWidth: 140 } },
+      didDrawCell: (hookData) => {
+        if (hookData.section === 'body' && hookData.column.index === 0) {
+          const row = report.funnel[hookData.row.index]
+          if (row) {
+            doc.setFillColor(...pdfHexToRgb(row.color))
+            doc.circle(hookData.cell.x + 3.5, hookData.cell.y + hookData.cell.height / 2, 1.5, 'F')
+          }
+        }
+      },
     })
+    y += 10
+    y = pdfSectionTitle(doc, 'Volume and outcomes over time', 'Created volume versus outcomes recorded in the selected period.', y)
+    y = pdfTable(doc, y, [['Period', 'Created', 'New', 'Assigned', 'Contacted', 'Qualified', 'Proposal', 'Converted', 'Lost', 'Pending', 'Revenue']], data.trend.map((row) => [
+      row.label || row.bucketKey,
+      formatNumber(row.leadCount), formatNumber(row.newCount), formatNumber(row.assignedCount), formatNumber(row.contactedCount),
+      formatNumber(row.qualifiedCount), formatNumber(row.proposalSentCount), formatNumber(row.convertedCount), formatNumber(row.lostCount),
+      formatNumber(row.pendingFollowUpsCount), formatCurrency(row.revenueGenerated),
+    ]), { fontSize: 6.2, headFontSize: 6.3, cellPadding: 1.8, headColor: PDF_COLORS.navy })
+
+    // Source performance.
+    y = addPage('Source performance', 'Where lead volume is coming from and how current outcomes compare')
+    y = pdfSectionTitle(doc, 'Source performance table', 'Use volume and outcome quality together before increasing spend or campaign volume.', y)
+    y = pdfTable(doc, y, [['Source', 'Leads', 'Converted', 'Lost', 'Current win rate', 'Revenue', 'Action']], report.sourceRows.map((row) => [
+      row.sourceLabel,
+      formatNumber(row.totalLeads),
+      formatNumber(row.convertedLeads),
+      formatNumber(row.lostLeads),
+      formatPercent(row.conversionRate),
+      formatCurrency(row.revenueGenerated),
+      row.bestPerforming ? 'Protect quality and test more volume.' : row.totalLeads >= 3 && row.conversionRate === 0 ? 'Audit targeting and hand-off.' : 'Keep measuring before changing spend.',
+    ]), { headColor: PDF_COLORS.emerald, fontSize: 7, columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 18, halign: 'right' }, 2: { cellWidth: 22, halign: 'right' }, 3: { cellWidth: 18, halign: 'right' }, 4: { cellWidth: 27, halign: 'right' }, 5: { cellWidth: 27, halign: 'right' }, 6: { cellWidth: 117 } } })
+    y += 10
+    pdfCard(doc, 14, y, pageWidth - 28, 27, [240, 253, 250], [167, 243, 208])
+    pdfText(doc, report.bestSource ? `Best current source: ${report.bestSource.sourceLabel}` : 'Source quality signal', 21, y + 9, { size: 9, color: PDF_COLORS.emerald, style: 'bold' })
+    pdfText(doc, report.bestSource ? `${formatNumber(report.bestSource.totalLeads)} leads · ${formatPercent(report.bestSource.conversionRate)} current win rate · ${formatCurrency(report.bestSource.revenueGenerated)} revenue` : 'No converted source is available in this period yet.', 21, y + 17, { size: 8, color: PDF_COLORS.slate })
+
+    // Owner performance and all currently loaded activity rows.
+    y = addPage('Owner execution and activity', 'Workload, outcomes, and recorded lifecycle signals')
+    y = pdfSectionTitle(doc, 'Owner performance', 'Use this section to balance workload and coach execution.', y)
+    y = pdfTable(doc, y, [['Owner', 'Assigned', 'Contacted', 'Converted', 'Lost', 'Pending', 'Win rate', 'Revenue']], data.employees.filter((row) => row.assignedLeads > 0).map((row) => [
+      row.employeeName, formatNumber(row.assignedLeads), formatNumber(row.contactedLeads), formatNumber(row.convertedLeads), formatNumber(row.lostLeads), formatNumber(row.pendingLeads), formatPercent(row.conversionRate), formatCurrency(row.revenueGenerated),
+    ]), { headColor: PDF_COLORS.amber, fontSize: 7.1, columnStyles: { 0: { cellWidth: 54 }, 1: { cellWidth: 22, halign: 'right' }, 2: { cellWidth: 22, halign: 'right' }, 3: { cellWidth: 25, halign: 'right' }, 4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 20, halign: 'right' }, 6: { cellWidth: 24, halign: 'right' }, 7: { cellWidth: 28, halign: 'right' } } })
+    y += 10
+    y = pdfSectionTitle(doc, 'Recorded lead activity', `${report.activities.length} activity signal(s) loaded for this report.`, y)
+    pdfTable(doc, y, [['Lead', 'Activity', 'Transition', 'Owner', 'Source', 'When', 'Notes']], report.activities.map((activity) => [
+      activity.leadName || 'Unnamed lead',
+      activity.activityType || 'Activity',
+      activity.oldStatus && activity.newStatus ? `${activity.oldStatus} -> ${activity.newStatus}` : '—',
+      activity.employeeName || 'Unassigned',
+      activity.source || '—',
+      formatDateTime(activity.occurredAt),
+      activity.notes || 'Lifecycle activity recorded',
+    ]), { headColor: PDF_COLORS.rose, fontSize: 6.4, cellPadding: 1.8, columnStyles: { 0: { cellWidth: 32 }, 1: { cellWidth: 25 }, 2: { cellWidth: 37 }, 3: { cellWidth: 30 }, 4: { cellWidth: 25 }, 5: { cellWidth: 35 }, 6: { cellWidth: 83 } } })
+
+    // Data notes appendix makes the report useful when it is shared outside the CRM.
+    y = addPage('Recommendations and data notes', 'Definitions, limitations, and the next measurement improvements')
+    y = pdfSectionTitle(doc, 'Recommended next actions', 'These recommendations are derived from the selected filters and current operational signals.', y)
+    report.actions.forEach((action, index) => {
+      const boxY = y + index * 25
+      pdfCard(doc, 14, boxY, pageWidth - 28, 20, index % 2 ? [251, 253, 255] : [248, 250, 252], PDF_COLORS.line)
+      pdfText(doc, `${index + 1}. ${action.title}`, 21, boxY + 8, { size: 8.5, color: PDF_COLORS.navy, style: 'bold' })
+      pdfText(doc, action.body, 21, boxY + 14, { size: 7.3, color: PDF_COLORS.muted, maxWidth: pageWidth - 48 })
+    })
+    y += report.actions.length * 25 + 8
+    y = pdfSectionTitle(doc, 'Data notes', 'What this report can and cannot prove today.', y)
+    const notes = [
+      ['Reliable now', 'Lead counts, current status, source, owner assignment, converted/lost counts, revenue, pending follow-ups, and recorded activities.'],
+      ['Use carefully', 'Current win rate is based on leads created in the selected period and their current status. Recent leads may not have matured yet.'],
+      ['Missing for precision', 'Complete stage transitions, first-response timestamps, and reason-coded losses are needed for true cohort conversion and time-to-convert analysis.'],
+      ['Filter scope', `${period}${employeeId ? ' · selected owner' : ' · all owners'}${status ? ` · ${STATUS_FILTERS.find((item) => item.value === status)?.label || status}` : ' · all statuses'}.`],
+    ]
+    pdfTable(doc, y, [['Topic', 'Definition']], notes, { headColor: PDF_COLORS.navy, fontSize: 8, columnStyles: { 0: { cellWidth: 42 }, 1: { cellWidth: 208 } } })
+
+    const totalPages = doc.getNumberOfPages()
+    for (let page = 1; page <= totalPages; page += 1) {
+      doc.setPage(page)
+      pdfFooter(doc, report, page, totalPages)
+    }
     doc.save(`nexacrm-lead-performance-${new Date().toISOString().slice(0, 10)}.pdf`)
-    toast.success('Lead performance PDF downloaded.')
+    toast.success(`Lead performance PDF downloaded (${totalPages} pages).`)
   }
 
   const exportExcel = async () => {
