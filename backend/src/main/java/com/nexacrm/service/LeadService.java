@@ -21,6 +21,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -57,6 +59,8 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -2131,8 +2135,10 @@ public class LeadService {
             float rowH = 16;
             float headerH = 20;
             float yStart = pageH - margin;
-            PDType1Font fontBold = PDType1Font.HELVETICA_BOLD;
-            PDType1Font fontNormal = PDType1Font.HELVETICA;
+            PDFont fontNormal = loadPdfFont(doc, false);
+            PDFont fontBold = loadPdfFont(doc, true);
+            if (fontNormal == null) fontNormal = PDType1Font.HELVETICA;
+            if (fontBold == null) fontBold = fontNormal;
             float fontSize = 7.5f;
 
             int idx = 0;
@@ -2146,7 +2152,7 @@ public class LeadService {
                 cs.beginText();
                 cs.setFont(fontBold, 14);
                 cs.newLineAtOffset(margin, y);
-                cs.showText("Leads Export — " + java.time.LocalDate.now());
+                cs.showText(pdfText(fontBold, "Leads Export — " + java.time.LocalDate.now()));
                 cs.endText();
                 y -= 28;
 
@@ -2156,7 +2162,7 @@ public class LeadService {
                     cs.beginText();
                     cs.setFont(fontBold, fontSize);
                     cs.newLineAtOffset(x, y);
-                    cs.showText(headers[i]);
+                    cs.showText(pdfText(fontBold, headers[i]));
                     cs.endText();
                     x += colW[i];
                 }
@@ -2175,7 +2181,7 @@ public class LeadService {
                         lead.getSource() != null ? lead.getSource().name() : ""
                     };
                     for (int i = 0; i < vals.length; i++) {
-                        String v = vals[i];
+                        String v = pdfText(fontNormal, vals[i]);
                         if (v.length() > (int)(colW[i] / 4)) v = v.substring(0, (int)(colW[i] / 4)) + "…";
                         cs.beginText();
                         cs.setFont(fontNormal, fontSize);
@@ -2195,6 +2201,42 @@ public class LeadService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to export leads as PDF", e);
         }
+    }
+
+    private PDFont loadPdfFont(PDDocument doc, boolean bold) {
+        String fileName = bold ? "NotoSansDevanagari-Bold.ttf" : "NotoSansDevanagari-Regular.ttf";
+        List<Path> candidates = List.of(
+            Path.of("/usr/share/fonts/truetype/noto", fileName),
+            Path.of("/usr/share/fonts/opentype/noto", fileName),
+            Path.of("/usr/local/share/fonts", fileName)
+        );
+        for (Path candidate : candidates) {
+            if (!Files.isRegularFile(candidate)) continue;
+            try {
+                return PDType0Font.load(doc, candidate.toFile());
+            } catch (IOException ex) {
+                log.warn("Unable to load PDF font {}: {}", candidate, ex.getMessage());
+            }
+        }
+        return null;
+    }
+
+    private String pdfText(PDFont font, String value) {
+        if (value == null || value.isEmpty()) return "";
+        StringBuilder safe = new StringBuilder(value.length());
+        value.codePoints().forEach(codePoint -> {
+            try {
+                String glyph = new String(Character.toChars(codePoint));
+                if (font.encode(glyph).length > 0) {
+                    safe.appendCodePoint(codePoint);
+                } else {
+                    safe.append('?');
+                }
+            } catch (IOException | IllegalArgumentException ex) {
+                safe.append('?');
+            }
+        });
+        return safe.toString();
     }
 
     private String safe(String value) {

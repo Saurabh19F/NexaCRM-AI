@@ -78,6 +78,7 @@ public class PipelineWhatsAppDigestService {
         config.put("lastPdfSentAt", textValue(current, "lastPdfSentAt", ""));
         config.put("pdfSendStatus", textValue(current, "pdfSendStatus", "IDLE"));
         config.put("pdfSendError", textValue(current, "pdfSendError", ""));
+        config.put("pdfSendStartedAt", textValue(current, "pdfSendStartedAt", ""));
 
         if ((Boolean.TRUE.equals(config.get("enabled")) || Boolean.TRUE.equals(config.get("pdfEnabled"))) && recipients.isEmpty()) {
             throw new IllegalArgumentException("Add at least one WhatsApp recipient when a daily pipeline automation is enabled.");
@@ -96,7 +97,7 @@ public class PipelineWhatsAppDigestService {
         return publicConfiguration(readConfiguration(tenantId));
     }
 
-    public Map<String, Object> sendCurrentPipelinePdfNow() {
+    public synchronized Map<String, Object> sendCurrentPipelinePdfNow() {
         Long tenantId = TenantContext.currentTenantId();
         Map<String, Object> config = readConfiguration(tenantId);
         if (currentRecipients(config).isEmpty()) {
@@ -108,6 +109,7 @@ public class PipelineWhatsAppDigestService {
 
         config.put("pdfSendStatus", "SENDING");
         config.put("pdfSendError", "");
+        config.put("pdfSendStartedAt", Instant.now().toString());
         persistConfiguration(tenantId, config);
         Map<String, Object> backgroundConfig = new LinkedHashMap<>(config);
         CompletableFuture.runAsync(() -> {
@@ -225,6 +227,7 @@ public class PipelineWhatsAppDigestService {
             config.put("lastPdfSentAt", Instant.now().toString());
             config.put("pdfSendStatus", "SENT");
             config.put("pdfSendError", "");
+            config.put("pdfSendStartedAt", "");
             persistConfiguration(tenantId, config);
             log.info("Pipeline WhatsApp PDF sent for tenant {} to {} recipient(s)", tenantId, sent);
         } finally {
@@ -236,6 +239,7 @@ public class PipelineWhatsAppDigestService {
         try {
             Map<String, Object> config = readConfiguration(tenantId);
             config.put("pdfSendStatus", "FAILED");
+            config.put("pdfSendStartedAt", "");
             String message = failure == null ? "Unable to send pipeline PDF." : failure.getMessage();
             config.put("pdfSendError", message == null || message.isBlank() ? "Unable to send pipeline PDF." : message.substring(0, Math.min(message.length(), 240)));
             persistConfiguration(tenantId, config);
@@ -297,10 +301,12 @@ public class PipelineWhatsAppDigestService {
         defaults.put("lastPdfSentAt", "");
         defaults.put("pdfSendStatus", "IDLE");
         defaults.put("pdfSendError", "");
+        defaults.put("pdfSendStartedAt", "");
         return appSettingRepository.findByTenantIdAndNamespaceAndKeyAndDeletedFalse(tenantId, NAMESPACE, KEY)
             .map(AppSetting::getValue)
             .map(this::parseConfiguration)
             .map(config -> mergeDefaults(defaults, config))
+            .map(this::recoverStalePdfSend)
             .orElse(defaults);
     }
 
@@ -324,7 +330,27 @@ public class PipelineWhatsAppDigestService {
         response.remove("recipient");
         response.remove("lastSentDate");
         response.remove("lastPdfSentDate");
+        response.remove("pdfSendStartedAt");
         return response;
+    }
+
+    private Map<String, Object> recoverStalePdfSend(Map<String, Object> config) {
+        if (!"SENDING".equalsIgnoreCase(textValue(config, "pdfSendStatus", "IDLE"))) {
+            return config;
+        }
+        String startedAt = textValue(config, "pdfSendStartedAt", "");
+        boolean stale;
+        try {
+            stale = startedAt.isBlank() || Instant.parse(startedAt).isBefore(Instant.now().minusSeconds(600));
+        } catch (Exception ex) {
+            stale = true;
+        }
+        if (stale) {
+            config.put("pdfSendStatus", "FAILED");
+            config.put("pdfSendError", "Previous PDF sending stopped before completion. Please try again.");
+            config.put("pdfSendStartedAt", "");
+        }
+        return config;
     }
 
     private List<String> currentRecipients(Map<String, Object> config) {
