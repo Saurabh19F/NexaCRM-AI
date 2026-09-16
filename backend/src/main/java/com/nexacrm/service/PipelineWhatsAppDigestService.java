@@ -9,6 +9,7 @@ import com.nexacrm.repository.LeadRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -50,8 +51,12 @@ public class PipelineWhatsAppDigestService {
     private final LeadRepository leadRepository;
     private final CommunicationService communicationService;
     private final LeadService leadService;
+    private final PipelinePdfMediaService pipelinePdfMediaService;
     private final MongoTemplate mongoTemplate;
     private final ObjectMapper objectMapper;
+
+    @Value("${nexacrm.public-base-url:https://nexacrmai.com}")
+    private String publicBaseUrl;
 
     public Map<String, Object> getCurrentConfiguration() {
         return publicConfiguration(readConfiguration(TenantContext.currentTenantId()));
@@ -210,10 +215,11 @@ public class PipelineWhatsAppDigestService {
             String date = now.toLocalDate().toString();
             String fileName = "nexacrm-pipeline-" + date + ".pdf";
             String caption = "📎 Daily Pipeline PDF\n📅 " + now.toLocalDate().format(DATE_FORMAT);
+            String mediaUrl = normalizePublicBaseUrl() + "/api/public/pipeline-pdf/" + pipelinePdfMediaService.publish(pdf, fileName);
             int sent = 0;
             for (String recipient : recipients) {
                 try {
-                    communicationService.sendWhatsAppDocument(recipient, pdf, fileName, caption);
+                    communicationService.sendWhatsAppDocument(recipient, pdf, fileName, caption, mediaUrl);
                     sent++;
                 } catch (Exception ex) {
                     log.warn("Pipeline WhatsApp PDF failed for tenant {} recipient {}: {}", tenantId, maskPhone(recipient), ex.getMessage());
@@ -456,5 +462,11 @@ public class PipelineWhatsAppDigestService {
     private String maskPhone(String phone) {
         String digits = phone == null ? "" : phone.replaceAll("\\D", "");
         return digits.length() <= 4 ? "****" : "****" + digits.substring(digits.length() - 4);
+    }
+
+    private String normalizePublicBaseUrl() {
+        String base = publicBaseUrl == null ? "https://nexacrmai.com" : publicBaseUrl.trim();
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        return base.isBlank() ? "https://nexacrmai.com" : base;
     }
 }

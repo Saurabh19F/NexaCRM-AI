@@ -41,7 +41,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -259,6 +258,16 @@ public class CommunicationService {
     }
 
     public void sendWhatsAppDocument(@NonNull String recipient, @NonNull byte[] document, @NonNull String fileName, String caption) {
+        sendWhatsAppDocument(recipient, document, fileName, caption, null);
+    }
+
+    public void sendWhatsAppDocument(
+        @NonNull String recipient,
+        @NonNull byte[] document,
+        @NonNull String fileName,
+        String caption,
+        String mediaUrl
+    ) {
         String number = recipient.replaceAll("\\D", "");
         if (number.isBlank()) {
             throw new IllegalStateException("Invalid WhatsApp number.");
@@ -269,7 +278,7 @@ public class CommunicationService {
         String aknexusToken = firstNonBlank(config.get("apiToken"), config.get("bearerToken"), defaultAknexusApiToken);
         if ("aknexus".equals(provider)
             || (!aknexusToken.isBlank() && !"aiadrika".equals(provider) && !"kriscelwa".equals(provider))) {
-            sendViaAknexusWhatsAppDocument(number, document, fileName, caption, config, aknexusToken);
+            sendViaAknexusWhatsAppDocument(number, document, fileName, caption, mediaUrl, config, aknexusToken);
             return;
         }
 
@@ -1116,6 +1125,7 @@ public class CommunicationService {
         byte[] document,
         String fileName,
         String caption,
+        String mediaUrl,
         Map<String, String> config,
         String apiToken
     ) {
@@ -1144,12 +1154,15 @@ public class CommunicationService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(trim(apiToken));
+        if (mediaUrl == null || mediaUrl.isBlank()) {
+            throw new IllegalStateException("AKNexus PDF media URL is missing.");
+        }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("instance_id", instanceId);
         payload.put("to", number);
         payload.put("filename", fileName);
         payload.put("caption", caption == null ? "" : caption);
-        payload.put("document", Base64.getEncoder().encodeToString(document));
+        payload.put("media_url", mediaUrl);
 
         try {
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(payload), headers);

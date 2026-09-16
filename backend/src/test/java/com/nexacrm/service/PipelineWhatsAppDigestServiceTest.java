@@ -38,6 +38,7 @@ class PipelineWhatsAppDigestServiceTest {
     @Mock private LeadRepository leadRepository;
     @Mock private CommunicationService communicationService;
     @Mock private LeadService leadService;
+    @Mock private PipelinePdfMediaService pipelinePdfMediaService;
     @Mock private MongoTemplate mongoTemplate;
 
     private PipelineWhatsAppDigestService service;
@@ -49,6 +50,7 @@ class PipelineWhatsAppDigestServiceTest {
             leadRepository,
             communicationService,
             leadService,
+            pipelinePdfMediaService,
             mongoTemplate,
             new ObjectMapper()
         );
@@ -118,6 +120,7 @@ class PipelineWhatsAppDigestServiceTest {
         when(appSettingRepository.findByTenantIdAndNamespaceAndKeyAndDeletedFalse(1L, "automation", "pipelineWhatsappDigest"))
             .thenReturn(Optional.of(setting));
         when(leadService.export("pdf", null)).thenReturn(new byte[] { 37, 80, 68, 70 });
+        when(pipelinePdfMediaService.publish(any(byte[].class), any(String.class))).thenReturn("test-token");
         when(appSettingRepository.save(any(AppSetting.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Map<String, Object> result = service.sendCurrentPipelinePdfNow();
@@ -127,7 +130,8 @@ class PipelineWhatsAppDigestServiceTest {
             recipients.capture(),
             org.mockito.ArgumentMatchers.any(byte[].class),
             org.mockito.ArgumentMatchers.eq("nexacrm-pipeline-" + java.time.LocalDate.now() + ".pdf"),
-            org.mockito.ArgumentMatchers.any(String.class)
+            org.mockito.ArgumentMatchers.any(String.class),
+            org.mockito.ArgumentMatchers.eq("https://nexacrmai.com/api/public/pipeline-pdf/test-token")
         );
         assertTrue(recipients.getAllValues().contains("+919876543210"));
         assertTrue(recipients.getAllValues().contains("+919811122233"));
