@@ -50,7 +50,7 @@ public class PipelineWhatsAppDigestService {
     private final AppSettingRepository appSettingRepository;
     private final LeadRepository leadRepository;
     private final CommunicationService communicationService;
-    private final LeadService leadService;
+    private final PipelinePlaybookPdfService pipelinePlaybookPdfService;
     private final PipelinePdfMediaService pipelinePdfMediaService;
     private final MongoTemplate mongoTemplate;
     private final ObjectMapper objectMapper;
@@ -206,7 +206,7 @@ public class PipelineWhatsAppDigestService {
         try {
             ZoneId zone = ZoneId.of(String.valueOf(config.get("timezone")));
             LocalDateTime now = LocalDateTime.now(zone);
-            byte[] pdf = leadService.export("pdf", null);
+            byte[] pdf = pipelinePlaybookPdfService.generate();
             List<String> recipients = currentRecipients(config);
             if (recipients.isEmpty()) {
                 throw new IllegalStateException("No WhatsApp recipients are configured.");

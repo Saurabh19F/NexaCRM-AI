@@ -37,7 +37,7 @@ class PipelineWhatsAppDigestServiceTest {
     @Mock private AppSettingRepository appSettingRepository;
     @Mock private LeadRepository leadRepository;
     @Mock private CommunicationService communicationService;
-    @Mock private LeadService leadService;
+    @Mock private PipelinePlaybookPdfService pipelinePlaybookPdfService;
     @Mock private PipelinePdfMediaService pipelinePdfMediaService;
     @Mock private MongoTemplate mongoTemplate;
 
@@ -49,7 +49,7 @@ class PipelineWhatsAppDigestServiceTest {
             appSettingRepository,
             leadRepository,
             communicationService,
-            leadService,
+            pipelinePlaybookPdfService,
             pipelinePdfMediaService,
             mongoTemplate,
             new ObjectMapper()
@@ -119,7 +119,7 @@ class PipelineWhatsAppDigestServiceTest {
 
         when(appSettingRepository.findByTenantIdAndNamespaceAndKeyAndDeletedFalse(1L, "automation", "pipelineWhatsappDigest"))
             .thenReturn(Optional.of(setting));
-        when(leadService.export("pdf", null)).thenReturn(new byte[] { 37, 80, 68, 70 });
+        when(pipelinePlaybookPdfService.generate()).thenReturn(new byte[] { 37, 80, 68, 70 });
         when(pipelinePdfMediaService.publish(any(byte[].class), any(String.class))).thenReturn("test-token");
         when(appSettingRepository.save(any(AppSetting.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
