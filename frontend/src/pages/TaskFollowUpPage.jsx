@@ -1094,6 +1094,7 @@ export default function TaskFollowUpPage() {
             onPersist={handlePersistActivity}
             initialData={[{}, {}, {}]}
             initialSaved={[false, false, false]}
+            initialActiveTab={(TABS.find(t => t.key === activeTab)?.stageIdx) || 0}
           />
         )}
       </AnimatePresence>
