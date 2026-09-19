@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, CheckCircle2, Clock, Phone, Trophy, ChevronRight } from 'lucide-react'
+import { X, CheckCircle2, Clock, Phone, Trophy, ChevronRight, ChevronDown, History } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ScreenModalPortal from './ui/ScreenModalPortal'
 
@@ -114,6 +114,56 @@ const humanizeLabel = (value) => {
     .split(/\s+/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(' ')
+}
+
+const ACTIVITY_TITLE_BY_INDEX = ['Welcome Call', 'Follow Up for Meeting', 'Meeting Outcome']
+
+const parseActivityLogs = (logs, activityIndex) => {
+  if (!Array.isArray(logs) || logs.length === 0) return []
+  const title = ACTIVITY_TITLE_BY_INDEX[activityIndex]
+  return logs
+    .map(entry => {
+      const parts = String(entry).split(' | ')
+      if (parts.length < 2) return null
+      const [timestamp, actTitle, ...rest] = parts
+      if (actTitle !== title) return null
+      return { timestamp, title: actTitle, summary: rest.join(' · ') || 'Activity recorded' }
+    })
+    .filter(Boolean)
+}
+
+function ActivityHistory({ logs, activityIndex }) {
+  const [open, setOpen] = useState(false)
+  const entries = parseActivityLogs(logs, activityIndex)
+  if (entries.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition"
+      >
+        <span className="flex items-center gap-1.5">
+          <History className="w-3.5 h-3.5" />
+          Activity History ({entries.length})
+        </span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-3 space-y-2">
+          {entries.map((entry, i) => (
+            <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
+              <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                {formatDateTime(entry.timestamp)}
+              </p>
+              <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-200">{entry.summary}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function LeadActivitiesModal({ lead, onClose, onPersist, initialData, initialSaved, initialActiveTab = 0, onActiveTabChange }) {
@@ -260,6 +310,10 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         toast.error('Please select a lost category.')
         return false
       }
+      if (isActivityThreeNegotiation && !String(activityThreeValues.nextFollowUpDate || activityThreeValues.followUpDate || '').trim()) {
+        toast.error('Please select a next follow-up date for negotiation.')
+        return false
+      }
       if (isActivityThreeWon) {
         if (!String(activityThreeMeetingPriceFinal).trim()) {
           toast.error('Please enter the meeting price final.')
@@ -303,7 +357,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         connectionStatus: val,
         callOutcome: val,
         // Reset interest when switching connection status
-        ...(normalizeOutcome(val) !== 'connected' ? { interestStatus: '', interest: '', nextFollowUpDate: '', followUpDate: '' } : { nextFollowUpDate: '', followUpDate: '' }),
+        ...(normalizeOutcome(val) !== 'connected' ? { interestStatus: '', interest: '', nextFollowUpDate: '', followUpDate: '', nextFollowUpTime: '' } : { nextFollowUpDate: '', followUpDate: '', nextFollowUpTime: '' }),
       })
       return
     }
@@ -332,6 +386,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         note: '',
         nextFollowUpDate: normalizeOutcome(val) === 'follow up' ? (activityTwoValues.nextFollowUpDate || '') : '',
         followUpDate: normalizeOutcome(val) === 'follow up' ? (activityTwoValues.nextFollowUpDate || '') : '',
+        nextFollowUpTime: normalizeOutcome(val) === 'follow up' ? (activityTwoValues.nextFollowUpTime || '') : '',
       })
       return
     }
@@ -356,7 +411,14 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         note: '',
         remarkWon: '',
         remarkLost: '',
+        nextFollowUpDate: '',
+        followUpDate: '',
+        nextFollowUpTime: '',
       })
+      return
+    }
+    if (key === 'nextFollowUpDate') {
+      patchCurrentActivity({ nextFollowUpDate: val, followUpDate: val })
       return
     }
     if (key === 'remark' || key === 'remarkWon' || key === 'remarkLost') {
@@ -395,9 +457,12 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     const ok = await handleSave()
     if (!ok) return
     if (isActivityThreeWon || isActivityThreeLost) {
-      onClose() // CLOSE lead
+      onClose()
+      return
     }
-    // Negotiation → stay at Activity 03
+    if (isActivityThreeNegotiation) {
+      setActiveTab(1) // back to Follow Up page
+    }
   }
 
   const handleCurrentPrimaryAction = async () => {
@@ -435,7 +500,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     : isActivityThreeLost
       ? 'Close Lead'
       : isActivityThreeNegotiation
-        ? 'Save Negotiation'
+        ? 'Save & Follow Up ←'
         : 'Save & Continue'
 
   const currentPrimaryLabel = activeTab === 0
@@ -579,19 +644,32 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       </div>
                     )}
 
-                    {/* Follow-Up Date — shown only when Not Connected */}
+                    {/* Follow-Up Date & Time — shown only when Not Connected */}
                     {isNotConnected && (
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Next Follow-Up Date <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || ''}
-                          onChange={e => handleActivityOneChange('nextFollowUpDate', e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Next Follow-Up Date <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || ''}
+                            onChange={e => handleActivityOneChange('nextFollowUpDate', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Next Follow-Up Time
+                          </label>
+                          <input
+                            type="time"
+                            value={activityOneValues.nextFollowUpTime || ''}
+                            onChange={e => handleActivityOneChange('nextFollowUpTime', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                      </>
                     )}
 
                     <div className="sm:col-span-2">
@@ -636,6 +714,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                     {isNotConnected && 'Not Connected — schedule the next follow-up date.'}
                     {!isConnected && !isNotConnected && 'Select a connection status to continue.'}
                   </div>
+
+                  <ActivityHistory logs={lead?.activityLogs} activityIndex={0} />
                 </div>
               )}
 
@@ -675,17 +755,30 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                     </div>
 
                     {isActivityTwoFollowUp && (
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Next Follow-Up Date <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={activityTwoValues.nextFollowUpDate || activityTwoValues.followUpDate || ''}
-                          onChange={e => handleActivityTwoChange('nextFollowUpDate', e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Next Follow-Up Date <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={activityTwoValues.nextFollowUpDate || activityTwoValues.followUpDate || ''}
+                            onChange={e => handleActivityTwoChange('nextFollowUpDate', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Next Follow-Up Time
+                          </label>
+                          <input
+                            type="time"
+                            value={activityTwoValues.nextFollowUpTime || ''}
+                            onChange={e => handleActivityTwoChange('nextFollowUpTime', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -788,6 +881,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                     {isActivityTwoFollowUp && 'Follow Up selected — stays here until the next follow-up is completed.'}
                     {!isActivityTwoMeeting && !isActivityTwoFollowUp && !isActivityTwoAllowedPerson && 'Select a status to continue.'}
                   </div>
+
+                  <ActivityHistory logs={lead?.activityLogs} activityIndex={1} />
                 </div>
               )}
 
@@ -825,6 +920,34 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         <option value="Negotiation">Negotiation</option>
                       </select>
                     </div>
+
+                    {/* Negotiation follow-up fields */}
+                    {isActivityThreeNegotiation && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Next Follow-Up Date <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={activityThreeValues.nextFollowUpDate || activityThreeValues.followUpDate || ''}
+                            onChange={e => handleActivityThreeChange('nextFollowUpDate', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Next Follow-Up Time
+                          </label>
+                          <input
+                            type="time"
+                            value={activityThreeValues.nextFollowUpTime || ''}
+                            onChange={e => handleActivityThreeChange('nextFollowUpTime', e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
+                          />
+                        </div>
+                      </>
+                    )}
 
                     {/* Won fields */}
                     {isActivityThreeWon && (
@@ -928,9 +1051,11 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   }`}>
                     {isActivityThreeWon && 'Won — capture final price and payment, then complete the lead.'}
                     {isActivityThreeLost && 'Lost — select a lost category and add remarks, then close the lead.'}
-                    {isActivityThreeNegotiation && 'Negotiation — stays here until a final outcome is decided.'}
+                    {isActivityThreeNegotiation && 'Negotiation — schedule a follow-up and return to Follow Up page.'}
                     {!isActivityThreeWon && !isActivityThreeLost && !isActivityThreeNegotiation && 'Select a status to continue.'}
                   </div>
+
+                  <ActivityHistory logs={lead?.activityLogs} activityIndex={2} />
                 </div>
               )}
 

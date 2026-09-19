@@ -254,7 +254,7 @@ const buildActivitySummary = ({ activityIndex, lead, values }) => {
       values?.connectionStatus || values?.callOutcome || values?.status ? `Status: ${values.connectionStatus || values.callOutcome || values.status}` : null,
       lead?.source ? `Source: ${lead.source}` : null,
       lead?.service ? `Service: ${lead.service}` : lead?.specialization ? `Service: ${lead.specialization}` : null,
-      values?.nextFollowUpDate || values?.followUpDate ? `Next follow-up: ${values.nextFollowUpDate || values.followUpDate}` : null,
+      values?.nextFollowUpDate || values?.followUpDate ? `Next follow-up: ${values.nextFollowUpDate || values.followUpDate}${values?.nextFollowUpTime ? ' ' + values.nextFollowUpTime : ''}` : null,
       values?.remark || values?.remarks || values?.note ? `Remarks: ${values.remark || values.remarks || values.note}` : null,
     ].filter(Boolean).join(' | ') || 'Lead activity recorded'
   }
@@ -403,9 +403,12 @@ const buildLocalLeadPatchForActivity = (lead, activityRow) => {
     lastActivityAtTs: touchedAt,
     lastContactedAtTs: touchedAt,
     activityLogs: [logEntry, ...(lead?.activityLogs || [])].slice(0, 25),
-    ...(values.nextFollowUpDate || values.followUpDate || values.callbackAt
-      ? { followUpDate: values.nextFollowUpDate || values.followUpDate || values.callbackAt }
-      : {}),
+    ...(() => {
+      const d = values.nextFollowUpDate || values.followUpDate || values.callbackAt
+      if (!d) return {}
+      const t = values.nextFollowUpTime || ''
+      return { followUpDate: t ? `${d}T${t}:00` : d }
+    })(),
   }
 }
 
