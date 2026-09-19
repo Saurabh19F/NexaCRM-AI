@@ -1722,7 +1722,7 @@ export default function KanbanPage() {
             onPersist={handlePersistActivity}
             initialData={getActivityState(activitiesLead.id).data}
             initialSaved={getActivityState(activitiesLead.id).saved}
-            initialActiveTab={activityTabByLeadId[activitiesLead.id] || 0}
+            initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? Math.max(0, getLeadCurrentStage(getActivityState(activitiesLead.id)))}
             onActiveTabChange={handleActivityTabChange}
           />
         )}

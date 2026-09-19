@@ -1982,7 +1982,7 @@ export default function LeadsPage() {
             onPersist={handlePersistActivity}
             initialData={getActivityModalState(activitiesLead.id).data}
             initialSaved={getActivityModalState(activitiesLead.id).saved}
-            initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? 0}
+            initialActiveTab={activityTabByLeadId[activitiesLead.id] ?? (() => { const s = getActivityModalState(activitiesLead.id).saved; let m = 0; s.forEach((v, i) => { if (v) m = i }); return m })()}
             onActiveTabChange={handleActivityTabChange}
           />
         )}
