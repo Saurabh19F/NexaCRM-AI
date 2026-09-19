@@ -290,7 +290,11 @@ export default function TaskFollowUpPage() {
   const [historyLead, setHistoryLead] = useState(null)
   const [historyLoadingLeadId, setHistoryLoadingLeadId] = useState(null)
   const [fullHistoryLeadIds, setFullHistoryLeadIds] = useState(() => new Set())
+  const [timelineEventsByLeadId, setTimelineEventsByLeadId] = useState({})
+  const [timelineMetaByLeadId, setTimelineMetaByLeadId] = useState({})
+  const [timelineLoadingLeadId, setTimelineLoadingLeadId] = useState(null)
   const historyRequestsRef = useRef(new Map())
+  const timelineRequestsRef = useRef(new Map())
 
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
@@ -386,7 +390,10 @@ export default function TaskFollowUpPage() {
     setLeadActivities({})
     setLeadStages({})
     setFullHistoryLeadIds(new Set())
+    setTimelineEventsByLeadId({})
+    setTimelineMetaByLeadId({})
     historyRequestsRef.current.clear()
+    timelineRequestsRef.current.clear()
     try {
       const [leadResponse, pendingTaskResponse] = await Promise.all([
         leadsAPI.getAll({ page: 0, size: 500, sort: 'createdAt,desc' }),
@@ -458,6 +465,59 @@ export default function TaskFollowUpPage() {
     historyRequestsRef.current.set(leadId, request)
     return request
   }, [fullHistoryLeadIds])
+
+  const loadLeadTimeline = useCallback(async (leadId, page = 0, options = {}) => {
+    if (!leadId) return null
+    const { append = page > 0, rebuildIfEmpty = page === 0 } = options
+    const requestKey = `${leadId}:${page}`
+    const existingRequest = timelineRequestsRef.current.get(requestKey)
+    if (existingRequest) return existingRequest
+
+    setTimelineLoadingLeadId(leadId)
+    const request = leadsAPI.getTimeline(leadId, { page, size: 20 })
+      .then(async (payload) => {
+        let response = payload || {}
+        if (rebuildIfEmpty && page === 0 && Number(response.total || 0) === 0) {
+          try {
+            await leadsAPI.rebuildTimeline(leadId)
+            response = await leadsAPI.getTimeline(leadId, { page: 0, size: 20 })
+          } catch {}
+        }
+
+        const rows = unwrapList(response)
+        setTimelineEventsByLeadId((prev) => ({
+          ...prev,
+          [leadId]: append ? [...(prev[leadId] || []), ...rows] : rows,
+        }))
+        setTimelineMetaByLeadId((prev) => ({
+          ...prev,
+          [leadId]: {
+            page: response.page ?? page,
+            size: response.size ?? 20,
+            total: response.total ?? rows.length,
+            totalPages: response.totalPages ?? 1,
+            last: response.last ?? true,
+            loaded: true,
+          },
+        }))
+        return response
+      })
+      .catch((err) => {
+        toast.error(err?.message || 'Unable to load timeline')
+        setTimelineMetaByLeadId((prev) => ({
+          ...prev,
+          [leadId]: { ...(prev[leadId] || {}), loaded: true, error: true },
+        }))
+        return null
+      })
+      .finally(() => {
+        timelineRequestsRef.current.delete(requestKey)
+        setTimelineLoadingLeadId((current) => (current === leadId ? null : current))
+      })
+
+    timelineRequestsRef.current.set(requestKey, request)
+    return request
+  }, [])
 
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
@@ -572,6 +632,9 @@ export default function TaskFollowUpPage() {
         const filtered = existing.filter((activity) => activity.id !== savedActivity.id)
         return { ...prev, [lead.id]: [savedActivity, ...filtered] }
       })
+      if (timelineMetaByLeadId[lead.id]?.loaded) {
+        loadLeadTimeline(lead.id, 0, { append: false, rebuildIfEmpty: false })
+      }
     }
   }
 
@@ -605,13 +668,16 @@ export default function TaskFollowUpPage() {
     : null
   const historyActivities = historyLeadData ? (leadActivities[historyLeadData.id] || []) : []
   const historyTasks = historyLeadData?.tasks || []
+  const timelineRows = historyLeadData ? (timelineEventsByLeadId[historyLeadData.id] || []) : []
+  const timelineMeta = historyLeadData ? (timelineMetaByLeadId[historyLeadData.id] || {}) : {}
+  const timelineIsLoading = Boolean(historyLeadData && timelineLoadingLeadId === historyLeadData.id)
   const historyStats = {
     totalTasks: historyTasks.length,
     doneTasks: historyTasks.filter(isCompletedTask).length,
     pendingTasks: historyTasks.filter((task) => !isCompletedTask(task)).length,
-    activities: historyActivities.length,
+    activities: timelineRows.filter((event) => String(event.eventType || '').toUpperCase() === 'ACTIVITY').length || historyActivities.length,
   }
-  const historyEvents = [
+  const fallbackHistoryEvents = [
     ...historyTasks.map((task) => {
       const completed = isCompletedTask(task)
       const timestamp = completed
@@ -645,11 +711,28 @@ export default function TaskFollowUpPage() {
       priority: 'DONE',
     })),
   ].sort((a, b) => (a.sortGroup - b.sortGroup) || (a.sortTime - b.sortTime))
+  const timelineHistoryEvents = timelineRows.map((event, index) => {
+    const isTask = String(event.eventType || event.sourceType || '').toUpperCase() === 'TASK'
+    const status = event.status || (isTask ? 'PENDING' : 'Activity')
+    const completed = !isTask || status.toUpperCase() === 'COMPLETED'
+    return {
+      id: `timeline-${event.id || event.sourceId || index}`,
+      kind: isTask ? 'task' : 'activity',
+      title: event.title || (isTask ? 'Follow-up task' : 'Lead activity'),
+      status,
+      description: event.description || '',
+      owner: event.owner || historyLeadData?.assignedToName || 'Unassigned',
+      timestamp: event.eventAt,
+      completed,
+      priority: event.metadata?.priority || (isTask ? 'MEDIUM' : 'DONE'),
+    }
+  })
+  const historyEvents = timelineHistoryEvents.length ? timelineHistoryEvents : fallbackHistoryEvents
 
   const openHistoryLead = (lead) => {
     setHistoryLead(lead)
     if (lead.leadExists !== false) {
-      ensureLeadActivities(lead.id)
+      loadLeadTimeline(lead.id, 0)
     }
   }
 
@@ -1026,7 +1109,7 @@ export default function TaskFollowUpPage() {
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Timeline</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">Tasks and saved lead activities, newest first.</p>
                   </div>
-                  {historyLoadingLeadId === historyLeadData.id && (
+                  {timelineIsLoading && (
                     <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
                   )}
                 </div>
@@ -1076,6 +1159,19 @@ export default function TaskFollowUpPage() {
                         </div>
                       )
                     })}
+                    {timelineRows.length > 0 && !timelineMeta.last && (
+                      <div className="pt-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => loadLeadTimeline(historyLeadData.id, Number(timelineMeta.page || 0) + 1, { append: true, rebuildIfEmpty: false })}
+                          disabled={timelineIsLoading}
+                          className="btn-secondary"
+                        >
+                          {timelineIsLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
+                          Load older history
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

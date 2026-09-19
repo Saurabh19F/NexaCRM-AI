@@ -6,6 +6,7 @@ import com.nexacrm.model.Deal;
 import com.nexacrm.model.LeadActivity;
 import com.nexacrm.model.Invoice;
 import com.nexacrm.model.Lead;
+import com.nexacrm.model.LeadTimelineEvent;
 import com.nexacrm.model.Notification;
 import com.nexacrm.model.RefreshToken;
 import com.nexacrm.model.Task;
@@ -50,6 +51,26 @@ public class MongoIndexInitializer {
                 .on("saved_at", Sort.Direction.DESC)
                 .background()
                 .named("lead_activity_bulk_stage_preview_idx")
+        );
+
+        ensureIndex(LeadTimelineEvent.class,
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("lead_id", Sort.Direction.ASC)
+                .on("deleted", Sort.Direction.ASC)
+                .on("event_at", Sort.Direction.DESC)
+                .background()
+                .named("lead_timeline_feed_idx")
+        );
+
+        ensureIndex(LeadTimelineEvent.class,
+            new Index()
+                .on("tenant_id", Sort.Direction.ASC)
+                .on("source_type", Sort.Direction.ASC)
+                .on("source_id", Sort.Direction.ASC)
+                .unique()
+                .background()
+                .named("lead_timeline_source_uidx")
         );
 
         ensureIndex(Invoice.class,

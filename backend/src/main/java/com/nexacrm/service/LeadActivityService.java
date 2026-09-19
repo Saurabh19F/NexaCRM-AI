@@ -45,6 +45,7 @@ public class LeadActivityService {
     private final LeadRepository leadRepository;
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
+    private final LeadTimelineService leadTimelineService;
 
     @Transactional(readOnly = true)
     public List<LeadActivityDTO> listByLeadId(String leadId) {
@@ -245,6 +246,7 @@ public class LeadActivityService {
         }
         lead.setActivityLogs(activityLogs);
         leadRepository.save(lead);
+        leadTimelineService.syncActivity(saved);
 
         return toDTO(saved);
     }

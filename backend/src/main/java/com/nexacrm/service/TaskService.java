@@ -41,6 +41,7 @@ public class TaskService {
     private final LeadRepository leadRepository;
     private final DealRepository dealRepository;
     private final NotificationService notificationService;
+    private final LeadTimelineService leadTimelineService;
 
     private Long tenantId() {
         return TenantContext.currentTenantId();
@@ -126,6 +127,7 @@ public class TaskService {
         validateReferences(task);
         Task saved = taskRepository.save(task);
         syncLeadFollowUp(saved, false);
+        leadTimelineService.syncTask(saved);
         notifyAssigned(saved, "Task assigned", "A new task has been assigned to you: " + saved.getTitle());
         maybeNotifyDueSoon(saved);
         return toDTO(saved);
@@ -151,6 +153,7 @@ public class TaskService {
         validateReferences(task);
         Task saved = taskRepository.save(task);
         syncLeadFollowUp(saved, false);
+        leadTimelineService.syncTask(saved);
 
         if (!Objects.equals(previousAssignee, saved.getAssignedToId())) {
             notifyAssigned(saved, "Task reassigned", "You have been assigned a task: " + saved.getTitle());
@@ -167,6 +170,7 @@ public class TaskService {
         task.setCompletedAt(LocalDateTime.now());
         Task saved = taskRepository.save(task);
         syncLeadFollowUp(saved, true);
+        leadTimelineService.syncTask(saved);
 
         notifyAssigned(saved, "Task completed", "Task completed: " + saved.getTitle());
         return toDTO(saved);
@@ -178,6 +182,7 @@ public class TaskService {
         ensureVisibility(task);
         task.setDeleted(true);
         taskRepository.save(task);
+        leadTimelineService.markTaskDeleted(task);
     }
 
     @Transactional(readOnly = true)

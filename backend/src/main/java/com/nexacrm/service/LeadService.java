@@ -533,6 +533,7 @@ public class LeadService {
         Query leadScoped = new Query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds));
         mongoTemplate.remove(leadScoped, "communications");
         mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "lead_activities");
+        mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "lead_timeline_events");
         mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "lead_call_automations");
         mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "ai_calls");
         mongoTemplate.remove(Query.query(Criteria.where("tenant_id").is(tenantId).and("lead_id").in(leadIds)), "follow_ups");

@@ -206,6 +206,8 @@ export const leadsAPI = {
   getActivities:(id)   => api.get(`/leads/${id}/activities`),
   getActivitiesBulk:(leadIds) => api.post('/leads/activities/bulk', { leadIds }),
   getActivityStages:(leadIds) => api.post('/leads/activities/stages', { leadIds }),
+  getTimeline:(id, params) => api.get(`/leads/${id}/timeline`, { params }),
+  rebuildTimeline:(id) => api.post(`/leads/${id}/timeline/rebuild`),
   addActivity: (id, d) => api.post(`/leads/${id}/activities`, d),
 }
 
