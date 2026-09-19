@@ -118,15 +118,23 @@ const humanizeLabel = (value) => {
 
 const ACTIVITY_TITLE_BY_INDEX = ['Welcome Call', 'Follow Up for Meeting', 'Meeting Outcome']
 
+const ACTIVITY_TITLE_KEYWORDS = [
+  ['welcome', 'call', 'activity 01', 'act01'],
+  ['follow up', 'follow-up', 'followup', 'activity 02', 'act02'],
+  ['meeting outcome', 'outcome', 'activity 03', 'act03'],
+]
+
 const parseActivityLogs = (logs, activityIndex) => {
   if (!Array.isArray(logs) || logs.length === 0) return []
-  const title = ACTIVITY_TITLE_BY_INDEX[activityIndex]
+  const keywords = ACTIVITY_TITLE_KEYWORDS[activityIndex] || []
   return logs
     .map(entry => {
       const parts = String(entry).split(' | ')
       if (parts.length < 2) return null
       const [timestamp, actTitle, ...rest] = parts
-      if (actTitle !== title) return null
+      const lower = (actTitle || '').toLowerCase()
+      const matches = keywords.some(kw => lower.includes(kw))
+      if (!matches) return null
       return { timestamp, title: actTitle, summary: rest.join(' · ') || 'Activity recorded' }
     })
     .filter(Boolean)
@@ -135,7 +143,6 @@ const parseActivityLogs = (logs, activityIndex) => {
 function ActivityHistory({ logs, activityIndex }) {
   const [open, setOpen] = useState(false)
   const entries = parseActivityLogs(logs, activityIndex)
-  if (entries.length === 0) return null
 
   return (
     <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60">
@@ -152,6 +159,9 @@ function ActivityHistory({ logs, activityIndex }) {
       </button>
       {open && (
         <div className="px-4 pb-3 space-y-2">
+          {entries.length === 0 && (
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-2">No history yet</p>
+          )}
           {entries.map((entry, i) => (
             <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2">
               <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
