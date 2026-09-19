@@ -217,6 +217,14 @@ public class LeadTimelineService {
         metadata.put("activityId", nonBlank(activity.getActivityId(), ""));
         metadata.put("activityLabel", nonBlank(activity.getActivityLabel(), ""));
         metadata.put("activityTitle", nonBlank(activity.getActivityTitle(), ""));
+        Map<String, Object> values = activity.getValues();
+        if (values != null && Boolean.parseBoolean(String.valueOf(values.getOrDefault("recording", "false")))) {
+            metadata.put("recording", true);
+            metadata.put("recordingActivityId", nonBlank(activity.getId(), ""));
+            metadata.put("recordingOriginalName", nonBlank(stringValue(values.get("recordingOriginalName")), "Call recording"));
+            metadata.put("recordingContentType", nonBlank(stringValue(values.get("recordingContentType")), "audio/mpeg"));
+            metadata.put("recordingSize", values.get("recordingSize"));
+        }
         return metadata;
     }
 
@@ -272,5 +280,9 @@ public class LeadTimelineService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isBlank();
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 }

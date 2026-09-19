@@ -10,14 +10,23 @@ import com.nexacrm.repository.UserRepository;
 import com.nexacrm.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +39,7 @@ import java.util.Optional;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -46,6 +56,11 @@ public class LeadActivityService {
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
     private final LeadTimelineService leadTimelineService;
+
+    @Value("${nexacrm.uploads.dir:}")
+    private String configuredUploadsDir;
+
+    private static final long MAX_RECORDING_BYTES = 50L * 1024L * 1024L;
 
     @Transactional(readOnly = true)
     public List<LeadActivityDTO> listByLeadId(String leadId) {
@@ -250,6 +265,107 @@ public class LeadActivityService {
 
         return toDTO(saved);
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = "leads-list", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
+    })
+    public LeadActivityDTO uploadRecording(String leadId, MultipartFile file) {
+        Lead lead = ensureLeadExists(leadId);
+        ensureLeadVisible(lead);
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Recording file is required");
+        }
+        if (file.getSize() > MAX_RECORDING_BYTES) {
+            throw new IllegalArgumentException("Recording must be 50 MB or smaller");
+        }
+
+        String originalName = sanitizeFilename(file.getOriginalFilename());
+        String extension = recordingExtension(originalName, file.getContentType());
+        String contentType = recordingContentType(file.getContentType(), extension);
+        String storedName = UUID.randomUUID() + extension;
+        Path targetDir = recordingsDir().resolve(String.valueOf(tenantId())).resolve(leadId);
+        Path target = targetDir.resolve(storedName).normalize();
+
+        try {
+            Files.createDirectories(targetDir);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Unable to store recording upload", ex);
+        }
+
+        LocalDateTime savedAt = LocalDateTime.now();
+        String assignedTo = currentUserName();
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("recording", true);
+        values.put("recordingFileName", storedName);
+        values.put("recordingOriginalName", originalName);
+        values.put("recordingContentType", contentType);
+        values.put("recordingSize", file.getSize());
+        values.put("recordingActivityId", "");
+        values.put("uploadedAt", savedAt.toString());
+
+        LeadActivity activity = LeadActivity.builder()
+            .leadId(leadId)
+            .activityIndex(0)
+            .activityId("call-recording")
+            .activityLabel("Call Recording")
+            .activityTitle("Call recording uploaded")
+            .assignedTo(assignedTo != null ? assignedTo : "Sales Team")
+            .summary("Call recording uploaded: " + originalName)
+            .values(values)
+            .savedAt(savedAt)
+            .build();
+        activity.setTenantId(tenantId());
+
+        LeadActivity saved = leadActivityRepository.save(activity);
+        values.put("recordingActivityId", saved.getId());
+        saved.setValues(values);
+        saved = leadActivityRepository.save(saved);
+
+        lead.setLastContactedAt(savedAt);
+        List<String> activityLogs = lead.getActivityLogs() != null ? new ArrayList<>(lead.getActivityLogs()) : new ArrayList<>();
+        activityLogs.add(0, savedAt + " | Call recording | " + originalName);
+        if (activityLogs.size() > 25) {
+            activityLogs = activityLogs.subList(0, 25);
+        }
+        lead.setActivityLogs(activityLogs);
+        leadRepository.save(lead);
+        leadTimelineService.syncActivity(saved);
+
+        return toDTO(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public RecordingResource loadRecording(String activityId) {
+        LeadActivity activity = leadActivityRepository.findByIdAndTenantIdAndDeletedFalse(activityId, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Recording not found: " + activityId));
+        Lead lead = ensureLeadExists(activity.getLeadId());
+        ensureLeadVisible(lead);
+        Map<String, Object> values = activity.getValues() != null ? activity.getValues() : Map.of();
+        String storedName = stringValue(values.get("recordingFileName"));
+        if (storedName.isBlank()) {
+            throw new ResourceNotFoundException("Recording not found: " + activityId);
+        }
+
+        Path file = recordingsDir().resolve(String.valueOf(tenantId())).resolve(activity.getLeadId()).resolve(storedName).normalize();
+        if (!file.startsWith(recordingsDir().normalize())) {
+            throw new ResourceNotFoundException("Recording not found: " + activityId);
+        }
+        try {
+            Resource resource = new UrlResource(file.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new ResourceNotFoundException("Recording not found: " + activityId);
+            }
+            String filename = firstNonBlank(stringValue(values.get("recordingOriginalName")), storedName);
+            String contentType = firstNonBlank(stringValue(values.get("recordingContentType")), "audio/mpeg");
+            return new RecordingResource(resource, filename, contentType);
+        } catch (MalformedURLException ex) {
+            throw new ResourceNotFoundException("Recording not found: " + activityId);
+        }
+    }
+
+    public record RecordingResource(Resource resource, String filename, String contentType) {}
 
     private void applyLeadPipelineStatusFromActivity(Lead lead, LeadActivityDTO dto, Map<String, Object> values, LocalDateTime savedAt) {
         if (lead == null || dto == null || dto.getActivityIndex() == null) {
@@ -696,6 +812,59 @@ public class LeadActivityService {
             }
         }
         return null;
+    }
+
+    private Path recordingsDir() {
+        String configured = configuredUploadsDir != null ? configuredUploadsDir.trim() : "";
+        Path base;
+        if (!configured.isBlank()) {
+            base = Path.of(configured);
+        } else if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+            base = Path.of("uploads");
+        } else {
+            base = Path.of("/home/nexacrm/uploads");
+        }
+        return base.resolve("lead-recordings").toAbsolutePath().normalize();
+    }
+
+    private String sanitizeFilename(String filename) {
+        String cleaned = filename == null ? "call-recording" : filename.replace('\\', '/');
+        int slash = cleaned.lastIndexOf('/');
+        if (slash >= 0) cleaned = cleaned.substring(slash + 1);
+        cleaned = cleaned.replaceAll("[^A-Za-z0-9._ -]", "_").trim();
+        return cleaned.isBlank() ? "call-recording" : cleaned;
+    }
+
+    private String recordingExtension(String filename, String contentType) {
+        String lower = filename != null ? filename.toLowerCase(Locale.ROOT) : "";
+        for (String extension : List.of(".mp3", ".wav", ".m4a", ".aac", ".ogg", ".webm", ".amr", ".flac")) {
+            if (lower.endsWith(extension)) return extension;
+        }
+        String type = contentType != null ? contentType.toLowerCase(Locale.ROOT) : "";
+        if (type.contains("wav")) return ".wav";
+        if (type.contains("mp4") || type.contains("m4a")) return ".m4a";
+        if (type.contains("aac")) return ".aac";
+        if (type.contains("ogg")) return ".ogg";
+        if (type.contains("webm")) return ".webm";
+        if (type.contains("amr")) return ".amr";
+        if (type.contains("flac")) return ".flac";
+        if (type.startsWith("audio/") || type.equals("application/octet-stream")) return ".mp3";
+        throw new IllegalArgumentException("Please upload an audio recording file");
+    }
+
+    private String recordingContentType(String contentType, String extension) {
+        String type = contentType != null ? contentType.trim().toLowerCase(Locale.ROOT) : "";
+        if (type.startsWith("audio/")) return type;
+        return switch (extension) {
+            case ".wav" -> "audio/wav";
+            case ".m4a" -> "audio/mp4";
+            case ".aac" -> "audio/aac";
+            case ".ogg" -> "audio/ogg";
+            case ".webm" -> "audio/webm";
+            case ".amr" -> "audio/amr";
+            case ".flac" -> "audio/flac";
+            default -> "audio/mpeg";
+        };
     }
 
     private String stringValue(Object value) {

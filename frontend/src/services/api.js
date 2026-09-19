@@ -208,6 +208,12 @@ export const leadsAPI = {
   getActivityStages:(leadIds) => api.post('/leads/activities/stages', { leadIds }),
   getTimeline:(id, params) => api.get(`/leads/${id}/timeline`, { params }),
   rebuildTimeline:(id) => api.post(`/leads/${id}/timeline/rebuild`),
+  uploadRecording:(id, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post(`/leads/${id}/recordings`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  downloadRecording:(activityId) => api.get(`/leads/recordings/${activityId}`, { responseType: 'blob' }),
   addActivity: (id, d) => api.post(`/leads/${id}/activities`, d),
 }
 

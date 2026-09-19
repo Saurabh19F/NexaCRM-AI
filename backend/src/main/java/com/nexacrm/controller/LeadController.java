@@ -19,7 +19,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.Resource;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -292,6 +295,26 @@ public class LeadController {
             @PathVariable String id,
             @Valid @RequestBody LeadActivityDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(leadActivityService.create(id, dto));
+    }
+
+    @PostMapping(value = "/{id}/recordings", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('leads.update')")
+    @Operation(summary = "Upload lead call recording")
+    public ResponseEntity<LeadActivityDTO> uploadCallRecording(
+            @PathVariable String id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(leadActivityService.uploadRecording(id, file));
+    }
+
+    @GetMapping("/recordings/{activityId}")
+    @PreAuthorize("hasAuthority('leads.read') or hasAuthority('tasks.read')")
+    @Operation(summary = "Download lead call recording")
+    public ResponseEntity<Resource> downloadCallRecording(@PathVariable String activityId) {
+        LeadActivityService.RecordingResource recording = leadActivityService.loadRecording(activityId);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(recording.contentType()))
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + recording.filename().replace("\"", "") + "\"")
+            .body(recording.resource());
     }
 
     @PostMapping("/{id}/convert")

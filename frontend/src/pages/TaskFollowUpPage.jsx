@@ -14,6 +14,8 @@ import {
   Eye,
   History,
   FileText,
+  Upload,
+  PlayCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
@@ -120,6 +122,7 @@ function parseLeadActivities(activities) {
   let currentStage = -1
 
   for (const act of activities) {
+    if (act?.activityId === 'call-recording' || act?.values?.recording === true) continue
     const idx = getActivityIndex(act)
 
     if (idx >= 0) {
@@ -357,8 +360,11 @@ export default function TaskFollowUpPage() {
   const [timelineEventsByLeadId, setTimelineEventsByLeadId] = useState({})
   const [timelineMetaByLeadId, setTimelineMetaByLeadId] = useState({})
   const [timelineLoadingLeadId, setTimelineLoadingLeadId] = useState(null)
+  const [recordingUploadingLeadId, setRecordingUploadingLeadId] = useState(null)
+  const [recordingPlayingActivityId, setRecordingPlayingActivityId] = useState(null)
   const historyRequestsRef = useRef(new Map())
   const timelineRequestsRef = useRef(new Map())
+  const recordingInputRef = useRef(null)
 
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
@@ -719,6 +725,50 @@ export default function TaskFollowUpPage() {
     }
   }
 
+  const handleRecordingFileChange = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    const leadId = historyLeadData?.id
+    if (!file || !leadId) return
+    if (!String(file.type || '').startsWith('audio/') && !/\.(mp3|wav|m4a|aac|ogg|webm|amr|flac)$/i.test(file.name)) {
+      toast.error('Please choose an audio recording file.')
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('Recording must be 50 MB or smaller.')
+      return
+    }
+
+    setRecordingUploadingLeadId(leadId)
+    try {
+      const saved = await leadsAPI.uploadRecording(leadId, file)
+      if (saved?.id) {
+        setLeadActivities((prev) => ({ ...prev, [leadId]: [saved, ...(prev[leadId] || [])] }))
+      }
+      await loadLeadTimeline(leadId, 0, { append: false, rebuildIfEmpty: false })
+      toast.success('Call recording uploaded.')
+    } catch (err) {
+      toast.error(err?.message || 'Unable to upload recording')
+    } finally {
+      setRecordingUploadingLeadId(null)
+    }
+  }
+
+  const playRecording = async (activityId) => {
+    if (!activityId) return
+    setRecordingPlayingActivityId(activityId)
+    try {
+      const blob = await leadsAPI.downloadRecording(activityId)
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (err) {
+      toast.error(err?.message || 'Unable to open recording')
+    } finally {
+      setRecordingPlayingActivityId(null)
+    }
+  }
+
   const displayLeads = stageLeads[activeTab] || []
   const totalPages = Math.max(1, Math.ceil(displayLeads.length / LEADS_PER_PAGE))
   const safeCurrentPage = Math.min(currentPage, totalPages)
@@ -790,6 +840,8 @@ export default function TaskFollowUpPage() {
       timestamp: event.eventAt,
       completed,
       priority: event.metadata?.priority || (isTask ? 'MEDIUM' : 'DONE'),
+      recordingActivityId: event.metadata?.recording ? (event.metadata?.recordingActivityId || event.sourceId) : null,
+      recordingName: event.metadata?.recordingOriginalName || '',
     }
   })
   const historyEvents = timelineHistoryEvents.length ? timelineHistoryEvents : fallbackHistoryEvents
@@ -1174,9 +1226,27 @@ export default function TaskFollowUpPage() {
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Timeline</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">Tasks and saved lead activities, newest first.</p>
                   </div>
-                  {timelineIsLoading && (
-                    <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
-                  )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={recordingInputRef}
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm,.amr,.flac"
+                      className="hidden"
+                      onChange={handleRecordingFileChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => recordingInputRef.current?.click()}
+                      disabled={recordingUploadingLeadId === historyLeadData.id}
+                      className="btn-secondary"
+                    >
+                      {recordingUploadingLeadId === historyLeadData.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      Upload recording
+                    </button>
+                    {timelineIsLoading && (
+                      <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
+                    )}
+                  </div>
                 </div>
 
                 {historyEvents.length === 0 ? (
@@ -1211,6 +1281,19 @@ export default function TaskFollowUpPage() {
                             </div>
                             {event.description && (
                               <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{event.description}</p>
+                            )}
+                            {event.recordingActivityId && (
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => playRecording(event.recordingActivityId)}
+                                  disabled={recordingPlayingActivityId === event.recordingActivityId}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-60 dark:border-brand-800/60 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-900/40"
+                                >
+                                  {recordingPlayingActivityId === event.recordingActivityId ? <RefreshCw className="h-3 w-3 animate-spin" /> : <PlayCircle className="h-3 w-3" />}
+                                  {event.recordingName ? `Play ${event.recordingName}` : 'Play recording'}
+                                </button>
+                              </div>
                             )}
                             <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
                               <span className="inline-flex items-center gap-1">
