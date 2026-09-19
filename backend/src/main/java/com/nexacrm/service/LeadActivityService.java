@@ -361,10 +361,45 @@ public class LeadActivityService {
 
     private String buildSummary(Map<String, Object> values) {
         if (values == null || values.isEmpty()) return "No extra details";
-        return values.entrySet().stream()
-            .filter(e -> e.getValue() != null && !stringValue(e.getValue()).isBlank())
-            .map(e -> e.getKey() + ": " + stringValue(e.getValue()))
-            .collect(Collectors.joining(" | "));
+        Set<String> seenLabels = new LinkedHashSet<>();
+        Set<String> seenValues = new LinkedHashSet<>();
+        List<String> parts = new ArrayList<>();
+
+        values.forEach((key, value) -> {
+            String text = stringValue(value);
+            if (key == null || text.isBlank()) return;
+            String label = summaryLabel(key);
+            String normalizedValue = text.toLowerCase(Locale.ROOT);
+            if (seenLabels.contains(label)) return;
+            if (seenValues.contains(normalizedValue) && !isImportantDuplicateLabel(label)) return;
+            seenLabels.add(label);
+            seenValues.add(normalizedValue);
+            parts.add(label + ": " + text);
+        });
+
+        return parts.isEmpty() ? "No extra details" : String.join(" | ", parts);
+    }
+
+    private String summaryLabel(String key) {
+        return switch (key) {
+            case "status", "connectionStatus", "callOutcome", "outcome", "remarkStatus" -> "Status";
+            case "remark", "remarks", "note", "remarkWon", "remarkLost" -> "Remarks";
+            case "lostCategory" -> "Lost category";
+            case "nextFollowUpDate", "followUpDate" -> "Next follow-up";
+            case "meetingPriceFinal" -> "Final price";
+            case "paymentReceived" -> "Payment received";
+            default -> humanizeKey(key);
+        };
+    }
+
+    private boolean isImportantDuplicateLabel(String label) {
+        return Set.of("Lost category", "Next follow-up", "Final price", "Payment received").contains(label);
+    }
+
+    private String humanizeKey(String key) {
+        String spaced = key.replaceAll("([a-z])([A-Z])", "$1 $2").replace('_', ' ').replace('-', ' ').trim();
+        if (spaced.isBlank()) return key;
+        return spaced.substring(0, 1).toUpperCase(Locale.ROOT) + spaced.substring(1);
     }
 
     private void applyActivityDefaults(Lead lead, LeadActivityDTO dto, Map<String, Object> values, LocalDateTime savedAt, String assignedTo) {

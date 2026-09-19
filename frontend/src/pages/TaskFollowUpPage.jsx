@@ -217,7 +217,7 @@ const isCompletedTask = (task) => {
 
 const timestampMs = (value, fallback = Number.MAX_SAFE_INTEGER) => {
   if (!value) return fallback
-  const time = new Date(value).getTime()
+  const time = parseServerDateTime(value).getTime()
   return Number.isNaN(time) ? fallback : time
 }
 
@@ -233,7 +233,7 @@ const sortTasksByUrgency = (rows = []) => [...rows].sort((a, b) => {
 
 const formatDateTime = (value) => {
   if (!value) return '—'
-  const date = new Date(value)
+  const date = parseServerDateTime(value)
   if (Number.isNaN(date.getTime())) return '—'
   return date.toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
@@ -245,16 +245,80 @@ const formatDateTime = (value) => {
   })
 }
 
+const parseServerDateTime = (value) => {
+  if (!value) return new Date(NaN)
+  if (value instanceof Date) return value
+  const raw = String(value).trim()
+  if (!raw) return new Date(NaN)
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+  const looksLikeServerLocalDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)
+  return new Date(looksLikeServerLocalDateTime && !hasExplicitZone ? `${raw}Z` : raw)
+}
+
+const DESCRIPTION_LABELS = {
+  status: 'Status',
+  connectionStatus: 'Status',
+  callOutcome: 'Status',
+  outcome: 'Status',
+  remarkStatus: 'Status',
+  remark: 'Remarks',
+  remarks: 'Remarks',
+  note: 'Remarks',
+  remarkWon: 'Remarks',
+  remarkLost: 'Remarks',
+  lostCategory: 'Lost category',
+  nextFollowUpDate: 'Next follow-up',
+  followUpDate: 'Next follow-up',
+  meetingPriceFinal: 'Final price',
+  paymentReceived: 'Payment received',
+}
+
+const IMPORTANT_DUPLICATE_LABELS = new Set(['Lost category', 'Next follow-up', 'Final price', 'Payment received'])
+
+const cleanTimelineDescription = (value) => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const parts = raw.split('|').map((part) => part.trim()).filter(Boolean)
+  const cleaned = []
+  const seenLabels = new Set()
+  const seenValues = new Set()
+
+  parts.forEach((part) => {
+    const [rawKey, ...rest] = part.split(':')
+    if (!rest.length) {
+      const normalizedText = part.toLowerCase()
+      if (!seenValues.has(normalizedText)) {
+        seenValues.add(normalizedText)
+        cleaned.push(part)
+      }
+      return
+    }
+
+    const key = rawKey.trim()
+    const valueText = rest.join(':').trim()
+    if (!valueText) return
+    const label = DESCRIPTION_LABELS[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase())
+    const normalizedValue = valueText.toLowerCase()
+    if (seenLabels.has(label)) return
+    if (seenValues.has(normalizedValue) && !IMPORTANT_DUPLICATE_LABELS.has(label)) return
+    seenLabels.add(label)
+    seenValues.add(normalizedValue)
+    cleaned.push(`${label}: ${valueText}`)
+  })
+
+  return cleaned.join(' | ')
+}
+
 const taskStatusLabel = (task) => String(task?.status || 'PENDING').replace(/_/g, ' ')
 
 const activityNote = (activity) => {
-  if (activity?.summary) return activity.summary
+  if (activity?.summary) return cleanTimelineDescription(activity.summary)
   const values = activity?.values || {}
-  return Object.entries(values)
+  return cleanTimelineDescription(Object.entries(values)
     .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     .slice(0, 5)
     .map(([key, value]) => `${key}: ${value}`)
-    .join(' | ') || 'Activity saved'
+    .join(' | ')) || 'Activity saved'
 }
 
 function StageIcon({ currentStage }) {
@@ -601,7 +665,7 @@ export default function TaskFollowUpPage() {
 
   const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
     const normalizedStatus = normalizeOutcome(values?.callOutcome || values?.connectionStatus || values?.status)
-    const summary = activityIndex === 0
+    const rawSummary = activityIndex === 0
       ? [
           normalizedStatus ? `Status: ${normalizedStatus}` : null,
           lead?.source ? `Source: ${lead.source}` : null,
@@ -615,6 +679,7 @@ export default function TaskFollowUpPage() {
           .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
           .map(([k, v]) => `${k}: ${v}`)
           .join(' | ') || 'No extra details'
+    const summary = cleanTimelineDescription(rawSummary) || 'Lead activity recorded'
 
     const payload = {
       activityIndex,
@@ -720,7 +785,7 @@ export default function TaskFollowUpPage() {
       kind: isTask ? 'task' : 'activity',
       title: event.title || (isTask ? 'Follow-up task' : 'Lead activity'),
       status,
-      description: event.description || '',
+      description: cleanTimelineDescription(event.description || ''),
       owner: event.owner || historyLeadData?.assignedToName || 'Unassigned',
       timestamp: event.eventAt,
       completed,
