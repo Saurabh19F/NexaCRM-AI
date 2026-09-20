@@ -66,6 +66,20 @@ const pickFields = (row, fields) => fields.reduce((acc, field) => {
   return acc
 }, {})
 
+const runWithConcurrency = async (items, limit, worker) => {
+  const results = new Array(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(1, limit), items.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await worker(items[currentIndex], currentIndex)
+    }
+  }))
+  return results
+}
+
 const TABS = [
   { key: 'welcome_call', label: 'Welcome Call', stageIdx: 0 },
   { key: 'followup_meeting', label: 'Follow-up Meeting', stageIdx: 1 },
@@ -813,9 +827,7 @@ export default function TaskFollowUpPage() {
       const activityCache = {}
       const timelineCache = {}
       const timelineMeta = {}
-      const records = []
-
-      for (const lead of targets) {
+      const records = await runWithConcurrency(targets, 8, async (lead) => {
         const leadId = lead.id
         const [freshLeadResult, activitiesResult, tasksResult, timelineResult] = await Promise.allSettled([
           leadsAPI.getById(leadId),
@@ -839,13 +851,13 @@ export default function TaskFollowUpPage() {
           last: true,
           loaded: true,
         }
-        records.push({
+        return {
           lead: fullLead,
           tasks: leadTasks,
           activities,
           timeline,
-        })
-      }
+        }
+      })
 
       setLeadActivities((prev) => ({ ...prev, ...activityCache }))
       setFullHistoryLeadIds((prev) => {
