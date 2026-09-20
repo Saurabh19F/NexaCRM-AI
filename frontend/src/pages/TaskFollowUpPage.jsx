@@ -1178,7 +1178,7 @@ export default function TaskFollowUpPage() {
           <button
             type="button"
             onClick={handleExportBackup}
-            disabled={loading || backupExporting || backupImporting}
+            disabled={backupExporting || backupImporting}
             className="btn-secondary"
           >
             {backupExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -1187,7 +1187,7 @@ export default function TaskFollowUpPage() {
           <button
             type="button"
             onClick={() => backupImportInputRef.current?.click()}
-            disabled={loading || backupExporting || backupImporting}
+            disabled={backupExporting || backupImporting}
             className="btn-secondary"
           >
             {backupImporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
