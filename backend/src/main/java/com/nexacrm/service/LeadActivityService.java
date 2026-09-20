@@ -270,6 +270,43 @@ public class LeadActivityService {
         @CacheEvict(value = "leads-list", allEntries = true),
         @CacheEvict(value = "pipeline-board", allEntries = true)
     })
+    public LeadActivityDTO update(String leadId, String activityId, LeadActivityDTO dto) {
+        Lead lead = ensureLeadExists(leadId);
+        ensureLeadVisible(lead);
+        LeadActivity activity = leadActivityRepository.findByIdAndTenantIdAndDeletedFalse(activityId, tenantId())
+            .orElseThrow(() -> new ResourceNotFoundException("Lead activity not found: " + activityId));
+        if (!leadId.equals(activity.getLeadId())) {
+            throw new ResourceNotFoundException("Lead activity not found: " + activityId);
+        }
+
+        LocalDateTime savedAt = dto.getSavedAt() != null ? dto.getSavedAt() : activity.getSavedAt();
+        Map<String, Object> values = dto.getValues() != null ? new LinkedHashMap<>(dto.getValues()) : new LinkedHashMap<>();
+        String assignedTo = resolveAssignedTo(lead, dto, values);
+        applyActivityDefaults(lead, dto, values, savedAt, assignedTo);
+        applyLeadPipelineStatusFromActivity(lead, dto, values, savedAt);
+        String summary = firstNonBlank(dto.getSummary(), buildSummary(values));
+
+        activity.setActivityIndex(dto.getActivityIndex());
+        activity.setActivityId(dto.getActivityId());
+        activity.setActivityLabel(dto.getActivityLabel());
+        activity.setActivityTitle(dto.getActivityTitle());
+        activity.setAssignedTo(assignedTo);
+        activity.setSummary(summary);
+        activity.setValues(values);
+        activity.setSavedAt(savedAt);
+
+        LeadActivity saved = leadActivityRepository.save(activity);
+        lead.setLastContactedAt(savedAt);
+        leadRepository.save(lead);
+        leadTimelineService.syncActivity(saved);
+
+        return toDTO(saved);
+    }
+
+    @Caching(evict = {
+        @CacheEvict(value = "leads-list", allEntries = true),
+        @CacheEvict(value = "pipeline-board", allEntries = true)
+    })
     public LeadActivityDTO uploadRecording(String leadId, MultipartFile file) {
         Lead lead = ensureLeadExists(leadId);
         ensureLeadVisible(lead);

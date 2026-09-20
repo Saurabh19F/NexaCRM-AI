@@ -297,6 +297,16 @@ public class LeadController {
         return ResponseEntity.status(HttpStatus.CREATED).body(leadActivityService.create(id, dto));
     }
 
+    @PutMapping("/{id}/activities/{activityId}")
+    @PreAuthorize("hasAuthority('leads.update')")
+    @Operation(summary = "Update lead activity")
+    public ResponseEntity<LeadActivityDTO> updateLeadActivity(
+            @PathVariable String id,
+            @PathVariable String activityId,
+            @Valid @RequestBody LeadActivityDTO dto) {
+        return ResponseEntity.ok(leadActivityService.update(id, activityId, dto));
+    }
+
     @PostMapping(value = "/{id}/recordings", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('leads.update')")
     @Operation(summary = "Upload lead call recording")

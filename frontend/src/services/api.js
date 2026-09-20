@@ -215,6 +215,7 @@ export const leadsAPI = {
   },
   downloadRecording:(activityId) => api.get(`/leads/recordings/${activityId}`, { responseType: 'blob' }),
   addActivity: (id, d) => api.post(`/leads/${id}/activities`, d),
+  updateActivity: (id, activityId, d) => api.put(`/leads/${id}/activities/${activityId}`, d),
 }
 
 // ──────────────────────────────────────────

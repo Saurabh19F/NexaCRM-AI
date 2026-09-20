@@ -15,6 +15,7 @@ import {
   History,
   FileText,
   Upload,
+  Download,
   PlayCircle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -29,6 +30,42 @@ const unwrapList = (payload) => {
   return []
 }
 
+const readJsonFile = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      resolve(JSON.parse(String(reader.result || '{}')))
+    } catch {
+      reject(new Error('Please choose a valid Task Follow-up JSON export.'))
+    }
+  }
+  reader.onerror = () => reject(new Error('Unable to read import file.'))
+  reader.readAsText(file)
+})
+
+const downloadJsonFile = (payload, filename) => {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const cleanFilenamePart = (value) => String(value || '')
+  .trim()
+  .replace(/[^a-z0-9-]+/gi, '-')
+  .replace(/^-+|-+$/g, '')
+  .toLowerCase()
+
+const pickFields = (row, fields) => fields.reduce((acc, field) => {
+  if (row?.[field] !== undefined) acc[field] = row[field]
+  return acc
+}, {})
+
 const TABS = [
   { key: 'welcome_call', label: 'Welcome Call', stageIdx: 0 },
   { key: 'followup_meeting', label: 'Follow-up Meeting', stageIdx: 1 },
@@ -36,6 +73,7 @@ const TABS = [
 ]
 
 const LEADS_PER_PAGE = 8
+const TASK_FOLLOWUP_EXPORT_VERSION = 1
 
 const ACTIVITY_DEFS = [
   { idx: 0, id: 'act01', label: 'Activity 01', title: 'Welcome Call', icon: Phone, color: 'red' },
@@ -324,6 +362,64 @@ const activityNote = (activity) => {
     .join(' | ')) || 'Activity saved'
 }
 
+const buildLeadImportPayload = (lead) => pickFields(lead, [
+  'name',
+  'email',
+  'phone',
+  'company',
+  'website',
+  'designation',
+  'service',
+  'specialization',
+  'source',
+  'status',
+  'score',
+  'priority',
+  'dealValue',
+  'utmSource',
+  'utmMedium',
+  'utmCampaign',
+  'aiScoreValue',
+  'aiNextAction',
+  'assignedToId',
+  'tags',
+  'notes',
+  'facebookLeadId',
+  'facebookFormId',
+  'facebookAdId',
+  'expectedCloseTimeline',
+  'lastContactedAt',
+  'convertedAt',
+  'lostReason',
+  'followUpDate',
+  'revenueValue',
+])
+
+const buildActivityImportPayload = (activity) => {
+  const activityIndex = Number(activity?.activityIndex)
+  return {
+    activityIndex: Number.isInteger(activityIndex) && activityIndex >= 0 ? activityIndex : 0,
+    activityId: activity?.activityId || null,
+    activityLabel: activity?.activityLabel || `Activity ${Number.isInteger(activityIndex) ? activityIndex + 1 : 1}`,
+    activityTitle: activity?.activityTitle || '',
+    assignedTo: activity?.assignedTo || 'Unassigned',
+    values: activity?.values && typeof activity.values === 'object' ? activity.values : {},
+    summary: activity?.summary || activityNote(activity),
+  }
+}
+
+const buildTaskImportPayload = (task, leadId) => pickFields({ ...task, leadId: task?.leadId || leadId }, [
+  'title',
+  'description',
+  'type',
+  'status',
+  'priority',
+  'dueDate',
+  'leadId',
+  'dealId',
+  'assignedToId',
+])
+
 function StageIcon({ currentStage }) {
   const stageIdx = currentStage <= 0 ? 0 : currentStage >= 3 ? 2 : Math.min(currentStage, 2)
   const def = ACTIVITY_DEFS[stageIdx]
@@ -362,9 +458,12 @@ export default function TaskFollowUpPage() {
   const [timelineLoadingLeadId, setTimelineLoadingLeadId] = useState(null)
   const [recordingUploadingLeadId, setRecordingUploadingLeadId] = useState(null)
   const [recordingPlayingActivityId, setRecordingPlayingActivityId] = useState(null)
+  const [backupExporting, setBackupExporting] = useState(false)
+  const [backupImporting, setBackupImporting] = useState(false)
   const historyRequestsRef = useRef(new Map())
   const timelineRequestsRef = useRef(new Map())
   const recordingInputRef = useRef(null)
+  const backupImportInputRef = useRef(null)
 
   const loadAllActivities = useCallback(async (leadRows) => {
     const leadIds = Array.from(new Set((leadRows || []).map((lead) => lead?.id).filter(Boolean)))
@@ -589,6 +688,31 @@ export default function TaskFollowUpPage() {
     return request
   }, [])
 
+  const fetchLeadTimelineForExport = useCallback(async (leadId) => {
+    const rows = []
+    let page = 0
+    let rebuildTried = false
+    const size = 100
+
+    while (page < 25) {
+      let response = await leadsAPI.getTimeline(leadId, { page, size })
+      if (!rebuildTried && page === 0 && Number(response?.total || 0) === 0) {
+        rebuildTried = true
+        try {
+          await leadsAPI.rebuildTimeline(leadId)
+          response = await leadsAPI.getTimeline(leadId, { page: 0, size })
+        } catch {}
+      }
+
+      const pageRows = unwrapList(response)
+      rows.push(...pageRows)
+      if (response?.last !== false || pageRows.length === 0) break
+      page += 1
+    }
+
+    return rows
+  }, [])
+
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
     const tasksByLead = tasks.reduce((acc, task) => {
@@ -668,6 +792,187 @@ export default function TaskFollowUpPage() {
       meetingOutcome: pending.filter((l) => l.currentStage === 2 || l.currentStage === 3).length,
     }
   }, [enrichedLeads, tasks.length])
+
+  const exportableLeads = useMemo(() => {
+    const rows = Object.values(stageLeads).flat().filter((lead) => lead?.id && lead.leadExists !== false)
+    return Array.from(new Map(rows.map((lead) => [lead.id, lead])).values())
+  }, [stageLeads])
+
+  const handleExportBackup = async () => {
+    const targets = exportableLeads.length
+      ? exportableLeads
+      : enrichedLeads.filter((lead) => lead?.id && lead.leadExists !== false)
+
+    if (!targets.length) {
+      toast.error('No leads available to export.')
+      return
+    }
+
+    setBackupExporting(true)
+    try {
+      const activityCache = {}
+      const timelineCache = {}
+      const timelineMeta = {}
+      const records = []
+
+      for (const lead of targets) {
+        const leadId = lead.id
+        const [freshLeadResult, activitiesResult, tasksResult, timelineResult] = await Promise.allSettled([
+          leadsAPI.getById(leadId),
+          leadsAPI.getActivities(leadId),
+          tasksAPI.getByLead(leadId),
+          fetchLeadTimelineForExport(leadId),
+        ])
+
+        const fullLead = freshLeadResult.status === 'fulfilled' ? freshLeadResult.value : lead
+        const activities = activitiesResult.status === 'fulfilled' ? unwrapList(activitiesResult.value) : []
+        const leadTasks = tasksResult.status === 'fulfilled' ? unwrapList(tasksResult.value) : (lead.tasks || [])
+        const timeline = timelineResult.status === 'fulfilled' ? timelineResult.value : []
+
+        activityCache[leadId] = activities
+        timelineCache[leadId] = timeline
+        timelineMeta[leadId] = {
+          page: 0,
+          size: timeline.length,
+          total: timeline.length,
+          totalPages: 1,
+          last: true,
+          loaded: true,
+        }
+        records.push({
+          lead: fullLead,
+          tasks: leadTasks,
+          activities,
+          timeline,
+        })
+      }
+
+      setLeadActivities((prev) => ({ ...prev, ...activityCache }))
+      setFullHistoryLeadIds((prev) => {
+        const next = new Set(prev)
+        targets.forEach((lead) => next.add(lead.id))
+        return next
+      })
+      setTimelineEventsByLeadId((prev) => ({ ...prev, ...timelineCache }))
+      setTimelineMetaByLeadId((prev) => ({ ...prev, ...timelineMeta }))
+
+      const exportedAt = new Date().toISOString()
+      const payload = {
+        schema: 'nexacrm.task-followup.backup',
+        version: TASK_FOLLOWUP_EXPORT_VERSION,
+        exportedAt,
+        filters: {
+          activeTab,
+          searchQuery,
+          dateSortDirection,
+        },
+        counts: {
+          leads: records.length,
+          tasks: records.reduce((sum, row) => sum + row.tasks.length, 0),
+          activities: records.reduce((sum, row) => sum + row.activities.length, 0),
+          timeline: records.reduce((sum, row) => sum + row.timeline.length, 0),
+        },
+        leads: records,
+      }
+      const filename = [
+        'nexacrm-task-followup',
+        cleanFilenamePart(activeTab),
+        exportedAt.slice(0, 10),
+      ].filter(Boolean).join('-') + '.json'
+      downloadJsonFile(payload, filename)
+      toast.success(`Exported ${records.length} lead backup${records.length === 1 ? '' : 's'}.`)
+    } catch (err) {
+      toast.error(err?.message || 'Unable to export task follow-up data')
+    } finally {
+      setBackupExporting(false)
+    }
+  }
+
+  const handleImportBackup = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setBackupImporting(true)
+    try {
+      const payload = await readJsonFile(file)
+      const records = Array.isArray(payload?.leads) ? payload.leads : []
+      if (payload?.schema !== 'nexacrm.task-followup.backup' || !records.length) {
+        throw new Error('This file is not a Task Follow-up JSON export.')
+      }
+
+      const results = { leads: 0, tasks: 0, activities: 0, skipped: 0, failed: 0 }
+      for (const record of records) {
+        const leadId = record?.lead?.id
+        if (!leadId) {
+          results.skipped += 1
+          continue
+        }
+
+        try {
+          const currentLead = await leadsAPI.getById(leadId)
+          const leadPayload = buildLeadImportPayload({ ...currentLead, ...record.lead })
+          await leadsAPI.update(leadId, leadPayload)
+          results.leads += 1
+
+          const existingTasks = unwrapList(await tasksAPI.getByLead(leadId).catch(() => []))
+          const existingTaskIds = new Set(existingTasks.map((task) => task.id).filter(Boolean))
+          for (const task of record.tasks || []) {
+            try {
+              const taskPayload = buildTaskImportPayload(task, leadId)
+              if (!taskPayload.title) {
+                results.skipped += 1
+                continue
+              }
+              if (task.id && existingTaskIds.has(task.id)) {
+                await tasksAPI.update(task.id, taskPayload)
+              } else {
+                await tasksAPI.create(taskPayload)
+              }
+              results.tasks += 1
+            } catch {
+              results.failed += 1
+            }
+          }
+
+          const existingActivities = unwrapList(await leadsAPI.getActivities(leadId).catch(() => []))
+          const existingActivityIds = new Set(existingActivities.map((activity) => activity.id).filter(Boolean))
+          for (const activity of record.activities || []) {
+            try {
+              const activityPayload = buildActivityImportPayload(activity)
+              if (activity.id && existingActivityIds.has(activity.id)) {
+                await leadsAPI.updateActivity(leadId, activity.id, activityPayload)
+              } else if (activity.activityId !== 'call-recording') {
+                await leadsAPI.addActivity(leadId, activityPayload)
+              } else {
+                results.skipped += 1
+                continue
+              }
+              results.activities += 1
+            } catch {
+              results.failed += 1
+            }
+          }
+
+          await leadsAPI.rebuildTimeline(leadId).catch(() => {})
+        } catch {
+          results.failed += 1
+        }
+      }
+
+      await refresh()
+      const message = `Imported ${results.leads} lead${results.leads === 1 ? '' : 's'}, ${results.tasks} task${results.tasks === 1 ? '' : 's'}, ${results.activities} activit${results.activities === 1 ? 'y' : 'ies'}.`
+      if (results.failed) {
+        toast.error(`${message} ${results.failed} item${results.failed === 1 ? '' : 's'} failed.`)
+      } else {
+        toast.success(message)
+      }
+    } catch (err) {
+      toast.error(err?.message || 'Unable to import task follow-up data')
+    } finally {
+      setBackupImporting(false)
+    }
+  }
 
   const handlePersistActivity = async ({ lead, activityIndex, activity, values }) => {
     const normalizedStatus = normalizeOutcome(values?.callOutcome || values?.connectionStatus || values?.status)
@@ -863,6 +1168,31 @@ export default function TaskFollowUpPage() {
           icon={<ClipboardList className="h-5 w-5" />}
         />
         <div className="flex flex-wrap gap-2">
+          <input
+            ref={backupImportInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportBackup}
+          />
+          <button
+            type="button"
+            onClick={handleExportBackup}
+            disabled={loading || backupExporting || backupImporting}
+            className="btn-secondary"
+          >
+            {backupExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={() => backupImportInputRef.current?.click()}
+            disabled={loading || backupExporting || backupImporting}
+            className="btn-secondary"
+          >
+            {backupImporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Import
+          </button>
           <button type="button" onClick={refresh} disabled={loading || loadingActivities} className="btn-secondary">
             <RefreshCw className={`h-4 w-4 ${loading || loadingActivities ? 'animate-spin' : ''}`} />
             Refresh

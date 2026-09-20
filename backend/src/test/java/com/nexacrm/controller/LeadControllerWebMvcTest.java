@@ -36,6 +36,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -235,6 +236,38 @@ class LeadControllerWebMvcTest {
             .andExpect(jsonPath("$.fieldErrors.activityIndex").exists());
 
         verify(leadActivityService, never()).create(any(), any());
+    }
+
+    @Test
+    void updateLeadActivity_shouldDelegateToService() throws Exception {
+        Map<String, Object> body = Map.of(
+            "activityIndex", 1,
+            "activityId", "act02",
+            "activityLabel", "Activity 02",
+            "activityTitle", "Follow Up for Meeting",
+            "assignedTo", "Sales Team",
+            "summary", "Edited follow-up"
+        );
+        LeadActivityDTO updated = LeadActivityDTO.builder()
+            .id("activity-1")
+            .leadId("lead-1")
+            .activityIndex(1)
+            .activityId("act02")
+            .activityLabel("Activity 02")
+            .activityTitle("Follow Up for Meeting")
+            .summary("Edited follow-up")
+            .assignedTo("Sales Team")
+            .build();
+        when(leadActivityService.update(eq("lead-1"), eq("activity-1"), any(LeadActivityDTO.class))).thenReturn(updated);
+
+        mockMvc.perform(put("/api/leads/lead-1/activities/activity-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(testObjectMapper.writeValueAsString(body)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value("activity-1"))
+            .andExpect(jsonPath("$.summary").value("Edited follow-up"));
+
+        verify(leadActivityService).update(eq("lead-1"), eq("activity-1"), any(LeadActivityDTO.class));
     }
 
     @Test
