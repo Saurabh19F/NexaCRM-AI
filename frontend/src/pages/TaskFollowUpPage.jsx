@@ -703,28 +703,9 @@ export default function TaskFollowUpPage() {
   }, [])
 
   const fetchLeadTimelineForExport = useCallback(async (leadId) => {
-    const rows = []
-    let page = 0
-    let rebuildTried = false
     const size = 100
-
-    while (page < 25) {
-      let response = await leadsAPI.getTimeline(leadId, { page, size })
-      if (!rebuildTried && page === 0 && Number(response?.total || 0) === 0) {
-        rebuildTried = true
-        try {
-          await leadsAPI.rebuildTimeline(leadId)
-          response = await leadsAPI.getTimeline(leadId, { page: 0, size })
-        } catch {}
-      }
-
-      const pageRows = unwrapList(response)
-      rows.push(...pageRows)
-      if (response?.last !== false || pageRows.length === 0) break
-      page += 1
-    }
-
-    return rows
+    const response = await leadsAPI.getTimeline(leadId, { page: 0, size })
+    return unwrapList(response)
   }, [])
 
   const enrichedLeads = useMemo(() => {
@@ -808,9 +789,9 @@ export default function TaskFollowUpPage() {
   }, [enrichedLeads, tasks.length])
 
   const exportableLeads = useMemo(() => {
-    const rows = Object.values(stageLeads).flat().filter((lead) => lead?.id && lead.leadExists !== false)
+    const rows = (stageLeads[activeTab] || []).filter((lead) => lead?.id && lead.leadExists !== false)
     return Array.from(new Map(rows.map((lead) => [lead.id, lead])).values())
-  }, [stageLeads])
+  }, [activeTab, stageLeads])
 
   const handleExportBackup = async () => {
     const targets = exportableLeads.length
