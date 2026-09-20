@@ -43,8 +43,7 @@ const readJsonFile = (file) => new Promise((resolve, reject) => {
   reader.readAsText(file)
 })
 
-const downloadJsonFile = (payload, filename) => {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+const downloadBlobFile = (blob, filename) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -55,30 +54,10 @@ const downloadJsonFile = (payload, filename) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const cleanFilenamePart = (value) => String(value || '')
-  .trim()
-  .replace(/[^a-z0-9-]+/gi, '-')
-  .replace(/^-+|-+$/g, '')
-  .toLowerCase()
-
 const pickFields = (row, fields) => fields.reduce((acc, field) => {
   if (row?.[field] !== undefined) acc[field] = row[field]
   return acc
 }, {})
-
-const runWithConcurrency = async (items, limit, worker) => {
-  const results = new Array(items.length)
-  let nextIndex = 0
-  const workerCount = Math.min(Math.max(1, limit), items.length)
-  await Promise.all(Array.from({ length: workerCount }, async () => {
-    while (nextIndex < items.length) {
-      const currentIndex = nextIndex
-      nextIndex += 1
-      results[currentIndex] = await worker(items[currentIndex], currentIndex)
-    }
-  }))
-  return results
-}
 
 const TABS = [
   { key: 'welcome_call', label: 'Welcome Call', stageIdx: 0 },
@@ -87,7 +66,6 @@ const TABS = [
 ]
 
 const LEADS_PER_PAGE = 8
-const TASK_FOLLOWUP_EXPORT_VERSION = 1
 
 const ACTIVITY_DEFS = [
   { idx: 0, id: 'act01', label: 'Activity 01', title: 'Welcome Call', icon: Phone, color: 'red' },
@@ -702,12 +680,6 @@ export default function TaskFollowUpPage() {
     return request
   }, [])
 
-  const fetchLeadTimelineForExport = useCallback(async (leadId) => {
-    const size = 100
-    const response = await leadsAPI.getTimeline(leadId, { page: 0, size })
-    return unwrapList(response)
-  }, [])
-
   const enrichedLeads = useMemo(() => {
     const leadById = new Map(leads.map((lead) => [lead.id, lead]))
     const tasksByLead = tasks.reduce((acc, task) => {
@@ -788,94 +760,14 @@ export default function TaskFollowUpPage() {
     }
   }, [enrichedLeads, tasks.length])
 
-  const exportableLeads = useMemo(() => {
-    const rows = (stageLeads[activeTab] || []).filter((lead) => lead?.id && lead.leadExists !== false)
-    return Array.from(new Map(rows.map((lead) => [lead.id, lead])).values())
-  }, [activeTab, stageLeads])
-
   const handleExportBackup = async () => {
-    const targets = exportableLeads.length
-      ? exportableLeads
-      : enrichedLeads.filter((lead) => lead?.id && lead.leadExists !== false)
-
-    if (!targets.length) {
-      toast.error('No leads available to export.')
-      return
-    }
-
     setBackupExporting(true)
     try {
-      const activityCache = {}
-      const timelineCache = {}
-      const timelineMeta = {}
-      const records = await runWithConcurrency(targets, 8, async (lead) => {
-        const leadId = lead.id
-        const [freshLeadResult, activitiesResult, tasksResult, timelineResult] = await Promise.allSettled([
-          leadsAPI.getById(leadId),
-          leadsAPI.getActivities(leadId),
-          tasksAPI.getByLead(leadId),
-          fetchLeadTimelineForExport(leadId),
-        ])
-
-        const fullLead = freshLeadResult.status === 'fulfilled' ? freshLeadResult.value : lead
-        const activities = activitiesResult.status === 'fulfilled' ? unwrapList(activitiesResult.value) : []
-        const leadTasks = tasksResult.status === 'fulfilled' ? unwrapList(tasksResult.value) : (lead.tasks || [])
-        const timeline = timelineResult.status === 'fulfilled' ? timelineResult.value : []
-
-        activityCache[leadId] = activities
-        timelineCache[leadId] = timeline
-        timelineMeta[leadId] = {
-          page: 0,
-          size: timeline.length,
-          total: timeline.length,
-          totalPages: 1,
-          last: true,
-          loaded: true,
-        }
-        return {
-          lead: fullLead,
-          tasks: leadTasks,
-          activities,
-          timeline,
-        }
-      })
-
-      setLeadActivities((prev) => ({ ...prev, ...activityCache }))
-      setFullHistoryLeadIds((prev) => {
-        const next = new Set(prev)
-        targets.forEach((lead) => next.add(lead.id))
-        return next
-      })
-      setTimelineEventsByLeadId((prev) => ({ ...prev, ...timelineCache }))
-      setTimelineMetaByLeadId((prev) => ({ ...prev, ...timelineMeta }))
-
-      const exportedAt = new Date().toISOString()
-      const payload = {
-        schema: 'nexacrm.task-followup.backup',
-        version: TASK_FOLLOWUP_EXPORT_VERSION,
-        exportedAt,
-        filters: {
-          activeTab,
-          searchQuery,
-          dateSortDirection,
-        },
-        counts: {
-          leads: records.length,
-          tasks: records.reduce((sum, row) => sum + row.tasks.length, 0),
-          activities: records.reduce((sum, row) => sum + row.activities.length, 0),
-          timeline: records.reduce((sum, row) => sum + row.timeline.length, 0),
-        },
-        leads: records,
-      }
-      const filename = [
-        'nexacrm-task-followup',
-        cleanFilenamePart(activeTab),
-        exportedAt.slice(0, 10),
-      ].filter(Boolean).join('-') + '.json'
-      downloadJsonFile(payload, filename)
-      toast.success(`Exported ${records.length} lead backup${records.length === 1 ? '' : 's'}.`)
+      const blob = await leadsAPI.export({ format: 'xlsx' })
+      downloadBlobFile(blob, `nexacrm-leads-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      toast.success('All leads exported to Excel.')
     } catch (err) {
-      toast.error(err?.message || 'Unable to export task follow-up data')
+      toast.error(err?.message || 'Unable to export leads')
     } finally {
       setBackupExporting(false)
     }
@@ -888,6 +780,13 @@ export default function TaskFollowUpPage() {
 
     setBackupImporting(true)
     try {
+      if (!/\.json$/i.test(file.name || '')) {
+        await leadsAPI.import(file)
+        await refresh()
+        toast.success('Leads imported from Excel.')
+        return
+      }
+
       const payload = await readJsonFile(file)
       const records = Array.isArray(payload?.leads) ? payload.leads : []
       if (payload?.schema !== 'nexacrm.task-followup.backup' || !records.length) {
@@ -1164,7 +1063,7 @@ export default function TaskFollowUpPage() {
           <input
             ref={backupImportInputRef}
             type="file"
-            accept="application/json,.json"
+            accept=".xlsx,.xls,.csv,application/json,.json"
             className="hidden"
             onChange={handleImportBackup}
           />
