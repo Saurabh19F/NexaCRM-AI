@@ -56,6 +56,7 @@ public class LeadActivityService {
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
     private final LeadTimelineService leadTimelineService;
+    private final WhatsAppActivityNotificationService whatsAppActivityNotificationService;
 
     @Value("${nexacrm.uploads.dir:}")
     private String configuredUploadsDir;
@@ -262,6 +263,7 @@ public class LeadActivityService {
         lead.setActivityLogs(activityLogs);
         leadRepository.save(lead);
         leadTimelineService.syncActivity(saved);
+        whatsAppActivityNotificationService.notifyActivitySaved(tenantId(), lead, saved);
 
         return toDTO(saved);
     }
@@ -299,6 +301,7 @@ public class LeadActivityService {
         lead.setLastContactedAt(savedAt);
         leadRepository.save(lead);
         leadTimelineService.syncActivity(saved);
+        whatsAppActivityNotificationService.notifyActivitySaved(tenantId(), lead, saved);
 
         return toDTO(saved);
     }

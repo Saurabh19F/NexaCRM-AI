@@ -323,6 +323,8 @@ export const automationAPI = {
   savePipelineDigest: (data) => api.put('/automation/pipeline-whatsapp-digest', data),
   sendPipelineDigestNow: () => api.post('/automation/pipeline-whatsapp-digest/send-now'),
   sendPipelinePdfNow: () => api.post('/automation/pipeline-whatsapp-digest/send-pdf-now'),
+  getActivityNotifications: () => api.get('/automation/whatsapp-activity-notifications'),
+  saveActivityNotifications: (data) => api.put('/automation/whatsapp-activity-notifications', data),
 }
 
 // ──────────────────────────────────────────

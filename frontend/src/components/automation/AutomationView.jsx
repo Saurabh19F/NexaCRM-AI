@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Plus, Play, Pause, Trash2, ChevronRight, CheckCircle2, Clock, AlertTriangle, X, Sparkles, MessageCircle, Send } from 'lucide-react'
+import { Zap, Plus, Play, Pause, Trash2, ChevronRight, CheckCircle2, Clock, AlertTriangle, X, Sparkles, MessageCircle, Send, Bell, BellRing } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { automationAPI } from '../../services/api'
 import PageHeading from '../ui/PageHeading'
@@ -190,6 +190,18 @@ export default function AutomationPage() {
   const [newRecipient, setNewRecipient] = useState('')
   const stepsScrollRef = useRef(null)
 
+  const DEFAULT_ACTIVITY_NOTIF = {
+    activityEnabled: false,
+    reminderEnabled: false,
+    reminderMinutesBefore: 15,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+    recipients: [],
+  }
+  const [actNotif, setActNotif] = useState(DEFAULT_ACTIVITY_NOTIF)
+  const [loadingActNotif, setLoadingActNotif] = useState(true)
+  const [savingActNotif, setSavingActNotif] = useState(false)
+  const [newActRecipient, setNewActRecipient] = useState('')
+
   const mapWorkflowFromApi = (workflow) => ({
     ...workflow,
     status: String(workflow.status || 'ACTIVE').toLowerCase(),
@@ -272,6 +284,85 @@ export default function AutomationPage() {
       window.clearInterval(timer)
     }
   }, [pipelineDigest.pdfSendStatus])
+
+  useEffect(() => {
+    let cancelled = false
+    automationAPI.getActivityNotifications()
+      .then((config) => {
+        if (!cancelled) setActNotif((prev) => ({ ...prev, ...(config || {}) }))
+      })
+      .catch((err) => {
+        if (!cancelled) toast.error(err?.message || 'Failed to load WhatsApp notification settings')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingActNotif(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const saveActNotif = async (event) => {
+    event.preventDefault()
+    const anyEnabled = actNotif.activityEnabled || actNotif.reminderEnabled
+    if (anyEnabled && actNotif.recipients.length === 0) {
+      toast.error('Add at least one WhatsApp number first.')
+      return
+    }
+    setSavingActNotif(true)
+    try {
+      const saved = await automationAPI.saveActivityNotifications({
+        activityEnabled: Boolean(actNotif.activityEnabled),
+        reminderEnabled: Boolean(actNotif.reminderEnabled),
+        reminderMinutesBefore: Number(actNotif.reminderMinutesBefore) || 15,
+        timezone: actNotif.timezone,
+        recipients: actNotif.recipients,
+      })
+      setActNotif((prev) => ({ ...prev, ...(saved || {}) }))
+      toast.success('WhatsApp notification settings saved')
+    } catch (err) {
+      toast.error(err?.message || 'Failed to save notification settings')
+    } finally {
+      setSavingActNotif(false)
+    }
+  }
+
+  const saveActRecipientList = async (recipients, successMessage) => {
+    setSavingActNotif(true)
+    try {
+      const saved = await automationAPI.saveActivityNotifications({
+        activityEnabled: Boolean(actNotif.activityEnabled),
+        reminderEnabled: Boolean(actNotif.reminderEnabled),
+        reminderMinutesBefore: Number(actNotif.reminderMinutesBefore) || 15,
+        timezone: actNotif.timezone,
+        recipients,
+      })
+      setActNotif((prev) => ({ ...prev, ...(saved || {}), recipients: saved?.recipients || recipients }))
+      toast.success(successMessage)
+      return true
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update recipients')
+      return false
+    } finally {
+      setSavingActNotif(false)
+    }
+  }
+
+  const addActRecipient = async () => {
+    const recipient = normalizeRecipient(newActRecipient)
+    if (!recipient) {
+      toast.error('Enter a valid WhatsApp number with 7 to 15 digits.')
+      return
+    }
+    if (actNotif.recipients.includes(recipient)) {
+      toast.error('This number is already added.')
+      return
+    }
+    const saved = await saveActRecipientList([...actNotif.recipients, recipient], 'Recipient added')
+    if (saved) setNewActRecipient('')
+  }
+
+  const removeActRecipient = async (recipient) => {
+    await saveActRecipientList(actNotif.recipients.filter((r) => r !== recipient), 'Recipient removed')
+  }
 
   const savePipelineDigest = async (event) => {
     event.preventDefault()
@@ -728,6 +819,133 @@ export default function AutomationPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="glass-card overflow-hidden border border-violet-200/70 dark:border-violet-500/20">
+        <div className="p-5">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400">
+              <BellRing className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-slate-800 dark:text-slate-100">WhatsApp Activity Notifications</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Get WhatsApp messages when activities are saved (with remarks) and reminders before scheduled follow-ups.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <label className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(actNotif.activityEnabled)}
+                disabled={loadingActNotif || savingActNotif}
+                onChange={(e) => setActNotif((prev) => ({ ...prev, activityEnabled: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+              />
+              <div>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Activity Updates</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Send WhatsApp when any activity is saved with remarks</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(actNotif.reminderEnabled)}
+                disabled={loadingActNotif || savingActNotif}
+                onChange={(e) => setActNotif((prev) => ({ ...prev, reminderEnabled: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+              />
+              <div>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Follow-up Reminders</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Send WhatsApp reminder before scheduled follow-ups</p>
+              </div>
+            </label>
+          </div>
+
+          <form onSubmit={saveActNotif} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Reminder before (minutes)
+                <input
+                  type="number"
+                  min="1"
+                  max="1440"
+                  value={actNotif.reminderMinutesBefore}
+                  onChange={(e) => setActNotif((prev) => ({ ...prev, reminderMinutesBefore: Number(e.target.value) || 15 }))}
+                  className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+                  disabled={loadingActNotif || savingActNotif}
+                />
+              </label>
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                Timezone
+                <select
+                  value={actNotif.timezone}
+                  onChange={(e) => setActNotif((prev) => ({ ...prev, timezone: e.target.value }))}
+                  className="input mt-1.5 py-2.5 text-sm bg-white dark:bg-slate-950"
+                  disabled={loadingActNotif || savingActNotif}
+                >
+                  {[actNotif.timezone, 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'America/New_York', 'America/Los_Angeles']
+                    .filter((zone, index, zones) => zone && zones.indexOf(zone) === index)
+                    .map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+                </select>
+              </label>
+              <div className="flex items-end">
+                <button type="submit" disabled={loadingActNotif || savingActNotif} className="btn-primary w-full gap-1.5 py-2.5 text-sm">
+                  {savingActNotif ? 'Saving…' : 'Save settings'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Notification Recipients</p>
+                <span className="text-[11px] text-slate-500">{actNotif.recipients.length} saved</span>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="tel"
+                  value={newActRecipient}
+                  onChange={(e) => setNewActRecipient(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="input py-2.5 text-sm bg-white dark:bg-slate-950"
+                  disabled={loadingActNotif || savingActNotif}
+                />
+                <button
+                  type="button"
+                  onClick={addActRecipient}
+                  disabled={loadingActNotif || savingActNotif || !newActRecipient.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-violet-300 px-4 py-2 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add number
+                </button>
+              </div>
+              <div className="mt-3">
+                {actNotif.recipients.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-xs text-slate-400 dark:border-slate-700">No recipients added yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {actNotif.recipients.map((recipient) => (
+                      <div key={recipient} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{recipient}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeActRecipient(recipient)}
+                          disabled={loadingActNotif || savingActNotif}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950/30"
+                          title={`Remove ${recipient}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </form>
         </div>
       </div>
 
