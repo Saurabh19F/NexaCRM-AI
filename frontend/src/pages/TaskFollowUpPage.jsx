@@ -465,6 +465,8 @@ export default function TaskFollowUpPage() {
   const [loading, setLoading] = useState(true)
   const [loadingActivities, setLoadingActivities] = useState(false)
   const [activeTab, setActiveTab] = useState('welcome_call')
+  const [followupDateFilter, setFollowupDateFilter] = useState('today')
+  const [followupCustomDate, setFollowupCustomDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateSortDirection, setDateSortDirection] = useState('asc')
   const [currentPage, setCurrentPage] = useState(1)
@@ -768,15 +770,13 @@ export default function TaskFollowUpPage() {
       )
     }
     const today = todayIST()
-    const yesterdayStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
     const todayStr = dateOnlyStr(today)
-    const tomorrowStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
+    let targetDate = todayStr
+    if (followupDateFilter === 'yesterday') targetDate = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
+    else if (followupDateFilter === 'tomorrow') targetDate = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
+    else if (followupDateFilter === 'custom' && followupCustomDate) targetDate = followupCustomDate
 
-    const followupLeads = enrichedLeads.filter((l) => {
-      const fDate = getLeadFollowUpDate(l)
-      return fDate === yesterdayStr || fDate === todayStr || fDate === tomorrowStr
-    })
-    let filteredFollowup = followupLeads
+    let filteredFollowup = enrichedLeads.filter((l) => getLeadFollowUpDate(l) === targetDate)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       filteredFollowup = filteredFollowup.filter(
@@ -784,7 +784,7 @@ export default function TaskFollowUpPage() {
       )
     }
     filteredFollowup.sort(sorter)
-    filteredFollowup = filteredFollowup.map((l) => ({ ...l, _followUpDate: getLeadFollowUpDate(l), _yesterdayStr: yesterdayStr, _todayStr: todayStr, _tomorrowStr: tomorrowStr }))
+    filteredFollowup = filteredFollowup.map((l) => ({ ...l, _followUpDate: getLeadFollowUpDate(l) }))
 
     return {
       welcome_call: pendingAll.filter((l) => l.currentStage <= 0).sort(sorter),
@@ -792,19 +792,13 @@ export default function TaskFollowUpPage() {
       meeting_outcome: pendingAll.filter((l) => l.currentStage === 2 || l.currentStage === 3).sort(sorter),
       todays_followup: filteredFollowup,
     }
-  }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length])
+  }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length, followupDateFilter, followupCustomDate])
 
   const stats = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
     const pending = enrichedLeads.filter(isPending)
-    const today = todayIST()
-    const yesterdayStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
-    const todayStr = dateOnlyStr(today)
-    const tomorrowStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
-    const followupCount = enrichedLeads.filter((l) => {
-      const fDate = getLeadFollowUpDate(l)
-      return fDate === yesterdayStr || fDate === todayStr || fDate === tomorrowStr
-    }).length
+    const todayStr = dateOnlyStr(todayIST())
+    const followupCount = enrichedLeads.filter((l) => getLeadFollowUpDate(l) === todayStr).length
     return {
       welcomeCall: pending.filter((l) => l.currentStage <= 0).length,
       followupMeeting: pending.filter((l) => l.currentStage === 1).length,
@@ -1185,7 +1179,7 @@ export default function TaskFollowUpPage() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-400">Today's Followup</p>
           </div>
           <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.todaysFollowup}</h3>
-          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Yesterday · Today · Tomorrow</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Follow-ups due today</p>
         </div>
       </div>
 
@@ -1236,32 +1230,64 @@ export default function TaskFollowUpPage() {
               placeholder="Search by name, phone, company, or email..."
             />
           </div>
-          <div className="inline-flex h-10 shrink-0 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <button
-              type="button"
-              onClick={() => setDateSortDirection('asc')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
-                dateSortDirection === 'asc'
-                  ? 'bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-950/40 dark:text-brand-300'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <CalendarDays className="h-3.5 w-3.5" />
-              Asc
-            </button>
-            <button
-              type="button"
-              onClick={() => setDateSortDirection('desc')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
-                dateSortDirection === 'desc'
-                  ? 'bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-950/40 dark:text-brand-300'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <CalendarDays className="h-3.5 w-3.5" />
-              Desc
-            </button>
-          </div>
+          {activeTab === 'todays_followup' ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {[
+                { key: 'yesterday', label: 'Yesterday' },
+                { key: 'today', label: 'Today' },
+                { key: 'tomorrow', label: 'Tomorrow' },
+                { key: 'custom', label: 'Custom' },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setFollowupDateFilter(opt.key)}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition ${
+                    followupDateFilter === opt.key
+                      ? 'border-violet-300 bg-violet-50 text-violet-700 shadow-sm dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
+                      : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              {followupDateFilter === 'custom' && (
+                <input
+                  type="date"
+                  value={followupCustomDate}
+                  onChange={(e) => setFollowupCustomDate(e.target.value)}
+                  className="input h-8 w-40 text-xs"
+                />
+              )}
+            </div>
+          ) : (
+            <div className="inline-flex h-10 shrink-0 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => setDateSortDirection('asc')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                  dateSortDirection === 'asc'
+                    ? 'bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-950/40 dark:text-brand-300'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Asc
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateSortDirection('desc')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${
+                  dateSortDirection === 'desc'
+                    ? 'bg-brand-50 text-brand-700 shadow-sm dark:bg-brand-950/40 dark:text-brand-300'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Desc
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -1276,7 +1302,7 @@ export default function TaskFollowUpPage() {
             {activeTab === 'welcome_call' && 'No leads at the welcome call stage.'}
             {activeTab === 'followup_meeting' && 'No leads awaiting follow-up meeting.'}
             {activeTab === 'meeting_outcome' && 'No leads pending meeting outcome.'}
-            {activeTab === 'todays_followup' && 'No follow-ups for yesterday, today, or tomorrow.'}
+            {activeTab === 'todays_followup' && `No follow-ups for ${followupDateFilter === 'custom' ? (followupCustomDate || 'selected date') : followupDateFilter}.`}
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -1408,38 +1434,6 @@ export default function TaskFollowUpPage() {
                           </button>
                         </div>
                       )}
-                    </div>
-                  )
-                }
-
-                if (activeTab === 'todays_followup') {
-                  const allFollowup = displayLeads
-                  const first = allFollowup[0]
-                  const yStr = first?._yesterdayStr
-                  const tStr = first?._todayStr
-                  const tmStr = first?._tomorrowStr
-                  const groups = [
-                    { key: 'yesterday', label: 'Yesterday', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', leads: allFollowup.filter((l) => l._followUpDate === yStr) },
-                    { key: 'today', label: 'Today', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/30', leads: allFollowup.filter((l) => l._followUpDate === tStr) },
-                    { key: 'tomorrow', label: 'Tomorrow', color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/30', leads: allFollowup.filter((l) => l._followUpDate === tmStr) },
-                  ]
-                  return (
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                      {groups.map((group) => (
-                        <div key={group.key}>
-                          <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800/50">
-                            <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-bold ${group.bg} ${group.color}`}>
-                              {group.label}
-                            </span>
-                            <span className="text-[11px] text-slate-400">{group.leads.length} lead{group.leads.length === 1 ? '' : 's'}</span>
-                          </div>
-                          {group.leads.length === 0 ? (
-                            <div className="px-4 py-4 text-center text-xs text-slate-400">No follow-ups {group.label.toLowerCase()}</div>
-                          ) : (
-                            group.leads.map((lead, idx) => renderLeadCard(lead, idx))
-                          )}
-                        </div>
-                      ))}
                     </div>
                   )
                 }
