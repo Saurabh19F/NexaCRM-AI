@@ -19,6 +19,8 @@ import Tooltip from '../ui/Tooltip'
 import { Timeline, TimelineItem } from '../ui/Timeline'
 import { LinearProgress } from '../ui/Progress'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
+import CopyableContact from '../ui/CopyableContact'
+import { anyFieldMatchesSearch } from '../../utils/search'
 
 /* ── Constants ─────────────────────────────────────────────────── */
 const INDUSTRIES = ['Finance', 'IT', 'SaaS', 'Manufacturing', 'Healthcare', 'E-commerce', 'Retail', 'Education', 'Other']
@@ -689,12 +691,7 @@ export default function CustomersPage() {
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase()
       rows = rows.filter((c) =>
-        (c.name || '').toLowerCase().includes(q) ||
-        (c.company || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.phone || '').includes(q) ||
-        (c.service || '').toLowerCase().includes(q) ||
-        (c.assignedTo || '').toLowerCase().includes(q)
+        anyFieldMatchesSearch(q, [c.name, c.phone, c.company, c.email, c.service, c.assignedTo])
       )
     }
     if (sourceFilter !== 'all') {
@@ -789,7 +786,7 @@ export default function CustomersPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search customers..."
+              placeholder="Search by name, phone, company, or email..."
               className="min-w-0 flex-1 bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-300"
             />
           </div>
@@ -940,7 +937,16 @@ export default function CustomersPage() {
                       <Icon className="w-3.5 h-3.5 text-slate-400" />
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
                     </div>
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 break-all">{value}</p>
+                    {label === 'Email' || label === 'Phone' ? (
+                      <CopyableContact
+                        value={value}
+                        label={label}
+                        className="max-w-full text-sm font-medium text-slate-700 dark:text-slate-300"
+                        textClassName="break-all"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 break-all">{value}</p>
+                    )}
                   </div>
                 ))}
               </div>

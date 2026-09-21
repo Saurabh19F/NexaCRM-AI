@@ -18,7 +18,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.TextCriteria;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,7 +55,7 @@ public class CustomerService {
         }
 
         if (search != null && !search.isBlank()) {
-            query.addCriteria(TextCriteria.forDefaultLanguage().matchingAny(search.trim()));
+            query.addCriteria(buildCustomerSearchCriteria(search.trim()));
         }
         if (status != null && !status.isBlank()) {
             query.addCriteria(Criteria.where("status").is(Customer.CustomerStatus.valueOf(status.toUpperCase(Locale.ROOT))));
@@ -257,6 +257,30 @@ public class CustomerService {
         if (phone == null) return null;
         String normalized = phone.trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private Criteria buildCustomerSearchCriteria(String rawSearch) {
+        Pattern textPattern = Pattern.compile(Pattern.quote(rawSearch), Pattern.CASE_INSENSITIVE);
+        return new Criteria().orOperator(
+            Criteria.where("name").regex(textPattern),
+            Criteria.where("company").regex(textPattern),
+            Criteria.where("email").regex(textPattern),
+            Criteria.where("primary_contact").regex(textPattern),
+            Criteria.where("phone").regex(phoneSearchPattern(rawSearch))
+        );
+    }
+
+    private Pattern phoneSearchPattern(String rawSearch) {
+        String digits = rawSearch.replaceAll("\\D", "");
+        if (digits.length() >= 3) {
+            StringBuilder expression = new StringBuilder();
+            for (int i = 0; i < digits.length(); i++) {
+                if (i > 0) expression.append("\\D*");
+                expression.append(Pattern.quote(String.valueOf(digits.charAt(i))));
+            }
+            return Pattern.compile(expression.toString(), Pattern.CASE_INSENSITIVE);
+        }
+        return Pattern.compile(Pattern.quote(rawSearch), Pattern.CASE_INSENSITIVE);
     }
 
     private String firstNonBlank(String... values) {

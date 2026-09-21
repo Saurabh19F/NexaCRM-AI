@@ -22,7 +22,9 @@ import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import LeadActivitiesModal from '../components/LeadActivitiesModal'
 import ScreenModalPortal from '../components/ui/ScreenModalPortal'
+import CopyableContact from '../components/ui/CopyableContact'
 import { leadsAPI, tasksAPI } from '../services/api'
+import { anyFieldMatchesSearch } from '../utils/search'
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -730,10 +732,7 @@ export default function TaskFollowUpPage() {
       const q = searchQuery.toLowerCase()
       pendingAll = pendingAll.filter(
         (l) =>
-          (l.name || '').toLowerCase().includes(q) ||
-          (l.company || '').toLowerCase().includes(q) ||
-          (l.email || '').toLowerCase().includes(q) ||
-          (l.nextTask?.title || '').toLowerCase().includes(q)
+          anyFieldMatchesSearch(q, [l.name, l.phone, l.phoneNumber, l.mobileNumber, l.company, l.email, l.nextTask?.title])
       )
     }
     const sorter = (a, b) => {
@@ -1170,7 +1169,7 @@ export default function TaskFollowUpPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input pl-9"
-              placeholder="Search by name, company, or email..."
+              placeholder="Search by name, phone, company, or email..."
             />
           </div>
           <div className="inline-flex h-10 shrink-0 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -1323,7 +1322,19 @@ export default function TaskFollowUpPage() {
                                 </span>
                               )}
                               {lead.email && (
-                                <span className="truncate max-w-[180px]">{lead.email}</span>
+                                <CopyableContact
+                                  value={lead.email}
+                                  label="Email"
+                                  className="max-w-[180px]"
+                                />
+                              )}
+                              {(lead.phone || lead.phoneNumber || lead.mobileNumber) && (
+                                <CopyableContact
+                                  value={lead.phone || lead.phoneNumber || lead.mobileNumber}
+                                  label="Phone"
+                                  icon={Phone}
+                                  className="max-w-[180px]"
+                                />
                               )}
                             </div>
                           </div>

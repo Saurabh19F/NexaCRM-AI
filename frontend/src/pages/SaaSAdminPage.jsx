@@ -12,6 +12,8 @@ import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import { platformAdminAPI } from '../services/api'
 import { useAuthStore } from '../store/authStore'
+import CopyableContact from '../components/ui/CopyableContact'
+import { anyFieldMatchesSearch } from '../utils/search'
 
 // ── Helpers ─────────────────────────────────────────────────────
 const formatDate = (value) => {
@@ -223,7 +225,7 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
   const handleCloseForm = () => { setShowForm(false) }
   const handleSubmit = async (e) => { await submitTenant(e); setShowForm(false) }
   const filtered = tenants.filter((t) =>
-    !search || t.name?.toLowerCase().includes(search.toLowerCase()) || t.slug?.toLowerCase().includes(search.toLowerCase())
+    anyFieldMatchesSearch(search, [t.name, t.slug, t.contactName, t.contactEmail, t.contactPhone])
   )
 
   return (
@@ -233,7 +235,7 @@ function CompaniesTab({ tenants, loading, onSelectTenant, selectedTenant, form, 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
-            type="text" placeholder="Search companies..." value={search}
+            type="text" placeholder="Search by company, phone, contact, or email..." value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input pl-10"
           />
@@ -516,7 +518,7 @@ function UsersTab({ loading, refreshData }) {
     if (roleFilter && u.role !== roleFilter) return false
     if (search) {
       const q = search.toLowerCase()
-      return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.tenantName?.toLowerCase().includes(q)
+      return anyFieldMatchesSearch(q, [u.name, u.email, u.phone, u.tenantName])
     }
     return true
   })
@@ -638,7 +640,7 @@ function UsersTab({ loading, refreshData }) {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input type="text" placeholder="Search by name, email, or company..." value={search}
+          <input type="text" placeholder="Search by name, phone, company, or email..." value={search}
             onChange={(e) => setSearch(e.target.value)} className="input pl-10" />
         </div>
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input w-auto min-w-[160px]">
@@ -673,7 +675,18 @@ function UsersTab({ loading, refreshData }) {
                     <tr key={u.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
                       <td className="py-3 pr-4">
                         <p className="font-medium text-slate-900 dark:text-slate-100">{u.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{u.email}</p>
+                        <CopyableContact
+                          value={u.email}
+                          label="Email"
+                          className="max-w-[220px] text-xs text-slate-500 dark:text-slate-400"
+                        />
+                        {u.phone && (
+                          <CopyableContact
+                            value={u.phone}
+                            label="Phone"
+                            className="max-w-[220px] text-xs text-slate-400"
+                          />
+                        )}
                       </td>
                       <td className="py-3 pr-4 text-xs text-slate-600 dark:text-slate-400">{u.tenantName}</td>
                       <td className="py-3 pr-4">

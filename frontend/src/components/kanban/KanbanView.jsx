@@ -29,6 +29,8 @@ import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import LeadActivitiesModal from '../LeadActivitiesModal'
 import PaginatedSelect from '../ui/PaginatedSelect'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
+import CopyableContact from '../ui/CopyableContact'
+import { anyFieldMatchesSearch } from '../../utils/search'
 
 /* ── Pipeline stages — exact activity workflow ──────────────── */
 const STAGES = [
@@ -590,14 +592,20 @@ function LeadCard({
       {/* Contact info */}
       <div className="space-y-1 mb-2">
         {lead.email && (
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
-            <AtSign className="w-3 h-3 flex-shrink-0" /> {lead.email}
-          </div>
+          <CopyableContact
+            value={lead.email}
+            label="Email"
+            icon={AtSign}
+            className="text-[11px] text-slate-500"
+          />
         )}
         {lead.phone && (
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
-            <Phone className="w-3 h-3 flex-shrink-0" /> {lead.phone}
-          </div>
+          <CopyableContact
+            value={lead.phone}
+            label="Phone"
+            icon={Phone}
+            className="text-[11px] text-slate-500"
+          />
         )}
       </div>
 
@@ -1249,7 +1257,7 @@ export default function KanbanPage() {
       if (!map[stageKey]) continue // skip unknown statuses
 
       // Apply filters
-      const matchesSearch = !search || lead.name?.toLowerCase().includes(q) || lead.company?.toLowerCase().includes(q) || lead.email?.toLowerCase().includes(q)
+      const matchesSearch = anyFieldMatchesSearch(q, [lead.name, lead.phone, lead.company, lead.email])
       const matchesScore = filterScore === 'all' || lead.score === filterScore
       const matchesSource = filterSource === 'all' || lead.source === filterSource
       const matchesOwner = filterOwner === 'all' || lead.assignedTo === filterOwner
@@ -1548,7 +1556,7 @@ export default function KanbanPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search leads…"
+              placeholder="Search by name, phone, company, or email..."
               className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none w-full sm:w-40"
             />
           </div>

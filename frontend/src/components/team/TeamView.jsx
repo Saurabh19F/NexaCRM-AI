@@ -12,6 +12,7 @@ import { LinearProgress } from '../ui/Progress'
 import AvatarGroup from '../ui/AvatarGroup'
 import Rating from '../ui/Rating'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
+import CopyableContact from '../ui/CopyableContact'
 
 // Company-level roles only — PLATFORM_ADMIN is a separate SaaS-level role, not part of any company
 const ROLE_CONFIG = {
@@ -382,8 +383,8 @@ export default function TeamPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{member.name}</p>
-                        <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                        <p className="text-xs text-slate-400 truncate">{member.phone}</p>
+                        <CopyableContact value={member.email} label="Email" className="max-w-[180px] text-xs text-slate-500" />
+                        <CopyableContact value={member.phone} label="Phone" className="max-w-[180px] text-xs text-slate-400" />
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -466,8 +467,8 @@ export default function TeamPage() {
                         </div>
                         <div>
                           <p className="font-semibold text-slate-800 dark:text-slate-200">{member.name} {member.badge}</p>
-                          <p className="text-xs text-slate-500">{member.email}</p>
-                          <p className="text-xs text-slate-400">{member.phone}</p>
+                          <CopyableContact value={member.email} label="Email" className="max-w-[220px] text-xs text-slate-500" />
+                          <CopyableContact value={member.phone} label="Phone" className="max-w-[220px] text-xs text-slate-400" />
                         </div>
                       </div>
                     </td>

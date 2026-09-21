@@ -26,6 +26,7 @@ import { PERMISSIONS, hasPermission } from '../../utils/permissions'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
+import CopyableContact from '../ui/CopyableContact'
 
 const SCORE_BADGE = {
   hot:  { label: 'Hot',  icon: Flame,       cls: 'badge-hot' },
@@ -1678,7 +1679,7 @@ export default function LeadsPage() {
           <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, company…"
+            placeholder="Search by name, phone, company, or email..."
             className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none flex-1"
           />
         </div>
@@ -1840,8 +1841,21 @@ export default function LeadsPage() {
                       <td className="py-2.5 px-3">
                         <div>
                           <p className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[250px]">{lead.name}</p>
-                          <p className="text-xs text-slate-500 truncate max-w-[250px]">{lead.email}</p>
-                          {lead.phone && <p className="text-xs text-slate-400 truncate max-w-[250px] flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</p>}
+                          {lead.email && (
+                            <CopyableContact
+                              value={lead.email}
+                              label="Email"
+                              className="max-w-[250px] text-xs text-slate-500"
+                            />
+                          )}
+                          {lead.phone && (
+                            <CopyableContact
+                              value={lead.phone}
+                              label="Phone"
+                              icon={Phone}
+                              className="max-w-[250px] text-xs text-slate-400"
+                            />
+                          )}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">

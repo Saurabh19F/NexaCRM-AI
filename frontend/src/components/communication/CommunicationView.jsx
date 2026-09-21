@@ -8,6 +8,8 @@ import toast from 'react-hot-toast'
 import { commsAPI } from '../../services/api'
 import { useIntegrationsStore } from '../../store/integrationsStore'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
+import CopyableContact from '../ui/CopyableContact'
+import { anyFieldMatchesSearch } from '../../utils/search'
 
 // ── Channel config ────────────────────────────────────────────
 const CHANNEL_CONFIG = {
@@ -332,7 +334,7 @@ export default function CommunicationPage() {
 
   const filtered = allConvs.filter((c) => {
     const matchChannel = channelFilter === 'all' || c.channel === channelFilter
-    const matchSearch  = !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.company || '').toLowerCase().includes(search.toLowerCase())
+    const matchSearch  = anyFieldMatchesSearch(search, [c.name, c.phone, c.email, c.recipient, c.company])
     return matchChannel && matchSearch
   })
 
@@ -793,7 +795,7 @@ export default function CommunicationPage() {
               <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
               <input
                 value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search conversations…"
+                placeholder="Search by name, phone, company, or email..."
                 className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none flex-1"
               />
             </div>
@@ -849,7 +851,7 @@ export default function CommunicationPage() {
                     <div className="flex items-center justify-between gap-1">
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{conv.name}</p>
                       {conv.phone && (
-                        <span className="text-[9px] text-slate-400 flex-shrink-0">{conv.phone}</span>
+                        <span className="max-w-[120px] flex-shrink-0 truncate text-[9px] text-slate-400">{conv.phone}</span>
                       )}
                     </div>
                     {conv.company && <p className="text-[10px] text-slate-400 mb-0.5">{conv.company}</p>}
@@ -942,7 +944,11 @@ export default function CommunicationPage() {
                         via {CHANNEL_CONFIG[activeConv.channel]?.label}
                       </span>
                       {activeConv.phone && (
-                        <span className="text-[10px] text-slate-400">{activeConv.phone}</span>
+                        <CopyableContact
+                          value={activeConv.phone}
+                          label="Phone"
+                          className="max-w-[140px] text-[10px] text-slate-400"
+                        />
                       )}
                       {activeConv.company && (
                         <span className="text-[10px] text-slate-400">· {activeConv.company}</span>
