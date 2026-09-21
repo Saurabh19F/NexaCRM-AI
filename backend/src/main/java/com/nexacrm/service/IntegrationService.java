@@ -37,14 +37,14 @@ public class IntegrationService {
         "voice_call_agent", List.of(),
         "gmail", List.of("clientId", "clientSecret", "refreshToken"),
         "google_calendar", List.of("clientId", "clientSecret"),
-        "mistral_ai", List.of("apiKey"),
+        "openai", List.of("apiKey"),
         "linkedin", List.of("clientId", "clientSecret"),
         "google_sheets_leads", List.of("spreadsheetId", "sheetName")
     );
 
     private static final Map<String, String> INTEGRATION_ALIASES = Map.of(
-        "openai", "mistral_ai",
-        "grok_ai", "mistral_ai"
+        "mistral_ai", "openai",
+        "grok_ai", "openai"
     );
 
     private static final Set<String> SENSITIVE_KEYS = Set.of(
@@ -112,8 +112,8 @@ public class IntegrationService {
         if ("whatsapp".equals(normalizedId)) {
             return testWhatsAppConnection(testValues);
         }
-        if ("mistral_ai".equals(normalizedId)) {
-            return testMistralConnection(testValues);
+        if ("openai".equals(normalizedId)) {
+            return testOpenAIConnection(testValues);
         }
 
         return Map.of(
@@ -260,9 +260,9 @@ public class IntegrationService {
         );
     }
 
-    private Map<String, Object> testMistralConnection(Map<String, String> values) {
+    private Map<String, Object> testOpenAIConnection(Map<String, String> values) {
         String apiKey = trim(values.get("apiKey"));
-        String model = firstNonBlank(values.get("model"), "mistral-small-latest");
+        String model = firstNonBlank(values.get("model"), "gpt-4o-mini");
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -277,27 +277,27 @@ public class IntegrationService {
 
         try {
             ResponseEntity<Map> response = restTemplate.exchange(
-                "https://api.mistral.ai/v1/chat/completions",
+                "https://api.openai.com/v1/chat/completions",
                 HttpMethod.POST,
                 new HttpEntity<>(payload, headers),
                 Map.class
             );
             Map<?, ?> body = response.getBody() == null ? Map.of() : response.getBody();
             if (!(body.get("choices") instanceof List<?> choices) || choices.isEmpty()) {
-                throw new IllegalStateException("Mistral returned no completion choices.");
+                throw new IllegalStateException("OpenAI returned no completion choices.");
             }
             return Map.of(
                 "ok", true,
-                "message", "Mistral AI connection test passed.",
-                "integration", "mistral_ai",
+                "message", "OpenAI connection test passed.",
+                "integration", "openai",
                 "model", model
             );
         } catch (HttpStatusCodeException ex) {
             String providerMessage = ex.getResponseBodyAsString();
             if (ex.getStatusCode().value() == 429) {
-                throw new IllegalStateException("Mistral rejected the test because the key is rate limited or has no available quota. Try again later or check the Mistral console.");
+                throw new IllegalStateException("OpenAI rejected the test because the key is rate limited or has no available quota. Try again later or check the OpenAI dashboard.");
             }
-            throw new IllegalStateException("Mistral connection test failed (HTTP " + ex.getStatusCode().value() + "): " + providerMessage);
+            throw new IllegalStateException("OpenAI connection test failed (HTTP " + ex.getStatusCode().value() + "): " + providerMessage);
         }
     }
 

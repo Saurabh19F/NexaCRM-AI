@@ -43,11 +43,11 @@ class AIServiceTest {
     }
 
     @Test
-    void chat_shouldUseTenantMistralKeyAndModel() {
-        when(integrationService.getConfig("mistral_ai"))
+    void chat_shouldUseTenantOpenAIKeyAndModel() {
+        when(integrationService.getConfig("openai"))
             .thenReturn(Map.of("apiKey", "tenant-key", "model", "tenant-model"));
         when(restTemplate.postForObject(
-            eq("https://api.mistral.ai/v1/chat/completions"),
+            eq("https://api.openai.com/v1/chat/completions"),
             any(HttpEntity.class),
             eq(Map.class)
         )).thenReturn(Map.of(
@@ -58,7 +58,7 @@ class AIServiceTest {
             Map.of("role", "user", "content", "Hello")
         )));
         verify(restTemplate).postForObject(
-            eq("https://api.mistral.ai/v1/chat/completions"),
+            eq("https://api.openai.com/v1/chat/completions"),
             any(HttpEntity.class),
             eq(Map.class)
         );

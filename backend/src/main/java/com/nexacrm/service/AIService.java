@@ -27,15 +27,8 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 
 /**
- * AI Service — integrates with Mistral via the Mistral API for:
- * - Lead scoring (Hot/Warm/Cold)
- * - Deal win probability prediction
- * - Email generation
- * - CRM chat assistant
- * - Business insights
- * - Next-best-action suggestions
- *
- * The Mistral Chat Completions API is OpenAI-compatible, so we can keep the same request shape.
+ * AI Service — integrates with OpenAI for lead scoring, deal prediction,
+ * email generation, CRM chat, insights, and next-best-action suggestions.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,13 +39,13 @@ public class AIService {
         return TenantContext.currentTenantId();
     }
 
-    @Value("${mistral.api.key:}")
-    private String mistralApiKey;
+    @Value("${openai.api.key:}")
+    private String openaiApiKey;
 
-    @Value("${mistral.model:mistral-small-latest}")
+    @Value("${openai.model:gpt-4o-mini}")
     private String model;
 
-    @Value("${mistral.max-tokens:1500}")
+    @Value("${openai.max-tokens:1500}")
     private int defaultMaxTokens;
 
     private final LeadRepository leadRepository;
@@ -74,7 +67,7 @@ public class AIService {
         payloadMessages.addAll(safeMessages);
 
         try {
-            return callMistralText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
+            return callOpenAIText(payloadMessages, Math.max(defaultMaxTokens, 1200), 0.6);
         } catch (Exception ex) {
             log.warn("Falling back to local AI chat response: {}", ex.getMessage());
             return buildFallbackChatResponse(safeMessages);
@@ -113,7 +106,7 @@ public class AIService {
         String reasoning;
         String nextAction;
         try {
-            Map<String, Object> ai = callMistralJson(
+            Map<String, Object> ai = callOpenAIJson(
                 "You are a CRM lead scoring analyst. Output only valid JSON.",
                 prompt,
                 500,
@@ -179,7 +172,7 @@ public class AIService {
             """.formatted(dealId);
 
         try {
-            Map<String, Object> ai = callMistralJson(
+            Map<String, Object> ai = callOpenAIJson(
                 "You are a B2B sales forecasting assistant. Output only valid JSON.",
                 prompt,
                 700,
@@ -235,7 +228,7 @@ public class AIService {
             );
 
         try {
-            return callMistralText(
+            return callOpenAIText(
                 List.of(
                     Map.of("role", "system", "content", "You are an expert B2B sales copywriter."),
                     Map.of("role", "user", "content", userPrompt)
@@ -269,7 +262,7 @@ public class AIService {
                 }
                 """;
 
-            String raw = callMistralText(
+            String raw = callOpenAIText(
                 List.of(
                     Map.of("role", "system", "content", "You are a CRM analytics assistant. Output valid JSON only."),
                     Map.of("role", "user", "content", prompt)
@@ -296,7 +289,7 @@ public class AIService {
                 Return strict JSON array of strings only.
                 """.formatted(leadId);
 
-            String raw = callMistralText(
+            String raw = callOpenAIText(
                 List.of(
                     Map.of("role", "system", "content", "You are a CRM sales coach. Output valid JSON only."),
                     Map.of("role", "user", "content", prompt)
@@ -324,7 +317,7 @@ public class AIService {
             """.formatted(entityType, entityId);
 
         try {
-            return callMistralText(
+            return callOpenAIText(
                 List.of(
                     Map.of("role", "system", "content", "You are a CRM analyst. Be specific and concise."),
                     Map.of("role", "user", "content", prompt)
@@ -340,7 +333,7 @@ public class AIService {
 
     public Map<String, Object> analyzeCallIntelligence(Lead lead, List<Map<String, Object>> calls) {
         try {
-            Map<String, Object> ai = callMistralJson(
+            Map<String, Object> ai = callOpenAIJson(
                 "You are a CRM voice-call intelligence analyst. Evaluate call transcripts and determine lead quality from the conversation history.",
                 buildCallIntelligencePrompt(lead, calls),
                 1200,
@@ -755,7 +748,7 @@ public class AIService {
             long qualifiedCount = leadRepository.countByTenantIdAndDeletedFalseAndStatus(tenantId(), Lead.LeadStatus.QUALIFIED)
                 + leadRepository.countByTenantIdAndDeletedFalseAndStatus(tenantId(), Lead.LeadStatus.PROPOSAL)
                 + leadRepository.countByTenantIdAndDeletedFalseAndStatus(tenantId(), Lead.LeadStatus.NEGOTIATION);
-            return "Your live CRM currently has " + qualifiedCount + " pipeline-ready leads. If the Mistral model is unavailable, I can still help you triage the next best actions.";
+            return "Your live CRM currently has " + qualifiedCount + " pipeline-ready leads. If the AI model is unavailable, I can still help you triage the next best actions.";
         }
 
         if (normalized.contains("lead")) {
@@ -812,12 +805,12 @@ public class AIService {
 
     // ── Private helpers ───────────────────────────────────────────
 
-    private String callMistralText(List<Map<String, String>> messages, int maxTokens, double temperature) {
-        Map<String, String> tenantConfig = resolveTenantMistralConfig();
+    private String callOpenAIText(List<Map<String, String>> messages, int maxTokens, double temperature) {
+        Map<String, String> tenantConfig = resolveTenantOpenAIConfig();
         String apiKey = resolveApiKey(tenantConfig);
         String configuredModel = resolveModel(tenantConfig);
         if (!hasRealApiKey(apiKey)) {
-            throw new IllegalStateException("MISTRAL_API_KEY is not configured");
+            throw new IllegalStateException("OPENAI_API_KEY is not configured");
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -834,36 +827,36 @@ public class AIService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
         @SuppressWarnings("unchecked")
         Map<String, Object> response = restTemplate.postForObject(
-            "https://api.mistral.ai/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
             entity,
             Map.class
         );
 
         if (response == null) {
-            throw new IllegalStateException("Empty Mistral response");
+            throw new IllegalStateException("Empty OpenAI response");
         }
 
         Object choicesObj = response.get("choices");
         if (!(choicesObj instanceof List<?> choices) || choices.isEmpty()) {
-            throw new IllegalStateException("Mistral response missing choices");
+            throw new IllegalStateException("OpenAI response missing choices");
         }
 
         Object firstObj = choices.get(0);
         if (!(firstObj instanceof Map<?, ?> firstChoice)) {
-            throw new IllegalStateException("Mistral response choice format invalid");
+            throw new IllegalStateException("OpenAI response choice format invalid");
         }
 
         Object messageObj = firstChoice.get("message");
         if (!(messageObj instanceof Map<?, ?> message)) {
-            throw new IllegalStateException("Mistral response missing message");
+            throw new IllegalStateException("OpenAI response missing message");
         }
 
         Object content = message.get("content");
         return extractTextContent(content);
     }
 
-    private Map<String, Object> callMistralJson(String systemPrompt, String userPrompt, int maxTokens, double temperature) {
-        String raw = callMistralText(
+    private Map<String, Object> callOpenAIJson(String systemPrompt, String userPrompt, int maxTokens, double temperature) {
+        String raw = callOpenAIText(
             List.of(
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user", "content", userPrompt)
@@ -875,7 +868,7 @@ public class AIService {
             String json = extractJsonObject(raw);
             return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to parse Mistral JSON response", e);
+            throw new IllegalStateException("Failed to parse OpenAI JSON response", e);
         }
     }
 
@@ -897,7 +890,7 @@ public class AIService {
         if (value instanceof String text && !text.isBlank()) {
             return text.trim();
         }
-        throw new IllegalStateException("Mistral response missing text field: " + key);
+        throw new IllegalStateException("AI response missing text field: " + key);
     }
 
     private String optionalText(Map<String, Object> ai, String key, String fallback) {
@@ -916,7 +909,7 @@ public class AIService {
                 return intValue;
             }
         }
-        throw new IllegalStateException("Mistral response missing numeric field: " + key);
+        throw new IllegalStateException("AI response missing numeric field: " + key);
     }
 
     private int requireIntOrDefault(Map<String, Object> ai, String key, int min, int max, int fallback) {
@@ -935,7 +928,7 @@ public class AIService {
         if (allowedValues.contains(value)) {
             return value;
         }
-        throw new IllegalStateException("Mistral response has invalid value for " + key + ": " + value);
+        throw new IllegalStateException("AI response has invalid value for " + key + ": " + value);
     }
 
     private String requireEnumOrDefault(Map<String, Object> ai, String key, List<String> allowedValues, String fallback) {
@@ -960,7 +953,7 @@ public class AIService {
                 return converted;
             }
         }
-        throw new IllegalStateException("Mistral response missing list field: " + key);
+        throw new IllegalStateException("AI response missing list field: " + key);
     }
 
     private List<String> optionalStringList(Map<String, Object> ai, String key) {
@@ -992,7 +985,7 @@ public class AIService {
 
     private void validateInsights(List<Map<String, Object>> insights) {
         if (insights == null || insights.size() != 4) {
-            throw new IllegalStateException("Mistral insights response must contain exactly 4 items");
+            throw new IllegalStateException("AI insights response must contain exactly 4 items");
         }
         for (Map<String, Object> insight : insights) {
             requireInt(insight, "id", Integer.MIN_VALUE, Integer.MAX_VALUE);
@@ -1005,7 +998,7 @@ public class AIService {
 
     private void validateActions(List<String> actions) {
         if (actions == null || actions.size() != 4 || actions.stream().anyMatch(String::isBlank)) {
-            throw new IllegalStateException("Mistral next-actions response must contain exactly 4 non-empty actions");
+            throw new IllegalStateException("AI next-actions response must contain exactly 4 non-empty actions");
         }
     }
 
@@ -1025,17 +1018,17 @@ public class AIService {
         throw new IllegalStateException("No JSON array found in model output");
     }
 
-    private Map<String, String> resolveTenantMistralConfig() {
+    private Map<String, String> resolveTenantOpenAIConfig() {
         if (integrationService == null) {
             return Map.of();
         }
-        Map<String, String> config = integrationService.getConfig("mistral_ai");
+        Map<String, String> config = integrationService.getConfig("openai");
         return config == null ? Map.of() : config;
     }
 
     private String resolveApiKey(Map<String, String> tenantConfig) {
         String tenantKey = tenantConfig == null ? "" : tenantConfig.get("apiKey");
-        return tenantKey != null && !tenantKey.isBlank() ? tenantKey.trim() : trim(mistralApiKey);
+        return tenantKey != null && !tenantKey.isBlank() ? tenantKey.trim() : trim(openaiApiKey);
     }
 
     private String resolveModel(Map<String, String> tenantConfig) {
@@ -1109,6 +1102,6 @@ public class AIService {
             }
         }
 
-        throw new IllegalStateException("Mistral response content empty");
+        throw new IllegalStateException("AI response content empty");
     }
 }
