@@ -11,6 +11,7 @@ import {
   X,
   Building2,
   CalendarDays,
+  CalendarCheck,
   Eye,
   History,
   FileText,
@@ -61,10 +62,34 @@ const pickFields = (row, fields) => fields.reduce((acc, field) => {
   return acc
 }, {})
 
+const todayIST = () => {
+  const now = new Date()
+  return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+}
+
+const dateOnlyStr = (d) => {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+const getLeadFollowUpDate = (lead) => {
+  const vals = lead.stageValues || []
+  for (let i = vals.length - 1; i >= 0; i--) {
+    const v = vals[i]
+    const d = v?.nextFollowUpDate || v?.followUpDate
+    if (d && String(d).trim()) return String(d).trim().slice(0, 10)
+  }
+  if (lead.followUpDate) return String(lead.followUpDate).trim().slice(0, 10)
+  return null
+}
+
 const TABS = [
   { key: 'welcome_call', label: 'Welcome Call', stageIdx: 0 },
   { key: 'followup_meeting', label: 'Follow-up Meeting', stageIdx: 1 },
   { key: 'meeting_outcome', label: 'Meeting Outcome', stageIdx: 2 },
+  { key: 'todays_followup', label: "Today's Followup", stageIdx: -1 },
 ]
 
 const LEADS_PER_PAGE = 8
@@ -742,20 +767,49 @@ export default function TaskFollowUpPage() {
         - timestampMs(b.nextTask?.dueDate || b.followUpDate || b.createdAt)
       )
     }
+    const today = todayIST()
+    const yesterdayStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
+    const todayStr = dateOnlyStr(today)
+    const tomorrowStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
+
+    const followupLeads = enrichedLeads.filter((l) => {
+      const fDate = getLeadFollowUpDate(l)
+      return fDate === yesterdayStr || fDate === todayStr || fDate === tomorrowStr
+    })
+    let filteredFollowup = followupLeads
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      filteredFollowup = filteredFollowup.filter(
+        (l) => anyFieldMatchesSearch(q, [l.name, l.phone, l.phoneNumber, l.mobileNumber, l.company, l.email, l.nextTask?.title])
+      )
+    }
+    filteredFollowup.sort(sorter)
+    filteredFollowup = filteredFollowup.map((l) => ({ ...l, _followUpDate: getLeadFollowUpDate(l), _yesterdayStr: yesterdayStr, _todayStr: todayStr, _tomorrowStr: tomorrowStr }))
+
     return {
       welcome_call: pendingAll.filter((l) => l.currentStage <= 0).sort(sorter),
       followup_meeting: pendingAll.filter((l) => l.currentStage === 1).sort(sorter),
       meeting_outcome: pendingAll.filter((l) => l.currentStage === 2 || l.currentStage === 3).sort(sorter),
+      todays_followup: filteredFollowup,
     }
   }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length])
 
   const stats = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
     const pending = enrichedLeads.filter(isPending)
+    const today = todayIST()
+    const yesterdayStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
+    const todayStr = dateOnlyStr(today)
+    const tomorrowStr = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
+    const followupCount = enrichedLeads.filter((l) => {
+      const fDate = getLeadFollowUpDate(l)
+      return fDate === yesterdayStr || fDate === todayStr || fDate === tomorrowStr
+    }).length
     return {
       welcomeCall: pending.filter((l) => l.currentStage <= 0).length,
       followupMeeting: pending.filter((l) => l.currentStage === 1).length,
       meetingOutcome: pending.filter((l) => l.currentStage === 2 || l.currentStage === 3).length,
+      todaysFollowup: followupCount,
     }
   }, [enrichedLeads, tasks.length])
 
@@ -1092,7 +1146,7 @@ export default function TaskFollowUpPage() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-red-300 dark:hover:ring-red-700" onClick={() => setActiveTab('welcome_call')}>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
@@ -1122,6 +1176,16 @@ export default function TaskFollowUpPage() {
           </div>
           <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.meetingOutcome}</h3>
           <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Leads pending outcome</p>
+        </div>
+        <div className="kpi-card cursor-pointer transition hover:ring-2 hover:ring-violet-300 dark:hover:ring-violet-700" onClick={() => setActiveTab('todays_followup')}>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+              <CalendarCheck className="h-4 w-4" />
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-400">Today's Followup</p>
+          </div>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? <span className="inline-block h-7 w-10 animate-pulse rounded bg-slate-200 dark:bg-slate-700" /> : stats.todaysFollowup}</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Yesterday · Today · Tomorrow</p>
         </div>
       </div>
 
@@ -1212,6 +1276,7 @@ export default function TaskFollowUpPage() {
             {activeTab === 'welcome_call' && 'No leads at the welcome call stage.'}
             {activeTab === 'followup_meeting' && 'No leads awaiting follow-up meeting.'}
             {activeTab === 'meeting_outcome' && 'No leads pending meeting outcome.'}
+            {activeTab === 'todays_followup' && 'No follow-ups for yesterday, today, or tomorrow.'}
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -1235,126 +1300,153 @@ export default function TaskFollowUpPage() {
                     .replace(/^\w/, (c) => c.toUpperCase())
                     .trim()
 
-                return (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                    {paginatedLeads.map((lead) => {
-                      const stageIdx = lead.currentStage === 3 && tabStageIdx === 2 ? 3 : tabStageIdx
-                      const stageStatus = lead.stageStatuses[stageIdx]
-                      const stageVals = lead.stageValues?.[stageIdx] || {}
-                      const valEntries = Object.entries(stageVals)
-                        .filter(([, v]) => v != null && String(v).trim() !== '')
-                        .slice(0, 5)
+                const renderLeadCard = (lead, idx) => {
+                  const stageIdx = activeTab === 'todays_followup' ? Math.min(lead.currentStage, 2) : (lead.currentStage === 3 && tabStageIdx === 2 ? 3 : tabStageIdx)
+                  const stageStatus = lead.stageStatuses?.[stageIdx]
+                  const stageVals = lead.stageValues?.[stageIdx] || {}
+                  const valEntries = Object.entries(stageVals)
+                    .filter(([, v]) => v != null && String(v).trim() !== '')
+                    .slice(0, 5)
 
-                      return (
-                        <div
-                          key={lead.id}
-                          onClick={() => openHistoryLead(lead)}
-                          className="flex cursor-pointer flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
-                        >
-                          {/* Stage Icon */}
-                          <div className="flex-shrink-0">
-                            <StageIcon currentStage={lead.currentStage} />
-                          </div>
-
-                          {/* Lead Info */}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                {lead.name || 'Unnamed Lead'}
-                              </h3>
-                              {lead.company && (
-                                <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                                  <Building2 className="h-3 w-3" />
-                                  {lead.company}
-                                </span>
-                              )}
-                              {/* Stage-specific status badge */}
-                              {stageStatus && stageStatus !== 'not_started' ? (
-                                <span className={`badge text-[10px] font-bold ${getStatusColor(stageStatus)}`}>
-                                  {getStatusLabel(stageIdx, stageStatus)}
-                                </span>
-                              ) : (
-                                <span className="badge bg-slate-100 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                  {lead.taskDriven ? 'Task follow-up' : 'Not Started'}
-                                </span>
-                              )}
-                              {lead.missingLead && (
-                                <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
-                                  Lead missing
-                                </span>
-                              )}
-                              {lead.pendingTaskCount > 0 && (
-                                <span className="badge bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                                  {lead.pendingTaskCount} open task{lead.pendingTaskCount === 1 ? '' : 's'}
-                                </span>
-                              )}
-                            </div>
-                            {lead.nextTask?.title && (
-                              <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                {lead.nextTask.title}
-                              </p>
-                            )}
-                            {lead.missingLead && (
-                              <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
-                                This is a real follow-up task, but its linked lead record is deleted or not accessible.
-                              </p>
-                            )}
-                            {/* Stage-specific values */}
-                            {valEntries.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1.5">
-                                {valEntries.map(([k, v]) => (
-                                  <span key={k} className="inline-flex gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-slate-800">
-                                    <span className="font-medium text-slate-500 dark:text-slate-400">{formatValueKey(k)}:</span>
-                                    <span className="text-slate-700 dark:text-slate-200">{String(v)}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                              {lead.assignedToName && (
-                                <span className="inline-flex items-center gap-1">
-                                  <User className="h-3 w-3" /> {lead.assignedToName}
-                                </span>
-                              )}
-                              {(lead.nextTask?.dueDate || lead.followUpDate) && (
-                                <span className="inline-flex items-center gap-1">
-                                  <CalendarDays className="h-3 w-3" /> {formatDate(lead.nextTask?.dueDate || lead.followUpDate)}
-                                </span>
-                              )}
-                              {lead.email && (
-                                <CopyableContact
-                                  value={lead.email}
-                                  label="Email"
-                                  className="max-w-[180px]"
-                                />
-                              )}
-                              {(lead.phone || lead.phoneNumber || lead.mobileNumber) && (
-                                <CopyableContact
-                                  value={lead.phone || lead.phoneNumber || lead.mobileNumber}
-                                  label="Phone"
-                                  icon={Phone}
-                                  className="max-w-[180px]"
-                                />
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          {lead.leadExists !== false && (
-                            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={() => setActivitiesLead(lead)}
-                                className="btn-primary h-9 px-3 text-xs"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                Open Activities
-                              </button>
-                            </div>
+                  return (
+                    <div
+                      key={lead.id}
+                      onClick={() => openHistoryLead(lead)}
+                      className="flex cursor-pointer flex-col gap-4 px-4 py-4 transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between"
+                    >
+                      <div className="flex-shrink-0">
+                        <StageIcon currentStage={lead.currentStage} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {lead.name || 'Unnamed Lead'}
+                          </h3>
+                          {lead.company && (
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                              <Building2 className="h-3 w-3" />
+                              {lead.company}
+                            </span>
+                          )}
+                          {stageStatus && stageStatus !== 'not_started' ? (
+                            <span className={`badge text-[10px] font-bold ${getStatusColor(stageStatus)}`}>
+                              {getStatusLabel(stageIdx, stageStatus)}
+                            </span>
+                          ) : (
+                            <span className="badge bg-slate-100 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              {lead.taskDriven ? 'Task follow-up' : 'Not Started'}
+                            </span>
+                          )}
+                          {lead.missingLead && (
+                            <span className="badge bg-rose-100 text-[10px] text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">
+                              Lead missing
+                            </span>
+                          )}
+                          {lead.pendingTaskCount > 0 && (
+                            <span className="badge bg-amber-100 text-[10px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                              {lead.pendingTaskCount} open task{lead.pendingTaskCount === 1 ? '' : 's'}
+                            </span>
                           )}
                         </div>
-                      )
-                    })}
+                        {lead.nextTask?.title && (
+                          <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                            {lead.nextTask.title}
+                          </p>
+                        )}
+                        {lead.missingLead && (
+                          <p className="mt-1 text-[11px] text-rose-500 dark:text-rose-300">
+                            This is a real follow-up task, but its linked lead record is deleted or not accessible.
+                          </p>
+                        )}
+                        {valEntries.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {valEntries.map(([k, v]) => (
+                              <span key={k} className="inline-flex gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] dark:bg-slate-800">
+                                <span className="font-medium text-slate-500 dark:text-slate-400">{formatValueKey(k)}:</span>
+                                <span className="text-slate-700 dark:text-slate-200">{String(v)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                          {lead.assignedToName && (
+                            <span className="inline-flex items-center gap-1">
+                              <User className="h-3 w-3" /> {lead.assignedToName}
+                            </span>
+                          )}
+                          {(lead._followUpDate || lead.nextTask?.dueDate || lead.followUpDate) && (
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarDays className="h-3 w-3" /> {formatDate(lead._followUpDate || lead.nextTask?.dueDate || lead.followUpDate)}
+                            </span>
+                          )}
+                          {lead.email && (
+                            <CopyableContact
+                              value={lead.email}
+                              label="Email"
+                              className="max-w-[180px]"
+                            />
+                          )}
+                          {(lead.phone || lead.phoneNumber || lead.mobileNumber) && (
+                            <CopyableContact
+                              value={lead.phone || lead.phoneNumber || lead.mobileNumber}
+                              label="Phone"
+                              icon={Phone}
+                              className="max-w-[180px]"
+                            />
+                          )}
+                        </div>
+                      </div>
+                      {lead.leadExists !== false && (
+                        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setActivitiesLead(lead)}
+                            className="btn-primary h-9 px-3 text-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Open Activities
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                if (activeTab === 'todays_followup') {
+                  const allFollowup = displayLeads
+                  const first = allFollowup[0]
+                  const yStr = first?._yesterdayStr
+                  const tStr = first?._todayStr
+                  const tmStr = first?._tomorrowStr
+                  const groups = [
+                    { key: 'yesterday', label: 'Yesterday', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', leads: allFollowup.filter((l) => l._followUpDate === yStr) },
+                    { key: 'today', label: 'Today', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/30', leads: allFollowup.filter((l) => l._followUpDate === tStr) },
+                    { key: 'tomorrow', label: 'Tomorrow', color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/30', leads: allFollowup.filter((l) => l._followUpDate === tmStr) },
+                  ]
+                  return (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                      {groups.map((group) => (
+                        <div key={group.key}>
+                          <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800/50">
+                            <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-bold ${group.bg} ${group.color}`}>
+                              {group.label}
+                            </span>
+                            <span className="text-[11px] text-slate-400">{group.leads.length} lead{group.leads.length === 1 ? '' : 's'}</span>
+                          </div>
+                          {group.leads.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-xs text-slate-400">No follow-ups {group.label.toLowerCase()}</div>
+                          ) : (
+                            group.leads.map((lead, idx) => renderLeadCard(lead, idx))
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {paginatedLeads.map((lead, idx) => renderLeadCard(lead, idx))}
                   </div>
                 )
               })()}
