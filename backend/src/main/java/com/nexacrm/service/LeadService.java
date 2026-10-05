@@ -426,32 +426,42 @@ public class LeadService {
             .orElseThrow(() -> new ResourceNotFoundException("Lead not found: " + id));
         ensureLeadVisible(lead);
 
-        String normalizedEmail = normalizeEmail(dto.getEmail());
+        String normalizedEmail = dto.getEmail() != null ? normalizeEmail(dto.getEmail()) : lead.getEmail();
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
             throw new IllegalStateException("Email is required");
         }
-        String normalizedPhone = normalizePhone(dto.getPhone());
-        if (!normalizedEmail.equalsIgnoreCase(lead.getEmail())) {
+        String normalizedPhone = dto.getPhone() != null ? normalizePhone(dto.getPhone()) : lead.getPhone();
+        if (dto.getEmail() != null && !normalizedEmail.equalsIgnoreCase(lead.getEmail())) {
             leadRepository.findByEmailAndTenantIdAndDeletedFalse(normalizedEmail, tenantId())
                 .ifPresent(existing -> {
                     throw new IllegalStateException("Lead with email already exists: " + normalizedEmail);
                 });
         }
-        if (normalizedPhone != null && !normalizedPhone.isBlank() && !normalizedPhone.equals(lead.getPhone())) {
+        if (dto.getPhone() != null && normalizedPhone != null && !normalizedPhone.isBlank() && !normalizedPhone.equals(lead.getPhone())) {
             leadRepository.findByPhoneAndTenantIdAndDeletedFalse(normalizedPhone, tenantId())
                 .ifPresent(existing -> {
                     throw new IllegalStateException("Lead with phone already exists: " + normalizedPhone);
                 });
         }
 
-        lead.setName(dto.getName());
-        lead.setEmail(normalizedEmail);
-        lead.setPhone(normalizedPhone);
-        lead.setCompany(dto.getCompany());
-        lead.setService(dto.getService());
-        lead.setSpecialization(dto.getSpecialization());
-        if (dto.getSource() != null) lead.setSource(dto.getSource());
-        lead.setSourceLabel(normalizeSourceLabel(dto.getSource(), dto.getSourceLabel()));
+        if (dto.getName() != null) lead.setName(dto.getName());
+        if (dto.getEmail() != null) lead.setEmail(normalizedEmail);
+        if (dto.getPhone() != null) lead.setPhone(normalizedPhone);
+        if (dto.getCompany() != null) lead.setCompany(dto.getCompany());
+        if (dto.getService() != null) lead.setService(dto.getService());
+        if (dto.getSpecialization() != null) lead.setSpecialization(dto.getSpecialization());
+        if (dto.getSource() != null) {
+            Lead.LeadSource previousSource = lead.getSource();
+            Lead.LeadSource nextSource = dto.getSource();
+            lead.setSource(nextSource);
+            if (dto.getSourceLabel() != null) {
+                lead.setSourceLabel(normalizeSourceLabel(nextSource, dto.getSourceLabel()));
+            } else if (previousSource != nextSource || (nextSource != Lead.LeadSource.OTHER && nextSource != Lead.LeadSource.REFERRAL)) {
+                lead.setSourceLabel(null);
+            }
+        } else if (dto.getSourceLabel() != null) {
+            lead.setSourceLabel(normalizeSourceLabel(lead.getSource(), dto.getSourceLabel()));
+        }
         if (dto.getStatus() != null) lead.setStatus(dto.getStatus());
         if (dto.getScore() != null)  lead.setScore(dto.getScore());
         if (dto.getPriority() != null) lead.setPriority(dto.getPriority());

@@ -214,6 +214,36 @@ class LeadServiceTest {
     }
 
     @Test
+    void update_shouldPreservePhoneAndCustomSourceLabelWhenPatchOmitsThem() {
+        Lead current = Lead.builder()
+            .name("Current")
+            .email("current@example.com")
+            .phone("9876543210")
+            .source(Lead.LeadSource.OTHER)
+            .sourceLabel("Fire exhibition")
+            .status(Lead.LeadStatus.NEW)
+            .build();
+        current.setId("lead-1");
+
+        when(leadRepository.findByIdAndTenantIdAndDeletedFalse("lead-1", 1L)).thenReturn(Optional.of(current));
+        when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LeadDTO dto = LeadDTO.builder()
+            .name("Current")
+            .email("current@example.com")
+            .source(Lead.LeadSource.OTHER)
+            .reminder15SentAt(LocalDateTime.now())
+            .build();
+
+        LeadDTO updated = leadService.update("lead-1", dto);
+
+        assertEquals("9876543210", current.getPhone());
+        assertEquals("Fire exhibition", current.getSourceLabel());
+        assertEquals("9876543210", updated.getPhone());
+        assertEquals("Fire exhibition", updated.getSourceLabel());
+    }
+
+    @Test
     void scoreWithAI_shouldPersistComputedHotScore() {
         User owner = User.builder().name("Owner").build();
         owner.setId("u-1");

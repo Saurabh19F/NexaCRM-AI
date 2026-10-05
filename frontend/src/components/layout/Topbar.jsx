@@ -23,6 +23,30 @@ const AVATAR_STYLE_CLASS = {
   steel: 'from-slate-500 to-slate-700',
 }
 
+const sourceLabelToEnum = (source) => {
+  const value = String(source || '').trim().toLowerCase()
+  if (value === 'facebook') return 'FACEBOOK'
+  if (value === 'instagram') return 'INSTAGRAM'
+  if (value === 'linkedin') return 'LINKEDIN'
+  if (value === 'website') return 'WEBSITE'
+  if (value === 'whatsapp') return 'WHATSAPP'
+  if (value === 'google ads') return 'GOOGLE_ADS'
+  if (value === 'meta ads') return 'META_ADS'
+  if (value === 'referral' || value.startsWith('referral:')) return 'REFERRAL'
+  if (value === 'email') return 'EMAIL'
+  return 'OTHER'
+}
+
+const sourceCustomLabel = (lead) => {
+  const source = String(lead?.source || '').trim()
+  const sourceLabel = String(lead?.sourceLabel || '').trim()
+  const sourceEnum = sourceLabelToEnum(source)
+  if (sourceEnum !== 'OTHER' && sourceEnum !== 'REFERRAL') return undefined
+  const custom = sourceLabel || (sourceEnum === 'REFERRAL' ? source.replace(/^referral:\s*/i, '').trim() : source)
+  const blockedLabel = sourceEnum === 'REFERRAL' ? 'referral' : 'other'
+  return custom && custom.toLowerCase() !== blockedLabel ? custom : undefined
+}
+
 export default function Topbar({ onMenuClick, onRefresh }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
@@ -168,10 +192,11 @@ export default function Topbar({ onMenuClick, onRefresh }) {
       if (Object.keys(nextPatch).length > 0) {
         patchLeadLocal(lead.id, (prev) => ({ ...prev, ...nextPatch }))
         reminders.forEach((notification) => addNotification(notification))
-        const srcMap = { facebook: 'FACEBOOK', instagram: 'INSTAGRAM', linkedin: 'LINKEDIN', website: 'WEBSITE', whatsapp: 'WHATSAPP', 'google ads': 'GOOGLE_ADS', 'meta ads': 'META_ADS', referral: 'REFERRAL', email: 'EMAIL' }
         leadsAPI.update(lead.id, {
           name: lead.name, email: lead.email,
-          source: srcMap[String(lead.source || '').toLowerCase()] || 'OTHER',
+          phone: lead.phone || undefined,
+          source: sourceLabelToEnum(lead.source),
+          sourceLabel: sourceCustomLabel(lead),
           ...nextPatch,
         }).catch(() => {})
       }
