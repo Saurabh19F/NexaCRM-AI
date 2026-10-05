@@ -724,6 +724,10 @@ public class LeadConversionDashboardService {
     }
 
     private String inferOtherSource(Lead lead) {
+        String custom = lead == null ? "" : normalize(lead.getSourceLabel());
+        if (!custom.isBlank() && !custom.equals("other")) {
+            return lead.getSourceLabel().trim();
+        }
         String utmMedium = normalize(lead.getUtmMedium());
         String utmCampaign = normalize(lead.getUtmCampaign());
         String notes = normalize(lead.getNotes());

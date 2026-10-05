@@ -55,6 +55,9 @@ public class Lead extends BaseEntity {
     @Field("source")
     private LeadSource source;
 
+    @Field("source_label")
+    private String sourceLabel;
+
     @Indexed
     @Field("status")
     private LeadStatus status = LeadStatus.NEW;

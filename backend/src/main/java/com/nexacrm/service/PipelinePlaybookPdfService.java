@@ -254,7 +254,7 @@ public class PipelinePlaybookPdfService {
             safe(lead.getCompany(), "-"),
             safe(lead.getPhone(), "-"),
             safe(lead.getEmail(), "-"),
-            sourceLabel(lead.getSource()),
+            sourceLabel(lead),
             lead.getScore() == null ? "-" : lead.getScore().name(),
             ownerName(lead),
             formatDate(lead.getCreatedAt())
@@ -269,6 +269,15 @@ public class PipelinePlaybookPdfService {
             log.debug("Unable to resolve lead owner for pipeline PDF", ex);
             return "Unassigned";
         }
+    }
+
+    private String sourceLabel(Lead lead) {
+        if (lead == null) return "Other";
+        String custom = lead.getSourceLabel() == null ? "" : lead.getSourceLabel().trim();
+        if (lead.getSource() == Lead.LeadSource.OTHER && !custom.isBlank() && !custom.equalsIgnoreCase("other")) {
+            return custom;
+        }
+        return sourceLabel(lead.getSource());
     }
 
     private String sourceLabel(Lead.LeadSource source) {

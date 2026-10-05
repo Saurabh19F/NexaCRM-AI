@@ -46,6 +46,21 @@ const sourceEnumToLabel = (source) => {
   return s ? `${s.charAt(0)}${s.slice(1).toLowerCase().replace('_', ' ')}` : 'Other'
 }
 
+const sourceDisplayLabel = (lead) => {
+  const custom = String(lead?.sourceLabel || '').trim()
+  if (String(lead?.source || '').toUpperCase() === 'OTHER' && custom) return custom
+  return sourceEnumToLabel(lead?.source)
+}
+
+const customSourceLabel = (lead) => {
+  const source = String(lead?.source || '').trim()
+  const sourceLabel = String(lead?.sourceLabel || '').trim()
+  const sourceEnum = sourceLabelToEnum(source)
+  if (sourceEnum !== 'OTHER') return null
+  const custom = sourceLabel || source
+  return custom && custom.toLowerCase() !== 'other' ? custom : null
+}
+
 const toFrontendLead = (lead, index = 0) => {
   const now = Date.now()
   const status = String(lead?.status || 'NEW').toLowerCase()
@@ -73,7 +88,8 @@ const toFrontendLead = (lead, index = 0) => {
     company: lead?.company || '',
     service: lead?.service || '',
     specialization: lead?.specialization || lead?.subService || '',
-    source: sourceEnumToLabel(lead?.source),
+    source: sourceDisplayLabel(lead),
+    sourceLabel: lead?.sourceLabel || '',
     score: String(lead?.score || 'COLD').toLowerCase(),
     status,
     value: Number(lead?.dealValue ?? lead?.value ?? 0),
@@ -106,6 +122,7 @@ const toBackendLead = (lead) => ({
   service: lead?.service || '',
   specialization: lead?.specialization || lead?.subService || '',
   source: sourceLabelToEnum(lead?.source),
+  sourceLabel: customSourceLabel(lead),
   score: String(lead?.score || 'cold').toUpperCase(),
   status: String(lead?.status || 'new').toUpperCase(),
   dealValue: Number(lead?.value || 0),

@@ -187,7 +187,9 @@ const formatExportDateTime = (value) => {
   })
 }
 
-const sourceEnumToLabel = (source) => {
+const sourceEnumToLabel = (source, sourceLabel) => {
+  const custom = String(sourceLabel || '').trim()
+  if (String(source || '').toUpperCase() === 'OTHER' && custom) return custom
   const s = String(source || '').toUpperCase()
   if (s === 'GOOGLE_ADS') return 'Google Ads'
   if (s === 'META_ADS') return 'Meta Ads'
@@ -202,7 +204,8 @@ const toPipelineExportLead = (lead, index = 0) => ({
   company: lead?.company || '',
   service: lead?.service || '',
   specialization: lead?.specialization || lead?.subService || '',
-  source: sourceEnumToLabel(lead?.source),
+  source: sourceEnumToLabel(lead?.source, lead?.sourceLabel),
+  sourceLabel: lead?.sourceLabel || '',
   score: String(lead?.score || 'COLD').toLowerCase(),
   status: String(lead?.status || 'NEW').toLowerCase(),
   assignedTo: lead?.assignedToName || lead?.assignedTo || '',
@@ -802,7 +805,7 @@ function KanbanColumn({
 function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '', service: '', specialization: '',
-    source: 'Website', score: 'warm', status: initialStage || 'new',
+    source: 'Website', sourceLabel: '', score: 'warm', status: initialStage || 'new',
     assignedToId: '', value: '', tags: '', expectedCloseTimeline: ''
   })
   const handleChange = (e) => {
@@ -810,6 +813,8 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
     if (name === 'expectedCloseTimeline' && value) {
       const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
       setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
+    } else if (name === 'source') {
+      setForm((prev) => ({ ...prev, source: value, sourceLabel: value === 'Other' ? prev.sourceLabel : '' }))
     } else {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
@@ -894,6 +899,12 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
               {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
+          {form.source === 'Other' && (
+            <div>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Custom source</label>
+              <input name="sourceLabel" value={form.sourceLabel} onChange={handleChange} className="input" placeholder="Fire exhibition" />
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">AI Score</label>
             <select name="score" value={form.score} onChange={handleChange} className="input">

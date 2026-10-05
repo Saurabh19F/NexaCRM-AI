@@ -55,6 +55,15 @@ const LEAD_SOURCES = [
   'Google Ads', 'Meta Ads', 'Referral', 'Email', 'Other',
 ]
 
+const standardSourceValue = (source) => LEAD_SOURCES.includes(source) ? source : 'Other'
+
+const customSourceValue = (source, sourceLabel) => {
+  const label = String(sourceLabel || '').trim()
+  if (label) return label
+  const value = String(source || '').trim()
+  return value && !LEAD_SOURCES.includes(value) && value.toLowerCase() !== 'other' ? value : ''
+}
+
 const formatLeadCreatedDateTime = (lead) => {
   const raw = lead?.createdAtTs || lead?.createdAt
   if (!raw) return { date: '—', time: '' }
@@ -84,7 +93,7 @@ const formatLeadCreatedDateTime = (lead) => {
 function AddLeadModal({ onClose, onAdd, teamMembers }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '', service: '', specialization: '',
-    source: 'Website', score: 'warm', status: 'new',
+    source: 'Website', sourceLabel: '', score: 'warm', status: 'new',
     assignedToId: '', value: '', tags: '', lostReason: '', expectedCloseTimeline: ''
   })
   const handleChange = (e) => {
@@ -92,6 +101,8 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
     if (name === 'expectedCloseTimeline' && value) {
       const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
       setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
+    } else if (name === 'source') {
+      setForm((prev) => ({ ...prev, source: value, sourceLabel: value === 'Other' ? prev.sourceLabel : '' }))
     } else {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
@@ -165,6 +176,12 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
                 ))}
               </select>
             </div>
+            {form.source === 'Other' && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Custom source</label>
+                <input name="sourceLabel" value={form.sourceLabel} onChange={handleChange} className="input" placeholder="Fire exhibition" />
+              </div>
+            )}
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Deal Value (₹)</label>
               <input name="value" type="number" value={form.value} onChange={handleChange} className="input" placeholder="100000" />
@@ -234,12 +251,20 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
 
 /* ── Edit Lead Modal ─────────────────────────────────────────────── */
 function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
-  const [form, setForm] = useState({ ...lead, assignedToId: lead?.assignedToId || '', expectedCloseTimeline: lead?.expectedCloseTimeline || '' })
+  const [form, setForm] = useState({
+    ...lead,
+    source: standardSourceValue(lead?.source),
+    sourceLabel: customSourceValue(lead?.source, lead?.sourceLabel),
+    assignedToId: lead?.assignedToId || '',
+    expectedCloseTimeline: lead?.expectedCloseTimeline || '',
+  })
   const handleChange = (e) => {
     const { name, value } = e.target
     if (name === 'expectedCloseTimeline' && value) {
       const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
       setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
+    } else if (name === 'source') {
+      setForm((prev) => ({ ...prev, source: value, sourceLabel: value === 'Other' ? prev.sourceLabel : '' }))
     } else {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
@@ -296,6 +321,12 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
                 {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
+            {form.source === 'Other' && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Custom source</label>
+                <input name="sourceLabel" value={form.sourceLabel || ''} onChange={handleChange} className="input" placeholder="Fire exhibition" />
+              </div>
+            )}
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Deal Value (₹)</label>
               <input name="value" type="number" value={form.value} onChange={handleChange} className="input" />

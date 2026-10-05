@@ -31,6 +31,7 @@ public class LeadDTO implements Serializable {
 
     @NotNull(message = "Source is required")
     private Lead.LeadSource source;
+    private String sourceLabel;
 
     private Lead.LeadStatus status;
     private Lead.LeadScore score;

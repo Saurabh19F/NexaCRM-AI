@@ -450,6 +450,8 @@ public class LeadService {
         lead.setCompany(dto.getCompany());
         lead.setService(dto.getService());
         lead.setSpecialization(dto.getSpecialization());
+        if (dto.getSource() != null) lead.setSource(dto.getSource());
+        lead.setSourceLabel(normalizeSourceLabel(dto.getSource(), dto.getSourceLabel()));
         if (dto.getStatus() != null) lead.setStatus(dto.getStatus());
         if (dto.getScore() != null)  lead.setScore(dto.getScore());
         if (dto.getPriority() != null) lead.setPriority(dto.getPriority());
@@ -2084,7 +2086,7 @@ public class LeadService {
                 safe(lead.getCompany()),
                 safe(lead.getService()),
                 safe(lead.getSpecialization()),
-                lead.getSource() != null ? lead.getSource().name() : "",
+                exportSourceLabel(lead),
                 lead.getScore() != null ? lead.getScore().name() : "",
                 lead.getStatus() != null ? lead.getStatus().name() : "",
                 lead.getDealValue() != null ? lead.getDealValue().toPlainString() : "",
@@ -2130,7 +2132,7 @@ public class LeadService {
                 row.createCell(3).setCellValue(safe(lead.getCompany()));
                 row.createCell(4).setCellValue(safe(lead.getService()));
                 row.createCell(5).setCellValue(safe(lead.getSpecialization()));
-                row.createCell(6).setCellValue(lead.getSource() != null ? lead.getSource().name() : "");
+                row.createCell(6).setCellValue(exportSourceLabel(lead));
                 row.createCell(7).setCellValue(lead.getScore() != null ? lead.getScore().name() : "");
                 row.createCell(8).setCellValue(lead.getStatus() != null ? lead.getStatus().name() : "");
                 row.createCell(9).setCellValue(lead.getDealValue() != null ? lead.getDealValue().doubleValue() : 0d);
@@ -2383,6 +2385,7 @@ public class LeadService {
             .include("service")
             .include("specialization")
             .include("source")
+            .include("source_label")
             .include("status")
             .include("score")
             .include("priority")
@@ -2430,6 +2433,7 @@ public class LeadService {
             .service(d.getString("service"))
             .specialization(d.getString("specialization"))
             .source(enumOrNull(Lead.LeadSource.class, d.getString("source")))
+            .sourceLabel(displaySourceLabel(enumOrNull(Lead.LeadSource.class, d.getString("source")), d.getString("source_label")))
             .status(enumOrNull(Lead.LeadStatus.class, d.getString("status")))
             .score(enumOrNull(Lead.LeadScore.class, d.getString("score")))
             .priority(enumOrNull(Lead.LeadPriority.class, d.getString("priority")))
@@ -2537,6 +2541,7 @@ public class LeadService {
             .service(l.getService())
             .specialization(l.getSpecialization())
             .source(l.getSource())
+            .sourceLabel(displaySourceLabel(l.getSource(), l.getSourceLabel()))
             .status(l.getStatus())
             .score(l.getScore())
             .priority(l.getPriority())
@@ -2597,6 +2602,7 @@ public class LeadService {
             .service(dto.getService())
             .specialization(dto.getSpecialization())
             .source(dto.getSource())
+            .sourceLabel(normalizeSourceLabel(dto.getSource(), dto.getSourceLabel()))
             .status(dto.getStatus() != null ? dto.getStatus() : Lead.LeadStatus.NEW)
             .score(resolvedScore)
             .priority(dto.getPriority() != null ? dto.getPriority() : Lead.LeadPriority.MEDIUM)
@@ -2622,5 +2628,23 @@ public class LeadService {
         }
 
         return builder.build();
+    }
+
+    private String displaySourceLabel(Lead.LeadSource source, String sourceLabel) {
+        String normalized = normalizeSourceLabel(source, sourceLabel);
+        return normalized != null ? normalized : null;
+    }
+
+    private String normalizeSourceLabel(Lead.LeadSource source, String sourceLabel) {
+        if (source != Lead.LeadSource.OTHER) return null;
+        String trimmed = sourceLabel == null ? "" : sourceLabel.trim();
+        if (trimmed.isBlank() || trimmed.equalsIgnoreCase("other")) return null;
+        return trimmed;
+    }
+
+    private String exportSourceLabel(Lead lead) {
+        if (lead == null || lead.getSource() == null) return "";
+        String custom = displaySourceLabel(lead.getSource(), lead.getSourceLabel());
+        return custom != null ? custom : lead.getSource().name();
     }
 }
