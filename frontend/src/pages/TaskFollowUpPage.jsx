@@ -1657,7 +1657,10 @@ export default function TaskFollowUpPage() {
             onPersist={handlePersistActivity}
             initialData={[{}, {}, {}]}
             initialSaved={[false, false, false]}
-            initialActiveTab={(TABS.find(t => t.key === activeTab)?.stageIdx) || 0}
+            initialActiveTab={activeTab === 'todays_followup'
+              ? Math.max(0, Math.min(Number(activitiesLead.currentStage) || 0, 2))
+              : Math.max(0, TABS.find(t => t.key === activeTab)?.stageIdx ?? 0)
+            }
           />
         )}
       </AnimatePresence>

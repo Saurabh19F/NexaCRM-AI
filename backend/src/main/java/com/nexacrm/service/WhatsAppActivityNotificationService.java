@@ -18,8 +18,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -39,6 +42,9 @@ public class WhatsAppActivityNotificationService {
     private static final String KEY = "whatsappActivityNotifications";
     private static final TypeReference<Map<String, Object>> CONFIG_TYPE = new TypeReference<>() {};
     private static final DateTimeFormatter DT_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy hh:mm a");
+    private static final DateTimeFormatter ZONED_DT_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy hh:mm a z");
+    private static final DateTimeFormatter ZONE_FORMAT = DateTimeFormatter.ofPattern("z");
+    private static final DateTimeFormatter FOLLOW_UP_TIME_FORMAT = DateTimeFormatter.ofPattern("hh:mm a");
 
     private final AppSettingRepository appSettingRepository;
     private final LeadRepository leadRepository;
@@ -82,7 +88,8 @@ public class WhatsAppActivityNotificationService {
             List<String> recipients = currentRecipients(config);
             if (recipients.isEmpty()) return;
 
-            String message = buildActivityMessage(lead, activity);
+            ZoneId zone = notificationZone(config);
+            String message = buildActivityMessage(lead, activity, zone);
             TenantContext.setCurrentTenantId(tenantId);
             try {
                 for (String recipient : recipients) {
@@ -112,7 +119,7 @@ public class WhatsAppActivityNotificationService {
                 if (recipients.isEmpty()) continue;
 
                 int minutesBefore = intVal(config, "reminderMinutesBefore", 15);
-                ZoneId zone = ZoneId.of(strVal(config, "timezone", "Asia/Kolkata"));
+                ZoneId zone = notificationZone(config);
                 LocalDateTime now = LocalDateTime.now(zone);
                 LocalDateTime windowStart = now.plusMinutes(minutesBefore);
                 LocalDateTime windowEnd = windowStart.plusMinutes(1);
@@ -127,7 +134,7 @@ public class WhatsAppActivityNotificationService {
                 TenantContext.setCurrentTenantId(tenantId);
                 try {
                     for (Lead lead : dueLeads) {
-                        String message = buildReminderMessage(lead, minutesBefore);
+                        String message = buildReminderMessage(lead, minutesBefore, zone);
                         for (String recipient : recipients) {
                             try {
                                 communicationService.sendChannelMessage("whatsapp", recipient, "", message);
@@ -147,7 +154,7 @@ public class WhatsAppActivityNotificationService {
 
     // ── Message builders ────────────────────────────────────────
 
-    private String buildActivityMessage(Lead lead, LeadActivity activity) {
+    private String buildActivityMessage(Lead lead, LeadActivity activity, ZoneId zone) {
         String leadName = cleanText(lead.getName(), "Unnamed Lead");
         String leadPhone = cleanText(lead.getPhone(), "");
         String activityTitle = cleanText(activity.getActivityTitle(), cleanText(activity.getActivityLabel(), "Activity"));
@@ -172,6 +179,10 @@ public class WhatsAppActivityNotificationService {
             strObj(values.get("nextFollowUpDate")),
             strObj(values.get("followUpDate"))
         );
+        String followUpTime = firstNonBlank(
+            strObj(values.get("nextFollowUpTime")),
+            strObj(values.get("followUpTime"))
+        );
         String assignedTo = cleanText(activity.getAssignedTo(), "");
 
         StringBuilder msg = new StringBuilder();
@@ -183,15 +194,15 @@ public class WhatsAppActivityNotificationService {
         if (status != null) msg.append("📊 *Status:* ").append(status).append("\n");
         if (!assignedTo.isBlank()) msg.append("👨‍💼 *Assigned:* ").append(assignedTo).append("\n");
         if (remarks != null) msg.append("💬 *Remarks:* ").append(remarks).append("\n");
-        if (followUp != null) msg.append("📅 *Next Follow-up:* ").append(followUp).append("\n");
-        msg.append("\n⏰ ").append(LocalDateTime.now().format(DT_FORMAT));
+        if (followUp != null) msg.append("📅 *Next Follow-up:* ").append(formatFollowUp(followUp, followUpTime, zone)).append("\n");
+        msg.append("\n⏰ ").append(ZonedDateTime.now(zone).format(ZONED_DT_FORMAT));
         return msg.toString();
     }
 
-    private String buildReminderMessage(Lead lead, int minutesBefore) {
+    private String buildReminderMessage(Lead lead, int minutesBefore, ZoneId zone) {
         String leadName = cleanText(lead.getName(), "Unnamed Lead");
         String leadPhone = cleanText(lead.getPhone(), "");
-        String followUpTime = lead.getFollowUpDate().format(DT_FORMAT);
+        String followUpTime = lead.getFollowUpDate().format(DT_FORMAT) + " " + shortZoneName(zone);
         String assignee = lead.getAssignedTo() != null ? cleanText(lead.getAssignedTo().getName(), "") : "";
         String service = cleanText(lead.getService(), "");
 
@@ -255,6 +266,31 @@ public class WhatsAppActivityNotificationService {
 
     private List<String> currentRecipients(Map<String, Object> config) {
         return normalizeRecipients(config == null ? null : config.get("recipients"));
+    }
+
+    private ZoneId notificationZone(Map<String, Object> config) {
+        try { return ZoneId.of(strVal(config, "timezone", "Asia/Kolkata")); }
+        catch (Exception ex) { return ZoneId.of("Asia/Kolkata"); }
+    }
+
+    private String formatFollowUp(String dateValue, String timeValue, ZoneId zone) {
+        String date = cleanText(dateValue, "");
+        if (date.isBlank()) return "";
+        String time = cleanText(timeValue, "");
+        if (time.isBlank()) return date;
+        return date + " " + formatTime(time) + " " + shortZoneName(zone);
+    }
+
+    private String shortZoneName(ZoneId zone) {
+        return ZonedDateTime.now(zone).format(ZONE_FORMAT);
+    }
+
+    private String formatTime(String value) {
+        try {
+            return LocalTime.parse(value).format(FOLLOW_UP_TIME_FORMAT);
+        } catch (DateTimeParseException ex) {
+            return value;
+        }
     }
 
     private List<String> normalizeRecipients(Object raw) {

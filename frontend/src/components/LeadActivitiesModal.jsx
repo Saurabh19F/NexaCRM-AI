@@ -35,6 +35,14 @@ const ACTIVITIES = [
   },
 ]
 
+const normalizeActivityTab = (value) => {
+  const index = Number(value)
+  if (!Number.isInteger(index)) return 0
+  if (index < 0) return 0
+  if (index >= ACTIVITIES.length) return ACTIVITIES.length - 1
+  return index
+}
+
 const normalizeOutcome = (value) => String(value || '').trim().toLowerCase()
 
 const canonicalConnectionStatus = (value) => {
@@ -177,7 +185,7 @@ function ActivityHistory({ logs, activityIndex }) {
 }
 
 export default function LeadActivitiesModal({ lead, onClose, onPersist, initialData, initialSaved, initialActiveTab = 0, onActiveTabChange }) {
-  const [activeTab, setActiveTab] = useState(initialActiveTab || 0)
+  const [activeTab, setActiveTab] = useState(() => normalizeActivityTab(initialActiveTab))
   const [saved, setSaved] = useState(initialSaved || [false, false, false])
   const [data, setData] = useState(initialData || [{},{},{}])
   const [saving, setSaving] = useState(false)
@@ -188,7 +196,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   useEffect(() => {
     if (leadIdRef.current === lead?.id) return
     leadIdRef.current = lead?.id
-    setActiveTab(initialActiveTab || 0)
+    setActiveTab(normalizeActivityTab(initialActiveTab))
     setSaved(initialSaved || [false, false, false])
     setData(initialData || [{},{},{}])
   }, [lead?.id, initialActiveTab, initialData, initialSaved])
@@ -197,8 +205,9 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     onTabChangeRef.current?.(lead?.id, activeTab)
   }, [activeTab, lead?.id])
 
-  const act = ACTIVITIES[activeTab]
+  const act = ACTIVITIES[activeTab] || ACTIVITIES[0]
   const Icon = act.icon
+  const currentActivityData = data[activeTab] || {}
 
   /* ── Activity 01 computed values ── */
   const activityOneValues = data[0] || {}
@@ -342,13 +351,13 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         await onPersist({
           lead,
           activityIndex: activeTab,
-          activity: ACTIVITIES[activeTab],
+          activity: act,
           values: data[activeTab] || {},
           allValues: data,
         })
       }
       setSaved(prev => { const n=[...prev]; n[activeTab]=true; return n })
-      toast.success(`${ACTIVITIES[activeTab].label} saved`)
+      toast.success(`${act.label} saved`)
       return true
     } catch (err) {
       toast.error(err?.message || 'Failed to save activity')
@@ -590,7 +599,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   </div>
                   <div className="px-3 py-1.5">
                     <span className="text-slate-500">Who will do it</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{data[activeTab].assignedTo || <span className="text-slate-400 font-normal">Not assigned</span>}</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">{currentActivityData.assignedTo || <span className="text-slate-400 font-normal">Not assigned</span>}</p>
                   </div>
                   <div className="px-3 py-1.5">
                     <span className="text-slate-500">How will it be done</span>

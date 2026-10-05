@@ -29,7 +29,7 @@ class PipelinePlaybookPdfServiceTest {
     void generatesReadablePlaybookPdfFromTenantPipeline() throws Exception {
         TenantContext.setCurrentTenantId(1L);
         Lead lead = Lead.builder()
-            .name("Pipeline lead")
+            .name("आदित्य Raj")
             .company("Kriscel")
             .email("info@example.com")
             .phone("+919876543210")
@@ -56,7 +56,7 @@ class PipelinePlaybookPdfServiceTest {
             String text = new PDFTextStripper().getText(document);
             assertFalse(text.isBlank());
             assertTrue(text.contains("NexaCRM Pipeline Playbook"));
-            assertTrue(text.contains("Pipeline lead"));
+            assertTrue(text.contains("Raj"));
         }
     }
 }

@@ -30,6 +30,8 @@ import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -448,11 +450,17 @@ public class LeadActivityService {
             }
         }
 
-        parseFollowUpDate(firstNonBlank(
-            stringValue(values.get("nextFollowUpDate")),
-            stringValue(values.get("followUpDate")),
-            stringValue(values.get("callbackAt"))
-        )).ifPresent(lead::setFollowUpDate);
+        parseFollowUpDate(
+            firstNonBlank(
+                stringValue(values.get("nextFollowUpDate")),
+                stringValue(values.get("followUpDate")),
+                stringValue(values.get("callbackAt"))
+            ),
+            firstNonBlank(
+                stringValue(values.get("nextFollowUpTime")),
+                stringValue(values.get("followUpTime"))
+            )
+        ).ifPresent(lead::setFollowUpDate);
     }
 
     private Lead.LeadStatus resolveLeadStatusFromActivity(Integer activityIndex, Map<String, Object> values) {
@@ -785,17 +793,35 @@ public class LeadActivityService {
         return "";
     }
 
-    private Optional<LocalDateTime> parseFollowUpDate(String value) {
+    private Optional<LocalDateTime> parseFollowUpDate(String value, String timeValue) {
         String raw = stringValue(value);
         if (raw.isBlank()) return Optional.empty();
         try {
             if (raw.length() == 10) {
-                return Optional.of(LocalDate.parse(raw).atStartOfDay());
+                LocalTime time = parseFollowUpTime(timeValue).orElse(LocalTime.MIDNIGHT);
+                return Optional.of(LocalDate.parse(raw).atTime(time));
             }
             return Optional.of(LocalDateTime.parse(raw));
         } catch (Exception ignored) {
             return Optional.empty();
         }
+    }
+
+    private Optional<LocalTime> parseFollowUpTime(String value) {
+        String raw = stringValue(value).toUpperCase(Locale.ROOT);
+        if (raw.isBlank()) return Optional.empty();
+        for (DateTimeFormatter formatter : List.of(
+            DateTimeFormatter.ISO_LOCAL_TIME,
+            DateTimeFormatter.ofPattern("H:mm"),
+            DateTimeFormatter.ofPattern("h:mm a")
+        )) {
+            try {
+                return Optional.of(LocalTime.parse(raw, formatter));
+            } catch (Exception ignored) {
+                // Try the next supported browser/user-facing time format.
+            }
+        }
+        return Optional.empty();
     }
 
     private BigDecimal parseMoney(String value) {

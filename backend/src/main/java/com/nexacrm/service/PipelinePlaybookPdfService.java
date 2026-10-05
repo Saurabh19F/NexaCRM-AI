@@ -212,9 +212,9 @@ public class PipelinePlaybookPdfService {
                 float needed = 34f + TABLE_HEADER_HEIGHT + TABLE_ROW_HEIGHT;
                 if (renderer.top + needed > CONTENT_BOTTOM) renderer.newPage();
                 float sectionTop = renderer.top;
-                drawText(renderer.stream, renderer.fonts.bold(), stage.group() + " - " + stage.label(), LEFT,
+                drawText(renderer.stream, renderer.fonts, true, stage.group() + " - " + stage.label(), LEFT,
                     sectionTop + 13f, 12f, NAVY, 300f);
-                drawText(renderer.stream, renderer.fonts.normal(), String.format(Locale.ENGLISH, "%,d lead(s). %s", rows.size(), stageNote(stage, rows.size())), LEFT,
+                drawText(renderer.stream, renderer.fonts, false, String.format(Locale.ENGLISH, "%,d lead(s). %s", rows.size(), stageNote(stage, rows.size())), LEFT,
                     sectionTop + 27f, 8f, SLATE, PAGE_WIDTH - LEFT - RIGHT);
 
                 List<List<String>> tableRows = rows.isEmpty()
@@ -237,15 +237,15 @@ public class PipelinePlaybookPdfService {
     private void drawHeader(Renderer renderer, int leadCount) throws IOException {
         fillRect(renderer.stream, 0, 0, PAGE_WIDTH, 108f, NAVY);
         fillRect(renderer.stream, 40f, 28f, 119f, 23f, CYAN);
-        drawText(renderer.stream, renderer.fonts.bold(), "LIVE PIPELINE", 54f, 44f, 7f, Color.WHITE, 100f);
-        drawText(renderer.stream, renderer.fonts.bold(), "NexaCRM Pipeline Playbook", LEFT, 76f, 19f, Color.WHITE, 500f);
-        drawText(renderer.stream, renderer.fonts.normal(), "Every lead, organized stage by stage - generated " +
+        drawText(renderer.stream, renderer.fonts, true, "LIVE PIPELINE", 54f, 44f, 7f, Color.WHITE, 100f);
+        drawText(renderer.stream, renderer.fonts, true, "NexaCRM Pipeline Playbook", LEFT, 76f, 19f, Color.WHITE, 500f);
+        drawText(renderer.stream, renderer.fonts, false, "Every lead, organized stage by stage - generated " +
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy, h:mm a", Locale.ENGLISH)).toLowerCase(Locale.ROOT),
             LEFT, 97f, 9f, new Color(203, 213, 225), 600f);
         drawCircle(renderer.stream, PAGE_WIDTH - 71f, 51f, 25f, GREEN);
         String count = String.valueOf(leadCount);
-        drawText(renderer.stream, renderer.fonts.bold(), count, PAGE_WIDTH - 71f - (count.length() * 4f), 55f, 14f, Color.WHITE, 50f);
-        drawText(renderer.stream, renderer.fonts.bold(), "LEADS", PAGE_WIDTH - 86f, 79f, 7f, Color.WHITE, 50f);
+        drawText(renderer.stream, renderer.fonts, true, count, PAGE_WIDTH - 71f - (count.length() * 4f), 55f, 14f, Color.WHITE, 50f);
+        drawText(renderer.stream, renderer.fonts, true, "LEADS", PAGE_WIDTH - 86f, 79f, 7f, Color.WHITE, 50f);
     }
 
     private List<String> leadRow(Lead lead) {
@@ -321,7 +321,7 @@ public class PipelinePlaybookPdfService {
             fillRect(renderer.stream, LEFT, top, sum(widths), TABLE_HEADER_HEIGHT, headerColor);
             float x = LEFT;
             for (int i = 0; i < headers.size(); i++) {
-                drawText(renderer.stream, renderer.fonts.bold(), headers.get(i), x + 5f,
+                drawText(renderer.stream, renderer.fonts, true, headers.get(i), x + 5f,
                     top + 16f, fontSize, Color.WHITE, widths[i] - 10f);
                 x += widths[i];
             }
@@ -337,7 +337,7 @@ public class PipelinePlaybookPdfService {
                 for (int col = 0; col < widths.length; col++) {
                     String value = col < row.size() ? row.get(col) : "-";
                     Color textColor = col == 0 && !empty ? new Color(51, 65, 85) : SLATE;
-                    drawText(renderer.stream, col == 0 && !empty ? renderer.fonts.bold() : renderer.fonts.normal(), value,
+                    drawText(renderer.stream, renderer.fonts, col == 0 && !empty, value,
                         x + 5f, top + rowHeight / 2f + fontSize / 3f, fontSize, textColor, widths[col] - 10f);
                     x += widths[col];
                 }
@@ -393,44 +393,84 @@ public class PipelinePlaybookPdfService {
         stream.fill();
     }
 
-    private void drawText(PDPageContentStream stream, PDFont font, String value, float x, float baselineTop,
+    private void drawText(PDPageContentStream stream, Fonts fonts, boolean bold, String value, float x, float baselineTop,
                           float fontSize, Color color, float maxWidth) throws IOException {
-        String text = fitText(font, value, fontSize, maxWidth);
+        String text = fitText(fonts, bold, value == null ? "" : value, fontSize, maxWidth);
+        float cursor = x;
+        StringBuilder run = new StringBuilder();
+        PDFont runFont = null;
+        for (int offset = 0; offset < text.length();) {
+            int codePoint = text.codePointAt(offset);
+            String glyph = new String(Character.toChars(codePoint));
+            PDFont glyphFont = chooseFont(fonts, bold, glyph);
+            if (runFont != glyphFont && run.length() > 0) {
+                cursor = drawTextRun(stream, runFont, run.toString(), cursor, baselineTop, fontSize, color);
+                run.setLength(0);
+            }
+            runFont = glyphFont;
+            run.append(glyph);
+            offset += Character.charCount(codePoint);
+        }
+        if (run.length() > 0) drawTextRun(stream, runFont, run.toString(), cursor, baselineTop, fontSize, color);
+    }
+
+    private float drawTextRun(PDPageContentStream stream, PDFont font, String value, float x, float baselineTop,
+                              float fontSize, Color color) throws IOException {
         stream.beginText();
         stream.setFont(font, fontSize);
         stream.setNonStrokingColor(color);
         stream.newLineAtOffset(x, PAGE_HEIGHT - baselineTop);
-        stream.showText(text);
+        stream.showText(value);
         stream.endText();
+        return x + font.getStringWidth(value) / 1000f * fontSize;
     }
 
-    private String fitText(PDFont font, String value, float fontSize, float maxWidth) throws IOException {
-        String safe = sanitize(font, value == null ? "" : value);
-        if (font.getStringWidth(safe) / 1000f * fontSize <= maxWidth) return safe;
-        String suffix = "…";
+    private String fitText(Fonts fonts, boolean bold, String value, float fontSize, float maxWidth) throws IOException {
         StringBuilder result = new StringBuilder();
-        for (int offset = 0; offset < safe.length();) {
-            int codePoint = safe.codePointAt(offset);
-            String candidate = result + new String(Character.toChars(codePoint)) + suffix;
-            if (font.getStringWidth(candidate) / 1000f * fontSize > maxWidth) break;
-            result.appendCodePoint(codePoint);
+        float width = 0f;
+        boolean truncated = false;
+        for (int offset = 0; offset < value.length();) {
+            int codePoint = value.codePointAt(offset);
+            String glyph = new String(Character.toChars(codePoint));
+            PDFont font = chooseFont(fonts, bold, glyph);
+            String safeGlyph = supports(font, glyph) ? glyph : "?";
+            float glyphWidth = font.getStringWidth(safeGlyph) / 1000f * fontSize;
+            if (width + glyphWidth > maxWidth) {
+                truncated = true;
+                break;
+            }
+            result.append(safeGlyph);
+            width += glyphWidth;
             offset += Character.charCount(codePoint);
+        }
+        if (!truncated && result.length() == value.length()) return result.toString();
+
+        String suffix = "…";
+        PDFont suffixFont = chooseFont(fonts, bold, suffix);
+        float suffixWidth = suffixFont.getStringWidth(suffix) / 1000f * fontSize;
+        while (result.length() > 0 && width + suffixWidth > maxWidth) {
+            int last = result.codePointBefore(result.length());
+            String lastGlyph = new String(Character.toChars(last));
+            width -= chooseFont(fonts, bold, lastGlyph).getStringWidth(lastGlyph) / 1000f * fontSize;
+            result.setLength(result.length() - Character.charCount(last));
         }
         return result + suffix;
     }
 
-    private String sanitize(PDFont font, String value) {
-        StringBuilder safe = new StringBuilder(value.length());
-        value.codePoints().forEach(codePoint -> {
-            try {
-                String glyph = new String(Character.toChars(codePoint));
-                if (font.encode(glyph).length > 0) safe.appendCodePoint(codePoint);
-                else safe.append('?');
-            } catch (IOException | IllegalArgumentException ex) {
-                safe.append('?');
-            }
-        });
-        return safe.toString();
+    private PDFont chooseFont(Fonts fonts, boolean bold, String glyph) throws IOException {
+        PDFont latin = bold ? fonts.boldLatin() : fonts.normalLatin();
+        if (supports(latin, glyph)) return latin;
+        PDFont devanagari = bold ? fonts.boldDevanagari() : fonts.normalDevanagari();
+        if (supports(devanagari, glyph)) return devanagari;
+        return latin;
+    }
+
+    private boolean supports(PDFont font, String glyph) throws IOException {
+        try {
+            return font.encode(glyph).length > 0;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     private static final class Stage {
@@ -450,16 +490,22 @@ public class PipelinePlaybookPdfService {
     }
 
     private static final class Fonts {
-        private final PDFont normal;
-        private final PDFont bold;
+        private final PDFont normalLatin;
+        private final PDFont boldLatin;
+        private final PDFont normalDevanagari;
+        private final PDFont boldDevanagari;
 
         private Fonts(PDDocument document) {
-            this.normal = load(document, "NotoSansDevanagari-Regular.ttf", PDType1Font.HELVETICA);
-            this.bold = load(document, "NotoSansDevanagari-Bold.ttf", normal);
+            this.normalLatin = load(document, "NotoSans-Regular.ttf", PDType1Font.HELVETICA);
+            this.boldLatin = load(document, "NotoSans-Bold.ttf", normalLatin);
+            this.normalDevanagari = load(document, "NotoSansDevanagari-Regular.ttf", normalLatin);
+            this.boldDevanagari = load(document, "NotoSansDevanagari-Bold.ttf", boldLatin);
         }
 
-        private PDFont normal() { return normal; }
-        private PDFont bold() { return bold; }
+        private PDFont normalLatin() { return normalLatin; }
+        private PDFont boldLatin() { return boldLatin; }
+        private PDFont normalDevanagari() { return normalDevanagari; }
+        private PDFont boldDevanagari() { return boldDevanagari; }
 
         private static PDFont load(PDDocument document, String fileName, PDFont fallback) {
             List<Path> candidates = List.of(
@@ -504,8 +550,8 @@ public class PipelinePlaybookPdfService {
         }
 
         private void finishPage() throws IOException {
-            drawText(stream, fonts.bold(), "NexaCRM pipeline export", LEFT, PAGE_HEIGHT - 12f, 7f, MUTED, 160f);
-            drawText(stream, fonts.bold(), "Page " + document.getNumberOfPages(), PAGE_WIDTH - 68f, PAGE_HEIGHT - 12f, 7f, MUTED, 45f);
+            drawText(stream, fonts, true, "NexaCRM pipeline export", LEFT, PAGE_HEIGHT - 12f, 7f, MUTED, 160f);
+            drawText(stream, fonts, true, "Page " + document.getNumberOfPages(), PAGE_WIDTH - 68f, PAGE_HEIGHT - 12f, 7f, MUTED, 45f);
             stream.close();
         }
     }
