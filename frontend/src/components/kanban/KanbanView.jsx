@@ -138,6 +138,8 @@ const LEAD_SOURCES = [
   'Google Ads', 'Meta Ads', 'Referral', 'Email', 'Other',
 ]
 
+const sourceNeedsLabel = (source) => source === 'Other' || source === 'Referral'
+
 const STAGE_DROP_PREFIX = 'stage:'
 
 const STAGE_KEYS = new Set(STAGES.map((s) => s.key))
@@ -189,11 +191,38 @@ const formatExportDateTime = (value) => {
 
 const sourceEnumToLabel = (source, sourceLabel) => {
   const custom = String(sourceLabel || '').trim()
-  if (String(source || '').toUpperCase() === 'OTHER' && custom) return custom
   const s = String(source || '').toUpperCase()
+  if (s === 'REFERRAL' && custom) return `Referral: ${custom}`
+  if (s === 'OTHER' && custom) return custom
   if (s === 'GOOGLE_ADS') return 'Google Ads'
   if (s === 'META_ADS') return 'Meta Ads'
   return s ? `${s.charAt(0)}${s.slice(1).toLowerCase().replace('_', ' ')}` : 'Other'
+}
+
+const referralNameFromDisplay = (source) => String(source || '').replace(/^referral:\s*/i, '').trim()
+
+const sourceLabelToEnum = (source) => {
+  const s = String(source || '').trim().toLowerCase()
+  if (s === 'facebook') return 'FACEBOOK'
+  if (s === 'instagram') return 'INSTAGRAM'
+  if (s === 'linkedin') return 'LINKEDIN'
+  if (s === 'website') return 'WEBSITE'
+  if (s === 'whatsapp') return 'WHATSAPP'
+  if (s === 'google ads') return 'GOOGLE_ADS'
+  if (s === 'meta ads') return 'META_ADS'
+  if (s === 'referral' || s.startsWith('referral:')) return 'REFERRAL'
+  if (s === 'email') return 'EMAIL'
+  return 'OTHER'
+}
+
+const customSourceLabel = (lead) => {
+  const source = String(lead?.source || '').trim()
+  const sourceLabel = String(lead?.sourceLabel || '').trim()
+  const sourceEnum = sourceLabelToEnum(source)
+  if (sourceEnum !== 'OTHER' && sourceEnum !== 'REFERRAL') return null
+  const custom = sourceLabel || (sourceEnum === 'REFERRAL' ? referralNameFromDisplay(source) : source)
+  const blockedLabel = sourceEnum === 'REFERRAL' ? 'referral' : 'other'
+  return custom && custom.toLowerCase() !== blockedLabel ? custom : null
 }
 
 const toPipelineExportLead = (lead, index = 0) => ({
@@ -444,7 +473,8 @@ const buildBackendLeadPayload = (lead, status) => ({
   company: lead?.company || '',
   service: lead?.service || '',
   specialization: lead?.specialization || '',
-  source: String(lead?.source || 'OTHER').toUpperCase().replace(/\s+/g, '_'),
+  source: sourceLabelToEnum(lead?.source),
+  sourceLabel: customSourceLabel(lead),
   score: String(lead?.score || 'cold').toUpperCase(),
   status,
   dealValue: Number(lead?.value || 0),
@@ -814,7 +844,7 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
       const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
       setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
     } else if (name === 'source') {
-      setForm((prev) => ({ ...prev, source: value, sourceLabel: value === 'Other' ? prev.sourceLabel : '' }))
+      setForm((prev) => ({ ...prev, source: value, sourceLabel: sourceNeedsLabel(value) ? prev.sourceLabel : '' }))
     } else {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
@@ -899,10 +929,18 @@ function AddLeadModal({ onClose, onAdd, teamMembers, initialStage }) {
               {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
-          {form.source === 'Other' && (
+          {sourceNeedsLabel(form.source) && (
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Custom source</label>
-              <input name="sourceLabel" value={form.sourceLabel} onChange={handleChange} className="input" placeholder="Fire exhibition" />
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                {form.source === 'Referral' ? 'Referral by' : 'Custom source'}
+              </label>
+              <input
+                name="sourceLabel"
+                value={form.sourceLabel}
+                onChange={handleChange}
+                className="input"
+                placeholder={form.source === 'Referral' ? 'Person name' : 'Fire exhibition'}
+              />
             </div>
           )}
           <div>

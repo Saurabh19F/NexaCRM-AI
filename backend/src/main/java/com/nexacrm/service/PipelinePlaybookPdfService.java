@@ -274,6 +274,9 @@ public class PipelinePlaybookPdfService {
     private String sourceLabel(Lead lead) {
         if (lead == null) return "Other";
         String custom = lead.getSourceLabel() == null ? "" : lead.getSourceLabel().trim();
+        if (lead.getSource() == Lead.LeadSource.REFERRAL && !custom.isBlank() && !custom.equalsIgnoreCase("referral")) {
+            return "Referral: " + custom;
+        }
         if (lead.getSource() == Lead.LeadSource.OTHER && !custom.isBlank() && !custom.equalsIgnoreCase("other")) {
             return custom;
         }

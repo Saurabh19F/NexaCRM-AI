@@ -34,10 +34,12 @@ const sourceLabelToEnum = (source) => {
   if (s === 'whatsapp') return 'WHATSAPP'
   if (s === 'google ads') return 'GOOGLE_ADS'
   if (s === 'meta ads') return 'META_ADS'
-  if (s === 'referral') return 'REFERRAL'
+  if (s === 'referral' || s.startsWith('referral:')) return 'REFERRAL'
   if (s === 'email') return 'EMAIL'
   return 'OTHER'
 }
+
+const referralNameFromDisplay = (source) => String(source || '').replace(/^referral:\s*/i, '').trim()
 
 const sourceEnumToLabel = (source) => {
   const s = String(source || '').toUpperCase()
@@ -48,7 +50,9 @@ const sourceEnumToLabel = (source) => {
 
 const sourceDisplayLabel = (lead) => {
   const custom = String(lead?.sourceLabel || '').trim()
-  if (String(lead?.source || '').toUpperCase() === 'OTHER' && custom) return custom
+  const source = String(lead?.source || '').toUpperCase()
+  if (source === 'REFERRAL' && custom) return `Referral: ${custom}`
+  if (source === 'OTHER' && custom) return custom
   return sourceEnumToLabel(lead?.source)
 }
 
@@ -56,9 +60,10 @@ const customSourceLabel = (lead) => {
   const source = String(lead?.source || '').trim()
   const sourceLabel = String(lead?.sourceLabel || '').trim()
   const sourceEnum = sourceLabelToEnum(source)
-  if (sourceEnum !== 'OTHER') return null
-  const custom = sourceLabel || source
-  return custom && custom.toLowerCase() !== 'other' ? custom : null
+  if (sourceEnum !== 'OTHER' && sourceEnum !== 'REFERRAL') return null
+  const custom = sourceLabel || (sourceEnum === 'REFERRAL' ? referralNameFromDisplay(source) : source)
+  const blockedLabel = sourceEnum === 'REFERRAL' ? 'referral' : 'other'
+  return custom && custom.toLowerCase() !== blockedLabel ? custom : null
 }
 
 const toFrontendLead = (lead, index = 0) => {

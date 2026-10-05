@@ -55,12 +55,21 @@ const LEAD_SOURCES = [
   'Google Ads', 'Meta Ads', 'Referral', 'Email', 'Other',
 ]
 
-const standardSourceValue = (source) => LEAD_SOURCES.includes(source) ? source : 'Other'
+const sourceNeedsLabel = (source) => source === 'Other' || source === 'Referral'
+
+const referralNameFromDisplay = (source) => String(source || '').replace(/^referral:\s*/i, '').trim()
+
+const standardSourceValue = (source) => {
+  const value = String(source || '').trim()
+  if (/^referral:/i.test(value)) return 'Referral'
+  return LEAD_SOURCES.includes(value) ? value : 'Other'
+}
 
 const customSourceValue = (source, sourceLabel) => {
   const label = String(sourceLabel || '').trim()
   if (label) return label
   const value = String(source || '').trim()
+  if (/^referral:/i.test(value)) return referralNameFromDisplay(value)
   return value && !LEAD_SOURCES.includes(value) && value.toLowerCase() !== 'other' ? value : ''
 }
 
@@ -102,7 +111,7 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
       const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
       setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
     } else if (name === 'source') {
-      setForm((prev) => ({ ...prev, source: value, sourceLabel: value === 'Other' ? prev.sourceLabel : '' }))
+      setForm((prev) => ({ ...prev, source: value, sourceLabel: sourceNeedsLabel(value) ? prev.sourceLabel : '' }))
     } else {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
@@ -176,10 +185,18 @@ function AddLeadModal({ onClose, onAdd, teamMembers }) {
                 ))}
               </select>
             </div>
-            {form.source === 'Other' && (
+            {sourceNeedsLabel(form.source) && (
               <div>
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Custom source</label>
-                <input name="sourceLabel" value={form.sourceLabel} onChange={handleChange} className="input" placeholder="Fire exhibition" />
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                  {form.source === 'Referral' ? 'Referral by' : 'Custom source'}
+                </label>
+                <input
+                  name="sourceLabel"
+                  value={form.sourceLabel}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder={form.source === 'Referral' ? 'Person name' : 'Fire exhibition'}
+                />
               </div>
             )}
             <div>
@@ -264,7 +281,7 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
       const scoreMap = { DAYS_1_3: 'hot', DAYS_7_10: 'warm', DAYS_10_15_PLUS: 'cold' }
       setForm((prev) => ({ ...prev, [name]: value, score: scoreMap[value] || prev.score }))
     } else if (name === 'source') {
-      setForm((prev) => ({ ...prev, source: value, sourceLabel: value === 'Other' ? prev.sourceLabel : '' }))
+      setForm((prev) => ({ ...prev, source: value, sourceLabel: sourceNeedsLabel(value) ? prev.sourceLabel : '' }))
     } else {
       setForm((prev) => ({ ...prev, [name]: value }))
     }
@@ -321,10 +338,18 @@ function EditLeadModal({ lead, onClose, onSave, teamMembers }) {
                 {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
               </select>
             </div>
-            {form.source === 'Other' && (
+            {sourceNeedsLabel(form.source) && (
               <div>
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Custom source</label>
-                <input name="sourceLabel" value={form.sourceLabel || ''} onChange={handleChange} className="input" placeholder="Fire exhibition" />
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                  {form.source === 'Referral' ? 'Referral by' : 'Custom source'}
+                </label>
+                <input
+                  name="sourceLabel"
+                  value={form.sourceLabel || ''}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder={form.source === 'Referral' ? 'Person name' : 'Fire exhibition'}
+                />
               </div>
             )}
             <div>

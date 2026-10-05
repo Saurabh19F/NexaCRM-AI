@@ -989,6 +989,10 @@ public class DashboardAnalyticsService {
         if (lead.getSource() == Lead.LeadSource.OTHER) {
             return inferOtherSource(lead);
         }
+        if (lead.getSource() == Lead.LeadSource.REFERRAL) {
+            String custom = lead.getSourceLabel() == null ? "" : lead.getSourceLabel().trim();
+            return custom.isBlank() || custom.equalsIgnoreCase("referral") ? "Referral" : "Referral: " + custom;
+        }
         return sourceLabel(lead.getSource());
     }
 

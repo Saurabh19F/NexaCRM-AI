@@ -2636,15 +2636,18 @@ public class LeadService {
     }
 
     private String normalizeSourceLabel(Lead.LeadSource source, String sourceLabel) {
-        if (source != Lead.LeadSource.OTHER) return null;
+        if (source != Lead.LeadSource.OTHER && source != Lead.LeadSource.REFERRAL) return null;
         String trimmed = sourceLabel == null ? "" : sourceLabel.trim();
-        if (trimmed.isBlank() || trimmed.equalsIgnoreCase("other")) return null;
+        if (trimmed.isBlank()) return null;
+        if (source == Lead.LeadSource.OTHER && trimmed.equalsIgnoreCase("other")) return null;
+        if (source == Lead.LeadSource.REFERRAL && trimmed.equalsIgnoreCase("referral")) return null;
         return trimmed;
     }
 
     private String exportSourceLabel(Lead lead) {
         if (lead == null || lead.getSource() == null) return "";
         String custom = displaySourceLabel(lead.getSource(), lead.getSourceLabel());
+        if (custom != null && lead.getSource() == Lead.LeadSource.REFERRAL) return "Referral: " + custom;
         return custom != null ? custom : lead.getSource().name();
     }
 }

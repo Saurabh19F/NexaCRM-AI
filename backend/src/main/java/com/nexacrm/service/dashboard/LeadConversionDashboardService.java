@@ -716,7 +716,10 @@ public class LeadConversionDashboardService {
             case WEBSITE -> "Website";
             case GOOGLE_ADS -> "Google Ads";
             case META_ADS -> "Meta Ads";
-            case REFERRAL -> "Referral";
+            case REFERRAL -> {
+                String custom = lead.getSourceLabel() == null ? "" : lead.getSourceLabel().trim();
+                yield custom.isBlank() || custom.equalsIgnoreCase("referral") ? "Referral" : "Referral: " + custom;
+            }
             case EMAIL -> "Email";
             case LINKEDIN -> "LinkedIn";
             case OTHER -> inferOtherSource(lead);
