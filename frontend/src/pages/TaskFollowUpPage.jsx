@@ -148,12 +148,14 @@ const getStageStatus = (stageIdx, values = {}) => {
   if (stageIdx === 0) {
     if (status === 'connected') return 'connected'
     if (status === 'not connected' || status === 'non connected' || status === 'no answer') return 'not_connected'
+    if (status === 'callback' || status === 'call back' || status === 'call-back' || status === 'callback requested') return 'callback'
     return 'done'
   }
   if (stageIdx === 1) {
-    if (status === 'meeting') return 'meeting'
+    if (status === 'meeting' || status === 'allowed person for meeting' || status === 'allowed person') return 'allowed_person'
     if (status === 'follow up' || status === 'followup') return 'follow_up'
     if (status === 'not interested') return 'not_interested'
+    if (status === 'lost' || status === 'close lost' || status === 'closed lost') return 'lost'
     return 'done'
   }
   if (stageIdx === 2) {
@@ -203,7 +205,7 @@ function parseLeadActivities(activities) {
   let finalPrice = null
   let lostCategory = null
 
-  if (currentStage === 3 && latestActivity) {
+  if (latestActivity) {
     const v = latestActivity.values || {}
     const status = normalizeStatusText(v.status || v.outcome)
     if (status === 'won' || status === 'win' || status === 'closed won') {
@@ -232,11 +234,13 @@ function getStatusLabel(stageIdx, status) {
   if (stageIdx === 0) {
     if (status === 'connected') return 'Connected'
     if (status === 'not_connected' || status === 'non_connected') return 'Not Connected'
+    if (status === 'callback') return 'CallBack'
   }
   if (stageIdx === 1) {
-    if (status === 'meeting') return 'Meeting'
+    if (status === 'meeting' || status === 'allowed_person') return 'Allowed Person for Meeting'
     if (status === 'follow_up') return 'Follow Up'
     if (status === 'not_interested') return 'Not Interested'
+    if (status === 'lost') return 'Lost'
   }
   if (stageIdx === 2) {
     if (status === 'successful') return 'Successful'
@@ -254,11 +258,11 @@ function getStatusLabel(stageIdx, status) {
 
 function getStatusColor(status) {
   if (status === 'not_started') return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-  if (status === 'connected' || status === 'meeting' || status === 'successful' || status === 'won')
+  if (status === 'connected' || status === 'meeting' || status === 'allowed_person' || status === 'successful' || status === 'won')
     return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
   if (status === 'not_connected' || status === 'non_connected' || status === 'not_interested' || status === 'reschedule' || status === 'failed' || status === 'lost')
     return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-  if (status === 'follow_up' || status === 'hold' || status === 'negotiation' || status === 'pending_review' || status === 'pending')
+  if (status === 'follow_up' || status === 'callback' || status === 'hold' || status === 'negotiation' || status === 'pending_review' || status === 'pending')
     return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
   return 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
 }
@@ -303,6 +307,33 @@ const formatDateTime = (value) => {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+const latestTimestampValue = (...values) => {
+  const valid = values
+    .filter(Boolean)
+    .map((value) => ({ value, time: timestampMs(value, 0) }))
+    .filter((entry) => entry.time > 0)
+    .sort((a, b) => b.time - a.time)
+  return valid[0]?.value || null
+}
+
+const getLeadLastUpdateAt = (lead) => latestTimestampValue(
+  lead?.updatedAt,
+  lead?.latestActivity?.savedAt,
+  lead?.latestActivity?.createdAt,
+  lead?.latestActivity?.updatedAt,
+  lead?.latestTask?.completedAt,
+  lead?.latestTask?.updatedAt,
+  lead?.latestTask?.createdAt,
+  lead?.createdAt
+)
+
+const getLeadOutcomeKey = (lead) => {
+  const candidates = [lead?.status, lead?.outcome].map(normalizeStatusText)
+  if (candidates.some((status) => status === 'won' || status === 'win' || status === 'closed won')) return 'won'
+  if (candidates.some((status) => status === 'lost' || status === 'close lost' || status === 'closed lost')) return 'lost'
+  return null
 }
 
 const parseServerDateTime = (value) => {
@@ -593,15 +624,6 @@ export default function TaskFollowUpPage() {
       const pendingTaskRows = unwrapList(pendingTaskResponse)
       const leadById = new Map(leadRows.map((lead) => [lead.id, lead]))
       const visiblePendingTaskRows = pendingTaskRows.filter((task) => task.leadId && leadById.has(task.leadId))
-      const taskLeadRows = Array.from(
-        new Map(
-          visiblePendingTaskRows
-            .map((task) => leadById.get(task.leadId))
-            .filter(Boolean)
-            .map((lead) => [lead.id, lead])
-        ).values()
-      )
-
       // Fetch lightweight stages (fast) — just max activityIndex per lead
       const allLeadIds = leadRows.map((l) => l.id).filter(Boolean)
       try {
@@ -614,7 +636,7 @@ export default function TaskFollowUpPage() {
       setLeads(leadRows)
       setTasks(visiblePendingTaskRows)
       setLoading(false)
-      loadAllActivities(taskLeadRows)
+      loadAllActivities(leadRows)
     } catch (err) {
       toast.error(err?.message || 'Unable to load task follow-up data')
       setLoading(false)
@@ -753,7 +775,7 @@ export default function TaskFollowUpPage() {
   }, [leads, leadActivities, leadStages, tasks])
 
   const stageLeads = useMemo(() => {
-    const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
+    const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 && !l.isCompleted : !l.isCompleted
     let pendingAll = enrichedLeads.filter(isPending)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -795,7 +817,7 @@ export default function TaskFollowUpPage() {
   }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length, followupDateFilter, followupCustomDate])
 
   const stats = useMemo(() => {
-    const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 : !l.isCompleted
+    const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 && !l.isCompleted : !l.isCompleted
     const pending = enrichedLeads.filter(isPending)
     const todayStr = dateOnlyStr(todayIST())
     const followupCount = enrichedLeads.filter((l) => getLeadFollowUpDate(l) === todayStr).length
@@ -806,6 +828,36 @@ export default function TaskFollowUpPage() {
       todaysFollowup: followupCount,
     }
   }, [enrichedLeads, tasks.length])
+
+  const completedOutcomeLeads = useMemo(() => {
+    const tasksByLead = tasks.reduce((acc, task) => {
+      if (!task.leadId) return acc
+      if (!acc.has(task.leadId)) acc.set(task.leadId, [])
+      acc.get(task.leadId).push(task)
+      return acc
+    }, new Map())
+
+    return leads
+      .map((lead) => {
+        const activities = leadActivities[lead.id] || []
+        const parsed = parseLeadActivities(activities)
+        const leadTasks = sortTasksByUrgency(tasksByLead.get(lead.id) || [])
+        const enriched = {
+          ...lead,
+          ...parsed,
+          latestTask: leadTasks[0],
+          tasks: leadTasks,
+          taskDriven: leadTasks.length > 0,
+        }
+        const outcomeKey = getLeadOutcomeKey(enriched)
+        return outcomeKey ? { ...enriched, outcomeKey } : null
+      })
+      .filter(Boolean)
+      .sort((a, b) => timestampMs(getLeadLastUpdateAt(b), 0) - timestampMs(getLeadLastUpdateAt(a), 0))
+  }, [leads, leadActivities, tasks])
+
+  const wonOutcomeLeads = completedOutcomeLeads.filter((lead) => lead.outcomeKey === 'won')
+  const lostOutcomeLeads = completedOutcomeLeads.filter((lead) => lead.outcomeKey === 'lost')
 
   const handleExportBackup = async () => {
     setBackupExporting(true)
@@ -942,11 +994,33 @@ export default function TaskFollowUpPage() {
     }
     const savedActivity = await leadsAPI.addActivity(lead.id, payload)
     if (savedActivity?.id) {
+      const savedAt = savedActivity.savedAt || savedActivity.createdAt || savedActivity.updatedAt || new Date().toISOString()
+      const savedStatus = normalizeStatusText(values?.status || values?.outcome)
+      const statusPatch = savedStatus === 'lost' || savedStatus === 'close lost' || savedStatus === 'closed lost'
+        ? { status: 'LOST', lostReason: values?.remark || values?.remarks || values?.note || lead?.lostReason || '' }
+        : savedStatus === 'won' || savedStatus === 'win' || savedStatus === 'closed won'
+          ? { status: 'WON' }
+          : {}
       setLeadActivities((prev) => {
         const existing = prev[lead.id] || []
         const filtered = existing.filter((activity) => activity.id !== savedActivity.id)
         return { ...prev, [lead.id]: [savedActivity, ...filtered] }
       })
+      setLeads((prev) => prev.map((row) => (
+        row.id === lead.id
+          ? { ...row, ...statusPatch, updatedAt: savedAt, lastContactedAt: savedAt }
+          : row
+      )))
+      setActivitiesLead((current) => (
+        current?.id === lead.id
+          ? { ...current, ...statusPatch, updatedAt: savedAt, lastContactedAt: savedAt }
+          : current
+      ))
+      setHistoryLead((current) => (
+        current?.id === lead.id
+          ? { ...current, ...statusPatch, updatedAt: savedAt, lastContactedAt: savedAt }
+          : current
+      ))
       if (timelineMetaByLeadId[lead.id]?.loaded) {
         loadLeadTimeline(lead.id, 0, { append: false, rebuildIfEmpty: false })
       }
@@ -1095,6 +1169,72 @@ export default function TaskFollowUpPage() {
     if (lead.leadExists !== false) {
       loadLeadTimeline(lead.id, 0)
     }
+  }
+
+  const renderCompletedOutcomeColumn = (title, rows, tone) => {
+    const isWon = tone === 'won'
+    const iconClass = isWon
+      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+      : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+    const badgeClass = isWon
+      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+      : 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300'
+
+    return (
+      <section className="rounded-2xl border border-slate-200/70 bg-white/80 dark:border-slate-800/70 dark:bg-slate-950/60">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800/70">
+          <div className="flex items-center gap-2">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-full ${iconClass}`}>
+              {isWon ? <Trophy className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{rows.length} lead{rows.length === 1 ? '' : 's'}</p>
+            </div>
+          </div>
+          <span className={`badge text-[10px] font-bold ${badgeClass}`}>{isWon ? 'Won' : 'Lost'}</span>
+        </div>
+        {rows.length === 0 ? (
+          <div className="px-4 py-6 text-sm text-slate-400">
+            No {isWon ? 'won' : 'lost'} leads yet.
+          </div>
+        ) : (
+          <div className="max-h-96 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800/70">
+            {rows.map((lead) => (
+              <button
+                key={lead.id}
+                type="button"
+                onClick={() => openHistoryLead(lead)}
+                className="flex w-full flex-col gap-2 px-4 py-3 text-left transition hover:bg-slate-50/80 dark:hover:bg-slate-900/60"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{lead.name || 'Unnamed Lead'}</p>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{lead.company || lead.email || 'No company details'}</p>
+                  </div>
+                  <span className="shrink-0 text-[11px] text-slate-500 dark:text-slate-400">
+                    Last update: {formatDateTime(getLeadLastUpdateAt(lead))}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+                  {lead.assignedToName && (
+                    <span className="inline-flex items-center gap-1">
+                      <User className="h-3 w-3" /> {lead.assignedToName}
+                    </span>
+                  )}
+                  {lead.lostReason && !isWon && (
+                    <span className="truncate">Reason: {lead.lostReason}</span>
+                  )}
+                  {lead.revenueValue && isWon && (
+                    <span className="truncate">Revenue: {lead.revenueValue}</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    )
   }
 
   return (
@@ -1400,9 +1540,12 @@ export default function TaskFollowUpPage() {
                               <User className="h-3 w-3" /> {lead.assignedToName}
                             </span>
                           )}
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Updated {formatDateTime(getLeadLastUpdateAt(lead))}
+                          </span>
                           {(lead._followUpDate || lead.nextTask?.dueDate || lead.followUpDate) && (
                             <span className="inline-flex items-center gap-1">
-                              <CalendarDays className="h-3 w-3" /> {formatDate(lead._followUpDate || lead.nextTask?.dueDate || lead.followUpDate)}
+                              <CalendarDays className="h-3 w-3" /> Follow-up {formatDate(lead._followUpDate || lead.nextTask?.dueDate || lead.followUpDate)}
                             </span>
                           )}
                           {lead.email && (
@@ -1480,6 +1623,11 @@ export default function TaskFollowUpPage() {
             )}
           </div>
         )}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {renderCompletedOutcomeColumn('Won leads', wonOutcomeLeads, 'won')}
+        {renderCompletedOutcomeColumn('Lost leads', lostOutcomeLeads, 'lost')}
       </div>
 
       {/* Lead History Drawer */}

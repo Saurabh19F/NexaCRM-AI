@@ -489,6 +489,7 @@ public class LeadActivityService {
             return null;
         }
         if (activityIndex == 1) {
+            if (containsAny(status, "lost", "closed lost")) return Lead.LeadStatus.LOST;
             if (containsAny(status, "allowed person", "meeting")) return Lead.LeadStatus.QUALIFIED;
             if (containsAny(status, "follow")) return Lead.LeadStatus.CONTACTED;
             return null;
@@ -765,6 +766,7 @@ public class LeadActivityService {
 
     private String normalizeConnectionStatus(String value) {
         String normalized = stringValue(value).toLowerCase(Locale.ROOT);
+        if (normalized.contains("callback") || normalized.contains("call back") || normalized.contains("call-back")) return "CallBack";
         if (normalized.contains("not") || normalized.contains("non")) return "Not Connected";
         if (normalized.contains("connect")) return "Connected";
         return "";

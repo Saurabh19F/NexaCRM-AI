@@ -49,6 +49,7 @@ const canonicalConnectionStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'connected') return 'Connected'
+  if (normalized === 'callback' || normalized === 'call back' || normalized === 'call-back' || normalized === 'callback requested') return 'CallBack'
   if (['not connected', 'non connected', 'no answer', 'busy', 'callback requested', 'wrong number'].includes(normalized)) {
     return 'Not Connected'
   }
@@ -67,8 +68,9 @@ const canonicalActivityTwoStatus = (value) => {
   const normalized = normalizeOutcome(value)
   if (!normalized) return ''
   if (normalized === 'allowed person for meeting' || normalized === 'allowed person' || normalized === 'allowed_person') return 'Allowed Person for Meeting'
-  if (normalized === 'meeting') return 'Meeting'
+  if (normalized === 'meeting') return 'Allowed Person for Meeting'
   if (normalized === 'follow up' || normalized === 'follow-up' || normalized === 'followup') return 'Follow Up'
+  if (normalized === 'lost' || normalized === 'close lost' || normalized === 'closed lost') return 'Lost'
   return ''
 }
 
@@ -215,6 +217,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const activityOneInterestStatus = canonicalInterestStatus(activityOneValues.interestStatus || activityOneValues.interest)
   const isConnected = normalizeOutcome(activityOneConnectionStatus) === 'connected'
   const isNotConnected = normalizeOutcome(activityOneConnectionStatus) === 'not connected'
+  const isCallBack = normalizeOutcome(activityOneConnectionStatus) === 'callback'
+  const needsActivityOneFollowUp = isNotConnected || isCallBack
   const isInterested = normalizeOutcome(activityOneInterestStatus) === 'interested'
   const isNotInterested = normalizeOutcome(activityOneInterestStatus) === 'not interested'
   const leadSource = humanizeLabel(lead?.source || activityOneValues.source)
@@ -233,9 +237,9 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const activityTwoDelayMeta = computeDelayMeta(activityTwoPlannedDate, activityTwoActualDate)
   const activityTwoAssignedTeamMember = humanizeLabel(activityOneValues.assignedTo || lead?.assignedToName || lead?.assignedTo?.name || lead?.assignedTo || 'Auto assigned')
   const activityTwoRemark = activityTwoValues.remark || activityTwoValues.remarks || activityTwoValues.note || ''
-  const isActivityTwoMeeting = normalizeOutcome(activityTwoStatus) === 'meeting'
   const isActivityTwoFollowUp = normalizeOutcome(activityTwoStatus) === 'follow up'
   const isActivityTwoAllowedPerson = normalizeOutcome(activityTwoStatus) === 'allowed person for meeting'
+  const isActivityTwoLost = normalizeOutcome(activityTwoStatus) === 'lost'
   const activityTwoPersonName = activityTwoValues.personName || ''
   const activityTwoPersonDesignation = activityTwoValues.personDesignation || ''
   const activityTwoMeetingDate = activityTwoValues.meetingDate || ''
@@ -278,11 +282,11 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     /* ── Activity 01 validation ── */
     if (activeTab === 0) {
       if (!activityOneConnectionStatus) {
-        toast.error('Please select Connected or Not Connected.')
+        toast.error('Please select Connected, Not Connected, or CallBack.')
         return false
       }
-      if (isNotConnected && !String(activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || '').trim()) {
-        toast.error('Please select a follow-up date for the non-connected lead.')
+      if (needsActivityOneFollowUp && !String(activityOneValues.nextFollowUpDate || activityOneValues.followUpDate || '').trim()) {
+        toast.error('Please select a follow-up date.')
         return false
       }
       if (isConnected && !activityOneInterestStatus) {
@@ -406,6 +410,10 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
         nextFollowUpDate: normalizeOutcome(val) === 'follow up' ? (activityTwoValues.nextFollowUpDate || '') : '',
         followUpDate: normalizeOutcome(val) === 'follow up' ? (activityTwoValues.nextFollowUpDate || '') : '',
         nextFollowUpTime: normalizeOutcome(val) === 'follow up' ? (activityTwoValues.nextFollowUpTime || '') : '',
+        personName: normalizeOutcome(val) === 'allowed person for meeting' ? (activityTwoValues.personName || '') : '',
+        personDesignation: normalizeOutcome(val) === 'allowed person for meeting' ? (activityTwoValues.personDesignation || '') : '',
+        meetingDate: normalizeOutcome(val) === 'allowed person for meeting' ? (activityTwoValues.meetingDate || '') : '',
+        meetingMode: normalizeOutcome(val) === 'allowed person for meeting' ? (activityTwoValues.meetingMode || '') : '',
       })
       return
     }
@@ -465,8 +473,12 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
   const handleActivityTwoPrimaryAction = async () => {
     const ok = await handleSave()
     if (!ok) return
-    if (isActivityTwoMeeting || isActivityTwoAllowedPerson) {
+    if (isActivityTwoAllowedPerson) {
       setActiveTab(2) // advance to Activity 03
+      return
+    }
+    if (isActivityTwoLost) {
+      onClose()
       return
     }
     // Follow Up → stay
@@ -504,15 +516,17 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
     ? 'Next Activity →'
     : isConnected && isNotInterested
       ? 'Close Lead'
-      : isNotConnected
+      : needsActivityOneFollowUp
         ? 'Save Follow-Up'
         : 'Save & Continue'
 
-  const activityTwoPrimaryLabel = isActivityTwoMeeting || isActivityTwoAllowedPerson
+  const activityTwoPrimaryLabel = isActivityTwoAllowedPerson
     ? 'Next Activity →'
-    : isActivityTwoFollowUp
-      ? 'Save Follow Up'
-      : 'Save & Continue'
+    : isActivityTwoLost
+      ? 'Close Lead'
+      : isActivityTwoFollowUp
+        ? 'Save Follow Up'
+        : 'Save & Continue'
 
   const activityThreePrimaryLabel = isActivityThreeWon
     ? 'Complete Lead'
@@ -642,6 +656,7 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         <option value="">— Select status —</option>
                         <option value="Connected">Connected</option>
                         <option value="Not Connected">Not Connected</option>
+                        <option value="CallBack">CallBack</option>
                       </select>
                     </div>
 
@@ -663,8 +678,8 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       </div>
                     )}
 
-                    {/* Follow-Up Date & Time — shown only when Not Connected */}
-                    {isNotConnected && (
+                    {/* Follow-Up Date & Time — shown for Not Connected and CallBack */}
+                    {needsActivityOneFollowUp && (
                       <>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
@@ -697,9 +712,11 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                           ? 'Remarks for Interested Lead'
                           : isConnected && isNotInterested
                             ? 'Reason for Not Interested'
-                            : isNotConnected
-                              ? 'Remarks for Not Connected Lead'
-                              : 'Remarks'}
+                            : isCallBack
+                              ? 'Remarks for CallBack'
+                              : isNotConnected
+                                ? 'Remarks for Not Connected Lead'
+                                : 'Remarks'}
                       </label>
                       <textarea
                         rows={3}
@@ -710,9 +727,11 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                             ? 'Add next steps or the conversation summary'
                             : isConnected && isNotInterested
                               ? 'Add the reason for not being interested'
-                              : isNotConnected
-                                ? 'Add the reason and next follow-up context'
-                                : 'Add remarks'
+                              : isCallBack
+                                ? 'Add callback context'
+                                : isNotConnected
+                                  ? 'Add the reason and next follow-up context'
+                                  : 'Add remarks'
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
                       />
@@ -724,14 +743,15 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300'
                       : isConnected && isNotInterested
                         ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-300'
-                        : isNotConnected
+                        : needsActivityOneFollowUp
                           ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300'
                           : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
                   }`}>
                     {isConnected && isInterested && 'Interested lead — will advance to Follow Up for Meeting.'}
                     {isConnected && isNotInterested && 'Not Interested — saving will close this lead as Lost.'}
                     {isNotConnected && 'Not Connected — schedule the next follow-up date.'}
-                    {!isConnected && !isNotConnected && 'Select a connection status to continue.'}
+                    {isCallBack && 'CallBack — schedule the next follow-up date and time.'}
+                    {!isConnected && !needsActivityOneFollowUp && 'Select a connection status to continue.'}
                   </div>
 
                   <ActivityHistory logs={lead?.activityLogs} activityIndex={0} />
@@ -767,9 +787,9 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition"
                       >
                         <option value="">— Select status —</option>
-                        <option value="Meeting">Meeting</option>
-                        <option value="Follow Up">Follow Up</option>
                         <option value="Allowed Person for Meeting">Allowed Person for Meeting</option>
+                        <option value="Follow Up">Follow Up</option>
+                        <option value="Lost">Lost</option>
                       </select>
                     </div>
 
@@ -866,22 +886,22 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        {isActivityTwoMeeting
-                          ? 'Meeting Remarks'
-                          : isActivityTwoAllowedPerson
+                        {isActivityTwoAllowedPerson
                             ? 'Meeting Person Remarks'
-                            : 'Follow Up Remarks'}
+                            : isActivityTwoLost
+                              ? 'Lost Remarks'
+                              : 'Follow Up Remarks'}
                       </label>
                       <textarea
                         rows={3}
                         value={activityTwoRemark}
                         onChange={e => handleActivityTwoChange('remark', e.target.value)}
                         placeholder={
-                          isActivityTwoMeeting
-                            ? 'Add meeting context or outcome'
-                            : isActivityTwoAllowedPerson
+                          isActivityTwoAllowedPerson
                               ? 'Add notes about the meeting person or agenda'
-                              : 'Add next-step notes for the follow-up'
+                              : isActivityTwoLost
+                                ? 'Add the reason the lead was lost'
+                                : 'Add next-step notes for the follow-up'
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none"
                       />
@@ -889,16 +909,18 @@ export default function LeadActivitiesModal({ lead, onClose, onPersist, initialD
                   </div>
 
                   <div className={`rounded-xl border px-4 py-3 text-sm ${
-                    isActivityTwoMeeting || isActivityTwoAllowedPerson
+                    isActivityTwoAllowedPerson
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-300'
+                      : isActivityTwoLost
+                        ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-300'
                       : isActivityTwoFollowUp
                         ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300'
                         : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
                   }`}>
-                    {isActivityTwoMeeting && 'Meeting selected — will advance to Meeting Outcome.'}
                     {isActivityTwoAllowedPerson && 'Allowed Person for Meeting — capture meeting person details, then advance to Meeting Outcome.'}
                     {isActivityTwoFollowUp && 'Follow Up selected — stays here until the next follow-up is completed.'}
-                    {!isActivityTwoMeeting && !isActivityTwoFollowUp && !isActivityTwoAllowedPerson && 'Select a status to continue.'}
+                    {isActivityTwoLost && 'Lost selected — save and close this lead from the follow-up flow.'}
+                    {!isActivityTwoFollowUp && !isActivityTwoAllowedPerson && !isActivityTwoLost && 'Select a status to continue.'}
                   </div>
 
                   <ActivityHistory logs={lead?.activityLogs} activityIndex={1} />
