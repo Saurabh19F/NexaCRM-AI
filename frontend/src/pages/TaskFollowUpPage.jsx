@@ -336,6 +336,8 @@ const getLeadOutcomeKey = (lead) => {
   return null
 }
 
+const isActiveFollowupLead = (lead) => !getLeadOutcomeKey(lead)
+
 const parseServerDateTime = (value) => {
   if (!value) return new Date(NaN)
   if (value instanceof Date) return value
@@ -776,7 +778,7 @@ export default function TaskFollowUpPage() {
 
   const stageLeads = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 && !l.isCompleted : !l.isCompleted
-    let pendingAll = enrichedLeads.filter(isPending)
+    let pendingAll = enrichedLeads.filter((lead) => isPending(lead) && isActiveFollowupLead(lead))
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       pendingAll = pendingAll.filter(
@@ -818,7 +820,7 @@ export default function TaskFollowUpPage() {
 
   const stats = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 && !l.isCompleted : !l.isCompleted
-    const pending = enrichedLeads.filter(isPending)
+    const pending = enrichedLeads.filter((lead) => isPending(lead) && isActiveFollowupLead(lead))
     const todayStr = dateOnlyStr(todayIST())
     const followupCount = enrichedLeads.filter((l) => getLeadFollowUpDate(l) === todayStr).length
     return {
