@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { label: 'AI Engine',      icon: Sparkles,        path: '/ai-engine', permission: PERMISSIONS.AI_USE },
   { label: 'Automation',     icon: Zap,             path: '/automation', permission: PERMISSIONS.AUTOMATION_READ },
   { label: 'Analytics',      icon: BarChart3,       path: '/analytics', permission: PERMISSIONS.REPORTS_READ },
+  { label: 'Lead Report',    icon: FileText,        path: '/lead-activity-report', permission: PERMISSIONS.REPORTS_READ },
   { label: 'Team',           icon: Shield,          path: '/team', permission: PERMISSIONS.TEAM_READ },
   { label: 'Settings',       icon: Settings,        path: '/settings', permission: PERMISSIONS.SETTINGS_VIEW },
 ]

@@ -12,6 +12,7 @@ const ROUTE_LABELS = {
   '/ai-engine':      'AI Engine',
   '/automation':     'Automation',
   '/analytics':      'Analytics',
+  '/lead-activity-report': 'Lead Activity Report',
   '/team':           'Team',
   '/settings':       'Settings',
   '/admin/saas':     'Platform Admin',

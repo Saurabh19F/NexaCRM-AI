@@ -22,6 +22,7 @@ const pageImports = {
   '/ai-engine': () => import('./pages/AIEnginePage'),
   '/automation': () => import('./pages/AutomationPage'),
   '/analytics': () => import('./pages/AnalyticsPage'),
+  '/lead-activity-report': () => import('./pages/LeadActivityReportPage'),
   '/team': () => import('./pages/TeamPage'),
   '/settings': () => import('./pages/SettingsPage'),
   // These pages are now tabs inside Settings — kept for lazy imports by SettingsView
@@ -48,6 +49,7 @@ const CommunicationPage = lazy(pageImports['/communication'])
 const AIEnginePage = lazy(pageImports['/ai-engine'])
 const AutomationPage = lazy(pageImports['/automation'])
 const AnalyticsPage = lazy(pageImports['/analytics'])
+const LeadActivityReportPage = lazy(pageImports['/lead-activity-report'])
 const TeamPage = lazy(pageImports['/team'])
 const SettingsPage = lazy(pageImports['/settings'])
 const SaaSAdminPage = lazy(pageImports['/admin/saas'])
@@ -367,6 +369,7 @@ export default function App() {
             <Route path="/ai-engine" element={<PermissionRoute permission={PERMISSIONS.AI_USE}><AIEnginePage /></PermissionRoute>} />
             <Route path="/automation" element={<PermissionRoute permission={PERMISSIONS.AUTOMATION_READ}><AutomationPage /></PermissionRoute>} />
             <Route path="/analytics" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><AnalyticsPage /></PermissionRoute>} />
+            <Route path="/lead-activity-report" element={<PermissionRoute permission={PERMISSIONS.REPORTS_READ}><LeadActivityReportPage /></PermissionRoute>} />
             <Route path="/task-followup" element={<PermissionRoute permission={PERMISSIONS.TASKS_READ}><TaskFollowUpPage /></PermissionRoute>} />
             <Route path="/notifications" element={<Navigate to="/settings?tab=alerts" replace />} />
             <Route path="/tickets" element={<Navigate to="/settings?tab=tickets" replace />} />

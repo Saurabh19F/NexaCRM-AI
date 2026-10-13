@@ -1,0 +1,659 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Database,
+  Download, FileText, Filter, Flame, Gauge, Loader2, PhoneCall, RefreshCw,
+  Target, Users,
+} from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import toast from 'react-hot-toast'
+import { leadsAPI } from '../services/api'
+import { useAuthStore } from '../store/authStore'
+import { PERMISSIONS, hasPermission } from '../utils/permissions'
+import { fetchAllPages } from '../utils/pagination'
+
+const DATE_FILTERS = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'thisWeek', label: 'This Week' },
+  { value: 'thisMonth', label: 'This Month' },
+  { value: 'lastMonth', label: 'Last Month' },
+  { value: 'custom', label: 'Custom range' },
+]
+
+const SOURCE_FILTERS = [
+  { value: '', label: 'All sources' },
+  { value: 'FACEBOOK', label: 'Facebook' },
+  { value: 'INSTAGRAM', label: 'Instagram' },
+  { value: 'WEBSITE', label: 'Website' },
+  { value: 'WHATSAPP', label: 'WhatsApp' },
+  { value: 'GOOGLE_ADS', label: 'Google' },
+  { value: 'REFERRAL', label: 'Referrals' },
+  { value: 'OTHER', label: 'Manual entry / Other' },
+]
+
+const REPORT_TIME_ZONE = 'Asia/Kolkata'
+const DAY_MS = 86400000
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
+const formatNumber = (value) => Number(value || 0).toLocaleString('en-IN')
+const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`
+const toDate = (value) => {
+  if (!value) return null
+  const date = DATE_ONLY.test(String(value)) ? new Date(`${value}T00:00:00`) : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+const isSameLocalDay = (a, b) => a?.toDateString?.() === b?.toDateString?.()
+const daysBetween = (date) => {
+  if (!date) return 999
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  return Math.round((target - today) / DAY_MS)
+}
+
+const sourceLabel = (lead) => {
+  if (lead?.sourceLabel) return lead.sourceLabel
+  const source = String(lead?.source || lead?.leadSource || 'OTHER').replace(/_/g, ' ').toLowerCase()
+  return source.replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+const leadName = (lead) => lead?.name || lead?.fullName || lead?.customerName || lead?.contactName || lead?.companyName || 'Unnamed lead'
+const activityType = (activity) => String(activity?.type || activity?.activityType || activity?.category || activity?.title || '').toLowerCase()
+const activityStatus = (activity) => String(activity?.status || activity?.outcome || activity?.result || '').toLowerCase()
+const activityAt = (activity) => toDate(activity?.scheduledAt || activity?.dueDate || activity?.followUpDate || activity?.activityDate || activity?.occurredAt || activity?.createdAt)
+const completedAt = (activity) => toDate(activity?.completedAt || activity?.doneAt || activity?.occurredAt)
+const containsAny = (value, words) => words.some((word) => value.includes(word))
+const isDone = (activity) => {
+  const status = activityStatus(activity)
+  return Boolean(activity?.completed || activity?.isCompleted || containsAny(status, ['complete', 'done', 'success', 'answered', 'attended']))
+}
+
+const inRange = (date, range) => {
+  if (!date) return false
+  return date >= range.start && date <= range.end
+}
+
+const buildRange = (filter, startDate, endDate) => {
+  const now = new Date()
+  const start = new Date(now)
+  const end = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
+
+  if (filter === 'yesterday') {
+    start.setDate(start.getDate() - 1)
+    end.setDate(end.getDate() - 1)
+  } else if (filter === 'thisWeek') {
+    const offset = (start.getDay() + 6) % 7
+    start.setDate(start.getDate() - offset)
+  } else if (filter === 'thisMonth') {
+    start.setDate(1)
+  } else if (filter === 'lastMonth') {
+    start.setMonth(start.getMonth() - 1, 1)
+    end.setDate(1)
+    end.setDate(0)
+  } else if (filter === 'custom') {
+    const customStart = toDate(startDate)
+    const customEnd = toDate(endDate)
+    if (customStart) start.setTime(customStart.setHours(0, 0, 0, 0))
+    if (customEnd) end.setTime(customEnd.setHours(23, 59, 59, 999))
+  }
+
+  return { start, end }
+}
+
+const rangeLabel = (range) => {
+  const options = { day: '2-digit', month: 'short', year: 'numeric' }
+  return `${range.start.toLocaleDateString('en-IN', options)} - ${range.end.toLocaleDateString('en-IN', options)}`
+}
+
+const classifyActivity = (activity) => {
+  const type = activityType(activity)
+  const notes = String(activity?.notes || activity?.description || '').toLowerCase()
+  const value = `${type} ${notes}`
+  if (containsAny(value, ['welcome'])) return 'welcome'
+  if (containsAny(value, ['meeting', 'site visit', 'visit', 'demo'])) return 'meeting'
+  if (containsAny(value, ['follow', 'call back', 'callback'])) return 'followUp'
+  return 'other'
+}
+
+const scoreLead = (lead, activities) => {
+  const status = String(lead?.status || '').toUpperCase()
+  let score = 15
+  if (['CONTACTED', 'INTERESTED', 'QUALIFIED', 'PROPOSAL_SENT'].includes(status)) score += 18
+  if (['CONVERTED', 'WON'].includes(status)) score += 25
+  if (activities.some((activity) => classifyActivity(activity) === 'welcome' && isDone(activity))) score += 16
+  if (activities.some((activity) => classifyActivity(activity) === 'followUp' && isDone(activity))) score += 14
+  if (activities.some((activity) => classifyActivity(activity) === 'meeting')) score += 18
+  if (activities.some((activity) => {
+    const date = activityAt(activity)
+    return date && daysBetween(date) >= -7 && daysBetween(date) <= 7
+  })) score += 10
+  if (daysBetween(toDate(lead?.createdAt)) <= 3) score += 7
+  const engagementScore = Math.min(100, score)
+  return {
+    engagementScore,
+    category: engagementScore >= 70 ? 'Hot' : engagementScore >= 45 ? 'Warm' : 'Cold',
+  }
+}
+
+const emptyActivityStats = () => ({
+  total: 0,
+  completed: 0,
+  scheduled: 0,
+  pending: 0,
+  overdue: 0,
+  today: 0,
+  completion: 0,
+})
+
+const buildReport = ({ leads, activityMap, filter, startDate, endDate, sourceFilter }) => {
+  const range = buildRange(filter, startDate, endDate)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  yesterday.setHours(0, 0, 0, 0)
+
+  const visibleLeads = leads
+    .filter((lead) => !sourceFilter || String(lead?.source || lead?.leadSource || '').toUpperCase() === sourceFilter)
+    .filter((lead) => {
+      const created = toDate(lead?.createdAt || lead?.createdDate || lead?.date)
+      return !created || inRange(created, range)
+    })
+
+  const leadRows = visibleLeads.map((lead) => {
+    const activities = Array.isArray(activityMap[lead.id]) ? activityMap[lead.id] : []
+    const scored = scoreLead(lead, activities)
+    const dates = activities.map(activityAt).filter(Boolean).sort((a, b) => b - a)
+    return { ...lead, ...scored, activities, lastContactDate: dates[0] || toDate(lead?.updatedAt || lead?.createdAt) }
+  })
+
+  const allActivities = leadRows.flatMap((lead) => lead.activities.map((activity) => ({ ...activity, lead })))
+  const rangeActivities = allActivities.filter((activity) => {
+    const date = activityAt(activity) || completedAt(activity)
+    return date && inRange(date, range)
+  })
+
+  const activityStats = {
+    followUp: emptyActivityStats(),
+    welcome: emptyActivityStats(),
+    meeting: emptyActivityStats(),
+  }
+  rangeActivities.forEach((activity) => {
+    const kind = classifyActivity(activity)
+    if (!activityStats[kind]) return
+    const stat = activityStats[kind]
+    const scheduled = activityAt(activity)
+    stat.total += 1
+    if (scheduled) stat.scheduled += 1
+    if (isDone(activity)) stat.completed += 1
+    if (!isDone(activity)) stat.pending += 1
+    if (!isDone(activity) && scheduled && daysBetween(scheduled) < 0) stat.overdue += 1
+    if (scheduled && isSameLocalDay(scheduled, new Date())) stat.today += 1
+  })
+  Object.values(activityStats).forEach((stat) => {
+    stat.completion = stat.total ? (stat.completed * 100) / stat.total : 0
+  })
+
+  const statusCount = (statuses) => leadRows.filter((lead) => statuses.includes(String(lead.status || '').toUpperCase())).length
+  const contacted = leadRows.filter((lead) => lead.activities.some((activity) => activityAt(activity) || completedAt(activity)) || ['CONTACTED', 'INTERESTED', 'QUALIFIED', 'CONVERTED', 'WON'].includes(String(lead.status || '').toUpperCase())).length
+  const welcomeCompleted = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'welcome' && isDone(activity))).length
+  const followCompleted = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'followUp' && isDone(activity))).length
+  const meetingScheduled = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'meeting')).length
+  const meetingCompleted = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'meeting' && isDone(activity))).length
+
+  const funnel = [
+    { label: 'Total Leads', count: leadRows.length },
+    { label: 'Contacted', count: contacted },
+    { label: 'Welcome Call Completed', count: welcomeCompleted },
+    { label: 'Follow-Up Completed', count: followCompleted },
+    { label: 'Meeting Scheduled', count: meetingScheduled },
+    { label: 'Meeting Completed', count: meetingCompleted },
+  ].map((stage, index, stages) => {
+    const previous = index ? stages[index - 1].count : stage.count
+    return {
+      ...stage,
+      progression: previous ? (stage.count * 100) / previous : 0,
+      overall: leadRows.length ? (stage.count * 100) / leadRows.length : 0,
+    }
+  })
+
+  const sourceRows = Object.values(leadRows.reduce((acc, lead) => {
+    const label = sourceLabel(lead)
+    acc[label] ||= { source: label, leads: 0, hot: 0, warm: 0, cold: 0 }
+    acc[label].leads += 1
+    acc[label][lead.category.toLowerCase()] += 1
+    return acc
+  }, {})).sort((a, b) => b.leads - a.leads)
+
+  const categoryCounts = ['Hot', 'Warm', 'Cold'].map((name) => ({
+    name,
+    count: leadRows.filter((lead) => lead.category === name).length,
+  }))
+
+  const priorityLeads = leadRows
+    .slice()
+    .sort((a, b) => b.engagementScore - a.engagementScore)
+    .slice(0, 10)
+
+  const upcoming = allActivities
+    .filter((activity) => {
+      const scheduled = activityAt(activity)
+      const distance = daysBetween(scheduled)
+      return !isDone(activity) && scheduled && distance >= 0 && distance <= 7
+    })
+    .sort((a, b) => activityAt(a) - activityAt(b))
+    .slice(0, 8)
+
+  const overdue = allActivities
+    .filter((activity) => {
+      const scheduled = activityAt(activity)
+      return !isDone(activity) && scheduled && daysBetween(scheduled) < 0
+    })
+    .sort((a, b) => activityAt(a) - activityAt(b))
+    .slice(0, 8)
+
+  const yesterdayLeads = leadRows.filter((lead) => isSameLocalDay(toDate(lead?.createdAt || lead?.createdDate || lead?.date), yesterday)).length
+  const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
+  const insights = [
+    categoryCounts[0].count ? `${categoryCounts[0].count} hot lead${categoryCounts[0].count === 1 ? '' : 's'} should be handled first.` : 'No hot leads are visible in this report filter.',
+    activityStats.followUp.overdue ? `${activityStats.followUp.overdue} follow-up${activityStats.followUp.overdue === 1 ? '' : 's'} are overdue.` : 'Follow-up overdue queue is clear for the selected data.',
+    activityStats.welcome.pending ? `${activityStats.welcome.pending} welcome call${activityStats.welcome.pending === 1 ? '' : 's'} still need completion.` : 'Welcome calls are not showing a pending backlog.',
+    sourceRows[0] ? `${sourceRows[0].source} is currently the largest source with ${sourceRows[0].leads} lead${sourceRows[0].leads === 1 ? '' : 's'}.` : 'Lead source mix will appear after data is available.',
+  ]
+
+  return {
+    range,
+    rangeLabel: rangeLabel(range),
+    sourceLabel: SOURCE_FILTERS.find((item) => item.value === sourceFilter)?.label || 'All sources',
+    leadRows,
+    kpis: [
+      { label: "Yesterday's Total Leads", value: yesterdayLeads, detail: 'Created yesterday' },
+      { label: 'Follow-Ups', value: activityStats.followUp.total, detail: `${activityStats.followUp.completed} completed` },
+      { label: 'Welcome Calls', value: activityStats.welcome.total, detail: `${activityStats.welcome.completed} completed` },
+      { label: 'Meetings', value: activityStats.meeting.total, detail: `${activityStats.meeting.completed} completed` },
+    ],
+    funnel,
+    categoryCounts,
+    avgScore,
+    sourceRows,
+    priorityLeads,
+    upcoming,
+    overdue,
+    insights,
+    ...activityStats,
+    totalLeads: leadRows.length,
+    converted: statusCount(['CONVERTED', 'WON']),
+  }
+}
+
+const downloadPdf = (report) => {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  doc.setFillColor(20, 33, 61)
+  doc.rect(0, 0, pageWidth, 42, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(17)
+  doc.text('Lead Management & Daily Activity Analytics Report', 14, 22, { maxWidth: 175 })
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`${report.rangeLabel} | ${report.sourceLabel} | ${REPORT_TIME_ZONE}`, 14, 34)
+
+  autoTable(doc, {
+    startY: 52,
+    head: [['Metric', 'Value', 'Detail']],
+    body: report.kpis.map((item) => [item.label, formatNumber(item.value), item.detail]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [37, 99, 235] },
+  })
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Funnel Stage', 'Count', 'Progression', 'Overall']],
+    body: report.funnel.map((item) => [item.label, formatNumber(item.count), formatPercent(item.progression), formatPercent(item.overall)]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [20, 33, 61] },
+  })
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Lead', 'Source', 'Score', 'Class', 'Last Contact']],
+    body: report.priorityLeads.map((lead) => [
+      leadName(lead),
+      sourceLabel(lead),
+      `${lead.engagementScore}/100`,
+      lead.category,
+      lead.lastContactDate ? lead.lastContactDate.toLocaleDateString('en-IN') : '-',
+    ]),
+    styles: { fontSize: 7.5 },
+    headStyles: { fillColor: [20, 184, 166] },
+  })
+
+  doc.addPage()
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(20, 33, 61)
+  doc.text('Activity Analytics', 14, 18)
+  autoTable(doc, {
+    startY: 28,
+    head: [['Section', 'Total', 'Completed', 'Pending', 'Overdue', 'Completion']],
+    body: [
+      ['Follow-Up Analytics', report.followUp.total, report.followUp.completed, report.followUp.pending, report.followUp.overdue, formatPercent(report.followUp.completion)],
+      ['Welcome Call Analytics', report.welcome.total, report.welcome.completed, report.welcome.pending, report.welcome.overdue, formatPercent(report.welcome.completion)],
+      ['Meeting Analytics', report.meeting.total, report.meeting.completed, report.meeting.pending, report.meeting.overdue, formatPercent(report.meeting.completion)],
+    ],
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [20, 33, 61] },
+  })
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Source', 'Leads', 'Hot', 'Warm', 'Cold']],
+    body: report.sourceRows.map((row) => [row.source, row.leads, row.hot, row.warm, row.cold]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [37, 99, 235] },
+  })
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Smart Lead Insights']],
+    body: report.insights.map((item) => [item]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [245, 158, 11] },
+  })
+  doc.save(`lead-activity-report-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
+
+function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }) {
+  const toneClass = {
+    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300',
+    teal: 'bg-teal-50 text-teal-600 dark:bg-teal-950/30 dark:text-teal-300',
+    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-300',
+    rose: 'bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300',
+  }[tone]
+  return (
+    <div className="glass-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{formatNumber(value)}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{detail}</p>
+        </div>
+        <div className={`rounded-xl p-2 ${toneClass}`}><Icon className="h-5 w-5" /></div>
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, subtitle, icon: Icon, children }) {
+  return (
+    <section className="glass-card overflow-hidden">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-200/70 px-4 py-4 dark:border-slate-700/50 sm:px-5">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+          {subtitle ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
+        </div>
+        {Icon ? <Icon className="h-5 w-5 text-brand-500" /> : null}
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
+  )
+}
+
+function EmptyState({ children }) {
+  return <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">{children}</div>
+}
+
+function ActivityTable({ rows }) {
+  if (!rows.length) return <EmptyState>No activities found for this section.</EmptyState>
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+        <thead className="bg-slate-50/70 dark:bg-slate-900/50">
+          <tr>{['Lead', 'Activity', 'Date', 'Status'].map((header) => <th key={header} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">{header}</th>)}</tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {rows.map((activity, index) => (
+            <tr key={`${activity.lead?.id || index}-${activity.id || index}`}>
+              <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-100">{leadName(activity.lead)}</td>
+              <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{activity.activityType || activity.type || activity.title || 'Activity'}</td>
+              <td className="px-3 py-2 text-slate-500">{activityAt(activity)?.toLocaleDateString('en-IN') || '-'}</td>
+              <td className="px-3 py-2 text-slate-500">{isDone(activity) ? 'Completed' : daysBetween(activityAt(activity)) < 0 ? 'Overdue' : 'Upcoming'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export default function LeadActivityReportPage() {
+  const user = useAuthStore((state) => state.user)
+  const [filter, setFilter] = useState('thisMonth')
+  const [sourceFilter, setSourceFilter] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [refreshTick, setRefreshTick] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState('')
+  const [leads, setLeads] = useState([])
+  const [activityMap, setActivityMap] = useState({})
+
+  const canExport = hasPermission(user, PERMISSIONS.REPORTS_EXPORT) || hasPermission(user, PERMISSIONS.ANALYTICS_EXPORT)
+
+  useEffect(() => {
+    let mounted = true
+    const loadReport = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const { rows } = await fetchAllPages((pageParams) => leadsAPI.getAll({
+          ...pageParams,
+          ...(sourceFilter ? { source: sourceFilter } : {}),
+        }), 200)
+        const ids = rows.map((lead) => lead.id).filter(Boolean)
+        const nextActivityMap = {}
+        for (let index = 0; index < ids.length; index += 50) {
+          const chunk = ids.slice(index, index + 50)
+          const batch = await leadsAPI.getActivitiesBulk(chunk)
+          Object.assign(nextActivityMap, batch || {})
+        }
+        if (mounted) {
+          setLeads(rows)
+          setActivityMap(nextActivityMap)
+        }
+      } catch (err) {
+        if (mounted) setError(err?.message || 'Report data could not be loaded.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    loadReport()
+    return () => { mounted = false }
+  }, [refreshTick, sourceFilter])
+
+  const report = useMemo(() => buildReport({ leads, activityMap, filter, startDate, endDate, sourceFilter }), [activityMap, endDate, filter, leads, sourceFilter, startDate])
+
+  const handlePdf = async () => {
+    if (!canExport) return toast.error('You do not have permission to export reports.')
+    setExporting(true)
+    try {
+      downloadPdf(report)
+      toast.success('Report PDF downloaded.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const categoryTotal = Math.max(1, report.categoryCounts.reduce((sum, item) => sum + item.count, 0))
+  const activityRows = [...report.upcoming, ...report.overdue]
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="glass-card h-36 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="glass-card h-32 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />)}</div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div className="glass-card h-80 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" /><div className="glass-card h-80 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" /></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="glass-card p-5 sm:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-500">Separate report page</p>
+            <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-50 sm:text-3xl">Lead Management & Daily Activity Analytics Report</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Only lead count, follow-up, welcome call, meeting, source, priority lead, and smart activity insights are shown here.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setRefreshTick((tick) => tick + 1)} className="btn-secondary gap-1.5 text-sm"><RefreshCw className="h-4 w-4" /> Refresh</button>
+            <button type="button" onClick={handlePdf} disabled={!canExport || exporting} className="btn-primary gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50">
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exporting ? 'Preparing...' : 'Download PDF'}
+            </button>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-700/70 dark:bg-slate-900/50">
+            <CalendarDays className="h-4 w-4 text-brand-500" />
+            <select value={filter} onChange={(event) => setFilter(event.target.value)} className="bg-transparent text-sm font-medium text-slate-700 outline-none dark:text-slate-200">
+              {DATE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-700/70 dark:bg-slate-900/50">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} className="bg-transparent text-sm font-medium text-slate-700 outline-none dark:text-slate-200">
+              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
+          {filter === 'custom' ? (
+            <>
+              <input aria-label="Start date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 text-sm dark:border-slate-700/70 dark:bg-slate-900/50" />
+              <input aria-label="End date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 text-sm dark:border-slate-700/70 dark:bg-slate-900/50" />
+            </>
+          ) : null}
+          <span className="inline-flex items-center rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{report.rangeLabel}</span>
+        </div>
+        {error ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">{error}</div> : null}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label={report.kpis[0].label} value={report.kpis[0].value} detail={report.kpis[0].detail} icon={Users} tone="blue" />
+        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Clock3} tone="amber" />
+        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={PhoneCall} tone="teal" />
+        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={CalendarDays} tone="rose" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Section title="Lead Management Funnel" subtitle="Counted as operational milestones, not revenue stages." icon={BarChart3}>
+          <div className="space-y-3">
+            {report.funnel.map((stage, index) => (
+              <div key={stage.label}>
+                <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">{stage.label}</span>
+                  <span className="font-bold tabular-nums text-slate-900 dark:text-slate-50">{formatNumber(stage.count)}</span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div className={`h-full rounded-full ${index % 2 ? 'bg-teal-500' : 'bg-brand-500'}`} style={{ width: `${Math.min(100, stage.overall)}%` }} />
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{formatPercent(stage.progression)} progression, {formatPercent(stage.overall)} of total leads</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Lead Scoring & Classification" subtitle={`Average engagement score: ${formatNumber(report.avgScore)}/100`} icon={Gauge}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {report.categoryCounts.map((item) => (
+              <div key={item.name} className="rounded-xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{item.name}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-50">{formatNumber(item.count)}</p>
+                <p className="text-xs text-slate-500">{formatPercent((item.count * 100) / categoryTotal)} of leads</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <thead className="bg-slate-50/70 dark:bg-slate-900/50"><tr>{['Priority Lead', 'Source', 'Score', 'Class'].map((header) => <th key={header} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">{header}</th>)}</tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {report.priorityLeads.slice(0, 5).map((lead) => (
+                  <tr key={lead.id || leadName(lead)}>
+                    <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-100">{leadName(lead)}</td>
+                    <td className="px-3 py-2 text-slate-500">{sourceLabel(lead)}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">{lead.engagementScore}/100</td>
+                    <td className="px-3 py-2"><span className="badge bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">{lead.category}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Section title="Follow-Up Analytics" icon={Clock3}>
+          <StatCard label="Follow-ups" value={report.followUp.total} detail={`${report.followUp.pending} pending, ${report.followUp.overdue} overdue`} icon={Clock3} tone="amber" />
+        </Section>
+        <Section title="Welcome Call Analytics" icon={PhoneCall}>
+          <StatCard label="Welcome calls" value={report.welcome.total} detail={`${report.welcome.completed} completed, ${report.welcome.pending} pending`} icon={PhoneCall} tone="teal" />
+        </Section>
+        <Section title="Meeting Analytics" icon={CalendarDays}>
+          <StatCard label="Meetings" value={report.meeting.total} detail={`${report.meeting.completed} completed, ${report.meeting.pending} pending`} icon={CalendarDays} tone="rose" />
+        </Section>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Section title="Lead Source Distribution" subtitle="Source count with hot, warm, and cold classification." icon={Database}>
+          {report.sourceRows.length ? (
+            <div className="space-y-3">
+              {report.sourceRows.map((row) => (
+                <div key={row.source} className="rounded-xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">{row.source}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-50">{formatNumber(row.leads)}</p>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Hot {row.hot} · Warm {row.warm} · Cold {row.cold}</p>
+                </div>
+              ))}
+            </div>
+          ) : <EmptyState>No source data for this filter.</EmptyState>}
+        </Section>
+
+        <Section title="Top 10 Priority Leads" subtitle="Sorted by engagement score and recent activity." icon={Flame}>
+          {report.priorityLeads.length ? (
+            <div className="space-y-2">
+              {report.priorityLeads.map((lead, index) => (
+                <div key={lead.id || `${leadName(lead)}-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{index + 1}. {leadName(lead)}</p>
+                    <p className="text-xs text-slate-500">{sourceLabel(lead)} · {lead.category}</p>
+                  </div>
+                  <span className="rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-bold text-brand-700 dark:bg-brand-950/30 dark:text-brand-300">{lead.engagementScore}</span>
+                </div>
+              ))}
+            </div>
+          ) : <EmptyState>No priority leads found.</EmptyState>}
+        </Section>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Section title="Upcoming and Overdue Activities" subtitle="The exact work list to act on next." icon={AlertTriangle}>
+          <ActivityTable rows={activityRows} />
+        </Section>
+        <Section title="Smart Lead Insights" subtitle="Short operational reads from the current data." icon={Target}>
+          <div className="space-y-3">
+            {report.insights.map((insight) => (
+              <div key={insight} className="flex gap-3 rounded-xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                <p className="text-sm leading-5 text-slate-600 dark:text-slate-300">{insight}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+      </div>
+    </div>
+  )
+}
