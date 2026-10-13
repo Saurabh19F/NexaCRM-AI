@@ -12,15 +12,6 @@ import { useAuthStore } from '../store/authStore'
 import { PERMISSIONS, hasPermission } from '../utils/permissions'
 import { fetchAllPages } from '../utils/pagination'
 
-const DATE_FILTERS = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'thisWeek', label: 'This Week' },
-  { value: 'thisMonth', label: 'This Month' },
-  { value: 'lastMonth', label: 'Last Month' },
-  { value: 'custom', label: 'Custom range' },
-]
-
 const SOURCE_FILTERS = [
   { value: '', label: 'All sources' },
   { value: 'FACEBOOK', label: 'Facebook' },
@@ -75,31 +66,13 @@ const inRange = (date, range) => {
   return date >= range.start && date <= range.end
 }
 
-const buildRange = (filter, startDate, endDate) => {
+const buildRange = () => {
   const now = new Date()
   const start = new Date(now)
   const end = new Date(now)
   start.setHours(0, 0, 0, 0)
   end.setHours(23, 59, 59, 999)
-
-  if (filter === 'yesterday') {
-    start.setDate(start.getDate() - 1)
-    end.setDate(end.getDate() - 1)
-  } else if (filter === 'thisWeek') {
-    const offset = (start.getDay() + 6) % 7
-    start.setDate(start.getDate() - offset)
-  } else if (filter === 'thisMonth') {
-    start.setDate(1)
-  } else if (filter === 'lastMonth') {
-    start.setMonth(start.getMonth() - 1, 1)
-    end.setDate(1)
-    end.setDate(0)
-  } else if (filter === 'custom') {
-    const customStart = toDate(startDate)
-    const customEnd = toDate(endDate)
-    if (customStart) start.setTime(customStart.setHours(0, 0, 0, 0))
-    if (customEnd) end.setTime(customEnd.setHours(23, 59, 59, 999))
-  }
+  start.setDate(start.getDate() - 1)
 
   return { start, end }
 }
@@ -149,8 +122,10 @@ const emptyActivityStats = () => ({
   completion: 0,
 })
 
-const buildReport = ({ leads, activityMap, filter, startDate, endDate, sourceFilter }) => {
-  const range = buildRange(filter, startDate, endDate)
+const buildReport = ({ leads, activityMap, sourceFilter }) => {
+  const range = buildRange()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   yesterday.setHours(0, 0, 0, 0)
@@ -254,6 +229,7 @@ const buildReport = ({ leads, activityMap, filter, startDate, endDate, sourceFil
     .sort((a, b) => activityAt(a) - activityAt(b))
     .slice(0, 8)
 
+  const todayLeads = leadRows.filter((lead) => isSameLocalDay(toDate(lead?.createdAt || lead?.createdDate || lead?.date), today)).length
   const yesterdayLeads = leadRows.filter((lead) => isSameLocalDay(toDate(lead?.createdAt || lead?.createdDate || lead?.date), yesterday)).length
   const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
   const insights = [
@@ -269,6 +245,7 @@ const buildReport = ({ leads, activityMap, filter, startDate, endDate, sourceFil
     sourceLabel: SOURCE_FILTERS.find((item) => item.value === sourceFilter)?.label || 'All sources',
     leadRows,
     kpis: [
+      { label: "Today's Total Leads", value: todayLeads, detail: 'Created today' },
       { label: "Yesterday's Total Leads", value: yesterdayLeads, detail: 'Created yesterday' },
       { label: 'Follow-Ups', value: activityStats.followUp.total, detail: `${activityStats.followUp.completed} completed` },
       { label: 'Welcome Calls', value: activityStats.welcome.total, detail: `${activityStats.welcome.completed} completed` },
@@ -427,10 +404,7 @@ function ActivityTable({ rows }) {
 
 export default function LeadActivityReportPage() {
   const user = useAuthStore((state) => state.user)
-  const [filter, setFilter] = useState('thisMonth')
   const [sourceFilter, setSourceFilter] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -471,7 +445,7 @@ export default function LeadActivityReportPage() {
     return () => { mounted = false }
   }, [refreshTick, sourceFilter])
 
-  const report = useMemo(() => buildReport({ leads, activityMap, filter, startDate, endDate, sourceFilter }), [activityMap, endDate, filter, leads, sourceFilter, startDate])
+  const report = useMemo(() => buildReport({ leads, activityMap, sourceFilter }), [activityMap, leads, sourceFilter])
 
   const handlePdf = async () => {
     if (!canExport) return toast.error('You do not have permission to export reports.')
@@ -491,7 +465,7 @@ export default function LeadActivityReportPage() {
     return (
       <div className="space-y-5">
         <div className="glass-card h-36 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="glass-card h-32 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="glass-card h-32 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />)}</div>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div className="glass-card h-80 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" /><div className="glass-card h-80 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" /></div>
       </div>
     )
@@ -505,7 +479,7 @@ export default function LeadActivityReportPage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-500">Separate report page</p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-50 sm:text-3xl">Lead Management & Daily Activity Analytics Report</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Only lead count, follow-up, welcome call, meeting, source, priority lead, and smart activity insights are shown here.
+              Only today and yesterday lead count, follow-up, welcome call, meeting, source, priority lead, and smart activity insights are shown here.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -517,11 +491,9 @@ export default function LeadActivityReportPage() {
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-700/70 dark:bg-slate-900/50">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/50 dark:text-slate-200">
             <CalendarDays className="h-4 w-4 text-brand-500" />
-            <select value={filter} onChange={(event) => setFilter(event.target.value)} className="bg-transparent text-sm font-medium text-slate-700 outline-none dark:text-slate-200">
-              {DATE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+            Today + Yesterday
           </div>
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-700/70 dark:bg-slate-900/50">
             <Filter className="h-4 w-4 text-slate-400" />
@@ -529,22 +501,17 @@ export default function LeadActivityReportPage() {
               {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
-          {filter === 'custom' ? (
-            <>
-              <input aria-label="Start date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 text-sm dark:border-slate-700/70 dark:bg-slate-900/50" />
-              <input aria-label="End date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 text-sm dark:border-slate-700/70 dark:bg-slate-900/50" />
-            </>
-          ) : null}
           <span className="inline-flex items-center rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{report.rangeLabel}</span>
         </div>
         {error ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">{error}</div> : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label={report.kpis[0].label} value={report.kpis[0].value} detail={report.kpis[0].detail} icon={Users} tone="blue" />
-        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Clock3} tone="amber" />
-        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={PhoneCall} tone="teal" />
-        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={CalendarDays} tone="rose" />
+        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Users} tone="teal" />
+        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={Clock3} tone="amber" />
+        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={PhoneCall} tone="teal" />
+        <StatCard label={report.kpis[4].label} value={report.kpis[4].value} detail={report.kpis[4].detail} icon={CalendarDays} tone="rose" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
