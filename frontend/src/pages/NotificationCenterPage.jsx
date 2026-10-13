@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck, RefreshCw, Trash2, ExternalLink, Filter, Mail, User, Kanban, Receipt, Sparkles, AlertCircle, Circle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
+import DateRangeFilter from '../components/ui/DateRangeFilter'
 import { useNotificationStore, formatIndianTime } from '../store/notificationStore'
+import { emptyDateRange, isWithinDateRange } from '../utils/dateRangeFilter'
 
 const iconMap = {
   lead: { icon: User, color: 'text-brand-500', bg: 'bg-brand-50 dark:bg-brand-950/40' },
@@ -29,17 +31,19 @@ export default function NotificationCenterPage() {
   const navigate = useNavigate()
   const { notifications, unreadCount, fetchNotifications, markAllRead, markRead, deleteNotification, loading } = useNotificationStore()
   const [filter, setFilter] = useState('all')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
 
   useEffect(() => {
     fetchNotifications().catch((error) => toast.error(error?.message || 'Unable to load notifications'))
   }, [fetchNotifications])
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return notifications
-    if (filter === 'unread') return notifications.filter((notification) => !notification.read)
-    if (filter === 'read') return notifications.filter((notification) => notification.read)
-    return notifications.filter((notification) => notification.type === filter)
-  }, [filter, notifications])
+    let rows = notifications
+    if (filter === 'unread') rows = rows.filter((notification) => !notification.read)
+    else if (filter === 'read') rows = rows.filter((notification) => notification.read)
+    else if (filter !== 'all') rows = rows.filter((notification) => notification.type === filter)
+    return rows.filter((notification) => isWithinDateRange(notification.createdAt, dateRange))
+  }, [dateRange, filter, notifications])
 
   const counts = useMemo(() => ({
     total: notifications.length,
@@ -114,6 +118,7 @@ export default function NotificationCenterPage() {
               )
             })}
           </div>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} compact />
         </div>
 
         {loading ? (

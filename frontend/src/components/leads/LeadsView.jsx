@@ -27,6 +27,8 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
 import CopyableContact from '../ui/CopyableContact'
+import DateRangeFilter from '../ui/DateRangeFilter'
+import { emptyDateRange, hasDateRangeFilter, isWithinDateRange } from '../../utils/dateRangeFilter'
 
 const SCORE_BADGE = {
   hot:  { label: 'Hot',  icon: Flame,       cls: 'badge-hot' },
@@ -1164,6 +1166,7 @@ export default function LeadsPage() {
   const [scoreFilter, setScoreFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [lastCallFilter, setLastCallFilter] = useState('all')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [sortField, setSortField] = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
@@ -1212,7 +1215,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
+  }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter, dateRange])
 
   useEffect(() => {
     fetchLeads({
@@ -1220,15 +1223,15 @@ export default function LeadsPage() {
       score: scoreFilter === 'all' ? undefined : scoreFilter,
       status: statusFilter === 'all' ? undefined : statusFilter,
       page: 0,
-      size: PAGE_SIZE,
+      size: hasDateRangeFilter(dateRange) ? 500 : PAGE_SIZE,
     }).catch((err) => {
       toast.error(err?.message || 'Failed to load leads')
     })
-  }, [fetchLeads, debouncedSearch, scoreFilter, statusFilter])
+  }, [fetchLeads, debouncedSearch, scoreFilter, statusFilter, dateRange])
 
   useEffect(() => {
     setSelected([])
-  }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter])
+  }, [debouncedSearch, scoreFilter, statusFilter, lastCallFilter, dateRange])
 
   useEffect(() => {
     const stagesFromLeadRows = {}
@@ -1259,7 +1262,7 @@ export default function LeadsPage() {
       score: scoreFilter === 'all' ? undefined : scoreFilter,
       status: statusFilter === 'all' ? undefined : statusFilter,
       page: 0,
-      size: visibleCount,
+      size: Math.max(visibleCount, hasDateRangeFilter(dateRange) ? 500 : PAGE_SIZE),
     })
   }
 
@@ -1287,6 +1290,7 @@ export default function LeadsPage() {
   }
 
   const filtered = leads
+    .filter((lead) => isWithinDateRange(lead.createdAtTs || lead.createdAt || lead.updatedAt, dateRange))
     .filter((lead) => {
       if (lastCallFilter === 'all') return true
       const outcome = normalizeCallOutcome(callOutcomeByLeadId[lead.id])
@@ -1330,7 +1334,7 @@ export default function LeadsPage() {
         score: scoreFilter === 'all' ? undefined : scoreFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
         page: 0,
-        size: nextCount,
+        size: Math.max(nextCount, hasDateRangeFilter(dateRange) ? 500 : PAGE_SIZE),
       })
       setVisibleCount(nextCount)
     } catch (err) {
@@ -1772,6 +1776,7 @@ export default function LeadsPage() {
           <option value="not interested">Last Call: Not Interested</option>
           <option value="not_logged">Last Call: Not Logged</option>
         </select>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} compact className="w-full sm:w-auto" />
       </div>
 
       {/* Mobile cards – minimal: tap to open detail */}

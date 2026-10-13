@@ -27,7 +27,9 @@ import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import PaginatedSelect from '../components/ui/PaginatedSelect'
 import ScreenModalPortal from '../components/ui/ScreenModalPortal'
+import DateRangeFilter from '../components/ui/DateRangeFilter'
 import { ticketsAPI, teamAPI } from '../services/api'
+import { emptyDateRange, isWithinDateRange } from '../utils/dateRangeFilter'
 
 // ── Helpers ─────────────────────────────────────────────────────
 const formatDate = (value) => {
@@ -394,6 +396,7 @@ export default function TicketsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
   const [modalOpen, setModalOpen] = useState(false)
   const [isEdit, setIsEdit] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -448,12 +451,13 @@ export default function TicketsPage() {
     if (statusFilter) list = list.filter((t) => t.status === statusFilter)
     if (priorityFilter) list = list.filter((t) => t.priority === priorityFilter)
     if (categoryFilter) list = list.filter((t) => t.category === categoryFilter)
+    list = list.filter((t) => isWithinDateRange(t.createdAt || t.updatedAt || t.resolvedAt, dateRange))
     return list
-  }, [tickets, search, statusFilter, priorityFilter, categoryFilter])
+  }, [tickets, search, statusFilter, priorityFilter, categoryFilter, dateRange])
 
   useEffect(() => {
     setTicketPage(0)
-  }, [search, statusFilter, priorityFilter, categoryFilter])
+  }, [search, statusFilter, priorityFilter, categoryFilter, dateRange])
 
   const ticketTotalPages = Math.max(1, Math.ceil(filtered.length / TICKET_PAGE_SIZE))
   const safeTicketPage = Math.min(ticketPage, ticketTotalPages - 1)
@@ -614,6 +618,7 @@ export default function TicketsPage() {
             <option value="">All categories</option>
             {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
           </select>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} compact />
         </div>
       </div>
 

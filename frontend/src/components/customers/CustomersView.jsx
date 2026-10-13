@@ -20,7 +20,9 @@ import { Timeline, TimelineItem } from '../ui/Timeline'
 import { LinearProgress } from '../ui/Progress'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
 import CopyableContact from '../ui/CopyableContact'
+import DateRangeFilter from '../ui/DateRangeFilter'
 import { anyFieldMatchesSearch } from '../../utils/search'
+import { emptyDateRange, isWithinDateRange } from '../../utils/dateRangeFilter'
 
 /* ── Constants ─────────────────────────────────────────────────── */
 const INDUSTRIES = ['Finance', 'IT', 'SaaS', 'Manufacturing', 'Healthcare', 'E-commerce', 'Retail', 'Education', 'Other']
@@ -613,6 +615,7 @@ export default function CustomersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
   const [currentPage, setCurrentPage] = useState(0)
   const pageSize = 10
   const routeSearch = searchParams.get('search') ?? ''
@@ -624,7 +627,7 @@ export default function CustomersPage() {
     return () => window.clearTimeout(timer)
   }, [search])
 
-  useEffect(() => { setCurrentPage(0) }, [debouncedSearch, sourceFilter, statusFilter])
+  useEffect(() => { setCurrentPage(0) }, [debouncedSearch, sourceFilter, statusFilter, dateRange])
 
   /* ── Fetch ALL leads — these are the real customers ──────────── */
   useEffect(() => {
@@ -700,8 +703,9 @@ export default function CustomersPage() {
     if (statusFilter !== 'all') {
       rows = rows.filter((c) => c.status === statusFilter)
     }
+    rows = rows.filter((c) => isWithinDateRange(c.createdAt || c.updatedAt || c.convertedAt, dateRange))
     return rows
-  }, [customers, debouncedSearch, sourceFilter, statusFilter])
+  }, [customers, debouncedSearch, sourceFilter, statusFilter, dateRange])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paged = filtered.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
@@ -806,6 +810,7 @@ export default function CustomersPage() {
               ))}
             </select>
           </div>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} compact className="w-full sm:w-auto" />
         </div>
       </div>
 

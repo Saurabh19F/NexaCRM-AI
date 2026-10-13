@@ -18,7 +18,9 @@ import toast from 'react-hot-toast'
 import PageHeading from '../components/ui/PageHeading'
 import TaskEditorModal from '../components/tasks/TaskEditorModal'
 import PaginatedSelect from '../components/ui/PaginatedSelect'
+import DateRangeFilter from '../components/ui/DateRangeFilter'
 import { leadsAPI, tasksAPI } from '../services/api'
+import { emptyDateRange, isWithinDateRange } from '../utils/dateRangeFilter'
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -55,6 +57,7 @@ export default function FollowUpsPage() {
   const [loading, setLoading] = useState(true)
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedLeadId, setSelectedLeadId] = useState(searchParams.get('leadId') || '')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
 
   const selectedLead = useMemo(
     () => leads.find((lead) => lead.id === selectedLeadId) || null,
@@ -170,8 +173,10 @@ export default function FollowUpsPage() {
       })
     })
 
-    return events.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-  }, [activities, selectedLead, tasks])
+    return events
+      .filter((event) => isWithinDateRange(event.timestamp, dateRange))
+      .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+  }, [activities, dateRange, selectedLead, tasks])
 
   const openTaskEditor = () => {
     if (!selectedLeadId) {
@@ -198,8 +203,10 @@ export default function FollowUpsPage() {
     }
   }
 
-  const overdueTasks = tasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date() && String(task.status || '').toUpperCase() !== 'COMPLETED')
-  const openTasks = tasks.filter((task) => String(task.status || '').toUpperCase() !== 'COMPLETED')
+  const dateFilteredTasks = tasks.filter((task) => isWithinDateRange(task.dueDate || task.createdAt || task.updatedAt, dateRange))
+  const dateFilteredActivities = activities.filter((activity) => isWithinDateRange(activity.savedAt || activity.createdAt || activity.updatedAt, dateRange))
+  const overdueTasks = dateFilteredTasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date() && String(task.status || '').toUpperCase() !== 'COMPLETED')
+  const openTasks = dateFilteredTasks.filter((task) => String(task.status || '').toUpperCase() !== 'COMPLETED')
 
   return (
     <div className="space-y-6">
@@ -236,6 +243,10 @@ export default function FollowUpsPage() {
               searchPlaceholder="Search leads..."
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Date</label>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} compact />
+          </div>
 
           {selectedLead ? (
             <div className="grid gap-3 sm:grid-cols-3">
@@ -271,7 +282,7 @@ export default function FollowUpsPage() {
         </div>
         <div className="kpi-card">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Activities</p>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{activities.length}</h3>
+          <h3 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{dateFilteredActivities.length}</h3>
         </div>
       </div>
 

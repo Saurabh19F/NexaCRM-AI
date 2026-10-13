@@ -9,7 +9,9 @@ import { commsAPI } from '../../services/api'
 import { useIntegrationsStore } from '../../store/integrationsStore'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
 import CopyableContact from '../ui/CopyableContact'
+import DateRangeFilter from '../ui/DateRangeFilter'
 import { anyFieldMatchesSearch } from '../../utils/search'
+import { emptyDateRange, hasDateRangeFilter, isWithinDateRange } from '../../utils/dateRangeFilter'
 
 // ── Channel config ────────────────────────────────────────────
 const CHANNEL_CONFIG = {
@@ -283,6 +285,7 @@ export default function CommunicationPage() {
   const [activeId, setActiveId]       = useState(null)
   const [channelFilter, setChannelFilter] = useState('all')
   const [search, setSearch]           = useState('')
+  const [dateRange, setDateRange]     = useState(emptyDateRange)
   const [message, setMessage]         = useState('')
   const [aiSuggestion, setAiSuggestion] = useState('')
   const [sending, setSending]         = useState(false)
@@ -335,7 +338,10 @@ export default function CommunicationPage() {
   const filtered = allConvs.filter((c) => {
     const matchChannel = channelFilter === 'all' || c.channel === channelFilter
     const matchSearch  = anyFieldMatchesSearch(search, [c.name, c.phone, c.email, c.recipient, c.company])
-    return matchChannel && matchSearch
+    const messages = history[c.id] || []
+    const latest = messages.length ? messages[messages.length - 1] : null
+    const matchDate = !hasDateRangeFilter(dateRange) || isWithinDateRange(latest?.createdAt, dateRange)
+    return matchChannel && matchSearch && matchDate
   })
 
   const activeConv = allConvs.find((c) => c.id === activeId) || null
@@ -345,7 +351,8 @@ export default function CommunicationPage() {
   const convMessages = activeId
     ? (history[activeId] || [])
     : []
-  const visibleMessages = convMessages.filter((m) => !m.deleted)
+  const visibleMessages = convMessages.filter((m) => !m.deleted && isWithinDateRange(m.createdAt, dateRange))
+  const visibleWAMessages = allWAMessages.filter((msg) => isWithinDateRange(msg.createdAt, dateRange))
 
   // Last message preview
   function lastMsg(conv) {
@@ -452,6 +459,7 @@ export default function CommunicationPage() {
           id: `db-${row.id ?? `${contact}-${row.createdAt}`}`,
           from: String(row.direction || '').toUpperCase() === 'IN' ? 'lead' : 'me',
           text: row.body || '',
+          createdAt: row.createdAt,
           time: formatMessageTime(row.createdAt),
           status: String(row.direction || '').toUpperCase() === 'IN'
             ? 'read'
@@ -487,6 +495,7 @@ export default function CommunicationPage() {
       id: tempId,
       from: 'me',
       text,
+      createdAt: new Date().toISOString(),
       time: nowTime(),
       status: 'sending',
       replyTo: replyToMessage ? { ...replyToMessage } : null,
@@ -799,6 +808,7 @@ export default function CommunicationPage() {
                 className="bg-transparent text-sm text-slate-700 dark:text-slate-300 outline-none flex-1"
               />
             </div>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} compact />
             {/* New WA conversation */}
             {whatsappEnabled && (
               <button
@@ -877,18 +887,18 @@ export default function CommunicationPage() {
               </div>
               <div>
                 <p className="font-semibold text-slate-800 dark:text-slate-200">All WhatsApp Messages</p>
-                <p className="text-[11px] text-slate-500">{allWAMessages.length} messages across all contacts</p>
+                <p className="text-[11px] text-slate-500">{visibleWAMessages.length} messages across all contacts</p>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
-              {allWAMessages.length === 0 ? (
+              {visibleWAMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
                   <Phone className="w-12 h-12 opacity-30" />
                   <p className="text-sm">No WhatsApp messages yet</p>
                   <p className="text-xs text-center max-w-xs">Select a conversation from the sidebar or start a new WhatsApp chat.</p>
                 </div>
               ) : (
-                allWAMessages.map((msg) => {
+                visibleWAMessages.map((msg) => {
                   const isIn = String(msg.direction || '').toUpperCase() === 'IN'
                   const contactLabel = msg.contactName || msg.contact || 'Unknown'
                   return (

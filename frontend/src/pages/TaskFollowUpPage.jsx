@@ -24,8 +24,10 @@ import PageHeading from '../components/ui/PageHeading'
 import LeadActivitiesModal from '../components/LeadActivitiesModal'
 import ScreenModalPortal from '../components/ui/ScreenModalPortal'
 import CopyableContact from '../components/ui/CopyableContact'
+import DateRangeFilter from '../components/ui/DateRangeFilter'
 import { leadsAPI, tasksAPI } from '../services/api'
 import { anyFieldMatchesSearch } from '../utils/search'
+import { emptyDateRange, isWithinDateRange } from '../utils/dateRangeFilter'
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -501,6 +503,7 @@ export default function TaskFollowUpPage() {
   const [followupDateFilter, setFollowupDateFilter] = useState('today')
   const [followupCustomDate, setFollowupCustomDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
   const [dateSortDirection, setDateSortDirection] = useState('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [activitiesLead, setActivitiesLead] = useState(null)
@@ -651,7 +654,7 @@ export default function TaskFollowUpPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, searchQuery, dateSortDirection])
+  }, [activeTab, searchQuery, dateSortDirection, dateRange])
 
   const ensureLeadActivities = useCallback(async (leadId) => {
     if (!leadId || fullHistoryLeadIds.has(leadId)) return
@@ -779,6 +782,7 @@ export default function TaskFollowUpPage() {
   const stageLeads = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 && !l.isCompleted : !l.isCompleted
     let pendingAll = enrichedLeads.filter((lead) => isPending(lead) && isActiveFollowupLead(lead))
+    pendingAll = pendingAll.filter((lead) => isWithinDateRange(getLeadLastUpdateAt(lead), dateRange))
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       pendingAll = pendingAll.filter(
@@ -800,7 +804,9 @@ export default function TaskFollowUpPage() {
     else if (followupDateFilter === 'tomorrow') targetDate = dateOnlyStr(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
     else if (followupDateFilter === 'custom' && followupCustomDate) targetDate = followupCustomDate
 
-    let filteredFollowup = enrichedLeads.filter((l) => getLeadFollowUpDate(l) === targetDate)
+    let filteredFollowup = enrichedLeads
+      .filter((l) => getLeadFollowUpDate(l) === targetDate)
+      .filter((lead) => isWithinDateRange(getLeadLastUpdateAt(lead), dateRange))
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       filteredFollowup = filteredFollowup.filter(
@@ -816,20 +822,24 @@ export default function TaskFollowUpPage() {
       meeting_outcome: pendingAll.filter((l) => l.currentStage === 2 || l.currentStage === 3).sort(sorter),
       todays_followup: filteredFollowup,
     }
-  }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length, followupDateFilter, followupCustomDate])
+  }, [dateSortDirection, enrichedLeads, searchQuery, tasks.length, followupDateFilter, followupCustomDate, dateRange])
 
   const stats = useMemo(() => {
     const isPending = (l) => tasks.length ? l.pendingTaskCount > 0 && !l.isCompleted : !l.isCompleted
     const pending = enrichedLeads.filter((lead) => isPending(lead) && isActiveFollowupLead(lead))
+      .filter((lead) => isWithinDateRange(getLeadLastUpdateAt(lead), dateRange))
     const todayStr = dateOnlyStr(todayIST())
-    const followupCount = enrichedLeads.filter((l) => getLeadFollowUpDate(l) === todayStr).length
+    const followupCount = enrichedLeads
+      .filter((l) => getLeadFollowUpDate(l) === todayStr)
+      .filter((lead) => isWithinDateRange(getLeadLastUpdateAt(lead), dateRange))
+      .length
     return {
       welcomeCall: pending.filter((l) => l.currentStage <= 0).length,
       followupMeeting: pending.filter((l) => l.currentStage === 1).length,
       meetingOutcome: pending.filter((l) => l.currentStage === 2 || l.currentStage === 3).length,
       todaysFollowup: followupCount,
     }
-  }, [enrichedLeads, tasks.length])
+  }, [dateRange, enrichedLeads, tasks.length])
 
   const completedOutcomeLeads = useMemo(() => {
     const tasksByLead = tasks.reduce((acc, task) => {
@@ -1372,6 +1382,7 @@ export default function TaskFollowUpPage() {
               placeholder="Search by name, phone, company, or email..."
             />
           </div>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} compact className="shrink-0" />
           {activeTab === 'todays_followup' ? (
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {[

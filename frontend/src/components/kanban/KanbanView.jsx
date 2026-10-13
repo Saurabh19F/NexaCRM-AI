@@ -30,7 +30,9 @@ import LeadActivitiesModal from '../LeadActivitiesModal'
 import PaginatedSelect from '../ui/PaginatedSelect'
 import ScreenModalPortal from '../ui/ScreenModalPortal'
 import CopyableContact from '../ui/CopyableContact'
+import DateRangeFilter from '../ui/DateRangeFilter'
 import { anyFieldMatchesSearch } from '../../utils/search'
+import { emptyDateRange, isWithinDateRange } from '../../utils/dateRangeFilter'
 
 /* ── Pipeline stages — exact activity workflow ──────────────── */
 const STAGES = [
@@ -1008,6 +1010,7 @@ export default function KanbanPage() {
   const [filterScore, setFilterScore] = useState('all')
   const [filterSource, setFilterSource] = useState('all')
   const [filterOwner, setFilterOwner] = useState('all')
+  const [dateRange, setDateRange] = useState(emptyDateRange)
   const [teamMembers, setTeamMembers] = useState([])
   const [callingLeadId, setCallingLeadId] = useState(null)
   const [activitiesLead, setActivitiesLead] = useState(null)
@@ -1310,15 +1313,16 @@ export default function KanbanPage() {
       const matchesScore = filterScore === 'all' || lead.score === filterScore
       const matchesSource = filterSource === 'all' || lead.source === filterSource
       const matchesOwner = filterOwner === 'all' || lead.assignedTo === filterOwner
-      if (matchesSearch && matchesScore && matchesSource && matchesOwner) {
+      const matchesDate = isWithinDateRange(lead.createdAtTs || lead.createdAt || lead.updatedAt, dateRange)
+      if (matchesSearch && matchesScore && matchesSource && matchesOwner && matchesDate) {
         map[stageKey].push(lead)
       }
     }
     return map
-  }, [leads, activityStateByLeadId, search, filterScore, filterSource, filterOwner])
+  }, [leads, activityStateByLeadId, search, filterScore, filterSource, filterOwner, dateRange])
 
   const totalLeads = Object.values(leadsByStage).reduce((s, arr) => s + arr.length, 0)
-  const totalValue = leads.reduce((s, l) => s + (l.value || 0), 0)
+  const totalValue = Object.values(leadsByStage).flat().reduce((s, l) => s + (l.value || 0), 0)
 
   /* Find a lead and its stage */
   const findLeadAndStage = useCallback((id) => {
@@ -1645,8 +1649,9 @@ export default function KanbanPage() {
                     searchPlaceholder="Search owners..."
                     pageSize={6}
                   />
+                  <DateRangeFilter value={dateRange} onChange={setDateRange} compact />
                   <button
-                    onClick={() => { setFilterScore('all'); setFilterSource('all'); setFilterOwner('all') }}
+                    onClick={() => { setFilterScore('all'); setFilterSource('all'); setFilterOwner('all'); setDateRange(emptyDateRange()) }}
                     className="w-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 py-1"
                   >
                     Clear Filters

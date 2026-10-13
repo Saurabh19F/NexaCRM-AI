@@ -22,7 +22,9 @@ import DueTodayWidget from '../components/tasks/DueTodayWidget'
 import OverdueTasksWidget from '../components/tasks/OverdueTasksWidget'
 import TaskEditorModal from '../components/tasks/TaskEditorModal'
 import PaginatedSelect from '../components/ui/PaginatedSelect'
+import DateRangeFilter from '../components/ui/DateRangeFilter'
 import { leadsAPI, tasksAPI, teamAPI } from '../services/api'
+import { emptyDateRange, isWithinDateRange } from '../utils/dateRangeFilter'
 
 const EMPTY_FILTERS = {
   status: '',
@@ -69,31 +71,37 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [dateRange, setDateRange] = useState(emptyDateRange)
   const [selectedDate, setSelectedDate] = useState(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorMode, setEditorMode] = useState('create')
   const [activeTask, setActiveTask] = useState(null)
   const [taskPage, setTaskPage] = useState(0)
 
+  const dateFilteredTasks = useMemo(
+    () => tasks.filter((task) => isWithinDateRange(task.dueDate || task.createdAt || task.updatedAt, dateRange)),
+    [dateRange, tasks]
+  )
+
   const selectedDateTasks = useMemo(() => {
     if (!selectedDate) return []
-    return tasks.filter((task) => formatDateKey(task?.dueDate) === selectedDate)
-  }, [selectedDate, tasks])
+    return dateFilteredTasks.filter((task) => formatDateKey(task?.dueDate) === selectedDate)
+  }, [dateFilteredTasks, selectedDate])
 
   const stats = useMemo(() => {
     const today = new Date()
-    const dueToday = tasks.filter((task) => {
+    const dueToday = dateFilteredTasks.filter((task) => {
       const date = new Date(task?.dueDate)
       return task?.dueDate && date.toDateString() === today.toDateString()
     }).length
-    const overdue = tasks.filter((task) => {
+    const overdue = dateFilteredTasks.filter((task) => {
       const date = new Date(task?.dueDate)
       return task?.dueDate && date < new Date() && String(task?.status ?? '').toUpperCase() !== 'COMPLETED'
     }).length
-    const completed = tasks.filter((task) => String(task?.status ?? '').toUpperCase() === 'COMPLETED').length
-    const assignees = new Set(tasks.map((task) => task?.assignedToId).filter(Boolean)).size
+    const completed = dateFilteredTasks.filter((task) => String(task?.status ?? '').toUpperCase() === 'COMPLETED').length
+    const assignees = new Set(dateFilteredTasks.map((task) => task?.assignedToId).filter(Boolean)).size
     return { dueToday, overdue, completed, assignees }
-  }, [tasks])
+  }, [dateFilteredTasks])
 
   const loadData = async () => {
     setLoading(true)
@@ -126,7 +134,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     setTaskPage(0)
-  }, [filters.status, filters.assignedTo, filters.due, filters.search, filters.leadId])
+  }, [filters.status, filters.assignedTo, filters.due, filters.search, filters.leadId, dateRange])
 
   const openCreate = (prefill = {}) => {
     setActiveTask(prefill?.id ? prefill : null)
@@ -191,7 +199,10 @@ export default function TasksPage() {
     }
   }
 
-  const clearFilters = () => setFilters(EMPTY_FILTERS)
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS)
+    setDateRange(emptyDateRange())
+  }
 
   const employeeOptions = useMemo(() => [
     { value: '', label: 'All employees' },
@@ -211,14 +222,14 @@ export default function TasksPage() {
     })),
   ], [leads])
 
-  const taskTotalPages = Math.max(1, Math.ceil(tasks.length / TASK_QUEUE_PAGE_SIZE))
+  const taskTotalPages = Math.max(1, Math.ceil(dateFilteredTasks.length / TASK_QUEUE_PAGE_SIZE))
   const safeTaskPage = Math.min(taskPage, taskTotalPages - 1)
-  const pagedTasks = tasks.slice(
+  const pagedTasks = dateFilteredTasks.slice(
     safeTaskPage * TASK_QUEUE_PAGE_SIZE,
     safeTaskPage * TASK_QUEUE_PAGE_SIZE + TASK_QUEUE_PAGE_SIZE
   )
-  const taskStart = tasks.length ? safeTaskPage * TASK_QUEUE_PAGE_SIZE + 1 : 0
-  const taskEnd = Math.min(tasks.length, (safeTaskPage + 1) * TASK_QUEUE_PAGE_SIZE)
+  const taskStart = dateFilteredTasks.length ? safeTaskPage * TASK_QUEUE_PAGE_SIZE + 1 : 0
+  const taskEnd = Math.min(dateFilteredTasks.length, (safeTaskPage + 1) * TASK_QUEUE_PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -241,8 +252,8 @@ export default function TasksPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <DueTodayWidget tasks={tasks} onOpenTask={openCreate} />
-        <OverdueTasksWidget tasks={tasks} onOpenTask={openCreate} />
+        <DueTodayWidget tasks={dateFilteredTasks} onOpenTask={openCreate} />
+        <OverdueTasksWidget tasks={dateFilteredTasks} onOpenTask={openCreate} />
         <div className="kpi-card">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Completed</p>
           <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stats.completed}</h3>
@@ -325,6 +336,10 @@ export default function TasksPage() {
               searchPlaceholder="Search leads..."
             />
           </div>
+          <div className="lg:col-span-2">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Date</label>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} compact />
+          </div>
         </div>
       </div>
 
@@ -334,7 +349,7 @@ export default function TasksPage() {
             <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3 dark:border-slate-800/70">
               <div>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Task Queue</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{tasks.length} task{tasks.length === 1 ? '' : 's'} matched</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{dateFilteredTasks.length} task{dateFilteredTasks.length === 1 ? '' : 's'} matched</p>
               </div>
               <Link to="/task-followup" className="btn-secondary h-9 px-3 text-xs">
                 Follow-up timeline
@@ -348,7 +363,7 @@ export default function TasksPage() {
                   <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800/60" />
                 ))}
               </div>
-            ) : tasks.length === 0 ? (
+            ) : dateFilteredTasks.length === 0 ? (
               <div className="p-10 text-center text-sm text-slate-400">
                 No tasks match the current filters.
               </div>
@@ -425,9 +440,9 @@ export default function TasksPage() {
               </div>
             )}
 
-            {!loading && tasks.length > TASK_QUEUE_PAGE_SIZE && (
+            {!loading && dateFilteredTasks.length > TASK_QUEUE_PAGE_SIZE && (
               <div className="flex flex-col gap-2 border-t border-slate-200/70 px-4 py-3 text-xs text-slate-500 dark:border-slate-800/70 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-                <span>Showing {taskStart}-{taskEnd} of {tasks.length} tasks</span>
+                <span>Showing {taskStart}-{taskEnd} of {dateFilteredTasks.length} tasks</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -455,7 +470,7 @@ export default function TasksPage() {
         </div>
 
         <div className="space-y-4">
-          <TaskCalendar tasks={tasks} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
+          <TaskCalendar tasks={dateFilteredTasks} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
 
           <div className="glass-card p-4">
             <div className="mb-3 flex items-center justify-between">
