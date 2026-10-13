@@ -764,9 +764,9 @@ export default function AnalyticsPage() {
       <div className="glass-card overflow-visible p-5 sm:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-brand-600 dark:text-brand-300"><BarChart3 className="h-4 w-4" /> Lead performance intelligence</div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Know what is moving, what is stuck, and what to fix next.</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">A decision-ready view of lead volume, current outcomes, source quality, team execution, and follow-up opportunities.</p>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-brand-600 dark:text-brand-300"><BarChart3 className="h-4 w-4" /> Lead activity & engagement report</div>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Lead Management & Daily Activity Analytics Report</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">A focused view of yesterday's leads, follow-ups, welcome calls, meetings, source quality, engagement scoring, and priority lead actions.</p>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400"><span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /> {report.summary.periodLabel || 'Selected period'}</span><span>Updated {lastUpdated ? formatDateTime(lastUpdated) : '—'}</span></div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -791,13 +791,13 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Leads created" value={formatNumber(report.total)} detail={report.summary.periodLabel || 'Selected period'} icon={Users} change={metricChange(report.summary, 'totalLeads')} tone="brand" />
         <MetricCard label="Active pipeline" value={formatNumber(report.active)} detail="Not converted or lost" icon={Layers3} change={metricChange(report.summary, 'totalLeads')} tone="violet" />
-        <MetricCard label="Current win rate" value={formatPercent(winRate)} detail={`${formatNumber(report.converted)} currently converted`} icon={TrendingUp} change={metricChange(report.summary, 'conversionRate')} tone="emerald" />
+        <MetricCard label="Completion rate" value={formatPercent(winRate)} detail={`${formatNumber(report.converted)} leads completed`} icon={TrendingUp} change={metricChange(report.summary, 'conversionRate')} tone="emerald" />
         <MetricCard label="Contacted rate" value={formatPercent(contactedRate)} detail={`${formatNumber(report.contacted)} leads contacted`} icon={UserCheck} change={metricChange(report.summary, 'contactedLeads')} tone="amber" />
         <MetricCard label="Pending follow-ups" value={formatNumber(report.pending)} detail="Open follow-up dates" icon={Clock3} change={metricChange(report.summary, 'pendingFollowUps')} tone="rose" />
       </div>
 
       <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 dark:border-sky-900/60 dark:bg-sky-950/20 sm:p-5">
-        <div className="flex items-start gap-3"><div className="rounded-xl bg-white p-2 text-sky-600 shadow-sm dark:bg-sky-950/50 dark:text-sky-300"><CircleHelp className="h-5 w-5" /></div><div><p className="font-semibold text-sky-950 dark:text-sky-100">How to read this report accurately</p><p className="mt-1 text-sm leading-6 text-sky-800 dark:text-sky-200">Each lead is counted once by its current status. “Current win rate” is converted leads divided by leads created in the selected period; it is not a historical cohort conversion rate. Use it for operational direction, and add stage-change history before making investment or compensation decisions.</p></div></div>
+          <div className="flex items-start gap-3"><div className="rounded-xl bg-white p-2 text-sky-600 shadow-sm dark:bg-sky-950/50 dark:text-sky-300"><CircleHelp className="h-5 w-5" /></div><div><p className="font-semibold text-sky-950 dark:text-sky-100">How to read this report accurately</p><p className="mt-1 text-sm leading-6 text-sky-800 dark:text-sky-200">Each lead is counted once by its current status. Completion rate is based on leads created in the selected period and their current outcome. Use the PDF export for the premium three-page lead activity and engagement report.</p></div></div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
