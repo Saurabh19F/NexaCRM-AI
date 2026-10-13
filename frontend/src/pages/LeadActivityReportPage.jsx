@@ -10,7 +10,6 @@ import toast from 'react-hot-toast'
 import { leadsAPI } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { PERMISSIONS, hasPermission } from '../utils/permissions'
-import { fetchAllPages } from '../utils/pagination'
 
 const SOURCE_FILTERS = [
   { value: '', label: 'All sources' },
@@ -65,6 +64,8 @@ const inRange = (date, range) => {
   if (!date) return false
   return date >= range.start && date <= range.end
 }
+
+const leadCreatedAt = (lead) => toDate(lead?.createdAt || lead?.createdDate || lead?.date)
 
 const buildRange = () => {
   const now = new Date()
@@ -133,7 +134,7 @@ const buildReport = ({ leads, activityMap, sourceFilter }) => {
   const visibleLeads = leads
     .filter((lead) => !sourceFilter || String(lead?.source || lead?.leadSource || '').toUpperCase() === sourceFilter)
     .filter((lead) => {
-      const created = toDate(lead?.createdAt || lead?.createdDate || lead?.date)
+      const created = leadCreatedAt(lead)
       return !created || inRange(created, range)
     })
 
@@ -229,8 +230,8 @@ const buildReport = ({ leads, activityMap, sourceFilter }) => {
     .sort((a, b) => activityAt(a) - activityAt(b))
     .slice(0, 8)
 
-  const todayLeads = leadRows.filter((lead) => isSameLocalDay(toDate(lead?.createdAt || lead?.createdDate || lead?.date), today)).length
-  const yesterdayLeads = leadRows.filter((lead) => isSameLocalDay(toDate(lead?.createdAt || lead?.createdDate || lead?.date), yesterday)).length
+  const todayLeads = leadRows.filter((lead) => isSameLocalDay(leadCreatedAt(lead), today)).length
+  const yesterdayLeads = leadRows.filter((lead) => isSameLocalDay(leadCreatedAt(lead), yesterday)).length
   const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
   const insights = [
     categoryCounts[0].count ? `${categoryCounts[0].count} hot lead${categoryCounts[0].count === 1 ? '' : 's'} should be handled first.` : 'No hot leads are visible in this report filter.',
@@ -339,6 +340,36 @@ const downloadPdf = (report) => {
   doc.save(`lead-activity-report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
+const loadTodayYesterdayLeads = async (sourceFilter) => {
+  const range = buildRange()
+  const rows = []
+  const pageSize = 100
+  const maxPages = 20
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const response = await leadsAPI.getAll({
+      page,
+      size: pageSize,
+      sort: 'createdAt,desc',
+      ...(sourceFilter ? { source: sourceFilter } : {}),
+    })
+    const content = Array.isArray(response?.content) ? response.content : []
+    const dailyRows = content.filter((lead) => {
+      const created = leadCreatedAt(lead)
+      return !created || inRange(created, range)
+    })
+    rows.push(...dailyRows)
+
+    const reachedOlderRows = content.length > 0 && content.every((lead) => {
+      const created = leadCreatedAt(lead)
+      return created && created < range.start
+    })
+    if (content.length < pageSize || response?.last || reachedOlderRows) break
+  }
+
+  return rows
+}
+
 function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }) {
   const toneClass = {
     blue: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300',
@@ -419,11 +450,13 @@ export default function LeadActivityReportPage() {
     const loadReport = async () => {
       setLoading(true)
       setError('')
+      setActivityMap({})
       try {
-        const { rows } = await fetchAllPages((pageParams) => leadsAPI.getAll({
-          ...pageParams,
-          ...(sourceFilter ? { source: sourceFilter } : {}),
-        }), 200)
+        const rows = await loadTodayYesterdayLeads(sourceFilter)
+        if (mounted) {
+          setLeads(rows)
+          setLoading(false)
+        }
         const ids = rows.map((lead) => lead.id).filter(Boolean)
         const nextActivityMap = {}
         for (let index = 0; index < ids.length; index += 50) {
@@ -432,7 +465,6 @@ export default function LeadActivityReportPage() {
           Object.assign(nextActivityMap, batch || {})
         }
         if (mounted) {
-          setLeads(rows)
           setActivityMap(nextActivityMap)
         }
       } catch (err) {
