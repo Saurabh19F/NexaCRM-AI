@@ -28,6 +28,19 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 const formatNumber = (value) => Number(value || 0).toLocaleString('en-IN')
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`
+const toDateKey = (date) => {
+  const value = new Date(date)
+  if (Number.isNaN(value.getTime())) return ''
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+const yesterdayKey = () => {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+  return toDateKey(date)
+}
 const toDate = (value) => {
   if (!value) return null
   const date = DATE_ONLY.test(String(value)) ? new Date(`${value}T00:00:00`) : new Date(value)
@@ -67,13 +80,12 @@ const inRange = (date, range) => {
 
 const leadCreatedAt = (lead) => toDate(lead?.createdAt || lead?.createdDate || lead?.date)
 
-const buildRange = () => {
-  const now = new Date()
-  const start = new Date(now)
-  const end = new Date(now)
+const buildRange = (dateKey = yesterdayKey()) => {
+  const selected = toDate(dateKey) || toDate(yesterdayKey()) || new Date()
+  const start = new Date(selected)
+  const end = new Date(selected)
   start.setHours(0, 0, 0, 0)
   end.setHours(23, 59, 59, 999)
-  start.setDate(start.getDate() - 1)
 
   return { start, end }
 }
@@ -123,13 +135,8 @@ const emptyActivityStats = () => ({
   completion: 0,
 })
 
-const buildReport = ({ leads, activityMap, sourceFilter }) => {
-  const range = buildRange()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  yesterday.setHours(0, 0, 0, 0)
+const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
+  const range = buildRange(reportDate)
 
   const visibleLeads = leads
     .filter((lead) => !sourceFilter || String(lead?.source || lead?.leadSource || '').toUpperCase() === sourceFilter)
@@ -230,8 +237,6 @@ const buildReport = ({ leads, activityMap, sourceFilter }) => {
     .sort((a, b) => activityAt(a) - activityAt(b))
     .slice(0, 8)
 
-  const todayLeads = leadRows.filter((lead) => isSameLocalDay(leadCreatedAt(lead), today)).length
-  const yesterdayLeads = leadRows.filter((lead) => isSameLocalDay(leadCreatedAt(lead), yesterday)).length
   const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
   const insights = [
     categoryCounts[0].count ? `${categoryCounts[0].count} hot lead${categoryCounts[0].count === 1 ? '' : 's'} should be handled first.` : 'No hot leads are visible in this report filter.',
@@ -246,8 +251,7 @@ const buildReport = ({ leads, activityMap, sourceFilter }) => {
     sourceLabel: SOURCE_FILTERS.find((item) => item.value === sourceFilter)?.label || 'All sources',
     leadRows,
     kpis: [
-      { label: "Today's Total Leads", value: todayLeads, detail: 'Created today' },
-      { label: "Yesterday's Total Leads", value: yesterdayLeads, detail: 'Created yesterday' },
+      { label: 'Total Leads', value: leadRows.length, detail: 'Created on selected date' },
       { label: 'Follow-Ups', value: activityStats.followUp.total, detail: `${activityStats.followUp.completed} completed` },
       { label: 'Welcome Calls', value: activityStats.welcome.total, detail: `${activityStats.welcome.completed} completed` },
       { label: 'Meetings', value: activityStats.meeting.total, detail: `${activityStats.meeting.completed} completed` },
@@ -340,8 +344,8 @@ const downloadPdf = (report) => {
   doc.save(`lead-activity-report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
-const loadTodayYesterdayLeads = async (sourceFilter) => {
-  const range = buildRange()
+const loadReportDateLeads = async (sourceFilter, reportDate) => {
+  const range = buildRange(reportDate)
   const rows = []
   const pageSize = 100
   const maxPages = 20
@@ -435,6 +439,7 @@ function ActivityTable({ rows }) {
 
 export default function LeadActivityReportPage() {
   const user = useAuthStore((state) => state.user)
+  const [reportDate, setReportDate] = useState(yesterdayKey)
   const [sourceFilter, setSourceFilter] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -452,7 +457,7 @@ export default function LeadActivityReportPage() {
       setError('')
       setActivityMap({})
       try {
-        const rows = await loadTodayYesterdayLeads(sourceFilter)
+        const rows = await loadReportDateLeads(sourceFilter, reportDate)
         if (mounted) {
           setLeads(rows)
           setLoading(false)
@@ -475,9 +480,9 @@ export default function LeadActivityReportPage() {
     }
     loadReport()
     return () => { mounted = false }
-  }, [refreshTick, sourceFilter])
+  }, [refreshTick, sourceFilter, reportDate])
 
-  const report = useMemo(() => buildReport({ leads, activityMap, sourceFilter }), [activityMap, leads, sourceFilter])
+  const report = useMemo(() => buildReport({ leads, activityMap, sourceFilter, reportDate }), [activityMap, leads, sourceFilter, reportDate])
 
   const handlePdf = async () => {
     if (!canExport) return toast.error('You do not have permission to export reports.')
@@ -497,7 +502,7 @@ export default function LeadActivityReportPage() {
     return (
       <div className="space-y-5">
         <div className="glass-card h-36 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">{Array.from({ length: 5 }).map((_, index) => <div key={index} className="glass-card h-32 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="glass-card h-32 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" />)}</div>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div className="glass-card h-80 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" /><div className="glass-card h-80 animate-pulse bg-slate-100/70 dark:bg-slate-800/40" /></div>
       </div>
     )
@@ -511,7 +516,7 @@ export default function LeadActivityReportPage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-500">Separate report page</p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-50 sm:text-3xl">Lead Management & Daily Activity Analytics Report</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Only today and yesterday lead count, follow-up, welcome call, meeting, source, priority lead, and smart activity insights are shown here.
+              Only the selected date's lead count, follow-up, welcome call, meeting, source, priority lead, and smart activity insights are shown here.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -525,7 +530,7 @@ export default function LeadActivityReportPage() {
         <div className="mt-5 flex flex-wrap gap-2">
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/50 dark:text-slate-200">
             <CalendarDays className="h-4 w-4 text-brand-500" />
-            Today + Yesterday
+            <input aria-label="Report date" type="date" value={reportDate} onChange={(event) => setReportDate(event.target.value || yesterdayKey())} className="bg-transparent text-sm font-medium text-slate-700 outline-none dark:text-slate-200" />
           </div>
           <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/70 px-3 py-2 dark:border-slate-700/70 dark:bg-slate-900/50">
             <Filter className="h-4 w-4 text-slate-400" />
@@ -538,12 +543,11 @@ export default function LeadActivityReportPage() {
         {error ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">{error}</div> : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={report.kpis[0].label} value={report.kpis[0].value} detail={report.kpis[0].detail} icon={Users} tone="blue" />
-        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Users} tone="teal" />
-        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={Clock3} tone="amber" />
-        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={PhoneCall} tone="teal" />
-        <StatCard label={report.kpis[4].label} value={report.kpis[4].value} detail={report.kpis[4].detail} icon={CalendarDays} tone="rose" />
+        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Clock3} tone="amber" />
+        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={PhoneCall} tone="teal" />
+        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={CalendarDays} tone="rose" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
