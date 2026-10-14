@@ -38,6 +38,27 @@ const PDF_COLORS = {
   white: [255, 255, 255],
 }
 
+const CONVERSION_FUNNEL_COLORS = [
+  'bg-indigo-500',
+  'bg-purple-500',
+  'bg-blue-500',
+  'bg-cyan-500',
+  'bg-emerald-500',
+  'bg-slate-400',
+  'bg-green-500',
+  'bg-red-500',
+]
+const PDF_FUNNEL_COLORS = [
+  [99, 102, 241],
+  [168, 85, 247],
+  [59, 130, 246],
+  [6, 182, 212],
+  [16, 185, 129],
+  [148, 163, 184],
+  [34, 197, 94],
+  [239, 68, 68],
+]
+
 const formatNumber = (value) => Number(value || 0).toLocaleString('en-IN')
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`
 const toDateKey = (date) => {
@@ -129,11 +150,17 @@ const pdfSectionTitle = (doc, title, subtitle, y) => {
   return y + (subtitle ? 12 : 8)
 }
 
-const pdfBar = (doc, x, y, width, percent, color = PDF_COLORS.blue) => {
-  doc.setFillColor(241, 245, 249)
-  doc.roundedRect(x, y, width, 4.5, 2, 2, 'F')
+const pdfFunnelSegment = (doc, centerX, y, topWidth, bottomWidth, height, color) => {
+  const startX = centerX - (topWidth / 2)
   doc.setFillColor(...color)
-  doc.roundedRect(x, y, Math.max(1.5, width * Math.min(100, Number(percent || 0)) / 100), 4.5, 2, 2, 'F')
+  doc.setDrawColor(...PDF_COLORS.white)
+  doc.setLineWidth(0.7)
+  doc.lines([
+    [topWidth, 0],
+    [(bottomWidth - topWidth) / 2, height],
+    [-bottomWidth, 0],
+    [(bottomWidth - topWidth) / -2, -height],
+  ], startX, y, [1, 1], 'FD', true)
 }
 
 const classifyActivity = (activity) => {
@@ -359,6 +386,26 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     }
   })
 
+  const leadStatus = (lead) => String(lead?.status || '').toUpperCase()
+  const conversionFunnel = [
+    { label: 'New Leads', count: leadRows.length },
+    { label: 'Assigned Leads', count: leadRows.filter((lead) => lead.assignedTo || lead.assignedToId || lead.assignedToName || lead.ownerId || lead.ownerName).length },
+    { label: 'Contacted', count: statusCount(['CONTACTED']) },
+    { label: 'Interested', count: statusCount(['INTERESTED']) },
+    { label: 'Qualified', count: statusCount(['QUALIFIED']) },
+    { label: 'Proposal Sent', count: statusCount(['PROPOSAL_SENT', 'PROPOSAL']) },
+    { label: 'Converted', count: statusCount(['CONVERTED', 'WON']) },
+    { label: 'Lost', count: leadRows.filter((lead) => ['LOST', 'CLOSED_LOST', 'NOT_INTERESTED'].includes(leadStatus(lead))).length },
+  ].map((stage, index, stages) => {
+    const maxCount = Math.max(...stages.map((item) => item.count), leadRows.length, 1)
+    const previous = index ? stages[index - 1].count : stage.count
+    return {
+      ...stage,
+      overall: (stage.count * 100) / maxCount,
+      progression: previous ? (stage.count * 100) / previous : 0,
+    }
+  })
+
   const sourceRows = Object.values(leadRows.reduce((acc, lead) => {
     const label = sourceLabel(lead)
     acc[label] ||= { source: label, leads: 0, hot: 0, warm: 0, cold: 0 }
@@ -422,6 +469,7 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
       completion: activityCompletion,
     },
     funnel,
+    conversionFunnel,
     leadTimelines: leadRows.flatMap((lead) => lead.timelines).sort((a, b) => b.at - a.at),
     stageCounts,
     categoryCounts,
@@ -460,14 +508,16 @@ const downloadPdf = (report) => {
   })
 
   let y = pdfSectionTitle(doc, 'Lead Conversion Funnel', 'Progression across the selected date, using lead and activity signals.', 103)
-  report.funnel.forEach((item, index) => {
-    const color = index % 2 ? PDF_COLORS.teal : PDF_COLORS.blue
-    pdfText(doc, item.label, 14, y, { size: 8, color: PDF_COLORS.navy, style: 'bold' })
-    pdfText(doc, formatNumber(item.count), 74, y, { size: 8, color: PDF_COLORS.navy, style: 'bold' })
-    pdfBar(doc, 93, y - 3.2, 74, item.overall, color)
-    pdfText(doc, `${formatPercent(item.progression)} step | ${formatPercent(item.overall)} total`, 171, y, { size: 6.7, color: PDF_COLORS.muted, maxWidth: 25 })
-    y += 10
+  const funnelStartY = y
+  report.conversionFunnel.forEach((item, index) => {
+    const width = Math.max(20, 88 * Math.min(100, item.overall) / 100)
+    const next = report.conversionFunnel[index + 1]
+    const nextWidth = next ? Math.max(20, 88 * Math.min(100, next.overall) / 100) : Math.max(16, width * 0.72)
+    pdfFunnelSegment(doc, 59, funnelStartY + (index * 7.5), width, nextWidth, 7.5, PDF_FUNNEL_COLORS[index % PDF_FUNNEL_COLORS.length])
+    pdfText(doc, item.label, 116, funnelStartY + 4.8 + (index * 7.5), { size: 8, color: PDF_COLORS.navy, style: 'bold' })
+    pdfText(doc, `· ${formatNumber(item.count)}`, 158, funnelStartY + 4.8 + (index * 7.5), { size: 8, color: PDF_COLORS.muted, maxWidth: 25 })
   })
+  y = funnelStartY + 68
 
   y += 6
   y = pdfSectionTitle(doc, 'Priority Lead Scoring', `Average score: ${formatNumber(report.avgScore)}/100 | Hot ${report.categoryCounts[0]?.count || 0}, Warm ${report.categoryCounts[1]?.count || 0}, Cold ${report.categoryCounts[2]?.count || 0}`, y)
@@ -754,20 +804,35 @@ export default function LeadActivityReportPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Section title="Lead Conversion Funnel" subtitle="Counted from lead stage plus activity signals for the selected date." icon={BarChart3}>
-          <div className="space-y-3">
-            {report.funnel.map((stage, index) => (
-              <div key={stage.label}>
-                <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100">{stage.label}</span>
-                  <span className="font-bold tabular-nums text-slate-900 dark:text-slate-50">{formatNumber(stage.count)}</span>
+        <Section title="Lead Conversion Funnel" subtitle="Stage progression with drop-off." icon={BarChart3}>
+          <div className="grid gap-5 lg:grid-cols-[minmax(220px,0.9fr)_minmax(220px,1fr)] lg:items-center">
+            <div className="flex flex-col items-center justify-center">
+              {report.conversionFunnel.map((stage, index) => (
+                <div
+                  key={stage.label}
+                  className={`h-10 border border-white/80 shadow-sm ${CONVERSION_FUNNEL_COLORS[index % CONVERSION_FUNNEL_COLORS.length]}`}
+                  style={{
+                    width: `${Math.max(18, Math.min(100, stage.overall))}%`,
+                    clipPath: index === 0
+                      ? 'polygon(50% 0, 100% 100%, 0 100%)'
+                      : index === report.conversionFunnel.length - 1
+                        ? 'polygon(0 0, 100% 0, 50% 100%)'
+                        : 'polygon(10% 0, 90% 0, 100% 100%, 0 100%)',
+                  }}
+                />
+              ))}
+            </div>
+            <div className="space-y-2">
+              {report.conversionFunnel.map((stage, index) => (
+                <div key={stage.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50/80 px-3 py-2 dark:bg-slate-900/40">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${CONVERSION_FUNNEL_COLORS[index % CONVERSION_FUNNEL_COLORS.length]}`} />
+                    <span className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{stage.label}</span>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-50">{formatNumber(stage.count)}</span>
                 </div>
-                <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div className={`h-full rounded-full ${index % 2 ? 'bg-teal-500' : 'bg-brand-500'}`} style={{ width: `${Math.min(100, stage.overall)}%` }} />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">{formatPercent(stage.progression)} progression, {formatPercent(stage.overall)} of total leads</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </Section>
 
