@@ -467,6 +467,11 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
   const totalActivities = activityStats.followUp.total + activityStats.welcome.total + activityStats.meeting.total
   const completedActivities = activityStats.followUp.completed + activityStats.welcome.completed + activityStats.meeting.completed
   const activityCompletion = totalActivities ? (completedActivities * 100) / totalActivities : 0
+  const visibleCompleted = {
+    welcome: Math.min(activityStats.welcome.completed, stageCounts.welcome),
+    followUp: Math.min(activityStats.followUp.completed, stageCounts.followUp),
+    meeting: Math.min(activityStats.meeting.completed, stageCounts.meeting),
+  }
   const insights = [
     categoryCounts[0].count ? `${categoryCounts[0].count} hot lead${categoryCounts[0].count === 1 ? '' : 's'} should be handled first.` : 'No hot leads are visible in this report filter.',
     activityStats.followUp.overdue ? `${activityStats.followUp.overdue} follow-up${activityStats.followUp.overdue === 1 ? '' : 's'} are overdue.` : 'Follow-up overdue queue is clear for the selected data.',
@@ -481,9 +486,9 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     leadRows,
     kpis: [
       { label: 'Total Leads', value: leadRows.length, detail: 'Created on selected date' },
-      { label: 'Welcome Calls', value: stageCounts.welcome, detail: `${activityStats.welcome.completed} completed` },
-      { label: 'Follow-Ups', value: stageCounts.followUp, detail: `${activityStats.followUp.completed} completed` },
-      { label: 'Meetings', value: stageCounts.meeting, detail: `${activityStats.meeting.completed} completed` },
+      { label: 'Welcome Calls', value: stageCounts.welcome, detail: `${visibleCompleted.welcome} completed` },
+      { label: 'Follow-Ups', value: stageCounts.followUp, detail: `${visibleCompleted.followUp} completed` },
+      { label: 'Meetings', value: stageCounts.meeting, detail: `${visibleCompleted.meeting} completed` },
     ],
     activityTotals: {
       total: totalActivities,
@@ -492,6 +497,7 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     },
     funnel,
     conversionFunnel,
+    visibleCompleted,
     leadTimelines: leadRows.flatMap((lead) => lead.timelines).sort((a, b) => b.at - a.at),
     stageCounts,
     categoryCounts,
@@ -888,13 +894,13 @@ export default function LeadActivityReportPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Section title="Follow-Up Analytics" icon={Clock3}>
-          <StatCard label="Follow-ups" value={report.stageCounts.followUp} detail={`${report.followUp.pending} pending, ${report.followUp.overdue} overdue`} icon={Clock3} tone="amber" />
+          <StatCard label="Follow-ups" value={report.stageCounts.followUp} detail={`${Math.min(report.followUp.pending, report.stageCounts.followUp)} pending, ${Math.min(report.followUp.overdue, report.stageCounts.followUp)} overdue`} icon={Clock3} tone="amber" />
         </Section>
         <Section title="Welcome Call Analytics" icon={PhoneCall}>
-          <StatCard label="Welcome calls" value={report.stageCounts.welcome} detail={`${report.welcome.completed} completed, ${report.welcome.pending} pending`} icon={PhoneCall} tone="teal" />
+          <StatCard label="Welcome calls" value={report.stageCounts.welcome} detail={`${report.visibleCompleted.welcome} completed, ${Math.min(report.welcome.pending, report.stageCounts.welcome)} pending`} icon={PhoneCall} tone="teal" />
         </Section>
         <Section title="Meeting Analytics" icon={CalendarDays}>
-          <StatCard label="Meetings" value={report.stageCounts.meeting} detail={`${report.meeting.completed} completed, ${report.meeting.pending} pending`} icon={CalendarDays} tone="rose" />
+          <StatCard label="Meetings" value={report.stageCounts.meeting} detail={`${report.visibleCompleted.meeting} completed, ${Math.min(report.meeting.pending, report.stageCounts.meeting)} pending`} icon={CalendarDays} tone="rose" />
         </Section>
       </div>
 
