@@ -159,7 +159,6 @@ const pdfFunnelSegment = (doc, centerX, y, topWidth, bottomWidth, height, color)
     [topWidth, 0],
     [(bottomWidth - topWidth) / 2, height],
     [-bottomWidth, 0],
-    [(bottomWidth - topWidth) / -2, -height],
   ], startX, y, [1, 1], 'FD', true)
 }
 
