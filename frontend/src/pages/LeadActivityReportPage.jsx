@@ -488,37 +488,6 @@ const downloadPdf = (report) => {
   doc.addPage()
   doc.setFillColor(...PDF_COLORS.soft)
   doc.rect(0, 0, pageWidth, 297, 'F')
-  pdfText(doc, 'Activity Analytics', 14, 18, { size: 14, color: PDF_COLORS.navy, style: 'bold' })
-  pdfText(doc, 'Completion, backlog, source mix, and model-readable lead insights.', 14, 25, { size: 7.5, color: PDF_COLORS.muted })
-  autoTable(doc, {
-    startY: 34,
-    head: [['Section', 'Total', 'Completed', 'Pending', 'Overdue', 'Completion']],
-    body: [
-      ['Follow-Up Analytics', report.followUp.total, report.followUp.completed, report.followUp.pending, report.followUp.overdue, formatPercent(report.followUp.completion)],
-      ['Welcome Call Analytics', report.welcome.total, report.welcome.completed, report.welcome.pending, report.welcome.overdue, formatPercent(report.welcome.completion)],
-      ['Meeting Analytics', report.meeting.total, report.meeting.completed, report.meeting.pending, report.meeting.overdue, formatPercent(report.meeting.completion)],
-    ],
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: PDF_COLORS.navy },
-  })
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 8,
-    head: [['Source', 'Leads', 'Hot', 'Warm', 'Cold']],
-    body: report.sourceRows.map((row) => [row.source, row.leads, row.hot, row.warm, row.cold]),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: PDF_COLORS.blue },
-  })
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 8,
-    head: [['Smart Lead Insights']],
-    body: report.insights.map((item) => [item]),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: PDF_COLORS.amber },
-  })
-
-  doc.addPage()
-  doc.setFillColor(...PDF_COLORS.soft)
-  doc.rect(0, 0, pageWidth, 297, 'F')
   pdfText(doc, 'Lead Timelines', 14, 18, { size: 14, color: PDF_COLORS.navy, style: 'bold' })
   pdfText(doc, 'Timeline events for every lead loaded in the selected date report.', 14, 25, { size: 7.5, color: PDF_COLORS.muted })
   autoTable(doc, {
