@@ -231,6 +231,10 @@ const activityStage = (activity) => {
   if (kind === 'meeting') return 2
   return -1
 }
+const hasLeadAssignee = (lead) => Boolean(
+  lead?.assignedTo || lead?.assignedToId || lead?.assignedToName ||
+  lead?.ownerId || lead?.ownerName || lead?.salesOwnerId || lead?.salesOwnerName
+)
 const parseLeadStage = (lead, activities = []) => {
   const latestByStage = [null, null, null, null]
   activities.forEach((activity) => {
@@ -256,6 +260,20 @@ const parseLeadStage = (lead, activities = []) => {
     status,
     label: stageLabel(currentStage, status),
   }
+}
+
+const conversionStageForLead = (lead) => {
+  const status = String(lead?.status || '').toUpperCase()
+  if (!status || status === 'NEW') return hasLeadAssignee(lead) ? 'ASSIGNED' : 'NEW'
+  if (status === 'CONTACTED') return 'CONTACTED'
+  if (status === 'QUALIFIED') return 'QUALIFIED'
+  if (status === 'PROPOSAL' || status === 'PROPOSAL_SENT') return 'PROPOSAL_SENT'
+  if (status === 'NEGOTIATION' || status === 'INTERESTED') return 'INTERESTED'
+  if (status === 'WON' || status === 'CONVERTED') return 'CONVERTED'
+  if (status === 'LOST' || status === 'CLOSED_LOST' || status === 'NOT_INTERESTED') return 'LOST'
+  if (lead?.bucket === 'meeting') return 'QUALIFIED'
+  if (lead?.bucket === 'followUp') return 'CONTACTED'
+  return hasLeadAssignee(lead) ? 'ASSIGNED' : 'NEW'
 }
 
 const scoreLead = (lead, activities) => {
@@ -386,16 +404,20 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     }
   })
 
-  const leadStatus = (lead) => String(lead?.status || '').toUpperCase()
+  const conversionCounts = leadRows.reduce((acc, lead) => {
+    const stage = conversionStageForLead(lead)
+    acc[stage] = (acc[stage] || 0) + 1
+    return acc
+  }, {})
   const conversionFunnel = [
     { label: 'New Leads', count: leadRows.length },
-    { label: 'Assigned Leads', count: leadRows.filter((lead) => lead.assignedTo || lead.assignedToId || lead.assignedToName || lead.ownerId || lead.ownerName).length },
-    { label: 'Contacted', count: statusCount(['CONTACTED']) },
-    { label: 'Interested', count: statusCount(['INTERESTED']) },
-    { label: 'Qualified', count: statusCount(['QUALIFIED']) },
-    { label: 'Proposal Sent', count: statusCount(['PROPOSAL_SENT', 'PROPOSAL']) },
-    { label: 'Converted', count: statusCount(['CONVERTED', 'WON']) },
-    { label: 'Lost', count: leadRows.filter((lead) => ['LOST', 'CLOSED_LOST', 'NOT_INTERESTED'].includes(leadStatus(lead))).length },
+    { label: 'Assigned Leads', count: conversionCounts.ASSIGNED || 0 },
+    { label: 'Contacted', count: conversionCounts.CONTACTED || 0 },
+    { label: 'Interested', count: conversionCounts.INTERESTED || 0 },
+    { label: 'Qualified', count: conversionCounts.QUALIFIED || 0 },
+    { label: 'Proposal Sent', count: conversionCounts.PROPOSAL_SENT || 0 },
+    { label: 'Converted', count: conversionCounts.CONVERTED || 0 },
+    { label: 'Lost', count: conversionCounts.LOST || 0 },
   ].map((stage, index, stages) => {
     const maxCount = Math.max(...stages.map((item) => item.count), leadRows.length, 1)
     const previous = index ? stages[index - 1].count : stage.count
