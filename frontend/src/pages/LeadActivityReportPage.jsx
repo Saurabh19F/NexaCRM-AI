@@ -337,12 +337,6 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     acc[lead.bucket] += 1
     return acc
   }, { welcome: 0, followUp: 0, meeting: 0 })
-  activityStats.welcome.total = Math.max(activityStats.welcome.total, stageCounts.welcome)
-  activityStats.followUp.total = Math.max(activityStats.followUp.total, stageCounts.followUp)
-  activityStats.meeting.total = Math.max(activityStats.meeting.total, stageCounts.meeting)
-  Object.values(activityStats).forEach((stat) => {
-    stat.completion = stat.total ? (stat.completed * 100) / stat.total : 0
-  })
 
   const statusCount = (statuses) => leadRows.filter((lead) => statuses.includes(String(lead.status || '').toUpperCase())).length
   const welcomeCompleted = leadRows.filter((lead) => lead.bucket !== 'welcome' || lead.activities.some((activity) => classifyActivity(activity) === 'welcome' && isDone(activity))).length
@@ -418,9 +412,9 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     leadRows,
     kpis: [
       { label: 'Total Leads', value: leadRows.length, detail: 'Created on selected date' },
-      { label: 'Welcome Calls', value: activityStats.welcome.total, detail: `${activityStats.welcome.completed} completed` },
-      { label: 'Follow-Ups', value: activityStats.followUp.total, detail: `${activityStats.followUp.completed} completed` },
-      { label: 'Meetings', value: activityStats.meeting.total, detail: `${activityStats.meeting.completed} completed` },
+      { label: 'Welcome Calls', value: stageCounts.welcome, detail: `${activityStats.welcome.completed} completed` },
+      { label: 'Follow-Ups', value: stageCounts.followUp, detail: `${activityStats.followUp.completed} completed` },
+      { label: 'Meetings', value: stageCounts.meeting, detail: `${activityStats.meeting.completed} completed` },
     ],
     activityTotals: {
       total: totalActivities,
@@ -838,13 +832,13 @@ export default function LeadActivityReportPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Section title="Follow-Up Analytics" icon={Clock3}>
-          <StatCard label="Follow-ups" value={report.followUp.total} detail={`${report.followUp.pending} pending, ${report.followUp.overdue} overdue`} icon={Clock3} tone="amber" />
+          <StatCard label="Follow-ups" value={report.stageCounts.followUp} detail={`${report.followUp.pending} pending, ${report.followUp.overdue} overdue`} icon={Clock3} tone="amber" />
         </Section>
         <Section title="Welcome Call Analytics" icon={PhoneCall}>
-          <StatCard label="Welcome calls" value={report.welcome.total} detail={`${report.welcome.completed} completed, ${report.welcome.pending} pending`} icon={PhoneCall} tone="teal" />
+          <StatCard label="Welcome calls" value={report.stageCounts.welcome} detail={`${report.welcome.completed} completed, ${report.welcome.pending} pending`} icon={PhoneCall} tone="teal" />
         </Section>
         <Section title="Meeting Analytics" icon={CalendarDays}>
-          <StatCard label="Meetings" value={report.meeting.total} detail={`${report.meeting.completed} completed, ${report.meeting.pending} pending`} icon={CalendarDays} tone="rose" />
+          <StatCard label="Meetings" value={report.stageCounts.meeting} detail={`${report.meeting.completed} completed, ${report.meeting.pending} pending`} icon={CalendarDays} tone="rose" />
         </Section>
       </div>
 
