@@ -25,6 +25,18 @@ const SOURCE_FILTERS = [
 const REPORT_TIME_ZONE = 'Asia/Kolkata'
 const DAY_MS = 86400000
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+const PDF_COLORS = {
+  navy: [20, 33, 61],
+  slate: [71, 85, 105],
+  muted: [100, 116, 139],
+  line: [226, 232, 240],
+  soft: [248, 250, 252],
+  blue: [37, 99, 235],
+  teal: [20, 184, 166],
+  amber: [245, 158, 11],
+  rose: [239, 68, 68],
+  white: [255, 255, 255],
+}
 
 const formatNumber = (value) => Number(value || 0).toLocaleString('en-IN')
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`
@@ -93,6 +105,35 @@ const buildRange = (dateKey = yesterdayKey()) => {
 const rangeLabel = (range) => {
   const options = { day: '2-digit', month: 'short', year: 'numeric' }
   return `${range.start.toLocaleDateString('en-IN', options)} - ${range.end.toLocaleDateString('en-IN', options)}`
+}
+
+const pdfText = (doc, text, x, y, { size = 9, color = PDF_COLORS.slate, style = 'normal', maxWidth } = {}) => {
+  doc.setFont('helvetica', style)
+  doc.setFontSize(size)
+  doc.setTextColor(...color)
+  const lines = maxWidth ? doc.splitTextToSize(String(text ?? ''), maxWidth) : String(text ?? '')
+  doc.text(lines, x, y)
+}
+
+const pdfCard = (doc, x, y, width, height, accent = PDF_COLORS.blue) => {
+  doc.setFillColor(...PDF_COLORS.white)
+  doc.setDrawColor(...PDF_COLORS.line)
+  doc.roundedRect(x, y, width, height, 3, 3, 'FD')
+  doc.setFillColor(...accent)
+  doc.roundedRect(x, y, 3, height, 1.4, 1.4, 'F')
+}
+
+const pdfSectionTitle = (doc, title, subtitle, y) => {
+  pdfText(doc, title, 14, y, { size: 12, color: PDF_COLORS.navy, style: 'bold' })
+  if (subtitle) pdfText(doc, subtitle, 14, y + 5.5, { size: 7.2, color: PDF_COLORS.muted, maxWidth: 178 })
+  return y + (subtitle ? 12 : 8)
+}
+
+const pdfBar = (doc, x, y, width, percent, color = PDF_COLORS.blue) => {
+  doc.setFillColor(241, 245, 249)
+  doc.roundedRect(x, y, width, 4.5, 2, 2, 'F')
+  doc.setFillColor(...color)
+  doc.roundedRect(x, y, Math.max(1.5, width * Math.min(100, Number(percent || 0)) / 100), 4.5, 2, 2, 'F')
 }
 
 const classifyActivity = (activity) => {
@@ -238,6 +279,10 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
     .slice(0, 8)
 
   const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
+  const totalActivities = activityStats.followUp.total + activityStats.welcome.total + activityStats.meeting.total
+  const completedActivities = activityStats.followUp.completed + activityStats.welcome.completed + activityStats.meeting.completed
+  const contactRate = leadRows.length ? (contacted * 100) / leadRows.length : 0
+  const activityCompletion = totalActivities ? (completedActivities * 100) / totalActivities : 0
   const insights = [
     categoryCounts[0].count ? `${categoryCounts[0].count} hot lead${categoryCounts[0].count === 1 ? '' : 's'} should be handled first.` : 'No hot leads are visible in this report filter.',
     activityStats.followUp.overdue ? `${activityStats.followUp.overdue} follow-up${activityStats.followUp.overdue === 1 ? '' : 's'} are overdue.` : 'Follow-up overdue queue is clear for the selected data.',
@@ -252,10 +297,15 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
     leadRows,
     kpis: [
       { label: 'Total Leads', value: leadRows.length, detail: 'Created on selected date' },
-      { label: 'Follow-Ups', value: activityStats.followUp.total, detail: `${activityStats.followUp.completed} completed` },
-      { label: 'Welcome Calls', value: activityStats.welcome.total, detail: `${activityStats.welcome.completed} completed` },
-      { label: 'Meetings', value: activityStats.meeting.total, detail: `${activityStats.meeting.completed} completed` },
+      { label: 'Contact Rate', value: formatPercent(contactRate), detail: `${contacted} of ${leadRows.length} leads contacted`, rawValue: contactRate },
+      { label: 'Activity Completion', value: formatPercent(activityCompletion), detail: `${completedActivities} of ${totalActivities} activities completed`, rawValue: activityCompletion },
+      { label: 'Average Score', value: Math.round(avgScore), detail: 'Engagement score out of 100', rawValue: avgScore },
     ],
+    activityTotals: {
+      total: totalActivities,
+      completed: completedActivities,
+      completion: activityCompletion,
+    },
     funnel,
     categoryCounts,
     avgScore,
@@ -273,32 +323,39 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
 const downloadPdf = (report) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
-  doc.setFillColor(20, 33, 61)
-  doc.rect(0, 0, pageWidth, 42, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(17)
-  doc.text('Lead Management & Daily Activity Analytics Report', 14, 22, { maxWidth: 175 })
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`${report.rangeLabel} | ${report.sourceLabel} | ${REPORT_TIME_ZONE}`, 14, 34)
+  doc.setFillColor(...PDF_COLORS.soft)
+  doc.rect(0, 0, pageWidth, 297, 'F')
+  doc.setFillColor(...PDF_COLORS.navy)
+  doc.rect(0, 0, pageWidth, 48, 'F')
+  doc.setFillColor(...PDF_COLORS.blue)
+  doc.roundedRect(14, 12, 30, 7, 3.5, 3.5, 'F')
+  pdfText(doc, 'NexaCRM', 18, 17.2, { size: 7, color: PDF_COLORS.white, style: 'bold' })
+  pdfText(doc, 'Lead Management & Daily Activity Analytics Report', 14, 31, { size: 17, color: PDF_COLORS.white, style: 'bold', maxWidth: 175 })
+  pdfText(doc, `${report.rangeLabel} | ${report.sourceLabel} | ${REPORT_TIME_ZONE}`, 14, 41, { size: 7.5, color: [203, 213, 225] })
 
-  autoTable(doc, {
-    startY: 52,
-    head: [['Metric', 'Value', 'Detail']],
-    body: report.kpis.map((item) => [item.label, formatNumber(item.value), item.detail]),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [37, 99, 235] },
+  const kpiAccents = [PDF_COLORS.blue, PDF_COLORS.teal, PDF_COLORS.amber, PDF_COLORS.rose]
+  report.kpis.forEach((kpi, index) => {
+    const x = 14 + index * 46
+    pdfCard(doc, x, 58, 42, 30, kpiAccents[index])
+    pdfText(doc, kpi.label, x + 6, 67, { size: 6.5, color: PDF_COLORS.muted, style: 'bold', maxWidth: 32 })
+    pdfText(doc, typeof kpi.value === 'number' ? formatNumber(kpi.value) : kpi.value, x + 6, 78, { size: 15, color: PDF_COLORS.navy, style: 'bold' })
+    pdfText(doc, kpi.detail, x + 6, 84.5, { size: 6.2, color: PDF_COLORS.muted, maxWidth: 31 })
   })
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 8,
-    head: [['Funnel Stage', 'Count', 'Progression', 'Overall']],
-    body: report.funnel.map((item) => [item.label, formatNumber(item.count), formatPercent(item.progression), formatPercent(item.overall)]),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [20, 33, 61] },
+
+  let y = pdfSectionTitle(doc, 'Lead Funnel', 'Progression across the selected date, using lead and activity signals.', 103)
+  report.funnel.forEach((item, index) => {
+    const color = index % 2 ? PDF_COLORS.teal : PDF_COLORS.blue
+    pdfText(doc, item.label, 14, y, { size: 8, color: PDF_COLORS.navy, style: 'bold' })
+    pdfText(doc, formatNumber(item.count), 74, y, { size: 8, color: PDF_COLORS.navy, style: 'bold' })
+    pdfBar(doc, 93, y - 3.2, 74, item.overall, color)
+    pdfText(doc, `${formatPercent(item.progression)} step | ${formatPercent(item.overall)} total`, 171, y, { size: 6.7, color: PDF_COLORS.muted, maxWidth: 25 })
+    y += 10
   })
+
+  y += 6
+  y = pdfSectionTitle(doc, 'Priority Lead Scoring', `Average score: ${formatNumber(report.avgScore)}/100 | Hot ${report.categoryCounts[0]?.count || 0}, Warm ${report.categoryCounts[1]?.count || 0}, Cold ${report.categoryCounts[2]?.count || 0}`, y)
   autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 8,
+    startY: y,
     head: [['Lead', 'Source', 'Score', 'Class', 'Last Contact']],
     body: report.priorityLeads.map((lead) => [
       leadName(lead),
@@ -308,16 +365,16 @@ const downloadPdf = (report) => {
       lead.lastContactDate ? lead.lastContactDate.toLocaleDateString('en-IN') : '-',
     ]),
     styles: { fontSize: 7.5 },
-    headStyles: { fillColor: [20, 184, 166] },
+    headStyles: { fillColor: PDF_COLORS.teal },
   })
 
   doc.addPage()
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.setTextColor(20, 33, 61)
-  doc.text('Activity Analytics', 14, 18)
+  doc.setFillColor(...PDF_COLORS.soft)
+  doc.rect(0, 0, pageWidth, 297, 'F')
+  pdfText(doc, 'Activity Analytics', 14, 18, { size: 14, color: PDF_COLORS.navy, style: 'bold' })
+  pdfText(doc, 'Completion, backlog, source mix, and model-readable lead insights.', 14, 25, { size: 7.5, color: PDF_COLORS.muted })
   autoTable(doc, {
-    startY: 28,
+    startY: 34,
     head: [['Section', 'Total', 'Completed', 'Pending', 'Overdue', 'Completion']],
     body: [
       ['Follow-Up Analytics', report.followUp.total, report.followUp.completed, report.followUp.pending, report.followUp.overdue, formatPercent(report.followUp.completion)],
@@ -325,21 +382,21 @@ const downloadPdf = (report) => {
       ['Meeting Analytics', report.meeting.total, report.meeting.completed, report.meeting.pending, report.meeting.overdue, formatPercent(report.meeting.completion)],
     ],
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [20, 33, 61] },
+    headStyles: { fillColor: PDF_COLORS.navy },
   })
   autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 8,
     head: [['Source', 'Leads', 'Hot', 'Warm', 'Cold']],
     body: report.sourceRows.map((row) => [row.source, row.leads, row.hot, row.warm, row.cold]),
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [37, 99, 235] },
+    headStyles: { fillColor: PDF_COLORS.blue },
   })
   autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 8,
     head: [['Smart Lead Insights']],
     body: report.insights.map((item) => [item]),
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [245, 158, 11] },
+    headStyles: { fillColor: PDF_COLORS.amber },
   })
   doc.save(`lead-activity-report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
@@ -386,7 +443,7 @@ function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{formatNumber(value)}</p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{typeof value === 'number' ? formatNumber(value) : value}</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{detail}</p>
         </div>
         <div className={`rounded-xl p-2 ${toneClass}`}><Icon className="h-5 w-5" /></div>
@@ -545,9 +602,9 @@ export default function LeadActivityReportPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={report.kpis[0].label} value={report.kpis[0].value} detail={report.kpis[0].detail} icon={Users} tone="blue" />
-        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Clock3} tone="amber" />
-        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={PhoneCall} tone="teal" />
-        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={CalendarDays} tone="rose" />
+        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Target} tone="teal" />
+        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={CheckCircle2} tone="amber" />
+        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={Gauge} tone="rose" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
