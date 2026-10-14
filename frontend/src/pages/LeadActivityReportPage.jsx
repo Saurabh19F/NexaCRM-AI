@@ -76,13 +76,13 @@ const sourceLabel = (lead) => {
 
 const leadName = (lead) => lead?.name || lead?.fullName || lead?.customerName || lead?.contactName || lead?.companyName || 'Unnamed lead'
 const activityType = (activity) => String(activity?.type || activity?.activityType || activity?.category || activity?.title || '').toLowerCase()
-const activityStatus = (activity) => String(activity?.status || activity?.outcome || activity?.result || '').toLowerCase()
+const activityStatus = (activity) => String(activity?.status || activity?.outcome || activity?.result || activity?.values?.status || activity?.values?.outcome || activity?.values?.callOutcome || activity?.values?.meetingStatus || activity?.values?.connectionStatus || '').toLowerCase()
 const activityAt = (activity) => toDate(activity?.scheduledAt || activity?.dueDate || activity?.followUpDate || activity?.activityDate || activity?.occurredAt || activity?.createdAt)
 const completedAt = (activity) => toDate(activity?.completedAt || activity?.doneAt || activity?.occurredAt)
 const containsAny = (value, words) => words.some((word) => value.includes(word))
 const isDone = (activity) => {
   const status = activityStatus(activity)
-  return Boolean(activity?.completed || activity?.isCompleted || containsAny(status, ['complete', 'done', 'success', 'answered', 'attended']))
+  return Boolean(activity?.completed || activity?.isCompleted || containsAny(status, ['complete', 'done', 'success', 'answered', 'attended', 'connected', 'allowed person for meeting']))
 }
 
 const inRange = (date, range) => {
@@ -138,12 +138,97 @@ const pdfBar = (doc, x, y, width, percent, color = PDF_COLORS.blue) => {
 
 const classifyActivity = (activity) => {
   const type = activityType(activity)
-  const notes = String(activity?.notes || activity?.description || '').toLowerCase()
-  const value = `${type} ${notes}`
+  const values = activity?.values || {}
+  const status = String(values.status || values.connectionStatus || values.callOutcome || values.outcome || values.meetingStatus || activity?.status || '').toLowerCase()
+  const notes = String(activity?.notes || activity?.description || activity?.summary || '').toLowerCase()
+  const label = String(activity?.activityLabel || activity?.activityTitle || activity?.activityId || '').toLowerCase()
+  const value = `${type} ${label} ${status} ${notes}`
+  const index = Number(activity?.activityIndex)
+  if (index === 0) return 'welcome'
+  if (index === 1) return 'followUp'
+  if (index === 2 || index === 3) return 'meeting'
   if (containsAny(value, ['welcome'])) return 'welcome'
-  if (containsAny(value, ['meeting', 'site visit', 'visit', 'demo'])) return 'meeting'
+  if (containsAny(value, ['allowed person', 'meeting', 'site visit', 'visit', 'demo'])) return 'meeting'
   if (containsAny(value, ['follow', 'call back', 'callback'])) return 'followUp'
   return 'other'
+}
+
+const normalizeStatusText = (value) => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
+const activityTimestamp = (activity, fallback = 0) => {
+  const time = new Date(activity?.savedAt || activity?.createdAt || activity?.updatedAt || 0).getTime()
+  return Number.isNaN(time) ? fallback : time
+}
+const stageStatus = (stageIndex, values = {}) => {
+  const status = normalizeStatusText(values.status || values.connectionStatus || values.callOutcome || values.outcome || values.meetingStatus || '')
+  if (stageIndex === 0) {
+    if (status === 'connected') return 'connected'
+    if (['not connected', 'non connected', 'no answer'].includes(status)) return 'not_connected'
+    if (['callback', 'call back', 'callback requested'].includes(status)) return 'callback'
+    return 'done'
+  }
+  if (stageIndex === 1) {
+    if (['meeting', 'allowed person for meeting', 'allowed person'].includes(status)) return 'allowed_person'
+    if (['follow up', 'followup'].includes(status)) return 'follow_up'
+    if (status === 'not interested') return 'not_interested'
+    if (['lost', 'close lost', 'closed lost'].includes(status)) return 'lost'
+    return 'done'
+  }
+  if (stageIndex === 2 || stageIndex === 3) {
+    if (['successful', 'success', 'won', 'win', 'closed won'].includes(status)) return 'successful'
+    if (['reschedule', 'rescheduled', 'failed', 'failure'].includes(status)) return 'reschedule'
+    if (['lost', 'close lost', 'closed lost'].includes(status)) return 'lost'
+    if (['negotiation', 'hold', 'follow up', 'followup', 'pending', 'pending review'].includes(status)) return 'pending'
+    return 'done'
+  }
+  return 'not_started'
+}
+const stageLabel = (stageIndex, status) => {
+  if (stageIndex < 0) return 'Not Started'
+  if (stageIndex <= 0) return status === 'not_connected' ? 'Welcome Call - Not Connected' : status === 'callback' ? 'Welcome Call - Callback' : 'Welcome Call'
+  if (stageIndex === 1) return status === 'allowed_person' ? 'Meeting Scheduled' : status === 'follow_up' ? 'Follow Up' : 'Follow-Up Meeting'
+  if (stageIndex === 2) return 'Meeting'
+  if (stageIndex >= 3) return status === 'successful' ? 'Won / Successful' : status === 'lost' ? 'Lost' : 'Meeting Outcome'
+  return 'Not Started'
+}
+const bucketLabel = (bucket) => ({
+  welcome: 'Welcome Call',
+  followUp: 'Follow-Up',
+  meeting: 'Meeting',
+}[bucket] || 'Lead')
+const activityStage = (activity) => {
+  const numeric = Number(activity?.activityIndex)
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 3) return numeric
+  const kind = classifyActivity(activity)
+  if (kind === 'welcome') return 0
+  if (kind === 'followUp') return 1
+  if (kind === 'meeting') return 2
+  return -1
+}
+const parseLeadStage = (lead, activities = []) => {
+  const latestByStage = [null, null, null, null]
+  activities.forEach((activity) => {
+    const index = activityStage(activity)
+    if (index < 0) return
+    if (!latestByStage[index] || activityTimestamp(activity) > activityTimestamp(latestByStage[index])) latestByStage[index] = activity
+  })
+  const currentStage = latestByStage.reduce((latest, activity, index) => activity ? index : latest, -1)
+  const latestActivity = currentStage >= 0 ? latestByStage[currentStage] : null
+  const latestValues = latestActivity?.values || {}
+  const status = currentStage >= 0 ? stageStatus(currentStage, latestValues) : 'not_started'
+  const leadStatus = String(lead?.status || '').toUpperCase()
+  const hasFollowUpDate = Boolean(lead?.followUpDate || activities.some((activity) => activity?.values?.nextFollowUpDate || activity?.values?.followUpDate))
+  const hasMeeting = activities.some((activity) => classifyActivity(activity) === 'meeting')
+  const bucket = hasMeeting || currentStage >= 2 || ['QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON'].includes(leadStatus)
+    ? 'meeting'
+    : currentStage === 1 || status === 'follow_up' || hasFollowUpDate || ['CONTACTED', 'INTERESTED'].includes(leadStatus)
+      ? 'followUp'
+      : 'welcome'
+  return {
+    bucket,
+    currentStage,
+    status,
+    label: stageLabel(currentStage, status),
+  }
 }
 
 const scoreLead = (lead, activities) => {
@@ -176,7 +261,33 @@ const emptyActivityStats = () => ({
   completion: 0,
 })
 
-const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
+const timelineAt = (event) => toDate(event?.eventAt || event?.timestamp || event?.createdAt || event?.savedAt || event?.updatedAt)
+const timelineTitle = (event) => event?.title || event?.activityTitle || event?.activityLabel || event?.eventType || 'Lead activity'
+const timelineDescription = (event) => event?.description || event?.summary || event?.notes || ''
+const normalizeTimelineRows = (lead, activities = [], events = []) => {
+  const timelineRows = Array.isArray(events) && events.length
+    ? events.map((event, index) => ({
+      id: event.id || event.sourceId || `event-${lead.id}-${index}`,
+      lead,
+      title: timelineTitle(event),
+      description: timelineDescription(event),
+      status: event.status || event.sourceType || 'Timeline',
+      at: timelineAt(event),
+    }))
+    : activities.map((activity, index) => ({
+      id: activity.id || `activity-${lead.id}-${index}`,
+      lead,
+      title: activity.activityTitle || activity.activityLabel || stageLabel(activityStage(activity), stageStatus(activityStage(activity), activity.values || {})),
+      description: activity.summary || timelineDescription(activity),
+      status: stageStatus(activityStage(activity), activity.values || {}),
+      at: timelineAt(activity),
+    }))
+  return timelineRows
+    .filter((row) => row.at)
+    .sort((a, b) => b.at - a.at)
+}
+
+const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate }) => {
   const range = buildRange(reportDate)
 
   const visibleLeads = leads
@@ -189,8 +300,10 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
   const leadRows = visibleLeads.map((lead) => {
     const activities = Array.isArray(activityMap[lead.id]) ? activityMap[lead.id] : []
     const scored = scoreLead(lead, activities)
+    const stage = parseLeadStage(lead, activities)
     const dates = activities.map(activityAt).filter(Boolean).sort((a, b) => b - a)
-    return { ...lead, ...scored, activities, lastContactDate: dates[0] || toDate(lead?.updatedAt || lead?.createdAt) }
+    const timelines = normalizeTimelineRows(lead, activities, timelineMap?.[lead.id] || [])
+    return { ...lead, ...scored, ...stage, activities, timelines, lastContactDate: dates[0] || toDate(lead?.updatedAt || lead?.createdAt) }
   })
 
   const allActivities = leadRows.flatMap((lead) => lead.activities.map((activity) => ({ ...activity, lead })))
@@ -220,18 +333,27 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
     stat.completion = stat.total ? (stat.completed * 100) / stat.total : 0
   })
 
+  const stageCounts = leadRows.reduce((acc, lead) => {
+    acc[lead.bucket] += 1
+    return acc
+  }, { welcome: 0, followUp: 0, meeting: 0 })
+  activityStats.welcome.total = Math.max(activityStats.welcome.total, stageCounts.welcome)
+  activityStats.followUp.total = Math.max(activityStats.followUp.total, stageCounts.followUp)
+  activityStats.meeting.total = Math.max(activityStats.meeting.total, stageCounts.meeting)
+  Object.values(activityStats).forEach((stat) => {
+    stat.completion = stat.total ? (stat.completed * 100) / stat.total : 0
+  })
+
   const statusCount = (statuses) => leadRows.filter((lead) => statuses.includes(String(lead.status || '').toUpperCase())).length
-  const contacted = leadRows.filter((lead) => lead.activities.some((activity) => activityAt(activity) || completedAt(activity)) || ['CONTACTED', 'INTERESTED', 'QUALIFIED', 'CONVERTED', 'WON'].includes(String(lead.status || '').toUpperCase())).length
-  const welcomeCompleted = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'welcome' && isDone(activity))).length
-  const followCompleted = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'followUp' && isDone(activity))).length
-  const meetingScheduled = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'meeting')).length
-  const meetingCompleted = leadRows.filter((lead) => lead.activities.some((activity) => classifyActivity(activity) === 'meeting' && isDone(activity))).length
+  const welcomeCompleted = leadRows.filter((lead) => lead.bucket !== 'welcome' || lead.activities.some((activity) => classifyActivity(activity) === 'welcome' && isDone(activity))).length
+  const followCompleted = leadRows.filter((lead) => lead.bucket === 'followUp' || lead.bucket === 'meeting').length
+  const meetingScheduled = stageCounts.meeting
+  const meetingCompleted = leadRows.filter((lead) => lead.bucket === 'meeting' && (String(lead.status || '').toUpperCase() === 'WON' || lead.activities.some((activity) => classifyActivity(activity) === 'meeting' && isDone(activity)))).length
 
   const funnel = [
     { label: 'Total Leads', count: leadRows.length },
-    { label: 'Contacted', count: contacted },
-    { label: 'Welcome Call Completed', count: welcomeCompleted },
-    { label: 'Follow-Up Completed', count: followCompleted },
+    { label: 'Welcome Call', count: Math.max(stageCounts.welcome + stageCounts.followUp + stageCounts.meeting, welcomeCompleted) },
+    { label: 'Follow-Up', count: followCompleted },
     { label: 'Meeting Scheduled', count: meetingScheduled },
     { label: 'Meeting Completed', count: meetingCompleted },
   ].map((stage, index, stages) => {
@@ -281,7 +403,6 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
   const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
   const totalActivities = activityStats.followUp.total + activityStats.welcome.total + activityStats.meeting.total
   const completedActivities = activityStats.followUp.completed + activityStats.welcome.completed + activityStats.meeting.completed
-  const contactRate = leadRows.length ? (contacted * 100) / leadRows.length : 0
   const activityCompletion = totalActivities ? (completedActivities * 100) / totalActivities : 0
   const insights = [
     categoryCounts[0].count ? `${categoryCounts[0].count} hot lead${categoryCounts[0].count === 1 ? '' : 's'} should be handled first.` : 'No hot leads are visible in this report filter.',
@@ -297,9 +418,9 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
     leadRows,
     kpis: [
       { label: 'Total Leads', value: leadRows.length, detail: 'Created on selected date' },
-      { label: 'Contact Rate', value: formatPercent(contactRate), detail: `${contacted} of ${leadRows.length} leads contacted`, rawValue: contactRate },
-      { label: 'Activity Completion', value: formatPercent(activityCompletion), detail: `${completedActivities} of ${totalActivities} activities completed`, rawValue: activityCompletion },
-      { label: 'Average Score', value: Math.round(avgScore), detail: 'Engagement score out of 100', rawValue: avgScore },
+      { label: 'Welcome Calls', value: activityStats.welcome.total, detail: `${activityStats.welcome.completed} completed` },
+      { label: 'Follow-Ups', value: activityStats.followUp.total, detail: `${activityStats.followUp.completed} completed` },
+      { label: 'Meetings', value: activityStats.meeting.total, detail: `${activityStats.meeting.completed} completed` },
     ],
     activityTotals: {
       total: totalActivities,
@@ -307,6 +428,8 @@ const buildReport = ({ leads, activityMap, sourceFilter, reportDate }) => {
       completion: activityCompletion,
     },
     funnel,
+    leadTimelines: leadRows.flatMap((lead) => lead.timelines).sort((a, b) => b.at - a.at),
+    stageCounts,
     categoryCounts,
     avgScore,
     sourceRows,
@@ -342,7 +465,7 @@ const downloadPdf = (report) => {
     pdfText(doc, kpi.detail, x + 6, 84.5, { size: 6.2, color: PDF_COLORS.muted, maxWidth: 31 })
   })
 
-  let y = pdfSectionTitle(doc, 'Lead Funnel', 'Progression across the selected date, using lead and activity signals.', 103)
+  let y = pdfSectionTitle(doc, 'Lead Conversion Funnel', 'Progression across the selected date, using lead and activity signals.', 103)
   report.funnel.forEach((item, index) => {
     const color = index % 2 ? PDF_COLORS.teal : PDF_COLORS.blue
     pdfText(doc, item.label, 14, y, { size: 8, color: PDF_COLORS.navy, style: 'bold' })
@@ -398,6 +521,34 @@ const downloadPdf = (report) => {
     styles: { fontSize: 8 },
     headStyles: { fillColor: PDF_COLORS.amber },
   })
+
+  doc.addPage()
+  doc.setFillColor(...PDF_COLORS.soft)
+  doc.rect(0, 0, pageWidth, 297, 'F')
+  pdfText(doc, 'Lead Timelines', 14, 18, { size: 14, color: PDF_COLORS.navy, style: 'bold' })
+  pdfText(doc, 'Timeline events for every lead loaded in the selected date report.', 14, 25, { size: 7.5, color: PDF_COLORS.muted })
+  autoTable(doc, {
+    startY: 34,
+    head: [['Lead', 'Stage', 'Timeline', 'Status', 'Date', 'Details']],
+    body: report.leadTimelines.length ? report.leadTimelines.map((row) => [
+      leadName(row.lead),
+      bucketLabel(row.lead.bucket),
+      row.title,
+      row.status || '-',
+      row.at ? row.at.toLocaleString('en-IN') : '-',
+      row.description || '-',
+    ]) : [['No timeline events found', '-', '-', '-', '-', '-']],
+    styles: { fontSize: 7, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 32 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 22 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 45 },
+    },
+    headStyles: { fillColor: PDF_COLORS.navy },
+  })
   doc.save(`lead-activity-report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
@@ -429,6 +580,19 @@ const loadReportDateLeads = async (sourceFilter, reportDate) => {
   }
 
   return rows
+}
+
+const loadLeadTimelineEvents = async (leadId) => {
+  const events = []
+  const size = 50
+  const maxPages = 10
+  for (let page = 0; page < maxPages; page += 1) {
+    const response = await leadsAPI.getTimeline(leadId, { page, size })
+    const content = Array.isArray(response?.content) ? response.content : []
+    events.push(...content)
+    if (content.length < size || response?.last) break
+  }
+  return events
 }
 
 function StatCard({ label, value, detail, icon: Icon, tone = 'blue' }) {
@@ -504,6 +668,7 @@ export default function LeadActivityReportPage() {
   const [error, setError] = useState('')
   const [leads, setLeads] = useState([])
   const [activityMap, setActivityMap] = useState({})
+  const [timelineMap, setTimelineMap] = useState({})
 
   const canExport = hasPermission(user, PERMISSIONS.REPORTS_EXPORT) || hasPermission(user, PERMISSIONS.ANALYTICS_EXPORT)
 
@@ -513,6 +678,7 @@ export default function LeadActivityReportPage() {
       setLoading(true)
       setError('')
       setActivityMap({})
+      setTimelineMap({})
       try {
         const rows = await loadReportDateLeads(sourceFilter, reportDate)
         if (mounted) {
@@ -529,6 +695,23 @@ export default function LeadActivityReportPage() {
         if (mounted) {
           setActivityMap(nextActivityMap)
         }
+        const nextTimelineMap = {}
+        for (let index = 0; index < ids.length; index += 10) {
+          const chunk = ids.slice(index, index + 10)
+          const results = await Promise.all(chunk.map(async (leadId) => {
+            try {
+              return [leadId, await loadLeadTimelineEvents(leadId)]
+            } catch {
+              return [leadId, []]
+            }
+          }))
+          results.forEach(([leadId, events]) => {
+            nextTimelineMap[leadId] = events
+          })
+        }
+        if (mounted) {
+          setTimelineMap(nextTimelineMap)
+        }
       } catch (err) {
         if (mounted) setError(err?.message || 'Report data could not be loaded.')
       } finally {
@@ -539,7 +722,7 @@ export default function LeadActivityReportPage() {
     return () => { mounted = false }
   }, [refreshTick, sourceFilter, reportDate])
 
-  const report = useMemo(() => buildReport({ leads, activityMap, sourceFilter, reportDate }), [activityMap, leads, sourceFilter, reportDate])
+  const report = useMemo(() => buildReport({ leads, activityMap, timelineMap, sourceFilter, reportDate }), [activityMap, leads, sourceFilter, reportDate, timelineMap])
 
   const handlePdf = async () => {
     if (!canExport) return toast.error('You do not have permission to export reports.')
@@ -602,13 +785,13 @@ export default function LeadActivityReportPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={report.kpis[0].label} value={report.kpis[0].value} detail={report.kpis[0].detail} icon={Users} tone="blue" />
-        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={Target} tone="teal" />
-        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={CheckCircle2} tone="amber" />
-        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={Gauge} tone="rose" />
+        <StatCard label={report.kpis[1].label} value={report.kpis[1].value} detail={report.kpis[1].detail} icon={PhoneCall} tone="teal" />
+        <StatCard label={report.kpis[2].label} value={report.kpis[2].value} detail={report.kpis[2].detail} icon={Clock3} tone="amber" />
+        <StatCard label={report.kpis[3].label} value={report.kpis[3].value} detail={report.kpis[3].detail} icon={CalendarDays} tone="rose" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Section title="Lead Management Funnel" subtitle="Counted as operational milestones, not revenue stages." icon={BarChart3}>
+        <Section title="Lead Conversion Funnel" subtitle="Counted from lead stage plus activity signals for the selected date." icon={BarChart3}>
           <div className="space-y-3">
             {report.funnel.map((stage, index) => (
               <div key={stage.label}>
@@ -714,6 +897,38 @@ export default function LeadActivityReportPage() {
           </div>
         </Section>
       </div>
+
+      <Section title="Lead Timelines" subtitle="Timeline events for every lead loaded in this report." icon={Clock3}>
+        {report.leadRows.length ? (
+          <div className="space-y-3">
+            {report.leadRows.map((lead, leadIndex) => (
+              <div key={lead.id || `${leadName(lead)}-${leadIndex}`} className="rounded-xl border border-slate-200/70 p-3 dark:border-slate-700/60">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{leadName(lead)}</p>
+                    <p className="text-xs text-slate-500">{sourceLabel(lead)} · {bucketLabel(lead.bucket)}</p>
+                  </div>
+                  <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{formatNumber(lead.timelines.length)} events</span>
+                </div>
+                {lead.timelines.length ? (
+                  <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+                    {lead.timelines.map((row, rowIndex) => (
+                      <div key={row.id || `${lead.id || leadIndex}-${rowIndex}`} className="grid gap-2 py-2 text-sm sm:grid-cols-[150px_minmax(0,1fr)_120px]">
+                        <p className="text-xs font-medium text-slate-500">{row.at ? row.at.toLocaleString('en-IN') : '-'}</p>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-800 dark:text-slate-100">{row.title}</p>
+                          {row.description ? <p className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{row.description}</p> : null}
+                        </div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{row.status || 'Activity'}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">No timeline events found for this lead.</p>}
+              </div>
+            ))}
+          </div>
+        ) : <EmptyState>No leads found for this report date.</EmptyState>}
+      </Section>
     </div>
   )
 }
