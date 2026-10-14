@@ -309,6 +309,15 @@ const emptyActivityStats = () => ({
 const timelineAt = (event) => toDate(event?.eventAt || event?.timestamp || event?.createdAt || event?.savedAt || event?.updatedAt)
 const timelineTitle = (event) => event?.title || event?.activityTitle || event?.activityLabel || event?.eventType || 'Lead activity'
 const timelineDescription = (event) => event?.description || event?.summary || event?.notes || ''
+const scheduledFollowUpAt = (source = {}) => {
+  const values = source?.values || source?.metadata || {}
+  const text = timelineDescription(source)
+  const date = values.nextFollowUpDate || values.followUpDate || text.match(/(?:nextFollowUpDate|followUpDate):\s*(\d{4}-\d{2}-\d{2})/i)?.[1]
+  const time = values.nextFollowUpTime || values.followUpTime || text.match(/(?:nextFollowUpTime|followUpTime):\s*([0-2]?\d:[0-5]\d)/i)?.[1]
+  if (!date) return null
+  return toDate(`${date}T${String(time || '00:00').padStart(5, '0')}`)
+}
+const timelineDisplayTime = (row) => row.scheduledAt || row.at
 const normalizeTimelineRows = (lead, activities = [], events = []) => {
   const timelineRows = Array.isArray(events) && events.length
     ? events.map((event, index) => ({
@@ -317,6 +326,7 @@ const normalizeTimelineRows = (lead, activities = [], events = []) => {
       title: timelineTitle(event),
       description: timelineDescription(event),
       status: event.status || event.sourceType || 'Timeline',
+      scheduledAt: scheduledFollowUpAt(event),
       at: timelineAt(event),
     }))
     : activities.map((activity, index) => ({
@@ -325,6 +335,7 @@ const normalizeTimelineRows = (lead, activities = [], events = []) => {
       title: activity.activityTitle || activity.activityLabel || stageLabel(activityStage(activity), stageStatus(activityStage(activity), activity.values || {})),
       description: activity.summary || timelineDescription(activity),
       status: stageStatus(activityStage(activity), activity.values || {}),
+      scheduledAt: scheduledFollowUpAt(activity),
       at: timelineAt(activity),
     }))
   return timelineRows
@@ -576,7 +587,7 @@ const downloadPdf = (report) => {
       bucketLabel(row.lead.bucket),
       row.title,
       row.status || '-',
-      row.at ? row.at.toLocaleString('en-IN') : '-',
+      timelineDisplayTime(row) ? timelineDisplayTime(row).toLocaleString('en-IN') : '-',
       row.description || '-',
     ]) : [['No timeline events found', '-', '-', '-', '-', '-']],
     styles: { fontSize: 7, cellPadding: 2 },
@@ -970,7 +981,10 @@ export default function LeadActivityReportPage() {
                   <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
                     {lead.timelines.map((row, rowIndex) => (
                       <div key={row.id || `${lead.id || leadIndex}-${rowIndex}`} className="grid gap-2 py-2 text-sm sm:grid-cols-[150px_minmax(0,1fr)_120px]">
-                        <p className="text-xs font-medium text-slate-500">{row.at ? row.at.toLocaleString('en-IN') : '-'}</p>
+                        <div>
+                          <p className="text-xs font-medium text-slate-500">{timelineDisplayTime(row) ? timelineDisplayTime(row).toLocaleString('en-IN') : '-'}</p>
+                          {row.scheduledAt ? <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300">Scheduled</p> : null}
+                        </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-800 dark:text-slate-100">{row.title}</p>
                           {row.description ? <p className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{row.description}</p> : null}
