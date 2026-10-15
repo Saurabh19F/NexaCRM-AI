@@ -373,6 +373,16 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     const date = completedActivityAt(activity)
     return isDone(activity) && date && inRange(date, range) && ['welcome', 'followUp', 'meeting'].includes(classifyActivity(activity))
   })
+  const completedByLead = completedActivities.reduce((acc, activity) => {
+    const leadId = activity.lead?.id
+    if (!leadId) return acc
+    acc[leadId] ||= []
+    acc[leadId].push(activity)
+    return acc
+  }, {})
+  leadRows.forEach((lead) => {
+    lead.completedYesterdayActivities = completedByLead[lead.id] || []
+  })
 
   const activityStats = {
     followUp: emptyActivityStats(),
@@ -965,7 +975,7 @@ export default function LeadActivityReportPage() {
         </Section>
       </div>
 
-      <Section title="Lead Timelines" subtitle="Timeline events for every lead loaded in this report." icon={Clock3}>
+      <Section title="Lead Timelines" subtitle="The leads with timeline events yesterday, linked to their completed work." icon={Clock3}>
         {report.leadTimelines.length ? (
           <div className="space-y-3">
             {report.leadRows.filter((lead) => lead.timelines.length).map((lead, leadIndex) => (
@@ -974,6 +984,9 @@ export default function LeadActivityReportPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{leadName(lead)}</p>
                     <p className="text-xs text-slate-500">{sourceLabel(lead)} · {bucketLabel(lead.bucket)}</p>
+                    <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-300">
+                      Completed yesterday: {Array.from(new Set(lead.completedYesterdayActivities.map((activity) => bucketLabel(classifyActivity(activity))))).join(', ') || 'Timeline event recorded'}
+                    </p>
                   </div>
                   <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{formatNumber(lead.timelines.length)} events</span>
                 </div>
