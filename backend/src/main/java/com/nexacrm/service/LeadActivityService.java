@@ -55,6 +55,7 @@ public class LeadActivityService {
 
     private final LeadActivityRepository leadActivityRepository;
     private final LeadRepository leadRepository;
+    private final LeadChangeAuditService leadChangeAuditService;
     private final UserRepository userRepository;
     private final MongoTemplate mongoTemplate;
     private final LeadTimelineService leadTimelineService;
@@ -263,7 +264,7 @@ public class LeadActivityService {
             activityLogs = activityLogs.subList(0, 25);
         }
         lead.setActivityLogs(activityLogs);
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
         leadTimelineService.syncActivity(saved);
         whatsAppActivityNotificationService.notifyActivitySaved(tenantId(), lead, saved);
 
@@ -301,7 +302,7 @@ public class LeadActivityService {
 
         LeadActivity saved = leadActivityRepository.save(activity);
         lead.setLastContactedAt(savedAt);
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
         leadTimelineService.syncActivity(saved);
         whatsAppActivityNotificationService.notifyActivitySaved(tenantId(), lead, saved);
 
@@ -372,7 +373,7 @@ public class LeadActivityService {
             activityLogs = activityLogs.subList(0, 25);
         }
         lead.setActivityLogs(activityLogs);
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
         leadTimelineService.syncActivity(saved);
 
         return toDTO(saved);

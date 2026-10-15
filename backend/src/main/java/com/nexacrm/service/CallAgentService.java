@@ -61,6 +61,7 @@ public class CallAgentService {
     private final CommunicationRecordRepository communicationRecordRepository;
     private final DealRepository dealRepository;
     private final LeadRepository leadRepository;
+    private final LeadChangeAuditService leadChangeAuditService;
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final LeadActivityRepository leadActivityRepository;
@@ -274,7 +275,7 @@ public class CallAgentService {
             } else if ("WARM".equals(hotSignal) && lead.getScore() == Lead.LeadScore.COLD) {
                 lead.setScore(Lead.LeadScore.WARM);
             }
-            leadRepository.save(lead);
+            leadChangeAuditService.save(lead);
             saveLeadCallActivity(lead, status, outcome, externalId, summary, transcript, payload);
             applyCallIntelligenceToLead(lead, currentCallRow);
         }
@@ -415,7 +416,7 @@ public class CallAgentService {
 
         if (lead != null) {
             lead.setLastContactedAt(LocalDateTime.now());
-            leadRepository.save(lead);
+            leadChangeAuditService.save(lead);
         }
 
         return Map.of(
@@ -931,7 +932,7 @@ public class CallAgentService {
         if (resolvedStatus != beforeStatus) {
             lead.setStatus(resolvedStatus);
         }
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
         syncPipelineDealForLead(lead, resolvedStatus, currentCallRow);
 
         if (resolvedStatus != beforeStatus) {

@@ -87,6 +87,7 @@ public class LeadService {
     private static final String META_ADS_SOURCE = "META_ADS";
 
     private final LeadRepository leadRepository;
+    private final LeadChangeAuditService leadChangeAuditService;
     private final CustomerRepository customerRepository;
     private final DealRepository dealRepository;
     private final UserRepository userRepository;
@@ -352,7 +353,7 @@ public class LeadService {
         validateLostReason(lead);
         Lead saved;
         try {
-            saved = leadRepository.save(lead);
+            saved = leadChangeAuditService.save(lead);
         } catch (DuplicateKeyException ex) {
             throw new IllegalStateException("Lead already exists with that email, phone, or external ID", ex);
         }
@@ -362,7 +363,7 @@ public class LeadService {
                 User assignee = leadAutoAssignService.autoAssignAndCreateTask(saved, tenantId);
                 if (assignee != null) {
                     saved.setAssignedTo(assignee);
-                    saved = leadRepository.save(saved);
+                    saved = leadChangeAuditService.save(saved);
                 }
             } catch (Exception ex) {
                 log.warn("Auto-assign failed for lead {}: {}", saved.getId(), ex.getMessage());
@@ -502,7 +503,7 @@ public class LeadService {
         validateLostReason(lead);
 
         try {
-            return toDTO(leadRepository.save(lead));
+            return toDTO(leadChangeAuditService.save(lead));
         } catch (DuplicateKeyException ex) {
             throw new IllegalStateException("Lead already exists with that email, phone, or external ID", ex);
         }
@@ -676,8 +677,8 @@ public class LeadService {
         primary.setActivityLogs(mergeActivityLogs(primary.getActivityLogs(), duplicate.getActivityLogs()));
 
         duplicate.setDeleted(true);
-        leadRepository.save(duplicate);
-        Lead saved = leadRepository.save(primary);
+        leadChangeAuditService.save(duplicate);
+        Lead saved = leadChangeAuditService.save(primary);
         return toDTO(saved);
     }
 
@@ -716,7 +717,7 @@ public class LeadService {
             }
         }
 
-        return toDTO(leadRepository.save(lead));
+        return toDTO(leadChangeAuditService.save(lead));
     }
 
     @Transactional(readOnly = true)
@@ -1108,7 +1109,7 @@ public class LeadService {
         lead.setAiScoreValue(scoreValue);
         lead.setScore(score);
         lead.setAiNextAction(nextAction);
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
 
         return Map.of(
             "leadId", id,
@@ -1192,7 +1193,7 @@ public class LeadService {
         if (lead.getRevenueValue() == null) {
             lead.setRevenueValue(lead.getDealValue());
         }
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
 
         try {
             notificationService.notifyActiveUsers(
@@ -1257,7 +1258,7 @@ public class LeadService {
             )
         );
         lead.setLastContactedAt(LocalDateTime.now());
-        leadRepository.save(lead);
+        leadChangeAuditService.save(lead);
 
         return Map.of(
             "message", "Call queued successfully",
@@ -1499,7 +1500,7 @@ public class LeadService {
                     }
 
                     if (changed) {
-                        leadRepository.save(ex);
+                        leadChangeAuditService.save(ex);
                     }
                     skipped++;
                     continue;
@@ -1648,7 +1649,7 @@ public class LeadService {
             if (designation != null && !designation.isBlank() && (existing.getDesignation() == null || existing.getDesignation().isBlank())) {
                 existing.setDesignation(designation);
             }
-            leadRepository.save(existing);
+            leadChangeAuditService.save(existing);
             return true;
         } catch (Exception ignored) {
             return false;

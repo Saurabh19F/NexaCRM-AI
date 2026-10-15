@@ -82,6 +82,7 @@ class CallAgentServiceTest {
             communicationRecordRepository,
             dealRepository,
             leadRepository,
+            new LeadChangeAuditService(leadRepository, org.mockito.Mockito.mock(org.springframework.data.mongodb.core.MongoTemplate.class)),
             tenantRepository,
             userRepository,
             leadActivityRepository,

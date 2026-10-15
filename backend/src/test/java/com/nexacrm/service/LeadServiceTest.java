@@ -50,6 +50,7 @@ class LeadServiceTest {
     private static final String TEST_USER_EMAIL = "test.user@example.com";
 
     @Mock private LeadRepository leadRepository;
+    @Mock private LeadChangeAuditService leadChangeAuditService;
     @Mock private CustomerRepository customerRepository;
     @Mock private DealRepository dealRepository;
     @Mock private UserRepository userRepository;
@@ -69,6 +70,7 @@ class LeadServiceTest {
 
     @BeforeEach
     void setDefaultSecurityContext() {
+        lenient().when(leadChangeAuditService.save(any(Lead.class))).thenAnswer(invocation -> leadRepository.save(invocation.getArgument(0)));
         User currentUser = User.builder()
             .name("Test User")
             .email(TEST_USER_EMAIL)

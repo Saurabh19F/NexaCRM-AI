@@ -228,6 +228,10 @@ public class MongoIndexInitializer {
                 .named("comm_tenant_channel_created_idx")
         );
 
+        ensureIndex(com.nexacrm.model.AuditLog.class,
+            new Index().on("tenant_id", Sort.Direction.ASC).on("entity_id", Sort.Direction.ASC)
+                .on("created_at", Sort.Direction.DESC).background().named("audit_lead_daily_report_idx"));
+
         log.info("Mongo operational indexes verified");
 
         try {
