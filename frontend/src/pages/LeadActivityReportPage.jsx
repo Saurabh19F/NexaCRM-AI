@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, BarChart3, CalendarDays, CheckCircle2, Clock3, Database,
+  BarChart3, CalendarDays, CheckCircle2, Clock3, Database,
   Download, FileText, Filter, Flame, Gauge, Loader2, PhoneCall, RefreshCw,
   Target, Users,
 } from 'lucide-react'
@@ -79,7 +79,6 @@ const toDate = (value) => {
   const date = DATE_ONLY.test(String(value)) ? new Date(`${value}T00:00:00`) : new Date(value)
   return Number.isNaN(date.getTime()) ? null : date
 }
-const isSameLocalDay = (a, b) => a?.toDateString?.() === b?.toDateString?.()
 const daysBetween = (date) => {
   if (!date) return 999
   const today = new Date()
@@ -110,6 +109,8 @@ const inRange = (date, range) => {
   if (!date) return false
   return date >= range.start && date <= range.end
 }
+
+const completedActivityAt = (activity) => completedAt(activity) || (isDone(activity) ? activityAt(activity) : null)
 
 const leadCreatedAt = (lead) => toDate(lead?.createdAt || lead?.createdDate || lead?.date)
 
@@ -349,8 +350,13 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     .filter((lead) => !sourceFilter || String(lead?.source || lead?.leadSource || '').toUpperCase() === sourceFilter)
     .filter((lead) => {
       const created = leadCreatedAt(lead)
-      return !created || inRange(created, range)
+      return !created || created <= range.end
     })
+
+  const newLeadRows = visibleLeads.filter((lead) => {
+    const created = leadCreatedAt(lead)
+    return created && inRange(created, range)
+  })
 
   const leadRows = visibleLeads.map((lead) => {
     const activities = Array.isArray(activityMap[lead.id]) ? activityMap[lead.id] : []
@@ -358,13 +364,14 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     const stage = parseLeadStage(lead, activities)
     const dates = activities.map(activityAt).filter(Boolean).sort((a, b) => b - a)
     const timelines = normalizeTimelineRows(lead, activities, timelineMap?.[lead.id] || [])
+      .filter((row) => inRange(row.at, range))
     return { ...lead, ...scored, ...stage, activities, timelines, lastContactDate: dates[0] || toDate(lead?.updatedAt || lead?.createdAt) }
   })
 
   const allActivities = leadRows.flatMap((lead) => lead.activities.map((activity) => ({ ...activity, lead })))
-  const rangeActivities = allActivities.filter((activity) => {
-    const date = activityAt(activity) || completedAt(activity)
-    return date && inRange(date, range)
+  const completedActivities = allActivities.filter((activity) => {
+    const date = completedActivityAt(activity)
+    return isDone(activity) && date && inRange(date, range) && ['welcome', 'followUp', 'meeting'].includes(classifyActivity(activity))
   })
 
   const activityStats = {
@@ -372,32 +379,30 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     welcome: emptyActivityStats(),
     meeting: emptyActivityStats(),
   }
-  rangeActivities.forEach((activity) => {
+  completedActivities.forEach((activity) => {
     const kind = classifyActivity(activity)
     if (!activityStats[kind]) return
     const stat = activityStats[kind]
-    const scheduled = activityAt(activity)
+    const completed = completedActivityAt(activity)
     stat.total += 1
-    if (scheduled) stat.scheduled += 1
-    if (isDone(activity)) stat.completed += 1
-    if (!isDone(activity)) stat.pending += 1
-    if (!isDone(activity) && scheduled && daysBetween(scheduled) < 0) stat.overdue += 1
-    if (scheduled && isSameLocalDay(scheduled, new Date())) stat.today += 1
+    if (completed) stat.scheduled += 1
+    stat.completed += 1
   })
   Object.values(activityStats).forEach((stat) => {
     stat.completion = stat.total ? (stat.completed * 100) / stat.total : 0
   })
 
-  const stageCounts = leadRows.reduce((acc, lead) => {
-    acc[lead.bucket] += 1
+  const stageCounts = completedActivities.reduce((acc, activity) => {
+    const kind = classifyActivity(activity)
+    if (acc[kind] !== undefined) acc[kind] += 1
     return acc
   }, { welcome: 0, followUp: 0, meeting: 0 })
 
   const statusCount = (statuses) => leadRows.filter((lead) => statuses.includes(String(lead.status || '').toUpperCase())).length
-  const welcomeCompleted = leadRows.filter((lead) => lead.bucket !== 'welcome' || lead.activities.some((activity) => classifyActivity(activity) === 'welcome' && isDone(activity))).length
-  const followCompleted = leadRows.filter((lead) => lead.bucket === 'followUp' || lead.bucket === 'meeting').length
-  const meetingScheduled = stageCounts.meeting
-  const meetingCompleted = leadRows.filter((lead) => lead.bucket === 'meeting' && (String(lead.status || '').toUpperCase() === 'WON' || lead.activities.some((activity) => classifyActivity(activity) === 'meeting' && isDone(activity)))).length
+  const welcomeCompleted = activityStats.welcome.completed
+  const followCompleted = activityStats.followUp.completed
+  const meetingScheduled = activityStats.meeting.completed
+  const meetingCompleted = activityStats.meeting.completed
 
   const funnel = [
     { label: 'Total Leads', count: leadRows.length },
@@ -475,8 +480,8 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
 
   const avgScore = leadRows.length ? leadRows.reduce((sum, lead) => sum + lead.engagementScore, 0) / leadRows.length : 0
   const totalActivities = activityStats.followUp.total + activityStats.welcome.total + activityStats.meeting.total
-  const completedActivities = activityStats.followUp.completed + activityStats.welcome.completed + activityStats.meeting.completed
-  const activityCompletion = totalActivities ? (completedActivities * 100) / totalActivities : 0
+  const completedActivityCount = activityStats.followUp.completed + activityStats.welcome.completed + activityStats.meeting.completed
+  const activityCompletion = totalActivities ? (completedActivityCount * 100) / totalActivities : 0
   const visibleCompleted = {
     welcome: Math.min(activityStats.welcome.completed, stageCounts.welcome),
     followUp: Math.min(activityStats.followUp.completed, stageCounts.followUp),
@@ -495,18 +500,19 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     sourceLabel: SOURCE_FILTERS.find((item) => item.value === sourceFilter)?.label || 'All sources',
     leadRows,
     kpis: [
-      { label: 'Total Leads', value: leadRows.length, detail: 'Created on selected date' },
-      { label: 'Welcome Calls', value: stageCounts.welcome, detail: `${visibleCompleted.welcome} completed` },
-      { label: 'Follow-Ups', value: stageCounts.followUp, detail: `${visibleCompleted.followUp} completed` },
-      { label: 'Meetings', value: stageCounts.meeting, detail: `${visibleCompleted.meeting} completed` },
+      { label: 'Total Leads', value: newLeadRows.length, detail: 'Created on selected date' },
+      { label: 'Welcome Calls', value: activityStats.welcome.completed, detail: `${activityStats.welcome.completed} completed` },
+      { label: 'Follow-Ups', value: activityStats.followUp.completed, detail: `${activityStats.followUp.completed} completed` },
+      { label: 'Meetings', value: activityStats.meeting.completed, detail: `${activityStats.meeting.completed} completed` },
     ],
     activityTotals: {
       total: totalActivities,
-      completed: completedActivities,
+      completed: completedActivityCount,
       completion: activityCompletion,
     },
     funnel,
     conversionFunnel,
+    completedActivities,
     visibleCompleted,
     leadTimelines: leadRows.flatMap((lead) => lead.timelines).sort((a, b) => b.at - a.at),
     stageCounts,
@@ -518,7 +524,7 @@ const buildReport = ({ leads, activityMap, timelineMap, sourceFilter, reportDate
     overdue,
     insights,
     ...activityStats,
-    totalLeads: leadRows.length,
+    totalLeads: newLeadRows.length,
     converted: statusCount(['CONVERTED', 'WON']),
   }
 }
@@ -545,7 +551,7 @@ const downloadPdf = (report) => {
     pdfText(doc, kpi.detail, x + 6, 84.5, { size: 6.2, color: PDF_COLORS.muted, maxWidth: 31 })
   })
 
-  let y = pdfSectionTitle(doc, 'Lead Conversion Funnel', 'Progression across the selected date, using lead and activity signals.', 103)
+  let y = pdfSectionTitle(doc, 'Lead Conversion Funnel', 'All leads through the selected date.', 103)
   const funnelStartY = y
   report.conversionFunnel.forEach((item, index) => {
     const width = Math.max(20, 88 * Math.min(100, item.overall) / 100)
@@ -603,11 +609,11 @@ const downloadPdf = (report) => {
   doc.save(`lead-activity-report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
-const loadReportDateLeads = async (sourceFilter, reportDate) => {
+const loadReportLeads = async (sourceFilter, reportDate) => {
   const range = buildRange(reportDate)
   const rows = []
   const pageSize = 100
-  const maxPages = 20
+  const maxPages = 1000
 
   for (let page = 0; page < maxPages; page += 1) {
     const response = await leadsAPI.getAll({
@@ -617,17 +623,12 @@ const loadReportDateLeads = async (sourceFilter, reportDate) => {
       ...(sourceFilter ? { source: sourceFilter } : {}),
     })
     const content = Array.isArray(response?.content) ? response.content : []
-    const dailyRows = content.filter((lead) => {
+    const reportRows = content.filter((lead) => {
       const created = leadCreatedAt(lead)
-      return !created || inRange(created, range)
+      return !created || created <= range.end
     })
-    rows.push(...dailyRows)
-
-    const reachedOlderRows = content.length > 0 && content.every((lead) => {
-      const created = leadCreatedAt(lead)
-      return created && created < range.start
-    })
-    if (content.length < pageSize || response?.last || reachedOlderRows) break
+    rows.push(...reportRows)
+    if (content.length < pageSize || response?.last) break
   }
 
   return rows
@@ -699,7 +700,7 @@ function ActivityTable({ rows }) {
             <tr key={`${activity.lead?.id || index}-${activity.id || index}`}>
               <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-100">{leadName(activity.lead)}</td>
               <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{activity.activityType || activity.type || activity.title || 'Activity'}</td>
-              <td className="px-3 py-2 text-slate-500">{activityAt(activity)?.toLocaleDateString('en-IN') || '-'}</td>
+              <td className="px-3 py-2 text-slate-500">{(completedActivityAt(activity) || activityAt(activity))?.toLocaleDateString('en-IN') || '-'}</td>
               <td className="px-3 py-2 text-slate-500">{isDone(activity) ? 'Completed' : daysBetween(activityAt(activity)) < 0 ? 'Overdue' : 'Upcoming'}</td>
             </tr>
           ))}
@@ -731,7 +732,7 @@ export default function LeadActivityReportPage() {
       setActivityMap({})
       setTimelineMap({})
       try {
-        const rows = await loadReportDateLeads(sourceFilter, reportDate)
+        const rows = await loadReportLeads(sourceFilter, reportDate)
         if (mounted) {
           setLeads(rows)
           setLoading(false)
@@ -787,7 +788,7 @@ export default function LeadActivityReportPage() {
   }
 
   const categoryTotal = Math.max(1, report.categoryCounts.reduce((sum, item) => sum + item.count, 0))
-  const activityRows = [...report.upcoming, ...report.overdue]
+  const activityRows = report.completedActivities
 
   if (loading) {
     return (
@@ -807,7 +808,7 @@ export default function LeadActivityReportPage() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-500">Separate report page</p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-50 sm:text-3xl">Lead Management & Daily Activity Analytics Report</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Only the selected date's lead count, follow-up, welcome call, meeting, source, priority lead, and smart activity insights are shown here.
+              The selected date's new leads, completed work, historical conversion funnel, priority leads, and timelines are shown here.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -904,13 +905,13 @@ export default function LeadActivityReportPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Section title="Follow-Up Analytics" icon={Clock3}>
-          <StatCard label="Follow-ups" value={report.stageCounts.followUp} detail={`${Math.min(report.followUp.pending, report.stageCounts.followUp)} pending, ${Math.min(report.followUp.overdue, report.stageCounts.followUp)} overdue`} icon={Clock3} tone="amber" />
+          <StatCard label="Follow-ups" value={report.stageCounts.followUp} detail={`${report.followUp.completed} completed`} icon={Clock3} tone="amber" />
         </Section>
         <Section title="Welcome Call Analytics" icon={PhoneCall}>
-          <StatCard label="Welcome calls" value={report.stageCounts.welcome} detail={`${report.visibleCompleted.welcome} completed, ${Math.min(report.welcome.pending, report.stageCounts.welcome)} pending`} icon={PhoneCall} tone="teal" />
+          <StatCard label="Welcome calls" value={report.stageCounts.welcome} detail={`${report.welcome.completed} completed`} icon={PhoneCall} tone="teal" />
         </Section>
         <Section title="Meeting Analytics" icon={CalendarDays}>
-          <StatCard label="Meetings" value={report.stageCounts.meeting} detail={`${report.visibleCompleted.meeting} completed, ${Math.min(report.meeting.pending, report.stageCounts.meeting)} pending`} icon={CalendarDays} tone="rose" />
+          <StatCard label="Meetings" value={report.stageCounts.meeting} detail={`${report.meeting.completed} completed`} icon={CalendarDays} tone="rose" />
         </Section>
       </div>
 
@@ -949,7 +950,7 @@ export default function LeadActivityReportPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Section title="Upcoming and Overdue Activities" subtitle="The exact work list to act on next." icon={AlertTriangle}>
+        <Section title="Yesterday's Completed Activities" subtitle="Completed welcome calls, follow-ups, and meetings across all leads." icon={CheckCircle2}>
           <ActivityTable rows={activityRows} />
         </Section>
         <Section title="Smart Lead Insights" subtitle="Short operational reads from the current data." icon={Target}>
@@ -965,9 +966,9 @@ export default function LeadActivityReportPage() {
       </div>
 
       <Section title="Lead Timelines" subtitle="Timeline events for every lead loaded in this report." icon={Clock3}>
-        {report.leadRows.length ? (
+        {report.leadTimelines.length ? (
           <div className="space-y-3">
-            {report.leadRows.map((lead, leadIndex) => (
+            {report.leadRows.filter((lead) => lead.timelines.length).map((lead, leadIndex) => (
               <div key={lead.id || `${leadName(lead)}-${leadIndex}`} className="rounded-xl border border-slate-200/70 p-3 dark:border-slate-700/60">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
