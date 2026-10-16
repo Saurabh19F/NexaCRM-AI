@@ -29,11 +29,33 @@ public class LeadChangeAuditService {
             if (!Objects.equals(previous.get("notes"), saved.getNotes())) {
                 mongo.insert(new Document("tenant_id", saved.getTenantId()).append("entity_type", "lead")
                     .append("entity_id", saved.getId()).append("action", "NOTES_UPDATED")
-                    .append("details", new Document("message", saved.getNotes() == null ? "Notes cleared" : saved.getNotes()))
+                    .append("details", noteChange(previous.getString("notes"), saved.getNotes()))
                     .append("created_at", Date.from(Instant.now())), "audit_logs");
             }
         }
         return saved;
+    }
+
+    static Document noteChange(String previous, String updated) {
+        String before = previous == null ? "" : previous;
+        String after = updated == null ? "" : updated;
+        int start = 0;
+        while (start < before.length() && start < after.length()
+                && before.codePointAt(start) == after.codePointAt(start)) {
+            start += Character.charCount(before.codePointAt(start));
+        }
+        int oldEnd = before.length();
+        int newEnd = after.length();
+        while (oldEnd > start && newEnd > start && before.codePointBefore(oldEnd) == after.codePointBefore(newEnd)) {
+            int count = Character.charCount(before.codePointBefore(oldEnd));
+            oldEnd -= count;
+            newEnd -= count;
+        }
+        String added = after.substring(start, newEnd);
+        return new Document("message", added.isEmpty() ? "Note text removed (" + (oldEnd - start) + " characters)" : added)
+            .append("noteChange", new Document("format", "utf16-replace-v1").append("start", start)
+                .append("removedLength", oldEnd - start).append("insertedText", added)
+                .append("previousLength", before.length()).append("updatedLength", after.length()));
     }
 
     private void record(Lead lead, String action, String field, Object old, Object updated) {
