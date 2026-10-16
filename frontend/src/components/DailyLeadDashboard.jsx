@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { hasPermission, PERMISSIONS } from '../utils/permissions'
-import { buildDailyReportPdf, filterTimeline, label, metrics, reportTime } from './dailyReportPdf'
+import { buildDailyReportPdf, filterTimeline, label, metrics, reportTime, stageColor } from './dailyReportPdf'
 
 const colors = { HOT: 'bg-rose-500', WARM: 'bg-amber-500', COLD: 'bg-blue-500', UNCLASSIFIED: 'bg-slate-400' }
 const icons = [Users, PhoneCall, CalendarCheck, BarChart3]
@@ -69,12 +69,22 @@ export default function DailyLeadDashboard() {
       <section className={panel}>
         <div className="flex flex-wrap justify-between gap-2"><h2 className="text-lg font-semibold">Current lead pipeline</h2><span className="rounded-full bg-indigo-50 px-3 py-1 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">Current snapshot</span></div>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{reportTime(report.pipelineSnapshotAt, report.timezone)} · Each lead appears once. Counts show distribution, not conversion rates.</p>
-        <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-          {report.pipeline.map(item => <button key={item.name} aria-pressed={stage === item.name} onClick={() => { setStage(item.name); setStagePage(0) }} className={`rounded-xl border p-3 text-left transition-colors hover:border-indigo-500 ${stage === item.name ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700'}`}>
-            <p className="text-xs font-medium">{label(item.name)}</p><p className="mt-3 text-2xl font-semibold">{item.count}</p>
-            <div className="my-2 h-1.5 overflow-hidden rounded bg-slate-100 dark:bg-slate-800"><div className="h-full rounded bg-indigo-500" style={{ width: `${item.percentage}%` }} /></div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{item.percentage.toFixed(1)}% of leads</p>
-          </button>)}
+        <div className="mt-6 grid gap-7 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+          <div className="space-y-1.5" aria-label="Lead pipeline funnel">
+            {report.pipeline.map((item, index) => <button key={item.name} aria-pressed={stage === item.name} aria-label={`${label(item.name)}: ${item.count} leads, ${item.percentage.toFixed(1)} percent. View leads`} onClick={() => { setStage(item.name); setStagePage(0) }} className="relative mx-auto flex h-14 items-center justify-center gap-3 text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-indigo-400" style={{ width: `${100 - index * 7}%`, background: `linear-gradient(115deg, ${stageColor(item.name)}, ${stageColor(item.name)}dd)`, clipPath: 'polygon(0 0, 100% 0, 95% 100%, 5% 100%)' }}>
+              <span className="text-xs font-semibold sm:text-sm">{label(item.name)}</span><span className="text-xl font-bold sm:text-2xl">{item.count}</span>
+              <span className="hidden rounded-full bg-white/20 px-2 py-1 text-xs sm:inline">{item.percentage.toFixed(1)}%</span>
+            </button>)}
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Across your pipeline</p>
+            <p className="mt-2 text-4xl font-bold tracking-tight">{report.pipeline.reduce((total, item) => total + item.count, 0).toLocaleString('en-IN')} <span className="text-base font-normal text-slate-500">leads</span></p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Select a stage to see the people behind the numbers.</p>
+            <div className="mt-5 space-y-3">{report.pipeline.map(item => <button key={item.name} onClick={() => { setStage(item.name); setStagePage(0) }} aria-pressed={stage === item.name} className="flex w-full items-center gap-3 rounded-lg px-2 py-1 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: stageColor(item.name) }} /><span className="flex-1">{label(item.name)}</span><strong>{item.count}</strong><span className="w-14 text-right text-xs text-slate-500 dark:text-slate-400">{item.percentage.toFixed(1)}%</span>
+            </button>)}</div>
+            <p className="mt-4 text-xs leading-relaxed text-slate-500 dark:text-slate-400">Funnel shape shows stage order. Counts and percentages show the current distribution; widths do not represent conversion.</p>
+          </div>
         </div>
         {stage && <div className="mt-4 rounded-xl bg-slate-50 p-4 dark:bg-slate-800">
           <div className="flex justify-between"><h3 className="font-medium">{label(stage)} · {stageLeads.length} leads</h3><button aria-label="Close stage leads" onClick={() => setStage('')}><X className="h-4 w-4" /></button></div>
@@ -87,12 +97,15 @@ export default function DailyLeadDashboard() {
         <div className="my-5 flex h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">{report.scoring.map(item => <div key={item.name} title={`${label(item.name)}: ${item.count}`} className={colors[item.name]} style={{ width: `${item.percentage}%` }} />)}</div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">{report.scoring.map(item => <div key={item.name}><p className="flex items-center gap-2 text-sm"><span className={`h-2.5 w-2.5 rounded-full ${colors[item.name]}`} />{label(item.name)}</p><p className="mt-2 text-2xl font-semibold">{item.count}<span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">{item.percentage.toFixed(1)}%</span></p></div>)}</div>
       </section>
-      <section className={panel}><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-lg font-semibold">Complete activity timeline</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{rows.length} matching records · Newest first · PDF includes every matching page</p></div>
+      <section className={panel}><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-lg font-semibold">Lead history & activity</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{rows.length} matching records · Lead names and activity details · Newest first · PDF includes every matching page</p></div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><label className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input aria-label="Search by lead name or ID" className="w-full rounded-lg border border-slate-200 bg-transparent py-2 pl-9 pr-3 text-sm dark:border-slate-700" placeholder="Lead name or ID" value={search} onChange={e => { setSearch(e.target.value); setPage(0) }} /></label>
           <select aria-label="Activity type" className="rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={type} onChange={e => { setType(e.target.value); setPage(0) }}><option value="">All activity types</option>{types.map(value => <option key={value} value={value}>{label(value)}</option>)}</select></div></div>
-        <ol className="mt-5 space-y-3">{rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(row => <li key={row.id} className="rounded-xl border border-slate-200 border-l-indigo-400 p-4 dark:border-slate-700 dark:border-l-indigo-500">
-          <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{label(row.type)}<span className="ml-2 inline-block rounded bg-slate-100 px-2 py-1 text-xs font-normal dark:bg-slate-800">{row.status || 'Recorded'}</span></h3><time className="text-xs text-slate-500 dark:text-slate-400">{reportTime(row.at, report.timezone)}</time></div>
-          <p className="mt-2 text-sm">{row.leadName || 'Unnamed lead'} <span className="break-all text-xs text-slate-500 dark:text-slate-400">· {row.leadId}</span></p>
+        <ol className="mt-5 space-y-3">{rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(row => <li key={row.id} className="relative rounded-xl border border-slate-200 border-l-4 bg-gradient-to-r from-indigo-50/60 to-white p-4 sm:p-5 dark:border-slate-700 dark:from-indigo-950/30 dark:to-slate-900" style={{ borderLeftColor: stageColor(row.updatedStage || 'NEW') }}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-bold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200">{(row.leadName || '?').split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase()}</span><div className="min-w-0"><h3 className="break-words text-base font-bold">{row.leadName || 'Unnamed lead'}</h3><p className="mt-0.5 break-all text-xs text-slate-500 dark:text-slate-400">Lead ID: {row.leadId}</p></div></div>
+            <time className="rounded-lg bg-white px-2.5 py-1.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-300">{reportTime(row.at, report.timezone)}</time>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2"><span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200">{label(row.type)}</span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{label(row.status) || 'Recorded'}</span></div>
           {(row.previousStage || row.updatedStage) && <p className="mt-2 text-sm text-indigo-600 dark:text-indigo-300">{label(row.previousStage)} → {label(row.updatedStage)}</p>}
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">{row.message || 'No message recorded.'}</p>
           {row.nextFollowUp && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Next follow-up: {row.nextFollowUp}</p>}

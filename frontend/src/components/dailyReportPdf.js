@@ -8,6 +8,13 @@ export const label = (value) => String(value || '').replaceAll('_', ' ').toLower
 export const metrics = [['received', 'Total Leads Received'], ['welcome', 'Welcome Calls Completed'], ['followUp', 'Follow-Ups Completed'], ['meeting', 'Meetings Conducted']]
 export const filterTimeline = (rows, search, type) => rows.filter(row => (!type || row.type === type) && `${row.leadName} ${row.leadId}`.toLowerCase().includes(search.trim().toLowerCase()))
 
+export const stageColors = {
+  NEW: '#4f46e5', CONTACTED: '#7c3aed', QUALIFIED: '#2563eb',
+  PROPOSAL: '#0891b2', NEGOTIATION: '#0f766e', WON: '#15803d', LOST: '#be123c',
+}
+export const stageColor = name => stageColors[name] || '#475569'
+export const stageRgb = name => stageColor(name).slice(1).match(/../g).map(value => parseInt(value, 16))
+
 export function buildDailyReportPdf(report, { search = '', type = '' } = {}) {
   const doc = new jsPDF({ format: 'a4', unit: 'mm', compress: true })
   const navy = [20, 33, 61]
@@ -30,13 +37,18 @@ export function buildDailyReportPdf(report, { search = '', type = '' } = {}) {
   })
   text('Current lead pipeline', 14, 91, 14)
   text(`Snapshot: ${time(report.pipelineSnapshotAt)}`, 14, 98, 8)
-  let y = 107
-  report.pipeline.forEach(stage => {
-    text(label(stage.name), 14, y + 3, 9)
-    doc.setFillColor(238, 242, 255); doc.roundedRect(59, y, 105, 5, 1, 1, 'F')
-    if (stage.percentage > 0) { doc.setFillColor(...accent); doc.roundedRect(59, y, Math.max(1, 105 * stage.percentage / 100), 5, 1, 1, 'F') }
-    text(`${stage.count} (${stage.percentage.toFixed(1)}%)`, 168, y + 4, 8)
-    y += 11
+  let y = 105
+  report.pipeline.forEach((stage, index) => {
+    const top = 154 - index * 12
+    const bottom = top - 10
+    const x = (210 - top) / 2
+    doc.setFillColor(...stageRgb(stage.name))
+    doc.lines([[top, 0], [(bottom - top) / 2, 10], [-bottom, 0], [(bottom - top) / 2, -10]], x, y, [1, 1], 'F', true)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9); doc.setTextColor(255, 255, 255)
+    doc.text(`${label(stage.name)}  |  ${stage.count} leads  |  ${stage.percentage.toFixed(1)}%`, 105, y + 6, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    y += 12
   })
   y += 7
   text("Yesterday's new lead scoring", 14, y, 14)
@@ -52,23 +64,24 @@ export function buildDailyReportPdf(report, { search = '', type = '' } = {}) {
   y += 23
   text(doc.splitTextToSize('Current pipeline distribution is not a historical conversion funnel. Activity counts cover all accessible leads, regardless of creation date.', width), 14, y, 8)
   doc.addPage()
-  text('Complete activity timeline', 14, 19, 17)
+  text('Lead history & activity', 14, 19, 17)
   const rows = filterTimeline(report.timeline, search, type)
   text(`${rows.length} records | Newest first | ${report.timezone}`, 14, 27, 9)
   const filters = `Lead search: ${search || 'All leads'} | Activity: ${type ? label(type) : 'All types'}`
   text(doc.splitTextToSize(filters, width), 14, 34, 8)
   const body = rows.map(row => [
-    `${time(row.at)}\n${row.leadName}\nLead ID: ${row.leadId}`,
+    `${row.leadName || 'Unnamed lead'}\n${time(row.at)}\nLead ID: ${row.leadId}`,
     `${label(row.type)} | ${row.status || 'Recorded'}\n${row.previousStage || row.updatedStage ? `${row.previousStage || '?'} -> ${row.updatedStage || '?'}\n` : ''}${row.message || 'No message recorded.'}${row.nextFollowUp ? `\nNext follow-up: ${row.nextFollowUp}` : ''}`,
   ])
   autoTable(doc, {
-    startY: 45, head: [['Time / Lead', 'Activity / Message']], body,
+    startY: 45, head: [['Lead / Date & time', 'Activity / What happened']], body,
     margin: { top: 16, bottom: 22, left: 14, right: 14 }, rowPageBreak: 'avoid',
     styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak', textColor: navy, lineColor: [226, 232, 240], lineWidth: 0.1 },
     headStyles: { fillColor: navy, textColor: [255, 255, 255] }, alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: { 0: { cellWidth: 59 }, 1: { cellWidth: 123 } },
     // Browser text shaping preserves Hindi and other Unicode messages that built-in PDF fonts cannot render.
     didParseCell: data => {
+      if (data.section === 'body' && data.column.index === 0) { data.cell.styles.fontStyle = 'bold'; data.cell.styles.textColor = accent; data.cell.styles.fillColor = [238, 242, 255] }
       if (data.section !== 'body' || !Array.from(String(data.cell.raw)).some(char => char.codePointAt(0) > 255 && !'–—‘’“”…•€'.includes(char))) return
       const canvas = document.createElement('canvas')
       const context = canvas.getContext('2d')
