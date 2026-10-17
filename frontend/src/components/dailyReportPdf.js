@@ -6,7 +6,10 @@ export const reportTime = (value, zone) => value ? new Intl.DateTimeFormat('en-I
 }).format(new Date(value)) : 'Not recorded'
 export const label = (value) => String(value || '').replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
 export const metrics = [['received', 'Total Leads Received'], ['welcome', 'Welcome Calls Completed'], ['followUp', 'Follow-Ups Completed'], ['meeting', 'Meetings Conducted']]
-export const filterTimeline = (rows, search, type) => rows.filter(row => (!type || row.type === type) && `${row.leadName} ${row.leadId}`.toLowerCase().includes(search.trim().toLowerCase()))
+export const DEFAULT_ACTIVITY_FILTER = 'CORE_ACTIVITIES'
+export const activityFilterLabel = type => type === DEFAULT_ACTIVITY_FILTER ? 'Welcome Call, Follow Up & Meeting' : type ? label(type) : 'All activity types'
+const coreActivityTypes = new Set(['WELCOME_CALL', 'FOLLOW_UP', 'MEETING'])
+export const filterTimeline = (rows, search, type) => rows.filter(row => (!type || (type === DEFAULT_ACTIVITY_FILTER ? coreActivityTypes.has(row.type) : row.type === type)) && `${row.leadName} ${row.leadId}`.toLowerCase().includes(search.trim().toLowerCase()))
 
 export const stageColors = {
   NEW: '#4f46e5', CONTACTED: '#7c3aed', QUALIFIED: '#2563eb',
@@ -15,7 +18,7 @@ export const stageColors = {
 export const stageColor = name => stageColors[name] || '#475569'
 export const stageRgb = name => stageColor(name).slice(1).match(/../g).map(value => parseInt(value, 16))
 
-export function buildDailyReportPdf(report, { search = '', type = '' } = {}) {
+export function buildDailyReportPdf(report, { search = '', type = DEFAULT_ACTIVITY_FILTER } = {}) {
   const doc = new jsPDF({ format: 'a4', unit: 'mm', compress: true })
   const navy = [20, 33, 61]
   const accent = [79, 70, 229]
@@ -67,7 +70,7 @@ export function buildDailyReportPdf(report, { search = '', type = '' } = {}) {
   text('Lead history & activity', 14, 19, 17)
   const rows = filterTimeline(report.timeline, search, type)
   text(`${rows.length} records | Newest first | ${report.timezone}`, 14, 27, 9)
-  const filters = `Lead search: ${search || 'All leads'} | Activity: ${type ? label(type) : 'All types'}`
+  const filters = `Lead search: ${search || 'All leads'} | Activity: ${activityFilterLabel(type)}`
   text(doc.splitTextToSize(filters, width), 14, 34, 8)
   const body = rows.map(row => [
     `${row.leadName || 'Unnamed lead'}\n${time(row.at)}\nLead ID: ${row.leadId}`,

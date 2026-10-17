@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { hasPermission, PERMISSIONS } from '../utils/permissions'
-import { buildDailyReportPdf, filterTimeline, label, metrics, reportTime, stageColor } from './dailyReportPdf'
+import { buildDailyReportPdf, DEFAULT_ACTIVITY_FILTER, activityFilterLabel, filterTimeline, label, metrics, reportTime, stageColor } from './dailyReportPdf'
 
 const colors = { HOT: 'bg-rose-500', WARM: 'bg-amber-500', COLD: 'bg-blue-500', UNCLASSIFIED: 'bg-slate-400' }
 const icons = [Users, PhoneCall, CalendarCheck, BarChart3]
@@ -18,7 +18,7 @@ export default function DailyLeadDashboard() {
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
   const [search, setSearch] = useState('')
-  const [type, setType] = useState('')
+  const [type, setType] = useState(DEFAULT_ACTIVITY_FILTER)
   const [page, setPage] = useState(0)
   const [stage, setStage] = useState('')
   const [stagePage, setStagePage] = useState(0)
@@ -99,7 +99,7 @@ export default function DailyLeadDashboard() {
       </section>
       <section className={panel}><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-lg font-semibold">Lead history & activity</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{rows.length} matching records · Lead names and activity details · Newest first · PDF includes every matching page</p></div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><label className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input aria-label="Search by lead name or ID" className="w-full rounded-lg border border-slate-200 bg-transparent py-2 pl-9 pr-3 text-sm dark:border-slate-700" placeholder="Lead name or ID" value={search} onChange={e => { setSearch(e.target.value); setPage(0) }} /></label>
-          <select aria-label="Activity type" className="rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={type} onChange={e => { setType(e.target.value); setPage(0) }}><option value="">All activity types</option>{types.map(value => <option key={value} value={value}>{label(value)}</option>)}</select></div></div>
+          <select aria-label="Activity type" className="rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={type} onChange={e => { setType(e.target.value); setPage(0) }}><option value={DEFAULT_ACTIVITY_FILTER}>{activityFilterLabel(DEFAULT_ACTIVITY_FILTER)}</option><option value="">All activity types</option>{types.map(value => <option key={value} value={value}>{label(value)}</option>)}</select></div></div>
         <ol className="mt-5 space-y-3">{rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(row => <li key={row.id} className="relative rounded-xl border border-slate-200 border-l-4 bg-gradient-to-r from-indigo-50/60 to-white p-4 sm:p-5 dark:border-slate-700 dark:from-indigo-950/30 dark:to-slate-900" style={{ borderLeftColor: stageColor(row.updatedStage || 'NEW') }}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-sm font-bold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200">{(row.leadName || '?').split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase()}</span><div className="min-w-0"><h3 className="break-words text-base font-bold">{row.leadName || 'Unnamed lead'}</h3><p className="mt-0.5 break-all text-xs text-slate-500 dark:text-slate-400">Lead ID: {row.leadId}</p></div></div>
